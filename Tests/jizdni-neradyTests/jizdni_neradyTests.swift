@@ -99,6 +99,28 @@ import Testing
     #expect(connections.first?.legs.first?.name == "R9 (R 981 Vysočina)")
 }
 
+@Test func connectionParserKeepsHtmlOutsideLineNames() {
+    let html = """
+    <div id="connectionBox-1122672429" class="box connection">
+      <p class="reset total">Celkový čas <strong>38 min</strong></p>
+      <h3 title="autobus (Nové Dvory,Frýdecká skládka >> Místek,Riviéra)" style="color: #0000FF;"><span>Bus 302</span></h3>
+      <p class="reset time" title="">11:53</p><p class="station"><strong class="name ">Frýdek,Na Veselé</strong></p>
+      <p class="reset time" title="">12:06</p><p class="station"><strong class="name ">Místek,Anenská</strong></p>
+      <span class="operator"><span>Transdev Slezsko a.s.</span></span>
+      <span class="delay-bubble">Aktuálně bez zpoždění</span>
+      <h3 title="místní autobus (Frenštát p.Radh.,,u škol >> Ostrava,Mor.Ostrava,Náměstí Republiky)" style="color: #0000FF;"><span>Bus 980</span></h3>
+      <p class="reset time" title="">12:13</p><p class="station"><strong class="name ">Frýdek-Místek,Místek,Anenská</strong></p>
+      <p class="reset time" title="">12:31</p><p class="station"><strong class="name ">Ostrava,Hrabůvka,Benzina</strong></p>
+    </div>
+    """
+
+    let connection = IDOSConnectionParser.parse(html: html).first
+
+    #expect(connection?.legs.map(\.name) == ["Bus 302", "Bus 980"])
+    #expect(connection?.summaryLine(number: 1).contains("style=") == false)
+    #expect(connection?.summaryLine(number: 1).contains("Transdev") == false)
+}
+
 private struct MockIDOSClient: IDOSClienting {
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
         #expect(timetable.slug == "pid")

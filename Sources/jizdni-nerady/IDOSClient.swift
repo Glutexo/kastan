@@ -465,11 +465,7 @@ enum IDOSConnectionParser {
             return nil
         }
 
-        let names = RegexSupport.captures(
-            pattern: #"<span>(.*?)</span>\s*</h3>"#,
-            in: block,
-            options: [.dotMatchesLineSeparators]
-        ).map { HTMLText.clean($0[0]) }
+        let names = lineNames(in: block)
 
         let legs = names.indices.compactMap { index -> IDOSConnectionLeg? in
             let departureIndex = index * 2
@@ -509,6 +505,27 @@ enum IDOSConnectionParser {
                 in: block
             ) ?? "")
         )
+    }
+
+    private static func lineNames(in block: String) -> [String] {
+        RegexSupport.matches(
+            pattern: #"<h3\b.*?</h3>"#,
+            in: block,
+            options: [.dotMatchesLineSeparators]
+        ).compactMap { match in
+            guard let range = Range(match.range, in: block) else {
+                return nil
+            }
+
+            let heading = String(block[range])
+            return RegexSupport.captures(
+                pattern: #"<span>(.*?)</span>"#,
+                in: heading,
+                options: [.dotMatchesLineSeparators]
+            )
+            .last
+            .map { HTMLText.clean($0[0]) }
+        }
     }
 }
 
