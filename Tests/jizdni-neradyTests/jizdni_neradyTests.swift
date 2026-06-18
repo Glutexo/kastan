@@ -54,6 +54,12 @@ import Testing
     #expect((json["suggestions"] as? [[String: Any]])?.first?["text"] as? String == "Praha hl.n.")
 }
 
+@Test func suggestCommandRejectsUnknownOptions() async {
+    let output = await CommandRunner(client: MockIDOSClient()).output(for: ["suggest", "Praha", "--unknown"])
+
+    #expect(output.contains("❌ Error: Unknown option: --unknown."))
+}
+
 @Test func connectionCommandPrintsConnections() async {
     let output = await CommandRunner(client: MockIDOSClient()).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--limit", "1"]
@@ -164,6 +170,23 @@ import Testing
     #expect(output.contains("❌ Error: Conflicting options: --arrival and --departure. Use only one."))
 }
 
+@Test func connectionCommandRejectsUnknownOptions() async {
+    let output = await CommandRunner(client: MockIDOSClient()).output(
+        for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--unknown"]
+    )
+
+    #expect(output.contains("❌ Error: Unknown option: --unknown."))
+}
+
+@Test func connectionCommandRejectsUnknownOptionsAsJSON() async throws {
+    let output = await CommandRunner(client: MockIDOSClient()).output(
+        for: ["connections", "--from", "Praha", "--to", "Brno", "--format", "json", "--unknown"]
+    )
+    let json = try jsonDictionary(output)
+
+    #expect(json["error"] as? String == "Unknown option: --unknown.")
+}
+
 @Test func connectionCommandLimitsMaximumTransfers() async {
     let output = await CommandRunner(client: MockIDOSClient(expectedMaxTransfers: 0)).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--max-transfers", "0", "--limit", "1"]
@@ -218,6 +241,12 @@ import Testing
 
     #expect(timetables?.contains { $0["slug"] as? String == "vlakyautobusymhdvse" } == true)
     #expect(timetables?.contains { $0["displayName"] as? String == "All timetables" } == true)
+}
+
+@Test func timetablesCommandRejectsUnknownOptions() async {
+    let output = await CommandRunner(client: MockIDOSClient()).output(for: ["timetables", "--unknown"])
+
+    #expect(output.contains("❌ Error: Unknown option: --unknown."))
 }
 
 @Test func timetableResolverAcceptsKnownAliasesAndCustomSlugs() throws {

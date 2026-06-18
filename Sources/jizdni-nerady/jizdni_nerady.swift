@@ -58,6 +58,7 @@ struct CommandRunner {
 
     private func suggestOutput(for arguments: [String]) async throws -> String {
         let options = CommandOptions(arguments)
+        try options.rejectUnknownOptions(allowedValueOptions: ["--timetable", "--format", "--limit"])
         let format = try options.outputFormat()
         let limit = options.integerValue(for: "--limit") ?? 8
         let timetable = try options.timetable()
@@ -75,6 +76,13 @@ struct CommandRunner {
 
     private func connectionsOutput(for arguments: [String]) async throws -> String {
         let options = CommandOptions(arguments)
+        try options.rejectUnknownOptions(
+            allowedFlags: ["--arrival", "--departure", "--direct", "--only-direct"],
+            allowedValueOptions: [
+                "--from", "-f", "--to", "-t", "--via", "--timetable", "--date", "--time",
+                "--max-transfers", "--min-transfer-time", "--format", "--limit",
+            ]
+        )
         let format = try options.outputFormat()
         let timetable = try options.timetable()
 
@@ -107,6 +115,7 @@ struct CommandRunner {
 
     private func timetablesOutput(for arguments: [String]) throws -> String {
         let options = CommandOptions(arguments)
+        try options.rejectUnknownOptions(allowedValueOptions: ["--format"])
         let format = try options.outputFormat()
         return try format.renderTimetables(TimetablesOutput(timetables: IDOSTimetable.known))
     }
@@ -138,6 +147,7 @@ private enum CommandError: LocalizedError {
     case invalidOutputFormat(String)
     case invalidNonNegativeInteger(name: String, value: String)
     case conflictingOptions(String, String)
+    case unknownOption(String)
     case usage(String)
 
     var errorDescription: String? {
@@ -148,6 +158,8 @@ private enum CommandError: LocalizedError {
             return "Invalid \(name): \(value). Use a non-negative integer."
         case .conflictingOptions(let first, let second):
             return "Conflicting options: \(first) and \(second). Use only one."
+        case .unknownOption(let value):
+            return "Unknown option: \(value)."
         case .usage(let message):
             return message
         }
@@ -479,6 +491,42 @@ private struct CommandOptions {
 
     func contains(_ name: String) -> Bool {
         arguments.contains(name)
+    }
+
+    func rejectUnknownOptions(allowedFlags: Set<String> = [], allowedValueOptions: Set<String>) throws {
+        var valueExpectedBy: String?
+
+        for argument in arguments {
+            if let option = valueExpectedBy {
+                if allowedValueOptions.contains(argument) || allowedFlags.contains(argument) {
+                    throw CommandError.unknownOption(option)
+                }
+
+                valueExpectedBy = nil
+                continue
+            }
+
+            guard argument.hasPrefix("-") else {
+                continue
+            }
+
+            if let equalsIndex = argument.firstIndex(of: "=") {
+                let option = String(argument[..<equalsIndex])
+                if !allowedValueOptions.contains(option) {
+                    throw CommandError.unknownOption(option)
+                }
+                continue
+            }
+
+            if allowedValueOptions.contains(argument) {
+                valueExpectedBy = argument
+                continue
+            }
+
+            if !allowedFlags.contains(argument) {
+                throw CommandError.unknownOption(argument)
+            }
+        }
     }
 
     func isArrivalTimeMode() throws -> Bool {

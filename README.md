@@ -25,6 +25,7 @@ Connection legs also include transport emoji such as 🚆 for trains and 🚌 fo
 ### Output Format
 
 All data commands support `--format text`, `--format markdown`, and `--format json`. The default is `text`.
+Unknown command-line options are rejected.
 
 ```sh
 swift run jizdni-nerady suggest Praha --format json
