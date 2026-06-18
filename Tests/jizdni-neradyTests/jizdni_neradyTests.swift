@@ -18,6 +18,7 @@ import Testing
     #expect(output.contains("timetables"))
     #expect(output.contains("--timetable"))
     #expect(output.contains("--arrival"))
+    #expect(output.contains("--departure"))
     #expect(output.contains("--direct"))
     #expect(output.contains("--max-transfers"))
     #expect(output.contains("--format"))
@@ -102,6 +103,23 @@ import Testing
 
     #expect(output.contains("🧭 Connections Praha → Brno (Trains)"))
     #expect(output.contains("R9"))
+}
+
+@Test func connectionCommandRequestsDepartureTime() async {
+    let output = await CommandRunner(client: MockIDOSClient(expectedIsArrival: false)).output(
+        for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--time", "15:00", "--departure", "--limit", "1"]
+    )
+
+    #expect(output.contains("🧭 Connections Praha → Brno (Trains)"))
+    #expect(output.contains("R9"))
+}
+
+@Test func connectionCommandRejectsConflictingTimeModes() async {
+    let output = await CommandRunner(client: MockIDOSClient()).output(
+        for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--time", "15:00", "--arrival", "--departure"]
+    )
+
+    #expect(output.contains("❌ Error: Conflicting options: --arrival and --departure. Use only one."))
 }
 
 @Test func connectionCommandLimitsMaximumTransfers() async {

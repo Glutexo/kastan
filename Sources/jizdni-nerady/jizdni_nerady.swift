@@ -79,11 +79,11 @@ struct CommandRunner {
         let timetable = try options.timetable()
 
         guard let from = options.value(for: "--from", short: "-f"), !from.isEmpty else {
-            throw CommandError.usage("Usage: jizdni-nerady connections --from place --to place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival] [--direct] [--max-transfers count] [--format text|markdown|json] [--limit count]")
+            throw CommandError.usage("Usage: jizdni-nerady connections --from place --to place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--format text|markdown|json] [--limit count]")
         }
 
         guard let to = options.value(for: "--to", short: "-t"), !to.isEmpty else {
-            throw CommandError.usage("Usage: jizdni-nerady connections --from place --to place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival] [--direct] [--max-transfers count] [--format text|markdown|json] [--limit count]")
+            throw CommandError.usage("Usage: jizdni-nerady connections --from place --to place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--format text|markdown|json] [--limit count]")
         }
 
         let request = IDOSConnectionRequest(
@@ -92,7 +92,7 @@ struct CommandRunner {
             to: to,
             date: options.value(for: "--date"),
             time: options.value(for: "--time"),
-            isArrival: options.contains("--arrival"),
+            isArrival: try options.isArrivalTimeMode(),
             onlyDirect: options.contains("--direct") || options.contains("--only-direct"),
             maxTransfers: try options.nonNegativeIntegerValue(for: "--max-transfers")
         )
@@ -113,13 +113,14 @@ struct CommandRunner {
         """
         🚆 Usage:
           jizdni-nerady suggest <text> [--timetable alias] [--format text|markdown|json] [--limit count]
-          jizdni-nerady connections --from place --to place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival] [--direct] [--max-transfers count] [--format text|markdown|json] [--limit count]
+          jizdni-nerady connections --from place --to place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--format text|markdown|json] [--limit count]
           jizdni-nerady timetables [--format text|markdown|json]
 
         ⚙️ Options:
           -h, --help              Show help
           --version               Show the app version
           --arrival               Search by arrival time instead of departure time
+          --departure             Search by departure time
           --direct, --only-direct Direct connections only
           --max-transfers         Maximum transfers permitted, including 0
           --format                Output format: text, markdown, or json
@@ -132,6 +133,7 @@ struct CommandRunner {
 private enum CommandError: LocalizedError {
     case invalidOutputFormat(String)
     case invalidNonNegativeInteger(name: String, value: String)
+    case conflictingOptions(String, String)
     case usage(String)
 
     var errorDescription: String? {
@@ -140,6 +142,8 @@ private enum CommandError: LocalizedError {
             return "Invalid output format: \(value). Use text, markdown, or json."
         case .invalidNonNegativeInteger(let name, let value):
             return "Invalid \(name): \(value). Use a non-negative integer."
+        case .conflictingOptions(let first, let second):
+            return "Conflicting options: \(first) and \(second). Use only one."
         case .usage(let message):
             return message
         }
@@ -437,6 +441,17 @@ private struct CommandOptions {
 
     func contains(_ name: String) -> Bool {
         arguments.contains(name)
+    }
+
+    func isArrivalTimeMode() throws -> Bool {
+        let arrival = contains("--arrival")
+        let departure = contains("--departure")
+
+        guard !(arrival && departure) else {
+            throw CommandError.conflictingOptions("--arrival", "--departure")
+        }
+
+        return arrival
     }
 
     func outputFormat() throws -> OutputFormat {

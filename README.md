@@ -43,9 +43,10 @@ Search direct connections only:
 swift run jizdni-nerady connections --from Praha --to Brno --direct
 ```
 
-Search by arrival time instead of departure time:
+Search by departure time explicitly, or by arrival time instead:
 
 ```sh
+swift run jizdni-nerady connections --from Praha --to Brno --time 12:00 --departure
 swift run jizdni-nerady connections --from Praha --to Brno --time 15:00 --arrival
 ```
 
