@@ -5,6 +5,9 @@ import PackageDescription
 
 let package = Package(
     name: "jizdni-nerady",
+    platforms: [
+        .macOS(.v12),
+    ],
     products: [
         .executable(name: "jizdni-nerady", targets: ["jizdni-nerady"]),
     ],
