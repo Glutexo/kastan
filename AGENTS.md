@@ -1,6 +1,6 @@
 # Pravidla pro agenty
 
-Tento soubor obsahuje projektova pravidla pro agenty pracujici v repozitari `kastern`.
+Tento soubor obsahuje projektova pravidla pro agenty pracujici v repozitari `kastan`.
 Pravidla budeme prubezne rozsirovat.
 
 ## Zakladni chovani

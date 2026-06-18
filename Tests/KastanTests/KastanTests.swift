@@ -1,7 +1,7 @@
 import Foundation
-@testable import Kastern
+@testable import Kastan
 import Testing
-@testable import KasternCLI
+@testable import KastanCLI
 
 @Test func defaultOutputNamesApplication() async {
     let output = await CommandRunner(client: MockIDOSClient()).output(for: [])

@@ -4,25 +4,25 @@
 import PackageDescription
 
 let package = Package(
-    name: "kastern",
+    name: "kastan",
     platforms: [
         .macOS(.v12),
     ],
     products: [
-        .library(name: "Kastern", targets: ["Kastern"]),
-        .executable(name: "kastern", targets: ["KasternCLI"]),
+        .library(name: "Kastan", targets: ["Kastan"]),
+        .executable(name: "kastan", targets: ["KastanCLI"]),
     ],
     targets: [
         .target(
-            name: "Kastern"
+            name: "Kastan"
         ),
         .executableTarget(
-            name: "KasternCLI",
-            dependencies: ["Kastern"]
+            name: "KastanCLI",
+            dependencies: ["Kastan"]
         ),
         .testTarget(
-            name: "KasternTests",
-            dependencies: ["Kastern", "KasternCLI"]
+            name: "KastanTests",
+            dependencies: ["Kastan", "KastanCLI"]
         ),
     ],
     swiftLanguageModes: [.v6]

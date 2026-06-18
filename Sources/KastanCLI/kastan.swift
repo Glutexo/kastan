@@ -1,11 +1,11 @@
 import Foundation
-import Kastern
+import Kastan
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
 
 @main
-struct KasternApp {
+struct KastanApp {
     static func main() async {
         let runner = CommandRunner()
         print(await runner.output(for: CommandLine.arguments.dropFirst()))
@@ -36,7 +36,7 @@ struct CommandRunner {
             🌰 Kaštan
 
             Search occasional IDOS connections or suggested places.
-            Run kastern --help for usage.
+            Run kastan --help for usage.
             """
         }
 
@@ -67,7 +67,7 @@ struct CommandRunner {
         let prefix = options.positional.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !prefix.isEmpty else {
-            throw CommandError.usage("Usage: kastern suggest <text> [--timetable alias] [--format text|markdown|json] [--limit count]")
+            throw CommandError.usage("Usage: kastan suggest <text> [--timetable alias] [--format text|markdown|json] [--limit count]")
         }
 
         let suggestions = try await client.suggest(prefix: prefix, limit: limit, timetable: timetable)
@@ -89,11 +89,11 @@ struct CommandRunner {
         let timetable = try options.timetable()
 
         guard let from = options.value(for: "--from", short: "-f"), !from.isEmpty else {
-            throw CommandError.usage("Usage: kastern connections --from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--format text|markdown|json] [--limit count]")
+            throw CommandError.usage("Usage: kastan connections --from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--format text|markdown|json] [--limit count]")
         }
 
         guard let to = options.value(for: "--to", short: "-t"), !to.isEmpty else {
-            throw CommandError.usage("Usage: kastern connections --from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--format text|markdown|json] [--limit count]")
+            throw CommandError.usage("Usage: kastan connections --from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--format text|markdown|json] [--limit count]")
         }
 
         let request = IDOSConnectionRequest(
@@ -125,7 +125,7 @@ struct CommandRunner {
         let timetable = try options.timetable()
 
         guard let station = options.value(for: "--station", short: "-s"), !station.isEmpty else {
-            throw CommandError.usage("Usage: kastern departures --station place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--format text|markdown|json] [--limit count]")
+            throw CommandError.usage("Usage: kastan departures --station place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--format text|markdown|json] [--limit count]")
         }
 
         let request = IDOSDeparturesRequest(
@@ -152,10 +152,10 @@ struct CommandRunner {
     private var helpText: String {
         """
         🌰 Usage:
-          kastern suggest <text> [--timetable alias] [--format text|markdown|json] [--limit count]
-          kastern connections --from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--format text|markdown|json] [--limit count]
-          kastern departures --station place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--format text|markdown|json] [--limit count]
-          kastern timetables [--format text|markdown|json]
+          kastan suggest <text> [--timetable alias] [--format text|markdown|json] [--limit count]
+          kastan connections --from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--format text|markdown|json] [--limit count]
+          kastan departures --station place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--format text|markdown|json] [--limit count]
+          kastan timetables [--format text|markdown|json]
 
         ⚙️ Options:
           -h, --help              Show help
