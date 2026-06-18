@@ -4,25 +4,25 @@
 import PackageDescription
 
 let package = Package(
-    name: "jizdni-nerady",
+    name: "kastern",
     platforms: [
         .macOS(.v12),
     ],
     products: [
-        .library(name: "JizdniNerady", targets: ["JizdniNerady"]),
-        .executable(name: "jizdni-nerady", targets: ["jizdni-nerady"]),
+        .library(name: "Kastern", targets: ["Kastern"]),
+        .executable(name: "kastern", targets: ["KasternCLI"]),
     ],
     targets: [
         .target(
-            name: "JizdniNerady"
+            name: "Kastern"
         ),
         .executableTarget(
-            name: "jizdni-nerady",
-            dependencies: ["JizdniNerady"]
+            name: "KasternCLI",
+            dependencies: ["Kastern"]
         ),
         .testTarget(
-            name: "jizdni-neradyTests",
-            dependencies: ["JizdniNerady", "jizdni-nerady"]
+            name: "KasternTests",
+            dependencies: ["Kastern", "KasternCLI"]
         ),
     ],
     swiftLanguageModes: [.v6]

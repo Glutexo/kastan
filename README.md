@@ -1,29 +1,29 @@
-# jizdni-nerady
+# 🌰 Kaštan
 
-jizdni-nerady is a personal Swift CLI and importable Swift library for occasional one-off IDOS queries.
+Kaštan (`kastern`) is a personal Swift CLI and importable Swift library for occasional one-off IDOS queries.
 It uses publicly reachable IDOS web endpoints and parses returned HTML, so it is not a stable or guaranteed data API.
 
-## Usage
+## 🌰 Usage
 
 Suggest a station or place:
 
 ```sh
-swift run jizdni-nerady suggest Praha
-swift run jizdni-nerady suggest Svinov --timetable ostrava
+swift run kastern suggest Praha
+swift run kastern suggest Svinov --timetable ostrava
 ```
 
 Search connections:
 
 ```sh
-swift run jizdni-nerady connections --from Praha --to Brno --date 18.6.2026 --time 12:00
-swift run jizdni-nerady connections --from "Frýdek-Místek" --to Ostrava --timetable odis
+swift run kastern connections --from Praha --to Brno --date 18.6.2026 --time 12:00
+swift run kastern connections --from "Frýdek-Místek" --to Ostrava --timetable odis
 ```
 
 Search station departures:
 
 ```sh
-swift run jizdni-nerady departures --station "Ostrava,Hrabůvka,Benzina" --timetable odis --time 16:00
-swift run jizdni-nerady departures --station "Ostrava,Hrabůvka,Benzina" --timetable odis --arrival
+swift run kastern departures --station "Ostrava,Hrabůvka,Benzina" --timetable odis --time 16:00
+swift run kastern departures --station "Ostrava,Hrabůvka,Benzina" --timetable odis --arrival
 ```
 
 Line names in connection output use the same terminal color as IDOS sends in the HTML result.
@@ -35,48 +35,48 @@ All data commands support `--format text`, `--format markdown`, and `--format js
 Unknown command-line options are rejected.
 
 ```sh
-swift run jizdni-nerady suggest Praha --format json
-swift run jizdni-nerady connections --from Praha --to Brno --format markdown
-swift run jizdni-nerady departures --station "Ostrava,Hrabůvka,Benzina" --format json
-swift run jizdni-nerady timetables --format json
+swift run kastern suggest Praha --format json
+swift run kastern connections --from Praha --to Brno --format markdown
+swift run kastern departures --station "Ostrava,Hrabůvka,Benzina" --format json
+swift run kastern timetables --format json
 ```
 
 Limit the number of printed results:
 
 ```sh
-swift run jizdni-nerady connections --from Praha --to Brno --limit 3
+swift run kastern connections --from Praha --to Brno --limit 3
 ```
 
 Search direct connections only:
 
 ```sh
-swift run jizdni-nerady connections --from Praha --to Brno --direct
+swift run kastern connections --from Praha --to Brno --direct
 ```
 
 Search connections via one or more places:
 
 ```sh
-swift run jizdni-nerady connections --from Praha --to Brno --via Pardubice
-swift run jizdni-nerady connections --from Praha --to Brno --via Pardubice --via Olomouc
+swift run kastern connections --from Praha --to Brno --via Pardubice
+swift run kastern connections --from Praha --to Brno --via Pardubice --via Olomouc
 ```
 
 Search by departure time explicitly, or by arrival time instead:
 
 ```sh
-swift run jizdni-nerady connections --from Praha --to Brno --time 12:00 --departure
-swift run jizdni-nerady connections --from Praha --to Brno --time 15:00 --arrival
+swift run kastern connections --from Praha --to Brno --time 12:00 --departure
+swift run kastern connections --from Praha --to Brno --time 15:00 --arrival
 ```
 
 Limit the maximum transfers permitted, including `0`:
 
 ```sh
-swift run jizdni-nerady connections --from Praha --to Brno --max-transfers 0
+swift run kastern connections --from Praha --to Brno --max-transfers 0
 ```
 
 Require a minimum transfer time in minutes, including `0`:
 
 ```sh
-swift run jizdni-nerady connections --from Praha --to Brno --min-transfer-time 10
+swift run kastern connections --from Praha --to Brno --min-transfer-time 10
 ```
 
 ### Timetable
@@ -84,27 +84,27 @@ swift run jizdni-nerady connections --from Praha --to Brno --min-transfer-time 1
 The default timetable is `vlakyautobusymhdvse`, IDOS English `All timetables`. Select another timetable with `--timetable`:
 
 ```sh
-swift run jizdni-nerady connections --from Praha --to Beroun --timetable pid
-swift run jizdni-nerady connections --from Ostrava --to "Frýdek-Místek" --timetable odis
-swift run jizdni-nerady connections --from Praha --to Brno --timetable vlaky
+swift run kastern connections --from Praha --to Beroun --timetable pid
+swift run kastern connections --from Ostrava --to "Frýdek-Místek" --timetable odis
+swift run kastern connections --from Praha --to Brno --timetable vlaky
 ```
 
 Print known timetable choices:
 
 ```sh
-swift run jizdni-nerady timetables
+swift run kastern timetables
 ```
 
 The parameter also accepts a custom IDOS URL slug, such as `karlovyvary`, when IDOS supports it. Besides slugs, catalog names work too, for example `--timetable "Urban Public Transport Karlovy Vary"` or `--timetable "Zlín a Otrokovice"`.
 
 This tool is intended for low-frequency personal use. If IDOS changes its HTML or internal JSONP suggestions endpoint, the parser will need an update.
 
-## Swift Library
+## 🌰 Swift Library
 
-The package exports the `JizdniNerady` library product:
+The package exports the `Kastern` library product:
 
 ```swift
-import JizdniNerady
+import Kastern
 
 let client = IDOSClient()
 let timetable = try IDOSTimetable.resolve("odis")
@@ -130,10 +130,10 @@ let departures = try await client.findDepartures(request: departuresRequest)
 
 The public API includes `IDOSClient`, `IDOSConnectionRequest`, `IDOSDeparturesRequest`, `IDOSTimetable`, `IDOSSuggestion`, `IDOSConnection`, `IDOSConnectionLeg`, `IDOSDeparture`, `IDOSTransportMode`, and `IDOSError`.
 
-## Development
+## 🌰 Development
 
 ```sh
 swift build
 swift test
-swift run jizdni-nerady
+swift run kastern
 ```

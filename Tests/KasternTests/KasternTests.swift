@@ -1,19 +1,19 @@
 import Foundation
-@testable import JizdniNerady
+@testable import Kastern
 import Testing
-@testable import jizdni_nerady
+@testable import KasternCLI
 
 @Test func defaultOutputNamesApplication() async {
     let output = await CommandRunner(client: MockIDOSClient()).output(for: [])
 
-    #expect(output.contains("🚆 jizdni-nerady"))
+    #expect(output.contains("🌰 Kaštan"))
     #expect(output.contains("Search occasional IDOS connections"))
 }
 
 @Test func helpOutputShowsUsage() async {
     let output = await CommandRunner(client: MockIDOSClient()).output(for: ["--help"])
 
-    #expect(output.contains("🚆 Usage:"))
+    #expect(output.contains("🌰 Usage:"))
     #expect(output.contains("connections"))
     #expect(output.contains("departures"))
     #expect(output.contains("timetables"))

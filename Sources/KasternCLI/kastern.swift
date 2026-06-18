@@ -1,11 +1,11 @@
 import Foundation
-import JizdniNerady
+import Kastern
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
 
 @main
-struct JizdniNeradyApp {
+struct KasternApp {
     static func main() async {
         let runner = CommandRunner()
         print(await runner.output(for: CommandLine.arguments.dropFirst()))
@@ -33,10 +33,10 @@ struct CommandRunner {
 
         guard let command = arguments.first else {
             return """
-            🚆 jizdni-nerady
+            🌰 Kaštan
 
             Search occasional IDOS connections or suggested places.
-            Run jizdni-nerady --help for usage.
+            Run kastern --help for usage.
             """
         }
 
@@ -67,7 +67,7 @@ struct CommandRunner {
         let prefix = options.positional.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !prefix.isEmpty else {
-            throw CommandError.usage("Usage: jizdni-nerady suggest <text> [--timetable alias] [--format text|markdown|json] [--limit count]")
+            throw CommandError.usage("Usage: kastern suggest <text> [--timetable alias] [--format text|markdown|json] [--limit count]")
         }
 
         let suggestions = try await client.suggest(prefix: prefix, limit: limit, timetable: timetable)
@@ -89,11 +89,11 @@ struct CommandRunner {
         let timetable = try options.timetable()
 
         guard let from = options.value(for: "--from", short: "-f"), !from.isEmpty else {
-            throw CommandError.usage("Usage: jizdni-nerady connections --from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--format text|markdown|json] [--limit count]")
+            throw CommandError.usage("Usage: kastern connections --from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--format text|markdown|json] [--limit count]")
         }
 
         guard let to = options.value(for: "--to", short: "-t"), !to.isEmpty else {
-            throw CommandError.usage("Usage: jizdni-nerady connections --from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--format text|markdown|json] [--limit count]")
+            throw CommandError.usage("Usage: kastern connections --from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--format text|markdown|json] [--limit count]")
         }
 
         let request = IDOSConnectionRequest(
@@ -125,7 +125,7 @@ struct CommandRunner {
         let timetable = try options.timetable()
 
         guard let station = options.value(for: "--station", short: "-s"), !station.isEmpty else {
-            throw CommandError.usage("Usage: jizdni-nerady departures --station place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--format text|markdown|json] [--limit count]")
+            throw CommandError.usage("Usage: kastern departures --station place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--format text|markdown|json] [--limit count]")
         }
 
         let request = IDOSDeparturesRequest(
@@ -151,11 +151,11 @@ struct CommandRunner {
 
     private var helpText: String {
         """
-        🚆 Usage:
-          jizdni-nerady suggest <text> [--timetable alias] [--format text|markdown|json] [--limit count]
-          jizdni-nerady connections --from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--format text|markdown|json] [--limit count]
-          jizdni-nerady departures --station place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--format text|markdown|json] [--limit count]
-          jizdni-nerady timetables [--format text|markdown|json]
+        🌰 Usage:
+          kastern suggest <text> [--timetable alias] [--format text|markdown|json] [--limit count]
+          kastern connections --from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--format text|markdown|json] [--limit count]
+          kastern departures --station place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--format text|markdown|json] [--limit count]
+          kastern timetables [--format text|markdown|json]
 
         ⚙️ Options:
           -h, --help              Show help

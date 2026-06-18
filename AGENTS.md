@@ -1,6 +1,6 @@
 # Pravidla pro agenty
 
-Tento soubor obsahuje projektova pravidla pro agenty pracujici v repozitari `jizdni-nerady`.
+Tento soubor obsahuje projektova pravidla pro agenty pracujici v repozitari `kastern`.
 Pravidla budeme prubezne rozsirovat.
 
 ## Zakladni chovani

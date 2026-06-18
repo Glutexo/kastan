@@ -82,7 +82,7 @@ public struct IDOSClient: IDOSClienting {
 
     private func data(for request: URLRequest) async throws -> Data {
         var request = request
-        request.setValue("jizdni-nerady/0.1 (+local personal use)", forHTTPHeaderField: "User-Agent")
+        request.setValue("kastern/0.1 (+local personal use)", forHTTPHeaderField: "User-Agent")
 
         return try await withCheckedThrowingContinuation { continuation in
             let task = URLSession.shared.dataTask(with: request) { data, response, error in
