@@ -17,6 +17,7 @@ import Testing
     #expect(output.contains("connections"))
     #expect(output.contains("departures"))
     #expect(output.contains("timetables"))
+    #expect(output.contains("aliases"))
     #expect(output.contains("--timetable"))
     #expect(output.contains("--station"))
     #expect(output.contains("--arrival"))
@@ -302,6 +303,91 @@ import Testing
     #expect(output.contains("❌ Error: Unknown option: --unknown."))
 }
 
+@Test func aliasesCommandAddsListsAndRemovesStopAliases() async throws {
+    let aliasFile = temporaryAliasFile()
+    let runner = CommandRunner(client: MockIDOSClient(), aliasFile: aliasFile)
+
+    let addOutput = await runner.output(for: [
+        "aliases", "add", "home", "--station", "Frýdek,Na Veselé", "--timetable", "odis",
+    ])
+    #expect(addOutput.contains("🌰 Alias added: home → Frýdek,Na Veselé (ODIS)"))
+
+    let listOutput = await runner.output(for: ["aliases", "list"])
+    #expect(listOutput.contains("🌰 Stop aliases:"))
+    #expect(listOutput.contains("home → Frýdek,Na Veselé (ODIS)"))
+
+    let jsonOutput = await runner.output(for: ["aliases", "list", "--format", "json"])
+    let json = try jsonDictionary(jsonOutput)
+    let aliases = try #require(json["aliases"] as? [[String: Any]])
+    #expect(aliases.first?["name"] as? String == "home")
+    #expect(aliases.first?["station"] as? String == "Frýdek,Na Veselé")
+    #expect((aliases.first?["timetable"] as? [String: Any])?["slug"] as? String == "odis")
+
+    let removeOutput = await runner.output(for: ["aliases", "remove", "home"])
+    #expect(removeOutput.contains("🌰 Alias removed: home → Frýdek,Na Veselé (ODIS)"))
+
+    let emptyOutput = await runner.output(for: ["aliases", "list"])
+    #expect(emptyOutput.contains("🌰 No stop aliases saved."))
+}
+
+@Test func aliasesCommandPrintsDatabasePath() async {
+    let aliasFile = temporaryAliasFile()
+    let output = await CommandRunner(client: MockIDOSClient(), aliasFile: aliasFile).output(for: ["aliases", "path"])
+
+    #expect(output.contains("🌰 Alias database:"))
+    #expect(output.contains(aliasFile.fileURL.path))
+}
+
+@Test func connectionCommandUsesStopAliasesAndInferredTimetable() async throws {
+    let aliasFile = temporaryAliasFile()
+    var database = StopAliasDatabase()
+    try database.upsert(StopAlias(name: "home", station: "Frýdek,Na Veselé", timetable: try IDOSTimetable.resolve("odis")))
+    try database.upsert(StopAlias(name: "work", station: "Ostrava,Hrabůvka,Benzina", timetable: try IDOSTimetable.resolve("odis")))
+    try aliasFile.save(database)
+
+    let output = await CommandRunner(
+        client: MockIDOSClient(
+            expectedConnectionTimetable: "odis",
+            expectedFrom: "Frýdek,Na Veselé",
+            expectedTo: "Ostrava,Hrabůvka,Benzina"
+        ),
+        aliasFile: aliasFile
+    ).output(for: ["connections", "--from", "home", "--to", "work", "--limit", "1"])
+
+    #expect(output.contains("🧭 Connections Frýdek,Na Veselé → Ostrava,Hrabůvka,Benzina (ODIS)"))
+}
+
+@Test func departuresCommandUsesStopAliasAndInferredTimetable() async throws {
+    let aliasFile = temporaryAliasFile()
+    var database = StopAliasDatabase()
+    try database.upsert(StopAlias(
+        name: "benzina",
+        station: "Ostrava,Hrabůvka,Benzina",
+        timetable: try IDOSTimetable.resolve("odis")
+    ))
+    try aliasFile.save(database)
+
+    let output = await CommandRunner(client: MockIDOSClient(), aliasFile: aliasFile).output(
+        for: ["departures", "--station", "benzina", "--limit", "1"]
+    )
+
+    #expect(output.contains("🚏 Departures Ostrava,Hrabůvka,Benzina (ODIS)"))
+}
+
+@Test func connectionCommandRejectsConflictingStopAliasTimetables() async throws {
+    let aliasFile = temporaryAliasFile()
+    var database = StopAliasDatabase()
+    try database.upsert(StopAlias(name: "home", station: "Frýdek,Na Veselé", timetable: try IDOSTimetable.resolve("odis")))
+    try database.upsert(StopAlias(name: "main", station: "Praha hl.n.", timetable: try IDOSTimetable.resolve("vlaky")))
+    try aliasFile.save(database)
+
+    let output = await CommandRunner(client: MockIDOSClient(), aliasFile: aliasFile).output(
+        for: ["connections", "--from", "home", "--to", "main"]
+    )
+
+    #expect(output.contains("❌ Error: Stop aliases use conflicting timetables: ODIS and Trains."))
+}
+
 @Test func timetableResolverAcceptsKnownAliasesAndCustomSlugs() throws {
     #expect(try IDOSTimetable.resolve("all timetables").slug == "vlakyautobusymhdvse")
     #expect(try IDOSTimetable.resolve("Prague + PID").slug == "pid")
@@ -507,11 +593,16 @@ import Testing
 }
 
 private struct MockIDOSClient: IDOSClienting {
+    var expectedConnectionTimetable = "vlaky"
+    var expectedFrom = "Praha"
+    var expectedTo = "Brno"
     var expectedIsArrival = false
     var expectedOnlyDirect = false
     var expectedVia: [String] = []
     var expectedMaxTransfers: Int? = nil
     var expectedMinimumTransferTime: Int? = nil
+    var expectedDepartureTimetable = "odis"
+    var expectedStation = "Ostrava,Hrabůvka,Benzina"
     var expectedDepartureIsArrival = false
 
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
@@ -533,7 +624,9 @@ private struct MockIDOSClient: IDOSClienting {
     }
 
     func findConnections(request: IDOSConnectionRequest) async throws -> [IDOSConnection] {
-        #expect(request.timetable.slug == "vlaky")
+        #expect(request.timetable.slug == expectedConnectionTimetable)
+        #expect(request.from == expectedFrom)
+        #expect(request.to == expectedTo)
         #expect(request.isArrival == expectedIsArrival)
         #expect(request.onlyDirect == expectedOnlyDirect)
         #expect(request.via == expectedVia)
@@ -565,8 +658,8 @@ private struct MockIDOSClient: IDOSClienting {
     }
 
     func findDepartures(request: IDOSDeparturesRequest) async throws -> [IDOSDeparture] {
-        #expect(request.timetable.slug == "odis")
-        #expect(request.station == "Ostrava,Hrabůvka,Benzina")
+        #expect(request.timetable.slug == expectedDepartureTimetable)
+        #expect(request.station == expectedStation)
         #expect(request.isArrival == expectedDepartureIsArrival)
 
         return [
@@ -589,4 +682,10 @@ private struct MockIDOSClient: IDOSClienting {
 private func jsonDictionary(_ output: String) throws -> [String: Any] {
     let object = try JSONSerialization.jsonObject(with: Data(output.utf8))
     return try #require(object as? [String: Any])
+}
+
+private func temporaryAliasFile() -> StopAliasFile {
+    StopAliasFile(fileURL: FileManager.default.temporaryDirectory
+        .appendingPathComponent("kastan-tests-\(UUID().uuidString)")
+        .appendingPathComponent("aliases.json"))
 }

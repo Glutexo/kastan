@@ -32,7 +32,7 @@ Connection and departure times are bold in text and markdown output.
 
 ### Output Format
 
-All data commands support `--format text`, `--format markdown`, and `--format json`. The default is `text`.
+All data and alias commands support `--format text`, `--format markdown`, and `--format json`. The default is `text`.
 Unknown command-line options are rejected.
 
 ```sh
@@ -40,6 +40,7 @@ swift run kastan suggest Praha --format json
 swift run kastan connections --from Praha --to Brno --format markdown
 swift run kastan departures --station "Ostrava,Hrabůvka,Benzina" --format json
 swift run kastan timetables --format json
+swift run kastan aliases list --format json
 ```
 
 Limit the number of printed results:
@@ -79,6 +80,29 @@ Require a minimum transfer time in minutes, including `0`:
 ```sh
 swift run kastan connections --from Praha --to Brno --min-transfer-time 10
 ```
+
+### Stop Aliases
+
+Store personal stop aliases with the IDOS timetable they belong to:
+
+```sh
+swift run kastan aliases add home --station "Frýdek,Na Veselé" --timetable odis
+swift run kastan aliases add work --station "Ostrava,Hrabůvka,Benzina" --timetable odis
+swift run kastan aliases list
+swift run kastan aliases remove home
+swift run kastan aliases path
+```
+
+Aliases can be used anywhere a station or place is accepted:
+
+```sh
+swift run kastan connections --from home --to work --time 16:00
+swift run kastan departures --station work --time 16:00
+```
+
+When all used aliases belong to the same timetable, Kaštan uses that timetable automatically.
+If `--timetable` is provided, every used alias must belong to that timetable.
+The default database is `~/.config/kastan/aliases.json`; set `KASTAN_ALIAS_DATABASE` to use another JSON file.
 
 ### Timetable
 
@@ -127,9 +151,14 @@ let departuresRequest = IDOSDeparturesRequest(
     time: "16:00"
 )
 let departures = try await client.findDepartures(request: departuresRequest)
+
+let aliasFile = StopAliasFile()
+var aliases = try aliasFile.load()
+try aliases.upsert(StopAlias(name: "work", station: "Ostrava,Hrabůvka,Benzina", timetable: timetable))
+try aliasFile.save(aliases)
 ```
 
-The public API includes `IDOSClient`, `IDOSConnectionRequest`, `IDOSDeparturesRequest`, `IDOSTimetable`, `IDOSSuggestion`, `IDOSConnection`, `IDOSConnectionLeg`, `IDOSDeparture`, `IDOSTransportMode`, and `IDOSError`.
+The public API includes `IDOSClient`, `IDOSConnectionRequest`, `IDOSDeparturesRequest`, `IDOSTimetable`, `IDOSSuggestion`, `IDOSConnection`, `IDOSConnectionLeg`, `IDOSDeparture`, `IDOSTransportMode`, `StopAlias`, `StopAliasDatabase`, `StopAliasFile`, `StopAliasError`, and `IDOSError`.
 
 ## 🌰 Development
 

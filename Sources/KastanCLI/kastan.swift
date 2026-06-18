@@ -15,9 +15,11 @@ struct KastanApp {
 struct CommandRunner {
     let version = "0.1.0"
     let client: IDOSClienting
+    let aliasFile: StopAliasFile
 
-    init(client: IDOSClienting = IDOSClient()) {
+    init(client: IDOSClienting = IDOSClient(), aliasFile: StopAliasFile = StopAliasFile()) {
         self.client = client
+        self.aliasFile = aliasFile
     }
 
     func output<S: Sequence<String>>(for arguments: S) async -> String {
@@ -48,6 +50,8 @@ struct CommandRunner {
                 return try await connectionsOutput(for: Array(arguments.dropFirst()))
             case "departures":
                 return try await departuresOutput(for: Array(arguments.dropFirst()))
+            case "aliases":
+                return try aliasesOutput(for: Array(arguments.dropFirst()))
             case "timetables":
                 return try timetablesOutput(for: Array(arguments.dropFirst()))
             default:
@@ -86,7 +90,7 @@ struct CommandRunner {
             ]
         )
         let format = try options.outputFormat()
-        let timetable = try options.timetable()
+        let aliasDatabase = try aliasFile.load()
 
         guard let from = options.value(for: "--from", short: "-f"), !from.isEmpty else {
             throw CommandError.usage("Usage: kastan connections --from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--format text|markdown|json] [--limit count]")
@@ -96,15 +100,23 @@ struct CommandRunner {
             throw CommandError.usage("Usage: kastan connections --from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--format text|markdown|json] [--limit count]")
         }
 
+        let fromPlace = resolvePlace(from, in: aliasDatabase)
+        let toPlace = resolvePlace(to, in: aliasDatabase)
+        let viaPlaces = options.values(for: "--via").map { resolvePlace($0, in: aliasDatabase) }
+        let timetable = try resolveTimetable(
+            explicitValue: options.value(for: "--timetable"),
+            aliases: ([fromPlace, toPlace] + viaPlaces).compactMap(\.alias)
+        )
+
         let request = IDOSConnectionRequest(
             timetable: timetable,
-            from: from,
-            to: to,
+            from: fromPlace.station,
+            to: toPlace.station,
             date: options.value(for: "--date"),
             time: options.value(for: "--time"),
             isArrival: try options.isArrivalTimeMode(),
             onlyDirect: options.contains("--direct") || options.contains("--only-direct"),
-            via: options.values(for: "--via"),
+            via: viaPlaces.map(\.station),
             maxTransfers: try options.nonNegativeIntegerValue(for: "--max-transfers"),
             minimumTransferTime: try options.nonNegativeIntegerValue(for: "--min-transfer-time")
         )
@@ -122,15 +134,21 @@ struct CommandRunner {
             allowedValueOptions: ["--station", "-s", "--timetable", "--date", "--time", "--format", "--limit"]
         )
         let format = try options.outputFormat()
-        let timetable = try options.timetable()
+        let aliasDatabase = try aliasFile.load()
 
         guard let station = options.value(for: "--station", short: "-s"), !station.isEmpty else {
             throw CommandError.usage("Usage: kastan departures --station place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--format text|markdown|json] [--limit count]")
         }
 
+        let stationPlace = resolvePlace(station, in: aliasDatabase)
+        let timetable = try resolveTimetable(
+            explicitValue: options.value(for: "--timetable"),
+            aliases: [stationPlace.alias].compactMap(\.self)
+        )
+
         let request = IDOSDeparturesRequest(
             timetable: timetable,
-            station: station,
+            station: stationPlace.station,
             date: options.value(for: "--date"),
             time: options.value(for: "--time"),
             isArrival: try options.isArrivalTimeMode()
@@ -149,12 +167,117 @@ struct CommandRunner {
         return try format.renderTimetables(TimetablesOutput(timetables: IDOSTimetable.known))
     }
 
+    private func aliasesOutput(for arguments: [String]) throws -> String {
+        guard let action = arguments.first else {
+            throw CommandError.usage("Usage: kastan aliases list|add|remove|path")
+        }
+
+        let actionArguments = Array(arguments.dropFirst())
+        let options = CommandOptions(actionArguments)
+
+        switch action {
+        case "list":
+            try options.rejectUnknownOptions(allowedValueOptions: ["--format"])
+            let format = try options.outputFormat()
+            return try format.renderStopAliases(StopAliasesOutput(
+                aliases: aliasFile.load().aliases,
+                path: aliasFile.fileURL.path
+            ))
+
+        case "add":
+            try options.rejectUnknownOptions(allowedValueOptions: ["--station", "-s", "--timetable", "--format"])
+            let format = try options.outputFormat()
+
+            guard let name = options.positional.first, !name.isEmpty,
+                  let station = options.value(for: "--station", short: "-s"), !station.isEmpty,
+                  let timetableValue = options.value(for: "--timetable"), !timetableValue.isEmpty
+            else {
+                throw CommandError.usage("Usage: kastan aliases add name --station place --timetable alias [--format text|markdown|json]")
+            }
+
+            let timetable = try IDOSTimetable.resolve(timetableValue)
+            var database = try aliasFile.load()
+            let action = database.alias(named: name) == nil ? "added" : "updated"
+            let alias = StopAlias(name: name, station: station, timetable: timetable)
+            try database.upsert(alias)
+            try aliasFile.save(database)
+
+            return try format.renderStopAliasMutation(StopAliasMutationOutput(
+                action: action,
+                alias: alias,
+                path: aliasFile.fileURL.path
+            ))
+
+        case "remove":
+            try options.rejectUnknownOptions(allowedValueOptions: ["--format"])
+            let format = try options.outputFormat()
+
+            guard let name = options.positional.first, !name.isEmpty else {
+                throw CommandError.usage("Usage: kastan aliases remove name [--format text|markdown|json]")
+            }
+
+            var database = try aliasFile.load()
+            let alias = try database.remove(name: name)
+            try aliasFile.save(database)
+
+            return try format.renderStopAliasMutation(StopAliasMutationOutput(
+                action: "removed",
+                alias: alias,
+                path: aliasFile.fileURL.path
+            ))
+
+        case "path":
+            try options.rejectUnknownOptions(allowedValueOptions: ["--format"])
+            let format = try options.outputFormat()
+            return try format.renderStopAliasPath(StopAliasPathOutput(path: aliasFile.fileURL.path))
+
+        default:
+            throw CommandError.usage("Usage: kastan aliases list|add|remove|path")
+        }
+    }
+
+    private func resolvePlace(_ value: String, in database: StopAliasDatabase) -> ResolvedPlace {
+        guard let alias = database.alias(named: value) else {
+            return ResolvedPlace(station: value, alias: nil)
+        }
+
+        return ResolvedPlace(station: alias.station, alias: alias)
+    }
+
+    private func resolveTimetable(explicitValue: String?, aliases: [StopAlias]) throws -> IDOSTimetable {
+        let explicitTimetable = try explicitValue.map(IDOSTimetable.resolve)
+        let aliasTimetables = aliases.map(\.timetable)
+
+        if let explicitTimetable {
+            if let conflictingAlias = aliases.first(where: { $0.timetable.slug != explicitTimetable.slug }) {
+                throw CommandError.aliasTimetableMismatch(
+                    alias: conflictingAlias.name,
+                    aliasTimetable: conflictingAlias.timetable,
+                    requestedTimetable: explicitTimetable
+                )
+            }
+
+            return explicitTimetable
+        }
+
+        guard let first = aliasTimetables.first else {
+            return try IDOSTimetable.resolve(nil)
+        }
+
+        if let conflicting = aliases.first(where: { $0.timetable.slug != first.slug }) {
+            throw CommandError.conflictingAliasTimetables(first, conflicting.timetable)
+        }
+
+        return first
+    }
+
     private var helpText: String {
         """
         🌰 Usage:
           kastan suggest <text> [--timetable alias] [--format text|markdown|json] [--limit count]
           kastan connections --from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--format text|markdown|json] [--limit count]
           kastan departures --station place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--format text|markdown|json] [--limit count]
+          kastan aliases list|add|remove|path [--format text|markdown|json]
           kastan timetables [--format text|markdown|json]
 
         ⚙️ Options:
@@ -170,6 +293,7 @@ struct CommandRunner {
           --format                Output format: text, markdown, or json
 
         Default timetable is vlakyautobusymhdvse.
+        Stop aliases are stored in ~/.config/kastan/aliases.json unless KASTAN_ALIAS_DATABASE is set.
         """
     }
 }
@@ -178,6 +302,8 @@ private enum CommandError: LocalizedError {
     case invalidOutputFormat(String)
     case invalidNonNegativeInteger(name: String, value: String)
     case conflictingOptions(String, String)
+    case aliasTimetableMismatch(alias: String, aliasTimetable: IDOSTimetable, requestedTimetable: IDOSTimetable)
+    case conflictingAliasTimetables(IDOSTimetable, IDOSTimetable)
     case unknownOption(String)
     case usage(String)
 
@@ -189,6 +315,10 @@ private enum CommandError: LocalizedError {
             return "Invalid \(name): \(value). Use a non-negative integer."
         case .conflictingOptions(let first, let second):
             return "Conflicting options: \(first) and \(second). Use only one."
+        case .aliasTimetableMismatch(let alias, let aliasTimetable, let requestedTimetable):
+            return "Stop alias \(alias) belongs to \(aliasTimetable.displayName), but requested timetable is \(requestedTimetable.displayName)."
+        case .conflictingAliasTimetables(let first, let second):
+            return "Stop aliases use conflicting timetables: \(first.displayName) and \(second.displayName). Use --timetable only when all used aliases belong to it."
         case .unknownOption(let value):
             return "Unknown option: \(value)."
         case .usage(let message):
@@ -409,6 +539,85 @@ private enum OutputFormat: String {
         }
     }
 
+    func renderStopAliases(_ output: StopAliasesOutput) throws -> String {
+        switch self {
+        case .text:
+            guard !output.aliases.isEmpty else {
+                return "🌰 No stop aliases saved.\nDatabase: \(output.path)"
+            }
+
+            let rows = output.aliases.map { alias in
+                "  \(alias.name) → \(alias.station) (\(alias.timetable.displayName))"
+            }
+
+            return """
+            🌰 Stop aliases:
+            \(rows.joined(separator: "\n"))
+
+            Database: \(output.path)
+            """
+        case .markdown:
+            guard !output.aliases.isEmpty else {
+                return """
+                ## 🌰 Stop Aliases
+
+                No stop aliases saved.
+
+                Database: `\(Markdown.escape(output.path))`
+                """
+            }
+
+            let rows = output.aliases.map { alias in
+                "| \(Markdown.escape(alias.name)) | \(Markdown.escape(alias.station)) | \(Markdown.escape(alias.timetable.displayName)) | \(Markdown.escape(alias.timetable.slug)) |"
+            }.joined(separator: "\n")
+
+            return """
+            ## 🌰 Stop Aliases
+
+            | Alias | Station | Timetable | Slug |
+            | --- | --- | --- | --- |
+            \(rows)
+
+            Database: `\(Markdown.escape(output.path))`
+            """
+        case .json:
+            return try JSON.write(output)
+        }
+    }
+
+    func renderStopAliasMutation(_ output: StopAliasMutationOutput) throws -> String {
+        switch self {
+        case .text:
+            return "🌰 Alias \(output.action): \(output.alias.name) → \(output.alias.station) (\(output.alias.timetable.displayName))"
+        case .markdown:
+            return """
+            ## 🌰 Stop Alias \(output.action.capitalized)
+
+            **Alias:** \(Markdown.escape(output.alias.name))
+            **Station:** \(Markdown.escape(output.alias.station))
+            **Timetable:** \(Markdown.escape(output.alias.timetable.displayName))
+            **Database:** `\(Markdown.escape(output.path))`
+            """
+        case .json:
+            return try JSON.write(output)
+        }
+    }
+
+    func renderStopAliasPath(_ output: StopAliasPathOutput) throws -> String {
+        switch self {
+        case .text:
+            return "🌰 Alias database: \(output.path)"
+        case .markdown:
+            return """
+            ## 🌰 Alias Database
+
+            `\(Markdown.escape(output.path))`
+            """
+        case .json:
+            return try JSON.write(output)
+        }
+    }
+
     private func suggestionDetails(_ suggestion: IDOSSuggestion) -> [String] {
         var details: [String] = []
         for value in [suggestion.description, suggestion.region].compactMap(\.self) where !value.isEmpty {
@@ -451,6 +660,26 @@ private struct DeparturesOutput: Codable {
 
 private struct TimetablesOutput: Codable {
     var timetables: [IDOSTimetable]
+}
+
+private struct StopAliasesOutput: Codable {
+    var aliases: [StopAlias]
+    var path: String
+}
+
+private struct StopAliasMutationOutput: Codable {
+    var action: String
+    var alias: StopAlias
+    var path: String
+}
+
+private struct StopAliasPathOutput: Codable {
+    var path: String
+}
+
+private struct ResolvedPlace {
+    var station: String
+    var alias: StopAlias?
 }
 
 private struct ErrorOutput: Codable {
