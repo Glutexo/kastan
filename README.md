@@ -9,12 +9,14 @@ Našeptání názvu stanice nebo místa:
 
 ```sh
 swift run jizdni-nerady suggest Praha
+swift run jizdni-nerady suggest Svinov --timetable ostrava
 ```
 
 Vyhledání spojení:
 
 ```sh
 swift run jizdni-nerady spojeni --from Praha --to Brno --date 18.6.2026 --time 12:00
+swift run jizdni-nerady spojeni --from "Frýdek-Místek" --to Ostrava --timetable odis
 ```
 
 Volitelně lze omezit počet vypsaných položek:
@@ -22,6 +24,36 @@ Volitelně lze omezit počet vypsaných položek:
 ```sh
 swift run jizdni-nerady spojeni --from Praha --to Brno --limit 3
 ```
+
+### Jízdní řád
+
+Výchozí jízdní řád je `vlakyautobusymhdvse`, tedy vše. Zvolit ho lze parametrem `--timetable`, případně zkráceně `--jr`:
+
+```sh
+swift run jizdni-nerady spojeni --from Praha --to Beroun --jr pid
+swift run jizdni-nerady spojeni --from Ostrava --to "Frýdek-Místek" --timetable odis
+swift run jizdni-nerady spojeni --from Praha --to Brno --timetable vlaky
+```
+
+Běžné aliasy:
+
+- `vlakyautobusymhdvse`, `vse`, `vše` - vše
+- `vlaky` - vlaky
+- `autobusy` - autobusy
+- `vlakyautobusy`, `vlaky-autobusy` - vlaky + autobusy
+- `pid`, `praha-pid` - Praha + PID
+- `praha` - Praha
+- `frydekmistek`, `frydek-mistek`, `frýdek-místek` - Frýdek-Místek
+- `ostrava` - Ostrava
+- `odis` - ODIS
+
+Seznam běžných voleb vypíše:
+
+```sh
+swift run jizdni-nerady jizdni-rady
+```
+
+Parametr přijímá i vlastní URL slug IDOSu, například `karlovyvary`, pokud ho IDOS podporuje.
 
 Nástroj je určený pro nízkofrekvenční osobní použití. Pokud IDOS změní HTML nebo interní JSONP našeptávač, parser bude potřeba upravit.
 

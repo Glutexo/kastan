@@ -45,6 +45,8 @@ struct CommandRunner {
                 return try await suggestOutput(for: Array(arguments.dropFirst()))
             case "spojeni":
                 return try await connectionsOutput(for: Array(arguments.dropFirst()))
+            case "jizdni-rady", "jr":
+                return timetablesOutput
             default:
                 return "Neznámý příkaz: \(command)\n\n\(helpText)"
             }
@@ -56,19 +58,20 @@ struct CommandRunner {
     private func suggestOutput(for arguments: [String]) async throws -> String {
         let options = CommandOptions(arguments)
         let limit = options.integerValue(for: "--limit") ?? 8
+        let timetable = try options.timetable()
         let prefix = options.positional.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !prefix.isEmpty else {
-            return "Použití: jizdni-nerady suggest <text> [--limit počet]"
+            return "Použití: jizdni-nerady suggest <text> [--timetable alias] [--limit počet]"
         }
 
-        let suggestions = try await client.suggest(prefix: prefix, limit: limit)
+        let suggestions = try await client.suggest(prefix: prefix, limit: limit, timetable: timetable)
 
         guard !suggestions.isEmpty else {
             return "Našeptávač nic nenašel."
         }
 
-        return (["Nalezené položky:"] + suggestions.enumerated().map { index, suggestion in
+        return (["Nalezené položky (\(timetable.displayName)):"] + suggestions.enumerated().map { index, suggestion in
             var details: [String] = []
             for value in [suggestion.description, suggestion.region].compactMap(\.self) where !value.isEmpty {
                 if !details.contains(where: { $0.localizedCaseInsensitiveContains(value) }) {
@@ -82,16 +85,18 @@ struct CommandRunner {
 
     private func connectionsOutput(for arguments: [String]) async throws -> String {
         let options = CommandOptions(arguments)
+        let timetable = try options.timetable()
 
         guard let from = options.value(for: "--from", short: "-f"), !from.isEmpty else {
-            return "Použití: jizdni-nerady spojeni --from místo --to místo [--date d.m.rrrr] [--time h:mm] [--limit počet]"
+            return "Použití: jizdni-nerady spojeni --from místo --to místo [--timetable alias] [--date d.m.rrrr] [--time h:mm] [--limit počet]"
         }
 
         guard let to = options.value(for: "--to", short: "-t"), !to.isEmpty else {
-            return "Použití: jizdni-nerady spojeni --from místo --to místo [--date d.m.rrrr] [--time h:mm] [--limit počet]"
+            return "Použití: jizdni-nerady spojeni --from místo --to místo [--timetable alias] [--date d.m.rrrr] [--time h:mm] [--limit počet]"
         }
 
         let request = IDOSConnectionRequest(
+            timetable: timetable,
             from: from,
             to: to,
             date: options.value(for: "--date"),
@@ -110,20 +115,36 @@ struct CommandRunner {
         }
 
         return """
-        Spojení \(from) -> \(to):
+        Spojení \(from) -> \(to) (\(timetable.displayName)):
         \(rows.joined(separator: "\n"))
+        """
+    }
+
+    private var timetablesOutput: String {
+        let rows = IDOSTimetable.common.map { timetable in
+            "  \(timetable.slug) - \(timetable.displayName)"
+        }
+
+        return """
+        Běžné jízdní řády:
+        \(rows.joined(separator: "\n"))
+
+        Parametr --timetable přijímá i vlastní IDOS URL slug, například odis nebo pid.
         """
     }
 
     private var helpText: String {
         """
         Použití:
-          jizdni-nerady suggest <text> [--limit počet]
-          jizdni-nerady spojeni --from místo --to místo [--date d.m.rrrr] [--time h:mm] [--limit počet]
+          jizdni-nerady suggest <text> [--timetable alias] [--limit počet]
+          jizdni-nerady spojeni --from místo --to místo [--timetable alias] [--date d.m.rrrr] [--time h:mm] [--limit počet]
+          jizdni-nerady jizdni-rady
 
         Volby:
           -h, --help     Zobrazí nápovědu
           --version      Zobrazí verzi aplikace
+
+        Výchozí jízdní řád je vlakyautobusymhdvse. Alias --jr lze použít místo --timetable.
         """
     }
 }
@@ -177,5 +198,9 @@ private struct CommandOptions {
 
     func integerValue(for name: String) -> Int? {
         value(for: name).flatMap(Int.init)
+    }
+
+    func timetable() throws -> IDOSTimetable {
+        try IDOSTimetable.resolve(value(for: "--timetable") ?? value(for: "--jr"))
     }
 }

@@ -13,6 +13,7 @@ import Testing
 
     #expect(output.contains("Použití:"))
     #expect(output.contains("spojeni"))
+    #expect(output.contains("--timetable"))
     #expect(output.contains("--version"))
 }
 
@@ -23,20 +24,37 @@ import Testing
 }
 
 @Test func suggestCommandPrintsSuggestions() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(for: ["suggest", "Praha"])
+    let output = await CommandRunner(client: MockIDOSClient()).output(for: ["suggest", "Praha", "--timetable", "pid"])
 
+    #expect(output.contains("Praha + PID"))
     #expect(output.contains("Praha hl.n."))
     #expect(output.contains("stanice"))
 }
 
 @Test func connectionCommandPrintsConnections() async {
     let output = await CommandRunner(client: MockIDOSClient()).output(
-        for: ["spojeni", "--from", "Praha", "--to", "Brno", "--limit", "1"]
+        for: ["spojeni", "--from", "Praha", "--to", "Brno", "--jr", "vlaky", "--limit", "1"]
     )
 
-    #expect(output.contains("Spojení Praha -> Brno"))
+    #expect(output.contains("Spojení Praha -> Brno (Vlaky)"))
     #expect(output.contains("12:04 Praha hl.n. -> 15:44 Brno hl.n."))
     #expect(output.contains("R9"))
+}
+
+@Test func timetablesCommandPrintsCommonAliases() async {
+    let output = await CommandRunner(client: MockIDOSClient()).output(for: ["jizdni-rady"])
+
+    #expect(output.contains("vlakyautobusymhdvse"))
+    #expect(output.contains("pid"))
+    #expect(output.contains("frydekmistek"))
+    #expect(output.contains("odis"))
+}
+
+@Test func timetableResolverAcceptsKnownAliasesAndCustomSlugs() throws {
+    #expect(try IDOSTimetable.resolve("vše").slug == "vlakyautobusymhdvse")
+    #expect(try IDOSTimetable.resolve("Praha + PID").slug == "pid")
+    #expect(try IDOSTimetable.resolve("Frýdek-Místek").slug == "frydekmistek")
+    #expect(try IDOSTimetable.resolve("karlovyvary").slug == "karlovyvary")
 }
 
 @Test func jsonpParserDecodesCallbackPayload() throws {
@@ -76,8 +94,10 @@ import Testing
 }
 
 private struct MockIDOSClient: IDOSClienting {
-    func suggest(prefix: String, limit: Int) async throws -> [IDOSSuggestion] {
-        [
+    func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
+        #expect(timetable.slug == "pid")
+
+        return [
             IDOSSuggestion(
                 selectedText: "Praha hl.n.",
                 text: "Praha hl.n.",
@@ -93,7 +113,9 @@ private struct MockIDOSClient: IDOSClienting {
     }
 
     func findConnections(request: IDOSConnectionRequest) async throws -> [IDOSConnection] {
-        [
+        #expect(request.timetable.slug == "vlaky")
+
+        return [
             IDOSConnection(
                 id: "396829589",
                 departureTime: "12:04",

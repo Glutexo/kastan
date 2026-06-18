@@ -4,16 +4,16 @@ import FoundationNetworking
 #endif
 
 protocol IDOSClienting {
-    func suggest(prefix: String, limit: Int) async throws -> [IDOSSuggestion]
+    func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion]
     func findConnections(request: IDOSConnectionRequest) async throws -> [IDOSConnection]
 }
 
 struct IDOSClient: IDOSClienting {
     var baseURL = URL(string: "https://idos.cz")!
 
-    func suggest(prefix: String, limit: Int) async throws -> [IDOSSuggestion] {
+    func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
-        components.path = "/vlakyautobusymhdvse/Ajax/SearchTimetableObjects/"
+        components.path = "/\(timetable.slug)/Ajax/SearchTimetableObjects/"
         components.queryItems = [
             URLQueryItem(name: "count", value: String(limit)),
             URLQueryItem(name: "prefixText", value: prefix),
@@ -32,7 +32,7 @@ struct IDOSClient: IDOSClienting {
 
     func findConnections(request: IDOSConnectionRequest) async throws -> [IDOSConnection] {
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
-        components.path = "/vlakyautobusymhdvse/spojeni/"
+        components.path = "/\(request.timetable.slug)/spojeni/"
         components.queryItems = request.queryItems
 
         let data = try await data(from: components.requiredURL)
@@ -71,6 +71,7 @@ struct IDOSClient: IDOSClienting {
 }
 
 struct IDOSConnectionRequest: Equatable {
+    var timetable: IDOSTimetable
     var from: String
     var to: String
     var date: String?
@@ -84,6 +85,83 @@ struct IDOSConnectionRequest: Equatable {
             time.map { URLQueryItem(name: "time", value: $0) },
             URLQueryItem(name: "submit", value: "true"),
         ].compactMap(\.self)
+    }
+}
+
+struct IDOSTimetable: Equatable {
+    var slug: String
+    var displayName: String
+
+    static let defaultTimetable = IDOSTimetable(slug: "vlakyautobusymhdvse", displayName: "Vše")
+
+    static let common: [IDOSTimetable] = [
+        .defaultTimetable,
+        IDOSTimetable(slug: "vlaky", displayName: "Vlaky"),
+        IDOSTimetable(slug: "autobusy", displayName: "Autobusy"),
+        IDOSTimetable(slug: "vlakyautobusy", displayName: "Vlaky + autobusy"),
+        IDOSTimetable(slug: "pid", displayName: "Praha + PID"),
+        IDOSTimetable(slug: "praha", displayName: "Praha"),
+        IDOSTimetable(slug: "frydekmistek", displayName: "Frýdek-Místek"),
+        IDOSTimetable(slug: "ostrava", displayName: "Ostrava"),
+        IDOSTimetable(slug: "odis", displayName: "ODIS"),
+    ]
+
+    static func resolve(_ value: String?) throws -> IDOSTimetable {
+        guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return .defaultTimetable
+        }
+
+        let normalized = normalize(value)
+        let aliases: [String: IDOSTimetable] = [
+            "vse": .defaultTimetable,
+            "all": .defaultTimetable,
+            "default": .defaultTimetable,
+            "vlaky-autobusy-mhd-vse": .defaultTimetable,
+            "vlakyautobusymhd": .defaultTimetable,
+            "vlakyautobusymhdvse": .defaultTimetable,
+            "vlaky": common[1],
+            "vlak": common[1],
+            "train": common[1],
+            "trains": common[1],
+            "autobusy": common[2],
+            "autobus": common[2],
+            "bus": common[2],
+            "buses": common[2],
+            "vlakyautobusy": common[3],
+            "vlaky-autobusy": common[3],
+            "vlaky+autobusy": common[3],
+            "vlak-bus": common[3],
+            "train-bus": common[3],
+            "pid": common[4],
+            "praha-pid": common[4],
+            "praha+pid": common[4],
+            "praha": common[5],
+            "frýdek-místek": common[6],
+            "frydek-mistek": common[6],
+            "frydekmistek": common[6],
+            "ostrava": common[7],
+            "odis": common[8],
+        ]
+
+        if let timetable = aliases[normalized] {
+            return timetable
+        }
+
+        guard normalized.range(of: #"^[a-z0-9-]+$"#, options: .regularExpression) != nil else {
+            throw IDOSError.invalidTimetable(value)
+        }
+
+        return IDOSTimetable(slug: normalized, displayName: normalized)
+    }
+
+    private static func normalize(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "cs_CZ"))
+            .replacingOccurrences(of: "_", with: "-")
+            .replacingOccurrences(of: #"[\s-]*\+[\s-]*"#, with: "+", options: .regularExpression)
+            .replacingOccurrences(of: " ", with: "-")
     }
 }
 
@@ -141,6 +219,7 @@ enum IDOSError: LocalizedError {
     case invalidResponse
     case invalidURL
     case invalidJSONP
+    case invalidTimetable(String)
 
     var errorDescription: String? {
         switch self {
@@ -150,6 +229,8 @@ enum IDOSError: LocalizedError {
             return "Nepodařilo se sestavit URL pro IDOS."
         case .invalidJSONP:
             return "Našeptávač IDOS vrátil neočekávaný JSONP formát."
+        case .invalidTimetable(let value):
+            return "Neplatný jízdní řád: \(value). Použijte alias nebo URL slug bez lomítek."
         }
     }
 }
