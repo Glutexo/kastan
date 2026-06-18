@@ -24,3 +24,9 @@ Pravidla budeme prubezne rozsirovat.
 - Pri zmene chovani aktualizuj souvisejici dokumentaci a zaroven over, ze kod odpovida dokumentovanym funkcim a vlastnostem.
 - Pridavej testy u zmen, ktere meni chovani nebo mohou rozbit existujici funkcnost.
 - Pokud testy nejdou spustit, uved duvod a co zustava neoverene.
+
+## Styl CLI
+
+- Vystup na prikazove radce ma co nejverneji zachovavat vyznamove informace z IDOSu.
+- Pokud HTML vysledek IDOSu obsahuje barvu pro linku nebo jiny prvek, CLI ma pouzit odpovidajici ANSI barvu.
+- Barevne formatovani nesmi nahrazovat textovy obsah; vystup musi zustat srozumitelny i bez barev.
