@@ -563,7 +563,7 @@ public struct IDOSConnection: Codable, Equatable, Sendable {
     }
 
     public func summaryLine(number: Int) -> String {
-        var result = "\(number). \(departureTime) \(departureStation) → \(arrivalTime) \(arrivalStation)"
+        var result = "\(number). \(TerminalStyle.bold(departureTime)) \(departureStation) → \(TerminalStyle.bold(arrivalTime)) \(arrivalStation)"
 
         if !duration.isEmpty {
             result += " (\(duration))"
@@ -571,7 +571,7 @@ public struct IDOSConnection: Codable, Equatable, Sendable {
 
         if !legs.isEmpty {
             let legSummary = legs.map { leg in
-                [leg.displayName, leg.fromStation, leg.departureTime, "→", leg.arrivalTime, leg.toStation]
+                [leg.displayName, leg.fromStation, TerminalStyle.bold(leg.departureTime), "→", TerminalStyle.bold(leg.arrivalTime), leg.toStation]
                     .filter { !$0.isEmpty }
                     .joined(separator: " ")
             }.map { "   \($0)" }
@@ -666,7 +666,7 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
     }
 
     public func summaryLine(number: Int) -> String {
-        var result = "\(number). \(time) \(displayLineName) → \(destination)"
+        var result = "\(number). \(TerminalStyle.bold(time)) \(displayLineName) → \(destination)"
 
         if let platform, !platform.isEmpty {
             result += " · platform \(platform)"
@@ -1110,6 +1110,19 @@ private enum TerminalColor {
             return nil
         }
         return component
+    }
+}
+
+private enum TerminalStyle {
+    private static let boldCode = "\u{001B}[1m"
+    private static let resetCode = "\u{001B}[0m"
+
+    static func bold(_ text: String) -> String {
+        guard !text.isEmpty else {
+            return text
+        }
+
+        return "\(boldCode)\(text)\(resetCode)"
     }
 }
 

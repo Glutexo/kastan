@@ -28,6 +28,7 @@ swift run kastan departures --station "Ostrava,Hrabůvka,Benzina" --timetable od
 
 Line names in connection output use the same terminal color as IDOS sends in the HTML result.
 Connection legs also include transport emoji such as 🚆 for trains and 🚌 for buses when IDOS exposes the transport type.
+Connection and departure times are bold in text and markdown output.
 
 ### Output Format
 

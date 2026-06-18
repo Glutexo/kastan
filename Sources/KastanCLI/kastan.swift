@@ -300,11 +300,11 @@ private enum OutputFormat: String {
 
             let sections = output.connections.enumerated().map { index, connection in
                 let legs = connection.legs.map { leg in
-                    "| \(Markdown.lineName(leg)) | \(Markdown.escape(leg.fromStation)) | \(Markdown.escape(leg.departureTime)) | \(Markdown.escape(leg.toStation)) | \(Markdown.escape(leg.arrivalTime)) |"
+                    "| \(Markdown.lineName(leg)) | \(Markdown.escape(leg.fromStation)) | \(Markdown.bold(leg.departureTime)) | \(Markdown.escape(leg.toStation)) | \(Markdown.bold(leg.arrivalTime)) |"
                 }.joined(separator: "\n")
 
                 return """
-                ### \(index + 1). \(Markdown.escape(connection.departureTime)) \(Markdown.escape(connection.departureStation)) → \(Markdown.escape(connection.arrivalTime)) \(Markdown.escape(connection.arrivalStation))
+                ### \(index + 1). \(Markdown.bold(connection.departureTime)) \(Markdown.escape(connection.departureStation)) → \(Markdown.bold(connection.arrivalTime)) \(Markdown.escape(connection.arrivalStation))
 
                 Duration: **\(Markdown.escape(connection.duration))**
 
@@ -359,7 +359,7 @@ private enum OutputFormat: String {
             }
 
             let rows = output.departures.enumerated().map { index, departure in
-                "| \(index + 1) | \(Markdown.escape(departure.time)) | \(Markdown.departureLineName(departure)) | \(Markdown.escape(departure.destination)) | \(Markdown.escape(departure.platform ?? "")) | \(Markdown.escape(departure.via ?? "")) | \(Markdown.escape(departure.delay ?? "")) |"
+                "| \(index + 1) | \(Markdown.bold(departure.time)) | \(Markdown.departureLineName(departure)) | \(Markdown.escape(departure.destination)) | \(Markdown.escape(departure.platform ?? "")) | \(Markdown.escape(departure.via ?? "")) | \(Markdown.escape(departure.delay ?? "")) |"
             }.joined(separator: "\n")
 
             return """
@@ -472,6 +472,14 @@ private enum Markdown {
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "|", with: "\\|")
             .replacingOccurrences(of: "\n", with: " ")
+    }
+
+    static func bold(_ value: String) -> String {
+        guard !value.isEmpty else {
+            return ""
+        }
+
+        return "**\(escape(value))**"
     }
 
     static func lineName(_ leg: IDOSConnectionLeg) -> String {

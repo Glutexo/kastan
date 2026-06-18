@@ -68,7 +68,7 @@ import Testing
     )
 
     #expect(output.contains("🧭 Connections Praha → Brno (Trains)"))
-    #expect(output.contains("12:04 Praha hl.n. → 15:44 Brno hl.n."))
+    #expect(output.contains("\u{001B}[1m12:04\u{001B}[0m Praha hl.n. → \u{001B}[1m15:44\u{001B}[0m Brno hl.n."))
     #expect(output.contains("🚆"))
     #expect(output.contains("R9"))
 }
@@ -91,7 +91,9 @@ import Testing
     )
 
     #expect(output.contains("## 🧭 Connections"))
+    #expect(output.contains("### 1. **12:04** Praha hl.n. → **15:44** Brno hl.n."))
     #expect(output.contains("| Line | From | Departure | To | Arrival |"))
+    #expect(output.contains("| 🚆 <span style=\"color: #008000\">R9 (R 981 Vysočina)</span> | Praha hl.n. | **12:04** | Brno hl.n. | **15:44** |"))
     #expect(output.contains(#"🚆 <span style="color: #008000">R9 (R 981 Vysočina)</span>"#))
 }
 
@@ -229,7 +231,7 @@ import Testing
     )
 
     #expect(output.contains("🚏 Departures Ostrava,Hrabůvka,Benzina (ODIS)"))
-    #expect(output.contains("16:03"))
+    #expect(output.contains("\u{001B}[1m16:03\u{001B}[0m"))
     #expect(output.contains("🚌"))
     #expect(output.contains("Bus 980"))
     #expect(output.contains("Rožnov p.Radh.,,aut.st."))
@@ -260,6 +262,7 @@ import Testing
 
     #expect(output.contains("## 🚏 Departures"))
     #expect(output.contains("| # | Time | Line | Destination | Platform | Via | Delay |"))
+    #expect(output.contains("| 1 | **16:03** | 🚌 <span style=\"color: #0000FF\">Bus 980</span> | Rožnov p.Radh.,,aut.st. | 1 | Frýdek-Místek,Místek,Anenská | Currently no delay |"))
     #expect(output.contains(#"🚌 <span style="color: #0000FF">Bus 980</span>"#))
 }
 
