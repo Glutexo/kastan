@@ -20,6 +20,8 @@ Pravidla budeme prubezne rozsirovat.
 ## Kvalita zmen
 
 - Preferuj jednoducha, citelna reseni pred zbytecnymi abstrakcemi.
+- Verejna rozhrani projektu zatim pojmenovavej anglicky, vcetne CLI prikazu, voleb, knihovniho API a dokumentovanych prikladu.
+- Pri anglickem nazvoslovi pouzivej terminy z anglicke verze IDOSu, pokud pro danou vec existuji.
 - Veskery napsany kod dokumentuj z pohledu produktu; dokumentace musi byt soudrzna, uplna a v souladu s implementovanymi funkcemi a vlastnostmi.
 - Pri zmene chovani aktualizuj souvisejici dokumentaci a zaroven over, ze kod odpovida dokumentovanym funkcim a vlastnostem.
 - Pridavej testy u zmen, ktere meni chovani nebo mohou rozbit existujici funkcnost.
