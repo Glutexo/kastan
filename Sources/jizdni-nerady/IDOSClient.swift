@@ -94,16 +94,27 @@ struct IDOSTimetable: Equatable {
 
     static let defaultTimetable = IDOSTimetable(slug: "vlakyautobusymhdvse", displayName: "Vše")
 
-    static let common: [IDOSTimetable] = [
+    static var known: [IDOSTimetable] {
+        baseTimetables + mhdNames
+            .filter { !unsupportedMHDNames.contains($0) }
+            .map { name in
+                IDOSTimetable(
+                    slug: mhdSlugOverrides[name] ?? slugify(name),
+                    displayName: "MHD \(name)"
+                )
+            }
+    }
+
+    private static let baseTimetables: [IDOSTimetable] = [
         .defaultTimetable,
+        IDOSTimetable(slug: "vlakyautobusymhd", displayName: "Vlaky + autobusy + MHD"),
         IDOSTimetable(slug: "vlaky", displayName: "Vlaky"),
         IDOSTimetable(slug: "autobusy", displayName: "Autobusy"),
         IDOSTimetable(slug: "vlakyautobusy", displayName: "Vlaky + autobusy"),
         IDOSTimetable(slug: "pid", displayName: "Praha + PID"),
-        IDOSTimetable(slug: "praha", displayName: "Praha"),
-        IDOSTimetable(slug: "frydekmistek", displayName: "Frýdek-Místek"),
-        IDOSTimetable(slug: "ostrava", displayName: "Ostrava"),
+        IDOSTimetable(slug: "idsjmk", displayName: "IDS JMK / Brno"),
         IDOSTimetable(slug: "odis", displayName: "ODIS"),
+        IDOSTimetable(slug: "idol", displayName: "IDOL"),
     ]
 
     static func resolve(_ value: String?) throws -> IDOSTimetable {
@@ -111,58 +122,216 @@ struct IDOSTimetable: Equatable {
             return .defaultTimetable
         }
 
-        let normalized = normalize(value)
-        let aliases: [String: IDOSTimetable] = [
-            "vse": .defaultTimetable,
-            "all": .defaultTimetable,
-            "default": .defaultTimetable,
-            "vlaky-autobusy-mhd-vse": .defaultTimetable,
-            "vlakyautobusymhd": .defaultTimetable,
-            "vlakyautobusymhdvse": .defaultTimetable,
-            "vlaky": common[1],
-            "vlak": common[1],
-            "train": common[1],
-            "trains": common[1],
-            "autobusy": common[2],
-            "autobus": common[2],
-            "bus": common[2],
-            "buses": common[2],
-            "vlakyautobusy": common[3],
-            "vlaky-autobusy": common[3],
-            "vlaky+autobusy": common[3],
-            "vlak-bus": common[3],
-            "train-bus": common[3],
-            "pid": common[4],
-            "praha-pid": common[4],
-            "praha+pid": common[4],
-            "praha": common[5],
-            "frýdek-místek": common[6],
-            "frydek-mistek": common[6],
-            "frydekmistek": common[6],
-            "ostrava": common[7],
-            "odis": common[8],
-        ]
-
-        if let timetable = aliases[normalized] {
+        let lookup = lookupKey(value)
+        if let timetable = aliases()[lookup] {
             return timetable
         }
 
-        guard normalized.range(of: #"^[a-z0-9-]+$"#, options: .regularExpression) != nil else {
+        let customSlug = slugCandidate(value)
+        guard customSlug.range(of: #"^[a-z0-9-]+$"#, options: .regularExpression) != nil else {
             throw IDOSError.invalidTimetable(value)
         }
 
-        return IDOSTimetable(slug: normalized, displayName: normalized)
+        return IDOSTimetable(slug: customSlug, displayName: customSlug)
     }
 
-    private static func normalize(_ value: String) -> String {
+    private static func aliases() -> [String: IDOSTimetable] {
+        var aliases: [String: IDOSTimetable] = [
+            "vse": .defaultTimetable,
+            "all": .defaultTimetable,
+            "default": .defaultTimetable,
+            "vlakyautobusymhdvse": .defaultTimetable,
+            "vlakyautobusymhd": known.first { $0.slug == "vlakyautobusymhd" }!,
+            "vlak": known.first { $0.slug == "vlaky" }!,
+            "train": known.first { $0.slug == "vlaky" }!,
+            "trains": known.first { $0.slug == "vlaky" }!,
+            "autobus": known.first { $0.slug == "autobusy" }!,
+            "bus": known.first { $0.slug == "autobusy" }!,
+            "buses": known.first { $0.slug == "autobusy" }!,
+            "vlakbus": known.first { $0.slug == "vlakyautobusy" }!,
+            "trainbus": known.first { $0.slug == "vlakyautobusy" }!,
+            "prahapid": known.first { $0.slug == "pid" }!,
+            "brno": known.first { $0.slug == "idsjmk" }!,
+            "jmk": known.first { $0.slug == "idsjmk" }!,
+            "idsjmk": known.first { $0.slug == "idsjmk" }!,
+            "libereckykraj": known.first { $0.slug == "idol" }!,
+        ]
+
+        for timetable in known {
+            aliases[lookupKey(timetable.slug)] = timetable
+            aliases[lookupKey(timetable.displayName)] = timetable
+
+            if timetable.displayName.hasPrefix("MHD ") {
+                aliases[lookupKey(String(timetable.displayName.dropFirst(4)))] = timetable
+            }
+        }
+
+        return aliases
+    }
+
+    private static func lookupKey(_ value: String) -> String {
+        ascii(value).filter { $0.isLetter || $0.isNumber }
+    }
+
+    private static func slugCandidate(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmed.range(of: #"^[A-Za-z0-9-]+$"#, options: .regularExpression) != nil {
+            return trimmed.lowercased()
+        }
+
+        return slugify(trimmed)
+    }
+
+    private static func slugify(_ value: String) -> String {
+        let compact = ascii(value)
+        let withoutMHD = compact.hasPrefix("mhd") ? String(compact.dropFirst(3)) : compact
+
+        return withoutMHD.filter { $0.isLetter || $0.isNumber }
+    }
+
+    private static func ascii(_ value: String) -> String {
         value
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
             .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "cs_CZ"))
-            .replacingOccurrences(of: "_", with: "-")
-            .replacingOccurrences(of: #"[\s-]*\+[\s-]*"#, with: "+", options: .regularExpression)
-            .replacingOccurrences(of: " ", with: "-")
     }
+
+    private static let mhdSlugOverrides: [String: String] = [
+        "Brandýs n.L.-St.Bol.": "brandys",
+        "Bystřice nad Pernštejnem": "bystrice",
+        "Most a Litvínov": "most",
+        "Zlín a Otrokovice": "zlin",
+    ]
+
+    private static let unsupportedMHDNames: Set<String> = [
+        "Beroun",
+        "Čáslav",
+        "Dačice",
+        "Dvůr Králové n. L.",
+        "Hořice",
+        "Jablonec nad Nisou",
+        "Kralupy nad Vltavou",
+        "Mělník",
+        "Mikulov",
+        "Neratovice",
+        "Nymburk",
+        "Přeštice",
+        "Roudnice nad Labem",
+        "Rychnov nad Kněžnou",
+        "Štětí",
+        "Žamberk",
+    ]
+
+    private static let mhdNames = [
+        "Praha",
+        "Ostrava",
+        "Adamov",
+        "Aš",
+        "Benešov",
+        "Beroun",
+        "Bílina",
+        "Blansko",
+        "Brandýs n.L.-St.Bol.",
+        "Bruntál",
+        "Bystřice nad Pernštejnem",
+        "Břeclav",
+        "Čáslav",
+        "Česká Lípa",
+        "České Budějovice",
+        "Český Těšín",
+        "Dačice",
+        "Děčín",
+        "Domažlice",
+        "Duchcov",
+        "Dvůr Králové n. L.",
+        "Frýdek-Místek",
+        "Havířov",
+        "Havlíčkův Brod",
+        "Hodonín",
+        "Hořice",
+        "Hradec Králové",
+        "Hranice",
+        "Cheb",
+        "Chomutov",
+        "Chrudim",
+        "Jablonec nad Nisou",
+        "Jáchymov",
+        "Jičín",
+        "Jihlava",
+        "Jindřichův Hradec",
+        "Kadaň",
+        "Karlovy Vary",
+        "Karviná",
+        "Kladno",
+        "Klášterec nad Ohří",
+        "Klatovy",
+        "Kolín",
+        "Kralupy nad Vltavou",
+        "Krnov",
+        "Kroměříž",
+        "Kutná Hora",
+        "Kyjov",
+        "Liberec",
+        "Litoměřice",
+        "Litomyšl",
+        "Louny",
+        "Lovosice",
+        "Mariánské Lázně",
+        "Mělník",
+        "Mikulov",
+        "Mladá Boleslav",
+        "Most a Litvínov",
+        "Náchod",
+        "Neratovice",
+        "Nový Jičín",
+        "Nymburk",
+        "Olomouc",
+        "Opava",
+        "Orlová",
+        "Ostrov",
+        "Pardubice",
+        "Pelhřimov",
+        "Písek",
+        "Plzeň",
+        "Polička",
+        "Prostějov",
+        "Přelouč",
+        "Přerov",
+        "Přeštice",
+        "Příbram",
+        "Rokycany",
+        "Roudnice nad Labem",
+        "Rychnov nad Kněžnou",
+        "Slaný",
+        "Sokolov",
+        "Strakonice",
+        "Stříbro",
+        "Studénka",
+        "Špindlerův Mlýn",
+        "Šumperk",
+        "Tábor",
+        "Tachov",
+        "Teplice",
+        "Trutnov",
+        "Třebíč",
+        "Třinec",
+        "Turnov",
+        "Týniště nad Orlicí",
+        "Uherské Hradiště",
+        "Ústí nad Labem",
+        "Valašské Meziříčí",
+        "Velké Meziříčí",
+        "Vlašim",
+        "Vrchlabí",
+        "Vsetín",
+        "Vyškov",
+        "Zábřeh",
+        "Zlín a Otrokovice",
+        "Znojmo",
+        "Žatec",
+        "Žďár nad Sázavou",
+    ]
 }
 
 struct IDOSSuggestion: Codable, Equatable {

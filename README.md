@@ -35,25 +35,13 @@ swift run jizdni-nerady spojeni --from Ostrava --to "Frýdek-Místek" --timetabl
 swift run jizdni-nerady spojeni --from Praha --to Brno --timetable vlaky
 ```
 
-Běžné aliasy:
-
-- `vlakyautobusymhdvse`, `vse`, `vše` - vše
-- `vlaky` - vlaky
-- `autobusy` - autobusy
-- `vlakyautobusy`, `vlaky-autobusy` - vlaky + autobusy
-- `pid`, `praha-pid` - Praha + PID
-- `praha` - Praha
-- `frydekmistek`, `frydek-mistek`, `frýdek-místek` - Frýdek-Místek
-- `ostrava` - Ostrava
-- `odis` - ODIS
-
-Seznam běžných voleb vypíše:
+Seznam známých voleb vypíše:
 
 ```sh
 swift run jizdni-nerady jizdni-rady
 ```
 
-Parametr přijímá i vlastní URL slug IDOSu, například `karlovyvary`, pokud ho IDOS podporuje.
+Parametr přijímá také vlastní URL slug IDOSu, například `karlovyvary`, pokud ho IDOS podporuje. Kromě slugů fungují i názvy z katalogu, například `--jr "MHD Karlovy Vary"` nebo `--jr "Zlín a Otrokovice"`.
 
 Nástroj je určený pro nízkofrekvenční osobní použití. Pokud IDOS změní HTML nebo interní JSONP našeptávač, parser bude potřeba upravit.
 

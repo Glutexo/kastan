@@ -121,15 +121,15 @@ struct CommandRunner {
     }
 
     private var timetablesOutput: String {
-        let rows = IDOSTimetable.common.map { timetable in
+        let rows = IDOSTimetable.known.map { timetable in
             "  \(timetable.slug) - \(timetable.displayName)"
         }
 
         return """
-        Běžné jízdní řády:
+        Jízdní řády:
         \(rows.joined(separator: "\n"))
 
-        Parametr --timetable přijímá i vlastní IDOS URL slug, například odis nebo pid.
+        Parametr --timetable přijímá také vlastní IDOS URL slug, pokud ho IDOS podporuje.
         """
     }
 
