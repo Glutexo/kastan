@@ -33,10 +33,10 @@ struct CommandRunner {
 
         guard let command = arguments.first else {
             return """
-            Jízdní neřády
+            🚆 jizdni-nerady
 
-            Vyhledejte občasné spojení nebo položku našeptávače IDOS.
-            Pro nápovědu spusťte jizdni-nerady --help.
+            Search occasional IDOS connections or suggested places.
+            Run jizdni-nerady --help for usage.
             """
         }
 
@@ -49,10 +49,10 @@ struct CommandRunner {
             case "timetables":
                 return timetablesOutput
             default:
-                return "Neznámý příkaz: \(command)\n\n\(helpText)"
+                return "❌ Unknown command: \(command)\n\n\(helpText)"
             }
         } catch {
-            return "Chyba: \(error.localizedDescription)"
+            return "❌ Error: \(error.localizedDescription)"
         }
     }
 
@@ -63,16 +63,16 @@ struct CommandRunner {
         let prefix = options.positional.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !prefix.isEmpty else {
-            return "Použití: jizdni-nerady suggest <text> [--timetable alias] [--limit počet]"
+            return "Usage: jizdni-nerady suggest <text> [--timetable alias] [--limit count]"
         }
 
         let suggestions = try await client.suggest(prefix: prefix, limit: limit, timetable: timetable)
 
         guard !suggestions.isEmpty else {
-            return "Našeptávač nic nenašel."
+            return "🔎 No suggested places found."
         }
 
-        return (["Nalezené položky (\(timetable.displayName)):"] + suggestions.enumerated().map { index, suggestion in
+        return (["🔎 Suggested places (\(timetable.displayName)):"] + suggestions.enumerated().map { index, suggestion in
             var details: [String] = []
             for value in [suggestion.description, suggestion.region].compactMap(\.self) where !value.isEmpty {
                 if !details.contains(where: { $0.localizedCaseInsensitiveContains(value) }) {
@@ -89,11 +89,11 @@ struct CommandRunner {
         let timetable = try options.timetable()
 
         guard let from = options.value(for: "--from", short: "-f"), !from.isEmpty else {
-            return "Použití: jizdni-nerady connections --from místo --to místo [--timetable alias] [--date d.m.rrrr] [--time h:mm] [--direct] [--limit počet]"
+            return "Usage: jizdni-nerady connections --from place --to place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--direct] [--limit count]"
         }
 
         guard let to = options.value(for: "--to", short: "-t"), !to.isEmpty else {
-            return "Použití: jizdni-nerady connections --from místo --to místo [--timetable alias] [--date d.m.rrrr] [--time h:mm] [--direct] [--limit počet]"
+            return "Usage: jizdni-nerady connections --from place --to place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--direct] [--limit count]"
         }
 
         let request = IDOSConnectionRequest(
@@ -108,7 +108,7 @@ struct CommandRunner {
         let connections = try await client.findConnections(request: request)
 
         guard !connections.isEmpty else {
-            return "IDOS nevrátil žádné spojení."
+            return "🔎 IDOS returned no connections."
         }
 
         let limitedConnections = connections.prefix(max(1, limit))
@@ -117,7 +117,7 @@ struct CommandRunner {
         }
 
         return """
-        Spojení \(from) → \(to) (\(timetable.displayName)):
+        🧭 Connections \(from) → \(to) (\(timetable.displayName)):
         \(rows.joined(separator: "\n"))
         """
     }
@@ -128,26 +128,26 @@ struct CommandRunner {
         }
 
         return """
-        Jízdní řády:
+        🗂 Timetables:
         \(rows.joined(separator: "\n"))
 
-        Parametr --timetable přijímá také vlastní IDOS URL slug, pokud ho IDOS podporuje.
+        --timetable also accepts a custom IDOS URL slug when IDOS supports it.
         """
     }
 
     private var helpText: String {
         """
-        Použití:
-          jizdni-nerady suggest <text> [--timetable alias] [--limit počet]
-          jizdni-nerady connections --from místo --to místo [--timetable alias] [--date d.m.rrrr] [--time h:mm] [--direct] [--limit počet]
+        🚆 Usage:
+          jizdni-nerady suggest <text> [--timetable alias] [--limit count]
+          jizdni-nerady connections --from place --to place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--direct] [--limit count]
           jizdni-nerady timetables
 
-        Volby:
-          -h, --help              Zobrazí nápovědu
-          --version               Zobrazí verzi aplikace
-          --direct, --only-direct Hledá pouze přímá spojení
+        ⚙️ Options:
+          -h, --help              Show help
+          --version               Show the app version
+          --direct, --only-direct Direct connections only
 
-        Výchozí jízdní řád je vlakyautobusymhdvse.
+        Default timetable is vlakyautobusymhdvse.
         """
     }
 }

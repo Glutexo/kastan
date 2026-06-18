@@ -17,7 +17,7 @@ public struct IDOSClient: IDOSClienting {
 
     public func suggest(prefix: String, limit: Int = 8, timetable: IDOSTimetable = .defaultTimetable) async throws -> [IDOSSuggestion] {
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
-        components.path = "/\(timetable.slug)/Ajax/SearchTimetableObjects/"
+        components.path = "/en/\(timetable.slug)/Ajax/SearchTimetableObjects/"
         components.queryItems = [
             URLQueryItem(name: "count", value: String(limit)),
             URLQueryItem(name: "prefixText", value: prefix),
@@ -36,7 +36,7 @@ public struct IDOSClient: IDOSClienting {
 
     public func findConnections(request: IDOSConnectionRequest) async throws -> [IDOSConnection] {
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
-        components.path = "/\(request.timetable.slug)/spojeni/"
+        components.path = "/en/\(request.timetable.slug)/spojeni/"
         components.queryItems = request.queryItems
 
         let data = try await data(from: components.requiredURL)
@@ -119,7 +119,7 @@ public struct IDOSTimetable: Equatable, Sendable {
         self.displayName = displayName
     }
 
-    public static let defaultTimetable = IDOSTimetable(slug: "vlakyautobusymhdvse", displayName: "Vše")
+    public static let defaultTimetable = IDOSTimetable(slug: "vlakyautobusymhdvse", displayName: "All timetables")
 
     public static var known: [IDOSTimetable] {
         baseTimetables + mhdNames
@@ -127,18 +127,18 @@ public struct IDOSTimetable: Equatable, Sendable {
             .map { name in
                 IDOSTimetable(
                     slug: mhdSlugOverrides[name] ?? slugify(name),
-                    displayName: "MHD \(name)"
+                    displayName: "Urban Public Transport \(name)"
                 )
             }
     }
 
     private static let baseTimetables: [IDOSTimetable] = [
         .defaultTimetable,
-        IDOSTimetable(slug: "vlakyautobusymhd", displayName: "Vlaky + autobusy + MHD"),
-        IDOSTimetable(slug: "vlaky", displayName: "Vlaky"),
-        IDOSTimetable(slug: "autobusy", displayName: "Autobusy"),
-        IDOSTimetable(slug: "vlakyautobusy", displayName: "Vlaky + autobusy"),
-        IDOSTimetable(slug: "pid", displayName: "Praha + PID"),
+        IDOSTimetable(slug: "vlakyautobusymhd", displayName: "Trains + Buses + Urban Public Transport"),
+        IDOSTimetable(slug: "vlaky", displayName: "Trains"),
+        IDOSTimetable(slug: "autobusy", displayName: "Buses"),
+        IDOSTimetable(slug: "vlakyautobusy", displayName: "Trains + Buses"),
+        IDOSTimetable(slug: "pid", displayName: "Prague + PID"),
         IDOSTimetable(slug: "idsjmk", displayName: "IDS JMK / Brno"),
         IDOSTimetable(slug: "odis", displayName: "ODIS"),
         IDOSTimetable(slug: "idol", displayName: "IDOL"),
@@ -154,8 +154,7 @@ public struct IDOSTimetable: Equatable, Sendable {
             return timetable
         }
 
-        let customSlug = slugCandidate(value)
-        guard customSlug.range(of: #"^[a-z0-9-]+$"#, options: .regularExpression) != nil else {
+        guard let customSlug = slugCandidate(value) else {
             throw IDOSError.invalidTimetable(value)
         }
 
@@ -164,18 +163,14 @@ public struct IDOSTimetable: Equatable, Sendable {
 
     private static func aliases() -> [String: IDOSTimetable] {
         var aliases: [String: IDOSTimetable] = [
-            "vse": .defaultTimetable,
             "all": .defaultTimetable,
             "default": .defaultTimetable,
             "vlakyautobusymhdvse": .defaultTimetable,
             "vlakyautobusymhd": known.first { $0.slug == "vlakyautobusymhd" }!,
-            "vlak": known.first { $0.slug == "vlaky" }!,
             "train": known.first { $0.slug == "vlaky" }!,
             "trains": known.first { $0.slug == "vlaky" }!,
-            "autobus": known.first { $0.slug == "autobusy" }!,
             "bus": known.first { $0.slug == "autobusy" }!,
             "buses": known.first { $0.slug == "autobusy" }!,
-            "vlakbus": known.first { $0.slug == "vlakyautobusy" }!,
             "trainbus": known.first { $0.slug == "vlakyautobusy" }!,
             "prahapid": known.first { $0.slug == "pid" }!,
             "brno": known.first { $0.slug == "idsjmk" }!,
@@ -188,8 +183,8 @@ public struct IDOSTimetable: Equatable, Sendable {
             aliases[lookupKey(timetable.slug)] = timetable
             aliases[lookupKey(timetable.displayName)] = timetable
 
-            if timetable.displayName.hasPrefix("MHD ") {
-                aliases[lookupKey(String(timetable.displayName.dropFirst(4)))] = timetable
+            if timetable.displayName.hasPrefix("Urban Public Transport ") {
+                aliases[lookupKey(String(timetable.displayName.dropFirst("Urban Public Transport ".count)))] = timetable
             }
         }
 
@@ -200,21 +195,23 @@ public struct IDOSTimetable: Equatable, Sendable {
         ascii(value).filter { $0.isLetter || $0.isNumber }
     }
 
-    private static func slugCandidate(_ value: String) -> String {
+    private static func slugCandidate(_ value: String) -> String? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if trimmed.range(of: #"^[A-Za-z0-9-]+$"#, options: .regularExpression) != nil {
             return trimmed.lowercased()
         }
 
-        return slugify(trimmed)
+        return nil
     }
 
     private static func slugify(_ value: String) -> String {
         let compact = ascii(value)
-        let withoutMHD = compact.hasPrefix("mhd") ? String(compact.dropFirst(3)) : compact
+        let withoutUrbanPublicTransport = compact.hasPrefix("urbanpublictransport")
+            ? String(compact.dropFirst("urbanpublictransport".count))
+            : compact
 
-        return withoutMHD.filter { $0.isLetter || $0.isNumber }
+        return withoutUrbanPublicTransport.filter { $0.isLetter || $0.isNumber }
     }
 
     private static func ascii(_ value: String) -> String {
@@ -483,13 +480,13 @@ public enum IDOSError: LocalizedError, Sendable {
     public var errorDescription: String? {
         switch self {
         case .invalidResponse:
-            return "IDOS vrátil neočekávanou odpověď."
+            return "IDOS returned an unexpected response."
         case .invalidURL:
-            return "Nepodařilo se sestavit URL pro IDOS."
+            return "Could not build the IDOS URL."
         case .invalidJSONP:
-            return "Našeptávač IDOS vrátil neočekávaný JSONP formát."
+            return "IDOS suggestions returned an unexpected JSONP format."
         case .invalidTimetable(let value):
-            return "Neplatný jízdní řád: \(value). Použijte alias nebo URL slug bez lomítek."
+            return "Invalid timetable: \(value). Use an alias or a URL slug without slashes."
         }
     }
 }
@@ -586,7 +583,7 @@ enum IDOSConnectionParser {
             arrivalTime: last.time,
             arrivalStation: last.station,
             duration: HTMLText.clean(RegexSupport.capture(
-                pattern: #"Celkový čas\s*<strong>(.*?)</strong>"#,
+                pattern: #"Overall time\s*<strong>(.*?)</strong>"#,
                 in: block,
                 options: [.dotMatchesLineSeparators]
             ) ?? ""),

@@ -1,41 +1,41 @@
 # jizdni-nerady
 
-Jízdní neřády jsou osobní Swift CLI a importovatelná Swift knihovna pro občasné jednorázové dotazy do IDOSu.
-Používají veřejně dostupné URL rozhraní webu IDOS a parsují vrácené HTML, takže nejde o stabilní ani garantované datové API.
+jizdni-nerady is a personal Swift CLI and importable Swift library for occasional one-off IDOS queries.
+It uses publicly reachable IDOS web endpoints and parses returned HTML, so it is not a stable or guaranteed data API.
 
-## Použití
+## Usage
 
-Našeptání názvu stanice nebo místa:
+Suggest a station or place:
 
 ```sh
 swift run jizdni-nerady suggest Praha
 swift run jizdni-nerady suggest Svinov --timetable ostrava
 ```
 
-Vyhledání spojení:
+Search connections:
 
 ```sh
 swift run jizdni-nerady connections --from Praha --to Brno --date 18.6.2026 --time 12:00
 swift run jizdni-nerady connections --from "Frýdek-Místek" --to Ostrava --timetable odis
 ```
 
-Názvy linek ve výpisu spojení používají v terminálu stejnou barvu, jakou IDOS posílá v HTML výsledku.
+Line names in connection output use the same terminal color as IDOS sends in the HTML result.
 
-Volitelně lze omezit počet vypsaných položek:
+Limit the number of printed results:
 
 ```sh
 swift run jizdni-nerady connections --from Praha --to Brno --limit 3
 ```
 
-Pro vyhledání pouze přímých spojení použijte `--direct`:
+Search direct connections only:
 
 ```sh
 swift run jizdni-nerady connections --from Praha --to Brno --direct
 ```
 
-### Jízdní řád
+### Timetable
 
-Výchozí jízdní řád je `vlakyautobusymhdvse`, tedy vše. Zvolit ho lze parametrem `--timetable`:
+The default timetable is `vlakyautobusymhdvse`, IDOS English `All timetables`. Select another timetable with `--timetable`:
 
 ```sh
 swift run jizdni-nerady connections --from Praha --to Beroun --timetable pid
@@ -43,19 +43,19 @@ swift run jizdni-nerady connections --from Ostrava --to "Frýdek-Místek" --time
 swift run jizdni-nerady connections --from Praha --to Brno --timetable vlaky
 ```
 
-Seznam známých voleb vypíše:
+Print known timetable choices:
 
 ```sh
 swift run jizdni-nerady timetables
 ```
 
-Parametr přijímá také vlastní URL slug IDOSu, například `karlovyvary`, pokud ho IDOS podporuje. Kromě slugů fungují i názvy z katalogu, například `--timetable "MHD Karlovy Vary"` nebo `--timetable "Zlín a Otrokovice"`.
+The parameter also accepts a custom IDOS URL slug, such as `karlovyvary`, when IDOS supports it. Besides slugs, catalog names work too, for example `--timetable "Urban Public Transport Karlovy Vary"` or `--timetable "Zlín a Otrokovice"`.
 
-Nástroj je určený pro nízkofrekvenční osobní použití. Pokud IDOS změní HTML nebo interní JSONP našeptávač, parser bude potřeba upravit.
+This tool is intended for low-frequency personal use. If IDOS changes its HTML or internal JSONP suggestions endpoint, the parser will need an update.
 
-## Swift knihovna
+## Swift Library
 
-Package exportuje knihovní produkt `JizdniNerady`:
+The package exports the `JizdniNerady` library product:
 
 ```swift
 import JizdniNerady
@@ -71,9 +71,9 @@ let request = IDOSConnectionRequest(
 let connections = try await client.findConnections(request: request)
 ```
 
-Veřejné API zahrnuje `IDOSClient`, `IDOSConnectionRequest`, `IDOSTimetable`, `IDOSSuggestion`, `IDOSConnection`, `IDOSConnectionLeg` a `IDOSError`.
+The public API includes `IDOSClient`, `IDOSConnectionRequest`, `IDOSTimetable`, `IDOSSuggestion`, `IDOSConnection`, `IDOSConnectionLeg`, and `IDOSError`.
 
-## Vývoj
+## Development
 
 ```sh
 swift build
