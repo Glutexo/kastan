@@ -20,5 +20,7 @@ Pravidla budeme prubezne rozsirovat.
 ## Kvalita zmen
 
 - Preferuj jednoducha, citelna reseni pred zbytecnymi abstrakcemi.
+- Veskery napsany kod dokumentuj z pohledu produktu; dokumentace musi byt soudrzna, uplna a v souladu s implementovanymi funkcemi a vlastnostmi.
+- Pri zmene chovani aktualizuj souvisejici dokumentaci a zaroven over, ze kod odpovida dokumentovanym funkcim a vlastnostem.
 - Pridavej testy u zmen, ktere meni chovani nebo mohou rozbit existujici funkcnost.
 - Pokud testy nejdou spustit, uved duvod a co zustava neoverene.
