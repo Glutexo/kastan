@@ -634,7 +634,7 @@ public struct IDOSConnection: Codable, Equatable, Sendable {
         case shareURL
     }
 
-    public func summaryLine(number: Int) -> String {
+    public func summaryLine(number: Int, includeDetails: Bool = true) -> String {
         var result = "\(number). \(TerminalStyle.bold(departureTime)) \(departureStation) → \(TerminalStyle.bold(arrivalTime)) \(arrivalStation)"
 
         if !duration.isEmpty {
@@ -645,19 +645,19 @@ public struct IDOSConnection: Codable, Equatable, Sendable {
             let legSummary = legs.map { leg in
                 let line = [
                     leg.displayName,
-                    leg.fromStationDisplay,
+                    includeDetails ? leg.fromStationDisplay : leg.fromStation,
                     TerminalStyle.bold(leg.departureTime),
                     "→",
                     TerminalStyle.bold(leg.arrivalTime),
-                    leg.toStationDisplay,
+                    includeDetails ? leg.toStationDisplay : leg.toStation,
                 ]
                     .filter { !$0.isEmpty }
                     .joined(separator: " ")
-                let details = [leg.carrier, leg.delay]
+                let details = includeDetails ? [leg.carrier, leg.delay]
                     .compactMap(\.self)
                     .filter { !$0.isEmpty }
                     .map { "      \($0)" }
-                    .joined(separator: "\n")
+                    .joined(separator: "\n") : ""
 
                 return details.isEmpty ? line : "\(line)\n\(details)"
             }.map { "   \($0)" }
@@ -794,26 +794,30 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
             .joined(separator: " ")
     }
 
-    public func summaryLine(number: Int) -> String {
+    public func summaryLine(number: Int, includeDetails: Bool = true) -> String {
         var result = "\(number). \(TerminalStyle.bold(time)) \(displayLineName) → \(destination)"
 
-        if let tariffZone, !tariffZone.isEmpty {
-            result += " · tariff zone \(tariffZone)"
-        }
+        if includeDetails {
+            if let tariffZone, !tariffZone.isEmpty {
+                result += " · tariff zone \(tariffZone)"
+            }
 
-        if let platform, !platform.isEmpty {
-            result += " · platform \(platform)"
+            if let platform, !platform.isEmpty {
+                result += " · platform \(platform)"
+            }
         }
 
         var details: [String] = []
         if let via, !via.isEmpty {
             details.append("via \(via)")
         }
-        if let carrier, !carrier.isEmpty {
-            details.append(carrier)
-        }
-        if let delay, !delay.isEmpty {
-            details.append(delay)
+        if includeDetails {
+            if let carrier, !carrier.isEmpty {
+                details.append(carrier)
+            }
+            if let delay, !delay.isEmpty {
+                details.append(delay)
+            }
         }
 
         if !details.isEmpty {

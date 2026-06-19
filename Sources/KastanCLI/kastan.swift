@@ -102,7 +102,7 @@ struct CommandRunner {
     private func connectionsOutput(for arguments: [String]) async throws -> String {
         let options = CommandOptions(arguments)
         try options.rejectUnknownOptions(
-            allowedFlags: ["--arrival", "--departure", "--direct", "--only-direct", "--add-to-calendar"],
+            allowedFlags: ["--arrival", "--departure", "--direct", "--only-direct", "--add-to-calendar", "--verbose"],
             allowedValueOptions: [
                 "--from", "-f", "--to", "-t", "--via", "--timetable", "--date", "--time",
                 "--max-transfers", "--min-transfer-time", "--format", "--limit",
@@ -162,14 +162,18 @@ struct CommandRunner {
         }
 
         return try format.renderConnections(
-            ConnectionsOutput(request: request, connections: Array(connections.prefix(max(1, limit))))
+            ConnectionsOutput(
+                request: request,
+                connections: Array(connections.prefix(max(1, limit))),
+                verbose: options.contains("--verbose")
+            )
         )
     }
 
     private func departuresOutput(for arguments: [String]) async throws -> String {
         let options = CommandOptions(arguments)
         try options.rejectUnknownOptions(
-            allowedFlags: ["--arrival", "--departure"],
+            allowedFlags: ["--arrival", "--departure", "--verbose"],
             allowedValueOptions: ["--station", "-s", "--from", "-f", "--timetable", "--date", "--time", "--format", "--limit"]
         )
         let format = try options.outputFormat()
@@ -195,7 +199,11 @@ struct CommandRunner {
         let limit = options.integerValue(for: "--limit") ?? 10
         let departures = try await client.findDepartures(request: request)
         return try format.renderDepartures(
-            DeparturesOutput(request: request, departures: Array(departures.prefix(max(1, limit))))
+            DeparturesOutput(
+                request: request,
+                departures: Array(departures.prefix(max(1, limit))),
+                verbose: options.contains("--verbose")
+            )
         )
     }
 
@@ -422,11 +430,11 @@ struct CommandRunner {
     }
 
     private var connectionUsage: String {
-        "Usage: kastan connections route|from to|--from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--add-to-calendar] [--format text|markdown|json|ics] [--limit count]"
+        "Usage: kastan connections route|from to|--from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--add-to-calendar] [--verbose] [--format text|markdown|json|ics] [--limit count]"
     }
 
     private var departuresUsage: String {
-        "Usage: kastan departures station|--from place|--station place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--format text|markdown|json] [--limit count]"
+        "Usage: kastan departures station|--from place|--station place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--verbose] [--format text|markdown|json] [--limit count]"
     }
 
     private var helpText: String {
@@ -435,8 +443,8 @@ struct CommandRunner {
           kastan route|from to
           kastan station
           kastan suggest <text> [--timetable alias] [--format text|markdown|json] [--limit count]
-          kastan connections route|from to|--from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--add-to-calendar] [--format text|markdown|json|ics] [--limit count]
-          kastan departures station|--from place|--station place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--format text|markdown|json] [--limit count]
+          kastan connections route|from to|--from place --to place [--via place] [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--direct] [--max-transfers count] [--min-transfer-time minutes] [--add-to-calendar] [--verbose] [--format text|markdown|json|ics] [--limit count]
+          kastan departures station|--from place|--station place [--timetable alias] [--date d.m.yyyy] [--time h:mm] [--arrival|--departure] [--verbose] [--format text|markdown|json] [--limit count]
           kastan aliases list|add|remove|path [--format text|markdown|json]
           kastan timetables [--format text|markdown|json]
 
@@ -449,6 +457,7 @@ struct CommandRunner {
           --via                   Via place, repeat for multiple places
           --direct, --only-direct Direct connections only
           --add-to-calendar       Open the first returned connection as an iCalendar import
+          --verbose               Show tariff zones, platforms, carriers, and delay details
           --max-transfers         Maximum transfers permitted, including 0
           --min-transfer-time     Minimum transfer time in minutes, including 0
           --format                Output format: text, markdown, json, or ics for connections
@@ -579,7 +588,7 @@ private enum OutputFormat: String {
             }
 
             let rows = output.connections.enumerated().map { index, connection in
-                connection.summaryLine(number: index + 1)
+                connection.summaryLine(number: index + 1, includeDetails: output.verbose)
             }
 
             return """
@@ -602,16 +611,26 @@ private enum OutputFormat: String {
 
             let sections = output.connections.enumerated().map { index, connection in
                 let legs = connection.legs.map { leg in
-                    "| \(Markdown.lineName(leg)) | \(Markdown.escape(leg.fromStation)) | \(Markdown.escape(leg.fromTariffZone ?? "")) | \(Markdown.escape(leg.fromPlatform ?? "")) | \(Markdown.bold(leg.departureTime)) | \(Markdown.escape(leg.toStation)) | \(Markdown.escape(leg.toTariffZone ?? "")) | \(Markdown.escape(leg.toPlatform ?? "")) | \(Markdown.bold(leg.arrivalTime)) | \(Markdown.escape(leg.carrier ?? "")) | \(Markdown.escape(leg.delay ?? "")) |"
+                    if output.verbose {
+                        return "| \(Markdown.lineName(leg)) | \(Markdown.escape(leg.fromStation)) | \(Markdown.escape(leg.fromTariffZone ?? "")) | \(Markdown.escape(leg.fromPlatform ?? "")) | \(Markdown.bold(leg.departureTime)) | \(Markdown.escape(leg.toStation)) | \(Markdown.escape(leg.toTariffZone ?? "")) | \(Markdown.escape(leg.toPlatform ?? "")) | \(Markdown.bold(leg.arrivalTime)) | \(Markdown.escape(leg.carrier ?? "")) | \(Markdown.escape(leg.delay ?? "")) |"
+                    }
+
+                    return "| \(Markdown.lineName(leg)) | \(Markdown.escape(leg.fromStation)) | \(Markdown.bold(leg.departureTime)) | \(Markdown.escape(leg.toStation)) | \(Markdown.bold(leg.arrivalTime)) |"
                 }.joined(separator: "\n")
+                let tableHeader = output.verbose ? """
+                | Line | From | From Tariff Zone | From Platform | Departure | To | To Tariff Zone | To Platform | Arrival | Carrier | Delay |
+                | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+                """ : """
+                | Line | From | Departure | To | Arrival |
+                | --- | --- | --- | --- | --- |
+                """
 
                 return """
                 ### \(index + 1). \(Markdown.bold(connection.departureTime)) \(Markdown.escape(connection.departureStation)) → \(Markdown.bold(connection.arrivalTime)) \(Markdown.escape(connection.arrivalStation))
 
                 Duration: **\(Markdown.escape(connection.duration))**
 
-                | Line | From | From Tariff Zone | From Platform | Departure | To | To Tariff Zone | To Platform | Arrival | Carrier | Delay |
-                | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+                \(tableHeader)
                 \(legs)
                 """
             }.joined(separator: "\n\n")
@@ -660,7 +679,7 @@ private enum OutputFormat: String {
             }
 
             let rows = output.departures.enumerated().map { index, departure in
-                departure.summaryLine(number: index + 1)
+                departure.summaryLine(number: index + 1, includeDetails: output.verbose)
             }
 
             return """
@@ -680,8 +699,19 @@ private enum OutputFormat: String {
             }
 
             let rows = output.departures.enumerated().map { index, departure in
-                "| \(index + 1) | \(Markdown.bold(departure.time)) | \(Markdown.departureLineName(departure)) | \(Markdown.escape(departure.destination)) | \(Markdown.escape(departure.tariffZone ?? "")) | \(Markdown.escape(departure.platform ?? "")) | \(Markdown.escape(departure.via ?? "")) | \(Markdown.escape(departure.delay ?? "")) |"
+                if output.verbose {
+                    return "| \(index + 1) | \(Markdown.bold(departure.time)) | \(Markdown.departureLineName(departure)) | \(Markdown.escape(departure.destination)) | \(Markdown.escape(departure.tariffZone ?? "")) | \(Markdown.escape(departure.platform ?? "")) | \(Markdown.escape(departure.via ?? "")) | \(Markdown.escape(departure.carrier ?? "")) | \(Markdown.escape(departure.delay ?? "")) |"
+                }
+
+                return "| \(index + 1) | \(Markdown.bold(departure.time)) | \(Markdown.departureLineName(departure)) | \(Markdown.escape(departure.destination)) | \(Markdown.escape(departure.via ?? "")) |"
             }.joined(separator: "\n")
+            let tableHeader = output.verbose ? """
+            | # | Time | Line | Destination | Tariff Zone | Platform | Via | Carrier | Delay |
+            | ---: | --- | --- | --- | --- | --- | --- | --- | --- |
+            """ : """
+            | # | Time | Line | Destination | Via |
+            | ---: | --- | --- | --- | --- |
+            """
 
             return """
             ## 🚏 \(title)
@@ -689,8 +719,7 @@ private enum OutputFormat: String {
             **Station:** \(Markdown.escape(stationName))
             **Timetable:** \(Markdown.escape(output.request.timetable.displayName))
 
-            | # | Time | Line | Destination | Tariff Zone | Platform | Via | Delay |
-            | ---: | --- | --- | --- | --- | --- | --- | --- |
+            \(tableHeader)
             \(rows)
             """
         case .json:
@@ -852,11 +881,23 @@ private struct SuggestedPlacesOutput: Codable {
 private struct ConnectionsOutput: Codable {
     var request: IDOSConnectionRequest
     var connections: [IDOSConnection]
+    var verbose = false
+
+    enum CodingKeys: String, CodingKey {
+        case request
+        case connections
+    }
 }
 
 private struct DeparturesOutput: Codable {
     var request: IDOSDeparturesRequest
     var departures: [IDOSDeparture]
+    var verbose = false
+
+    enum CodingKeys: String, CodingKey {
+        case request
+        case departures
+    }
 }
 
 private struct CalendarImportOutput: Codable {

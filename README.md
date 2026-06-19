@@ -37,8 +37,7 @@ swift run kastan "Ostrava,Hrabůvka,Benzina" --timetable odis --time 16:00
 Line names in connection output use the same terminal color as IDOS sends in the HTML result.
 Connection legs also include transport emoji such as 🚆 for trains and 🚌 for buses when IDOS exposes the transport type.
 Connection and departure times are bold in text and markdown output.
-Connection and departure results show IDOS tariff zones and platforms when IDOS includes them.
-Connection and departure results show carriers and current delay information when IDOS includes them.
+Use `--verbose` to show IDOS tariff zones, platforms, carriers, and current delay information when IDOS includes them.
 Departure headings use the station name resolved by IDOS, not necessarily the exact query text.
 
 ### Output Format
@@ -52,6 +51,7 @@ Network failures, including missing internet connectivity, are printed as normal
 ```sh
 swift run kastan suggest Praha --format json
 swift run kastan connections --from Praha --to Brno --format markdown
+swift run kastan connections --from Praha --to Brno --verbose
 swift run kastan connections --from Praha --to Brno --format ics > connection.ics
 swift run kastan connections --from Praha --to Brno --add-to-calendar
 swift run kastan departures --station "Ostrava,Hrabůvka,Benzina" --format json

@@ -25,6 +25,7 @@ import Testing
     #expect(output.contains("--via"))
     #expect(output.contains("--direct"))
     #expect(output.contains("--add-to-calendar"))
+    #expect(output.contains("--verbose"))
     #expect(output.contains("--max-transfers"))
     #expect(output.contains("--min-transfer-time"))
     #expect(output.contains("--format"))
@@ -73,6 +74,18 @@ import Testing
     #expect(output.contains("\u{001B}[1m12:04\u{001B}[0m Praha hl.n. → \u{001B}[1m15:44\u{001B}[0m Brno hl.n."))
     #expect(output.contains("🚆"))
     #expect(output.contains("R9"))
+    #expect(!output.contains("tariff zone P · platform 4"))
+    #expect(!output.contains("Currently no delay"))
+}
+
+@Test func connectionCommandPrintsVerboseConnections() async {
+    let output = await CommandRunner(client: MockIDOSClient()).output(
+        for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--limit", "1", "--verbose"]
+    )
+
+    #expect(output.contains("tariff zone P · platform 4"))
+    #expect(output.contains("České dráhy, a.s."))
+    #expect(output.contains("Currently no delay"))
 }
 
 @Test func connectionCommandRequestsViaPlaces() async {
@@ -166,9 +179,23 @@ import Testing
 
     #expect(output.contains("## 🧭 Connections"))
     #expect(output.contains("### 1. **12:04** Praha hl.n. → **15:44** Brno hl.n."))
+    #expect(output.contains("| Line | From | Departure | To | Arrival |"))
+    #expect(output.contains("| 🚆 <span style=\"color: #008000\">R9 (R 981 Vysočina)</span> | Praha hl.n. | **12:04** | Brno hl.n. | **15:44** |"))
+    #expect(output.contains(#"🚆 <span style="color: #008000">R9 (R 981 Vysočina)</span>"#))
+    #expect(!output.contains("From Tariff Zone"))
+    #expect(!output.contains("Currently no delay"))
+}
+
+@Test func connectionCommandPrintsVerboseMarkdown() async {
+    let output = await CommandRunner(client: MockIDOSClient()).output(
+        for: [
+            "connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky",
+            "--format", "markdown", "--limit", "1", "--verbose",
+        ]
+    )
+
     #expect(output.contains("| Line | From | From Tariff Zone | From Platform | Departure | To | To Tariff Zone | To Platform | Arrival | Carrier | Delay |"))
     #expect(output.contains("| 🚆 <span style=\"color: #008000\">R9 (R 981 Vysočina)</span> | Praha hl.n. | P | 4 | **12:04** | Brno hl.n. | 100 |  | **15:44** | České dráhy, a.s. | Currently no delay |"))
-    #expect(output.contains(#"🚆 <span style="color: #008000">R9 (R 981 Vysočina)</span>"#))
 }
 
 @Test func connectionCommandPrintsMarkdownWithVia() async {
@@ -366,6 +393,22 @@ import Testing
     #expect(output.contains("🚌"))
     #expect(output.contains("Bus 980"))
     #expect(output.contains("Rožnov p.Radh.,,aut.st."))
+    #expect(output.contains("via Frýdek-Místek,Místek,Anenská"))
+    #expect(!output.contains("tariff zone 70 · platform 1"))
+    #expect(!output.contains("Currently no delay"))
+}
+
+@Test func departuresCommandPrintsVerboseDepartures() async {
+    let output = await CommandRunner(client: MockIDOSClient()).output(
+        for: [
+            "departures", "--station", "Ostrava,Hrabůvka,Benzina", "--timetable", "odis",
+            "--time", "16:00", "--limit", "1", "--verbose",
+        ]
+    )
+
+    #expect(output.contains("tariff zone 70 · platform 1"))
+    #expect(output.contains("Transdev Slezsko a.s."))
+    #expect(output.contains("Currently no delay"))
 }
 
 @Test func departuresCommandPrintsResolvedStationName() async {
@@ -424,9 +467,23 @@ import Testing
     )
 
     #expect(output.contains("## 🚏 Departures"))
-    #expect(output.contains("| # | Time | Line | Destination | Tariff Zone | Platform | Via | Delay |"))
-    #expect(output.contains("| 1 | **16:03** | 🚌 <span style=\"color: #0000FF\">Bus 980</span> | Rožnov p.Radh.,,aut.st. | 70 | 1 | Frýdek-Místek,Místek,Anenská | Currently no delay |"))
+    #expect(output.contains("| # | Time | Line | Destination | Via |"))
+    #expect(output.contains("| 1 | **16:03** | 🚌 <span style=\"color: #0000FF\">Bus 980</span> | Rožnov p.Radh.,,aut.st. | Frýdek-Místek,Místek,Anenská |"))
     #expect(output.contains(#"🚌 <span style="color: #0000FF">Bus 980</span>"#))
+    #expect(!output.contains("Tariff Zone"))
+    #expect(!output.contains("Currently no delay"))
+}
+
+@Test func departuresCommandPrintsVerboseMarkdown() async {
+    let output = await CommandRunner(client: MockIDOSClient()).output(
+        for: [
+            "departures", "--station", "Ostrava,Hrabůvka,Benzina", "--timetable", "odis",
+            "--format", "markdown", "--limit", "1", "--verbose",
+        ]
+    )
+
+    #expect(output.contains("| # | Time | Line | Destination | Tariff Zone | Platform | Via | Carrier | Delay |"))
+    #expect(output.contains("| 1 | **16:03** | 🚌 <span style=\"color: #0000FF\">Bus 980</span> | Rožnov p.Radh.,,aut.st. | 70 | 1 | Frýdek-Místek,Místek,Anenská | Transdev Slezsko a.s. | Currently no delay |"))
 }
 
 @Test func departuresCommandRejectsUnknownOptions() async {
