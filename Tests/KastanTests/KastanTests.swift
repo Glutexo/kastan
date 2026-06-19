@@ -166,8 +166,8 @@ import Testing
 
     #expect(output.contains("## 🧭 Connections"))
     #expect(output.contains("### 1. **12:04** Praha hl.n. → **15:44** Brno hl.n."))
-    #expect(output.contains("| Line | From | Departure | To | Arrival |"))
-    #expect(output.contains("| 🚆 <span style=\"color: #008000\">R9 (R 981 Vysočina)</span> | Praha hl.n. | **12:04** | Brno hl.n. | **15:44** |"))
+    #expect(output.contains("| Line | From | From Tariff Zone | From Platform | Departure | To | To Tariff Zone | To Platform | Arrival |"))
+    #expect(output.contains("| 🚆 <span style=\"color: #008000\">R9 (R 981 Vysočina)</span> | Praha hl.n. | P | 4 | **12:04** | Brno hl.n. | 100 |  | **15:44** |"))
     #expect(output.contains(#"🚆 <span style="color: #008000">R9 (R 981 Vysočina)</span>"#))
 }
 
@@ -424,8 +424,8 @@ import Testing
     )
 
     #expect(output.contains("## 🚏 Departures"))
-    #expect(output.contains("| # | Time | Line | Destination | Platform | Via | Delay |"))
-    #expect(output.contains("| 1 | **16:03** | 🚌 <span style=\"color: #0000FF\">Bus 980</span> | Rožnov p.Radh.,,aut.st. | 1 | Frýdek-Místek,Místek,Anenská | Currently no delay |"))
+    #expect(output.contains("| # | Time | Line | Destination | Tariff Zone | Platform | Via | Delay |"))
+    #expect(output.contains("| 1 | **16:03** | 🚌 <span style=\"color: #0000FF\">Bus 980</span> | Rožnov p.Radh.,,aut.st. | 70 | 1 | Frýdek-Místek,Místek,Anenská | Currently no delay |"))
     #expect(output.contains(#"🚌 <span style="color: #0000FF">Bus 980</span>"#))
 }
 
@@ -733,8 +733,8 @@ import Testing
     <div id="connectionBox-396829589" class="box connection" data-share-url="https://idos.cz/detail">
       <p class="reset total">Overall time <strong>3 h 40 min</strong></p>
       <h3 title="fast train" style="color: #FF0000;"><span>R9 (R 981 Vysocina)</span></h3>
-      <p class="reset time  " title="">12:04</p><p class="station"><strong class="name ">Praha hl.n.</strong></p>
-      <p class="reset time  " title="">15:44</p><p class="station"><strong class="name ">Brno hl.n.</strong></p>
+      <p class="reset time  " title="">12:04</p><p class="station"><strong class="name ">Praha hl.n.</strong> <span><span title="tariff zone" class="color-lightgrey">P</span> <span title="platform" class="color-green">4</span></span></p>
+      <p class="reset time  " title="">15:44</p><p class="station"><strong class="name ">Brno hl.n.</strong> <span><span title="tariff zone" class="color-lightgrey">100</span></span></p>
     </div>
     """
 
@@ -746,7 +746,11 @@ import Testing
     #expect(connections.first?.legs.first?.name == "R9 (R 981 Vysocina)")
     #expect(connections.first?.legs.first?.color == "#FF0000")
     #expect(connections.first?.legs.first?.transportMode == .train)
+    #expect(connections.first?.legs.first?.fromTariffZone == "P")
+    #expect(connections.first?.legs.first?.fromPlatform == "4")
+    #expect(connections.first?.legs.first?.toTariffZone == "100")
     #expect(connections.first?.summaryLine(number: 1).contains("🚆") == true)
+    #expect(connections.first?.summaryLine(number: 1).contains("tariff zone P · platform 4") == true)
     #expect(connections.first?.summaryLine(number: 1).contains("\u{001B}[38;2;255;0;0mR9") == true)
 }
 
@@ -831,7 +835,7 @@ import Testing
         <span class="desc"><span class="code"><h3 style="color:#0000FF; display:inline">Bus 980</h3></span></span>
       </td>
       <td class="departures-table__cell"><h3>16:03</h3></td>
-      <td class="departures-table__cell"><span title="platform" class="color-lightgrey">1</span></td>
+      <td class="departures-table__cell"><span title="tariff zone" class="color-lightgrey">70</span> <span title="platform" class="color-lightgrey">1</span></td>
     </tr>
     <tr class="dep-row dep-row-second" data-ttindex="1" data-train="4286" data-datetime="18.06.2026 16:03:00">
       <td class="departures-table__cell small"><span title="pass via" class="color-lightgrey">via Frýdek-Místek,Místek,Anenská</span></td>
@@ -849,11 +853,13 @@ import Testing
     #expect(departure?.lineColor == "#0000FF")
     #expect(departure?.transportMode == .bus)
     #expect(departure?.destination == "Rožnov p.Radh.,,aut.st.")
+    #expect(departure?.tariffZone == "70")
     #expect(departure?.platform == "1")
     #expect(departure?.via == "Frýdek-Místek,Místek,Anenská")
     #expect(departure?.carrier == "Transdev Slezsko a.s.")
     #expect(departure?.delay == "Currently no delay")
     #expect(departure?.summaryLine(number: 1).contains("🚌") == true)
+    #expect(departure?.summaryLine(number: 1).contains("tariff zone 70 · platform 1") == true)
 }
 
 private struct MockIDOSClient: IDOSClienting {
@@ -918,8 +924,11 @@ private struct MockIDOSClient: IDOSClienting {
                         transportMode: .train,
                         departureTime: "12:04",
                         fromStation: "Praha hl.n.",
+                        fromTariffZone: "P",
+                        fromPlatform: "4",
                         arrivalTime: "15:44",
-                        toStation: "Brno hl.n."
+                        toStation: "Brno hl.n.",
+                        toTariffZone: "100"
                     )
                 ],
                 shareURL: "https://idos.cz/detail",
@@ -954,6 +963,7 @@ private struct MockIDOSClient: IDOSClienting {
                 lineColor: "#0000FF",
                 transportMode: .bus,
                 destination: "Rožnov p.Radh.,,aut.st.",
+                tariffZone: "70",
                 platform: "1",
                 via: "Frýdek-Místek,Místek,Anenská",
                 carrier: "Transdev Slezsko a.s.",

@@ -37,6 +37,7 @@ swift run kastan "Ostrava,Hrabůvka,Benzina" --timetable odis --time 16:00
 Line names in connection output use the same terminal color as IDOS sends in the HTML result.
 Connection legs also include transport emoji such as 🚆 for trains and 🚌 for buses when IDOS exposes the transport type.
 Connection and departure times are bold in text and markdown output.
+Connection and departure results show IDOS tariff zones and platforms when IDOS includes them.
 Departure headings use the station name resolved by IDOS, not necessarily the exact query text.
 
 ### Output Format

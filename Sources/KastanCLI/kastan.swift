@@ -602,7 +602,7 @@ private enum OutputFormat: String {
 
             let sections = output.connections.enumerated().map { index, connection in
                 let legs = connection.legs.map { leg in
-                    "| \(Markdown.lineName(leg)) | \(Markdown.escape(leg.fromStation)) | \(Markdown.bold(leg.departureTime)) | \(Markdown.escape(leg.toStation)) | \(Markdown.bold(leg.arrivalTime)) |"
+                    "| \(Markdown.lineName(leg)) | \(Markdown.escape(leg.fromStation)) | \(Markdown.escape(leg.fromTariffZone ?? "")) | \(Markdown.escape(leg.fromPlatform ?? "")) | \(Markdown.bold(leg.departureTime)) | \(Markdown.escape(leg.toStation)) | \(Markdown.escape(leg.toTariffZone ?? "")) | \(Markdown.escape(leg.toPlatform ?? "")) | \(Markdown.bold(leg.arrivalTime)) |"
                 }.joined(separator: "\n")
 
                 return """
@@ -610,8 +610,8 @@ private enum OutputFormat: String {
 
                 Duration: **\(Markdown.escape(connection.duration))**
 
-                | Line | From | Departure | To | Arrival |
-                | --- | --- | --- | --- | --- |
+                | Line | From | From Tariff Zone | From Platform | Departure | To | To Tariff Zone | To Platform | Arrival |
+                | --- | --- | --- | --- | --- | --- | --- | --- | --- |
                 \(legs)
                 """
             }.joined(separator: "\n\n")
@@ -680,7 +680,7 @@ private enum OutputFormat: String {
             }
 
             let rows = output.departures.enumerated().map { index, departure in
-                "| \(index + 1) | \(Markdown.bold(departure.time)) | \(Markdown.departureLineName(departure)) | \(Markdown.escape(departure.destination)) | \(Markdown.escape(departure.platform ?? "")) | \(Markdown.escape(departure.via ?? "")) | \(Markdown.escape(departure.delay ?? "")) |"
+                "| \(index + 1) | \(Markdown.bold(departure.time)) | \(Markdown.departureLineName(departure)) | \(Markdown.escape(departure.destination)) | \(Markdown.escape(departure.tariffZone ?? "")) | \(Markdown.escape(departure.platform ?? "")) | \(Markdown.escape(departure.via ?? "")) | \(Markdown.escape(departure.delay ?? "")) |"
             }.joined(separator: "\n")
 
             return """
@@ -689,8 +689,8 @@ private enum OutputFormat: String {
             **Station:** \(Markdown.escape(stationName))
             **Timetable:** \(Markdown.escape(output.request.timetable.displayName))
 
-            | # | Time | Line | Destination | Platform | Via | Delay |
-            | ---: | --- | --- | --- | --- | --- | --- |
+            | # | Time | Line | Destination | Tariff Zone | Platform | Via | Delay |
+            | ---: | --- | --- | --- | --- | --- | --- | --- |
             \(rows)
             """
         case .json:

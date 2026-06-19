@@ -643,7 +643,14 @@ public struct IDOSConnection: Codable, Equatable, Sendable {
 
         if !legs.isEmpty {
             let legSummary = legs.map { leg in
-                [leg.displayName, leg.fromStation, TerminalStyle.bold(leg.departureTime), "→", TerminalStyle.bold(leg.arrivalTime), leg.toStation]
+                [
+                    leg.displayName,
+                    leg.fromStationDisplay,
+                    TerminalStyle.bold(leg.departureTime),
+                    "→",
+                    TerminalStyle.bold(leg.arrivalTime),
+                    leg.toStationDisplay,
+                ]
                     .filter { !$0.isEmpty }
                     .joined(separator: " ")
             }.map { "   \($0)" }
@@ -661,8 +668,12 @@ public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
     public var transportMode: IDOSTransportMode?
     public var departureTime: String
     public var fromStation: String
+    public var fromTariffZone: String?
+    public var fromPlatform: String?
     public var arrivalTime: String
     public var toStation: String
+    public var toTariffZone: String?
+    public var toPlatform: String?
 
     public init(
         name: String,
@@ -670,16 +681,24 @@ public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
         transportMode: IDOSTransportMode? = nil,
         departureTime: String,
         fromStation: String,
+        fromTariffZone: String? = nil,
+        fromPlatform: String? = nil,
         arrivalTime: String,
-        toStation: String
+        toStation: String,
+        toTariffZone: String? = nil,
+        toPlatform: String? = nil
     ) {
         self.name = name
         self.color = color
         self.transportMode = transportMode
         self.departureTime = departureTime
         self.fromStation = fromStation
+        self.fromTariffZone = fromTariffZone
+        self.fromPlatform = fromPlatform
         self.arrivalTime = arrivalTime
         self.toStation = toStation
+        self.toTariffZone = toTariffZone
+        self.toPlatform = toPlatform
     }
 
     public var displayName: String {
@@ -692,6 +711,25 @@ public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
     var coloredName: String {
         TerminalColor.color(name, htmlColor: color)
     }
+
+    public var fromStationDisplay: String {
+        stationDisplay(name: fromStation, tariffZone: fromTariffZone, platform: fromPlatform)
+    }
+
+    public var toStationDisplay: String {
+        stationDisplay(name: toStation, tariffZone: toTariffZone, platform: toPlatform)
+    }
+
+    private func stationDisplay(name: String, tariffZone: String?, platform: String?) -> String {
+        var parts = [name]
+        if let tariffZone, !tariffZone.isEmpty {
+            parts.append("tariff zone \(tariffZone)")
+        }
+        if let platform, !platform.isEmpty {
+            parts.append("platform \(platform)")
+        }
+        return parts.joined(separator: " · ")
+    }
 }
 
 public struct IDOSDeparture: Codable, Equatable, Sendable {
@@ -702,6 +740,7 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
     public var lineColor: String?
     public var transportMode: IDOSTransportMode?
     public var destination: String
+    public var tariffZone: String?
     public var platform: String?
     public var via: String?
     public var carrier: String?
@@ -715,6 +754,7 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
         lineColor: String? = nil,
         transportMode: IDOSTransportMode? = nil,
         destination: String,
+        tariffZone: String? = nil,
         platform: String? = nil,
         via: String? = nil,
         carrier: String? = nil,
@@ -727,6 +767,7 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
         self.lineColor = lineColor
         self.transportMode = transportMode
         self.destination = destination
+        self.tariffZone = tariffZone
         self.platform = platform
         self.via = via
         self.carrier = carrier
@@ -742,6 +783,10 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
 
     public func summaryLine(number: Int) -> String {
         var result = "\(number). \(TerminalStyle.bold(time)) \(displayLineName) → \(destination)"
+
+        if let tariffZone, !tariffZone.isEmpty {
+            result += " · tariff zone \(tariffZone)"
+        }
 
         if let platform, !platform.isEmpty {
             result += " · platform \(platform)"
@@ -931,13 +976,20 @@ enum IDOSConnectionParser {
 
     private static func parseConnection(id: String, block: String, calendarModel: String?) -> IDOSConnection? {
         let stationRows = RegexSupport.captures(
-            pattern: #"<p class="reset time[^"]*"[^>]*>(.*?)</p>\s*<p class="station"><strong class="name[^"]*">(.*?)</strong>"#,
+            pattern: #"<p class="reset time[^"]*"[^>]*>(.*?)</p>\s*<p class="station">(.*?)</p>"#,
             in: block,
             options: [.dotMatchesLineSeparators]
         ).map { row in
-            (
+            let stationHTML = row[1]
+            return (
                 time: HTMLText.clean(row[0]),
-                station: HTMLText.clean(row[1])
+                station: HTMLText.clean(RegexSupport.capture(
+                    pattern: #"<strong class="name[^"]*">(.*?)</strong>"#,
+                    in: stationHTML,
+                    options: [.dotMatchesLineSeparators]
+                ) ?? ""),
+                tariffZone: titledValue(["tariff zone", "tarifní pásmo", "tarifni pasmo"], in: stationHTML),
+                platform: titledValue(["platform", "nástupiště", "nastupiste"], in: stationHTML)
             )
         }
 
@@ -965,8 +1017,12 @@ enum IDOSConnectionParser {
                 transportMode: lines[index].transportMode,
                 departureTime: departure.time,
                 fromStation: departure.station,
+                fromTariffZone: departure.tariffZone,
+                fromPlatform: departure.platform,
                 arrivalTime: arrival.time,
-                toStation: arrival.station
+                toStation: arrival.station,
+                toTariffZone: arrival.tariffZone,
+                toPlatform: arrival.platform
             )
         }
 
@@ -1144,6 +1200,20 @@ enum IDOSConnectionParser {
             )
         }
     }
+
+    private static func titledValue(_ titles: [String], in html: String) -> String? {
+        for title in titles {
+            if let value = RegexSupport.capture(
+                pattern: #"<span\b[^>]*\btitle="\#(NSRegularExpression.escapedPattern(for: title))"[^>]*>(.*?)</span>"#,
+                in: html,
+                options: [.dotMatchesLineSeparators]
+            ).map(HTMLText.clean), !value.isEmpty {
+                return value
+            }
+        }
+
+        return nil
+    }
 }
 
 enum IDOSDepartureParser {
@@ -1198,6 +1268,9 @@ enum IDOSDepartureParser {
             in: firstRow,
             options: [.dotMatchesLineSeparators]
         ).map(HTMLText.clean)
+        let tariffZone = detail(title: "tariff zone", in: firstRow)
+            ?? detail(title: "tarifní pásmo", in: firstRow)
+            ?? detail(title: "tarifni pasmo", in: firstRow)
         let via = detail(title: "pass via", in: secondRow).map { value in
             value.hasPrefix("via ") ? String(value.dropFirst(4)) : value
         }
@@ -1220,6 +1293,7 @@ enum IDOSDepartureParser {
             lineColor: HTMLStyle.color(from: lineHTML),
             transportMode: IDOSTransportMode.infer(from: lineName),
             destination: destination,
+            tariffZone: tariffZone,
             platform: platform,
             via: via,
             carrier: carrier,
