@@ -318,6 +318,20 @@ import Testing
     #expect(output.contains("Rožnov p.Radh.,,aut.st."))
 }
 
+@Test func departuresCommandPrintsResolvedStationName() async {
+    let output = await CommandRunner(
+        client: MockIDOSClient(
+            expectedStation: "Frýdek,sportovní",
+            resolvedStationName: "Frýdek,Sportovní hala Polárka"
+        )
+    ).output(
+        for: ["departures", "--from", "Frýdek,sportovní", "--timetable", "odis", "--time", "16:00", "--limit", "1"]
+    )
+
+    #expect(output.contains("🚏 Departures Frýdek,Sportovní hala Polárka (ODIS)"))
+    #expect(!output.contains("🚏 Departures Frýdek,sportovní (ODIS)"))
+}
+
 @Test func departuresCommandAcceptsFromOption() async {
     let output = await CommandRunner(client: MockIDOSClient()).output(
         for: ["departures", "--from", "Ostrava,Hrabůvka,Benzina", "--timetable", "odis", "--time", "16:00", "--limit", "1"]
@@ -733,6 +747,7 @@ import Testing
 
 @Test func departureParserReadsDeparturesTableRows() {
     let html = """
+    <h2 class="depTitlePage">Departures from Fr&#253;dek,Sportovn&#237; hala Pol&#225;rka</h2>
     <tr class="dep-row dep-row-first" data-ttindex="1" data-train="4286" data-datetime="18.06.2026 16:03:00" data-stationname="Rožnov p.Radh.,,aut.st.">
       <td class="departures-table__cell departures-table__cell--height-collapse" title="Arrival station"><h3>Rožnov p.Radh.,,aut.st.</h3></td>
       <td class="departures-table__cell departures-table__cell--height-collapse">
@@ -752,6 +767,7 @@ import Testing
     let departure = IDOSDepartureParser.parse(html: html).first
 
     #expect(departure?.id == "1-4286-18.06.2026 16:03:00")
+    #expect(departure?.stationName == "Frýdek,Sportovní hala Polárka")
     #expect(departure?.time == "16:03")
     #expect(departure?.lineName == "Bus 980")
     #expect(departure?.lineColor == "#0000FF")
@@ -776,6 +792,7 @@ private struct MockIDOSClient: IDOSClienting {
     var failConnectionsWithNetworkError = false
     var expectedDepartureTimetable = "odis"
     var expectedStation = "Ostrava,Hrabůvka,Benzina"
+    var resolvedStationName: String? = nil
     var expectedDepartureIsArrival = false
 
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
@@ -842,6 +859,7 @@ private struct MockIDOSClient: IDOSClienting {
         return [
             IDOSDeparture(
                 id: "1-4286-18.06.2026 16:03:00",
+                stationName: resolvedStationName,
                 time: "16:03",
                 lineName: "Bus 980",
                 lineColor: "#0000FF",

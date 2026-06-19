@@ -593,6 +593,7 @@ private enum OutputFormat: String {
 
     func renderDepartures(_ output: DeparturesOutput) throws -> String {
         let title = output.request.isArrival ? "Arrivals" : "Departures"
+        let stationName = output.departures.first?.stationName ?? output.request.station
 
         switch self {
         case .text:
@@ -605,7 +606,7 @@ private enum OutputFormat: String {
             }
 
             return """
-            🚏 \(title) \(output.request.station) (\(output.request.timetable.displayName)):
+            🚏 \(title) \(stationName) (\(output.request.timetable.displayName)):
             \(rows.joined(separator: "\n"))
             """
         case .markdown:
@@ -627,7 +628,7 @@ private enum OutputFormat: String {
             return """
             ## 🚏 \(title)
 
-            **Station:** \(Markdown.escape(output.request.station))
+            **Station:** \(Markdown.escape(stationName))
             **Timetable:** \(Markdown.escape(output.request.timetable.displayName))
 
             | # | Time | Line | Destination | Platform | Via | Delay |

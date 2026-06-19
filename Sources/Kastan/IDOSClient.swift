@@ -624,6 +624,7 @@ public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
 
 public struct IDOSDeparture: Codable, Equatable, Sendable {
     public var id: String
+    public var stationName: String?
     public var time: String
     public var lineName: String
     public var lineColor: String?
@@ -636,6 +637,7 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
 
     public init(
         id: String,
+        stationName: String? = nil,
         time: String,
         lineName: String,
         lineColor: String? = nil,
@@ -647,6 +649,7 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
         delay: String? = nil
     ) {
         self.id = id
+        self.stationName = stationName
         self.time = time
         self.lineName = lineName
         self.lineColor = lineColor
@@ -949,16 +952,23 @@ enum IDOSConnectionParser {
 
 enum IDOSDepartureParser {
     static func parse(html: String) -> [IDOSDeparture] {
-        RegexSupport.captures(
+        let stationName = resolvedStationName(in: html)
+
+        return RegexSupport.captures(
             pattern: #"<tr class="dep-row dep-row-first"([^>]*)>(.*?)</tr>\s*<tr class="dep-row dep-row-second"[^>]*>(.*?)</tr>"#,
             in: html,
             options: [.dotMatchesLineSeparators]
         ).compactMap { row in
-            parseDeparture(attributes: row[0], firstRow: row[1], secondRow: row[2])
+            parseDeparture(attributes: row[0], firstRow: row[1], secondRow: row[2], stationName: stationName)
         }
     }
 
-    private static func parseDeparture(attributes: String, firstRow: String, secondRow: String) -> IDOSDeparture? {
+    private static func parseDeparture(
+        attributes: String,
+        firstRow: String,
+        secondRow: String,
+        stationName: String?
+    ) -> IDOSDeparture? {
         let headings = RegexSupport.captures(
             pattern: #"<h3\b[^>]*>(.*?)</h3>"#,
             in: firstRow,
@@ -1008,6 +1018,7 @@ enum IDOSDepartureParser {
                 attribute("data-train", in: attributes),
                 attribute("data-datetime", in: attributes),
             ].compactMap(\.self).joined(separator: "-"),
+            stationName: stationName,
             time: time,
             lineName: lineName,
             lineColor: HTMLStyle.color(from: lineHTML),
@@ -1018,6 +1029,27 @@ enum IDOSDepartureParser {
             carrier: carrier,
             delay: delay
         )
+    }
+
+    private static func resolvedStationName(in html: String) -> String? {
+        if let title = RegexSupport.capture(
+            pattern: #"<h2\b[^>]*class="[^"]*\bdepTitlePage\b[^"]*"[^>]*>(.*?)</h2>"#,
+            in: html,
+            options: [.dotMatchesLineSeparators]
+        ).map(HTMLText.clean) {
+            for prefix in ["Departures from ", "Arrivals to "] where title.hasPrefix(prefix) {
+                let value = String(title.dropFirst(prefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+                if !value.isEmpty {
+                    return value
+                }
+            }
+        }
+
+        return RegexSupport.capture(
+            pattern: #"<input\b[^>]*\bid="From"[^>]*\bvalue="([^"]*)""#,
+            in: html,
+            options: [.dotMatchesLineSeparators]
+        ).map(HTMLText.clean)
     }
 
     private static func attribute(_ name: String, in html: String) -> String? {
