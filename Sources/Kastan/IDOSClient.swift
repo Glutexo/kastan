@@ -643,7 +643,7 @@ public struct IDOSConnection: Codable, Equatable, Sendable {
 
         if !legs.isEmpty {
             let legSummary = legs.map { leg in
-                [
+                let line = [
                     leg.displayName,
                     leg.fromStationDisplay,
                     TerminalStyle.bold(leg.departureTime),
@@ -653,6 +653,13 @@ public struct IDOSConnection: Codable, Equatable, Sendable {
                 ]
                     .filter { !$0.isEmpty }
                     .joined(separator: " ")
+                let details = [leg.carrier, leg.delay]
+                    .compactMap(\.self)
+                    .filter { !$0.isEmpty }
+                    .map { "      \($0)" }
+                    .joined(separator: "\n")
+
+                return details.isEmpty ? line : "\(line)\n\(details)"
             }.map { "   \($0)" }
                 .joined(separator: "\n")
             result += "\n\(legSummary)"
@@ -674,6 +681,8 @@ public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
     public var toStation: String
     public var toTariffZone: String?
     public var toPlatform: String?
+    public var carrier: String?
+    public var delay: String?
 
     public init(
         name: String,
@@ -686,7 +695,9 @@ public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
         arrivalTime: String,
         toStation: String,
         toTariffZone: String? = nil,
-        toPlatform: String? = nil
+        toPlatform: String? = nil,
+        carrier: String? = nil,
+        delay: String? = nil
     ) {
         self.name = name
         self.color = color
@@ -699,6 +710,8 @@ public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
         self.toStation = toStation
         self.toTariffZone = toTariffZone
         self.toPlatform = toPlatform
+        self.carrier = carrier
+        self.delay = delay
     }
 
     public var displayName: String {
@@ -1022,7 +1035,9 @@ enum IDOSConnectionParser {
                 arrivalTime: arrival.time,
                 toStation: arrival.station,
                 toTariffZone: arrival.tariffZone,
-                toPlatform: arrival.platform
+                toPlatform: arrival.platform,
+                carrier: lines[index].carrier,
+                delay: lines[index].delay
             )
         }
 
@@ -1165,17 +1180,34 @@ enum IDOSConnectionParser {
         return nil
     }
 
-    private static func lineDetails(in block: String) -> [(name: String, color: String?, transportMode: IDOSTransportMode?)] {
-        RegexSupport.matches(
-            pattern: #"<h3\b.*?</h3>"#,
+    private static func lineDetails(in block: String) -> [(name: String, color: String?, transportMode: IDOSTransportMode?, carrier: String?, delay: String?)] {
+        let lineBlocks = RegexSupport.matches(
+            pattern: #"<div class="line-item">.*?(?=<div class="line-item">|<div class="connection-expand">|</div>\s*$)"#,
             in: block,
             options: [.dotMatchesLineSeparators]
-        ).compactMap { match in
+        ).compactMap { match -> String? in
             guard let range = Range(match.range, in: block) else {
                 return nil
             }
 
-            let heading = String(block[range])
+            return String(block[range])
+        }
+        let sources = lineBlocks.isEmpty ? headingBlocks(in: block) : lineBlocks
+
+        return sources.compactMap { lineBlock in
+            guard let heading = RegexSupport.matches(
+                pattern: #"<h3\b.*?</h3>"#,
+                in: lineBlock,
+                options: [.dotMatchesLineSeparators]
+            ).first.flatMap({ match -> String? in
+                guard let range = Range(match.range, in: lineBlock) else {
+                    return nil
+                }
+                return String(lineBlock[range])
+            }) else {
+                return nil
+            }
+
             let name = RegexSupport.captures(
                 pattern: #"<span>(.*?)</span>"#,
                 in: heading,
@@ -1196,9 +1228,42 @@ enum IDOSConnectionParser {
             return (
                 name: name,
                 color: HTMLStyle.color(from: heading),
-                transportMode: IDOSTransportMode.infer(from: "\(title) \(name)")
+                transportMode: IDOSTransportMode.infer(from: "\(title) \(name)"),
+                carrier: carrier(in: lineBlock),
+                delay: delay(in: lineBlock)
             )
         }
+    }
+
+    private static func headingBlocks(in block: String) -> [String] {
+        let headings = RegexSupport.matches(
+            pattern: #"<h3\b.*?</h3>"#,
+            in: block,
+            options: [.dotMatchesLineSeparators]
+        )
+        let source = block as NSString
+
+        return headings.indices.map { index in
+            let start = headings[index].range.location
+            let end = index + 1 < headings.count ? headings[index + 1].range.location : source.length
+            return source.substring(with: NSRange(location: start, length: end - start))
+        }
+    }
+
+    private static func carrier(in html: String) -> String? {
+        RegexSupport.capture(
+            pattern: #"<span class="(?:owner|operator)"><span>(.*?)</span></span>"#,
+            in: html,
+            options: [.dotMatchesLineSeparators]
+        ).map(HTMLText.clean).flatMap(nonEmpty)
+    }
+
+    private static func delay(in html: String) -> String? {
+        RegexSupport.capture(
+            pattern: #"<[^>]*\bclass="[^"]*\bdelay-bubble\b[^"]*"[^>]*>(.*?)</[^>]+>"#,
+            in: html,
+            options: [.dotMatchesLineSeparators]
+        ).map(HTMLText.clean).flatMap(nonEmpty)
     }
 
     private static func titledValue(_ titles: [String], in html: String) -> String? {
@@ -1213,6 +1278,11 @@ enum IDOSConnectionParser {
         }
 
         return nil
+    }
+
+    private static func nonEmpty(_ value: String) -> String? {
+        let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
     }
 }
 

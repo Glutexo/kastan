@@ -166,8 +166,8 @@ import Testing
 
     #expect(output.contains("## 🧭 Connections"))
     #expect(output.contains("### 1. **12:04** Praha hl.n. → **15:44** Brno hl.n."))
-    #expect(output.contains("| Line | From | From Tariff Zone | From Platform | Departure | To | To Tariff Zone | To Platform | Arrival |"))
-    #expect(output.contains("| 🚆 <span style=\"color: #008000\">R9 (R 981 Vysočina)</span> | Praha hl.n. | P | 4 | **12:04** | Brno hl.n. | 100 |  | **15:44** |"))
+    #expect(output.contains("| Line | From | From Tariff Zone | From Platform | Departure | To | To Tariff Zone | To Platform | Arrival | Carrier | Delay |"))
+    #expect(output.contains("| 🚆 <span style=\"color: #008000\">R9 (R 981 Vysočina)</span> | Praha hl.n. | P | 4 | **12:04** | Brno hl.n. | 100 |  | **15:44** | České dráhy, a.s. | Currently no delay |"))
     #expect(output.contains(#"🚆 <span style="color: #008000">R9 (R 981 Vysočina)</span>"#))
 }
 
@@ -801,12 +801,15 @@ import Testing
     #expect(connection?.legs.map(\.name) == ["Bus 302", "Bus 980"])
     #expect(connection?.legs.map(\.color) == ["#0000FF", "#0000FF"])
     #expect(connection?.legs.map(\.transportMode) == [.bus, .bus])
+    #expect(connection?.legs.first?.carrier == "Transdev Slezsko a.s.")
+    #expect(connection?.legs.first?.delay == "Currently no delay")
     #expect(summary?.contains("🚌") == true)
     #expect(summary?.contains("\u{001B}[38;2;0;0;255mBus 302") == true)
     #expect(summary?.contains("\n   🚌 \u{001B}[38;2;0;0;255mBus 980") == true)
     #expect(summary?.contains("; 🚌") == false)
     #expect(summary?.contains("style=") == false)
-    #expect(summary?.contains("Transdev") == false)
+    #expect(summary?.contains("Transdev Slezsko a.s.") == true)
+    #expect(summary?.contains("Currently no delay") == true)
 }
 
 @Test func connectionParserInfersTrainFromRailLinePrefix() {
@@ -928,7 +931,9 @@ private struct MockIDOSClient: IDOSClienting {
                         fromPlatform: "4",
                         arrivalTime: "15:44",
                         toStation: "Brno hl.n.",
-                        toTariffZone: "100"
+                        toTariffZone: "100",
+                        carrier: "České dráhy, a.s.",
+                        delay: "Currently no delay"
                     )
                 ],
                 shareURL: "https://idos.cz/detail",

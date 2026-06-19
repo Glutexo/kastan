@@ -602,7 +602,7 @@ private enum OutputFormat: String {
 
             let sections = output.connections.enumerated().map { index, connection in
                 let legs = connection.legs.map { leg in
-                    "| \(Markdown.lineName(leg)) | \(Markdown.escape(leg.fromStation)) | \(Markdown.escape(leg.fromTariffZone ?? "")) | \(Markdown.escape(leg.fromPlatform ?? "")) | \(Markdown.bold(leg.departureTime)) | \(Markdown.escape(leg.toStation)) | \(Markdown.escape(leg.toTariffZone ?? "")) | \(Markdown.escape(leg.toPlatform ?? "")) | \(Markdown.bold(leg.arrivalTime)) |"
+                    "| \(Markdown.lineName(leg)) | \(Markdown.escape(leg.fromStation)) | \(Markdown.escape(leg.fromTariffZone ?? "")) | \(Markdown.escape(leg.fromPlatform ?? "")) | \(Markdown.bold(leg.departureTime)) | \(Markdown.escape(leg.toStation)) | \(Markdown.escape(leg.toTariffZone ?? "")) | \(Markdown.escape(leg.toPlatform ?? "")) | \(Markdown.bold(leg.arrivalTime)) | \(Markdown.escape(leg.carrier ?? "")) | \(Markdown.escape(leg.delay ?? "")) |"
                 }.joined(separator: "\n")
 
                 return """
@@ -610,8 +610,8 @@ private enum OutputFormat: String {
 
                 Duration: **\(Markdown.escape(connection.duration))**
 
-                | Line | From | From Tariff Zone | From Platform | Departure | To | To Tariff Zone | To Platform | Arrival |
-                | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+                | Line | From | From Tariff Zone | From Platform | Departure | To | To Tariff Zone | To Platform | Arrival | Carrier | Delay |
+                | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
                 \(legs)
                 """
             }.joined(separator: "\n\n")
