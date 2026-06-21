@@ -118,6 +118,19 @@ import Testing
     #expect(!output.contains("Currently no delay"))
 }
 
+@Test func connectionCommandPassesLimitToIDOSRequest() async {
+    let output = await CommandRunner(
+        client: MockIDOSClient(
+            expectedConnectionResultLimit: 12,
+            validatesConnectionResultLimit: true
+        )
+    ).output(
+        for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--limit", "12"]
+    )
+
+    #expect(output.contains("🧭 Connections Praha → Brno (Trains)"))
+}
+
 @Test func connectionCommandPrintsVerboseConnections() async {
     let output = await CommandRunner(client: MockIDOSClient()).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--limit", "1", "--verbose"]
@@ -834,6 +847,13 @@ import Testing
     #expect(!normalRequest.formItems.contains { $0.name.hasPrefix("AdvancedForm.Via[") })
 }
 
+@Test func connectionRequestCarriesResultLimit() {
+    let request = IDOSConnectionRequest(from: "Praha", to: "Brno", resultLimit: 12)
+
+    #expect(request.resultLimit == 12)
+    #expect(!request.formItems.contains { $0.name == "resultLimit" })
+}
+
 @Test func departuresRequestUsesIDOSParameters() {
     let request = IDOSDeparturesRequest(station: "Ostrava,Hrabůvka,Benzina", date: "18.6.2026", time: "16:00", isArrival: true)
 
@@ -914,6 +934,36 @@ import Testing
     #expect(connData.first?["priceOffer"] is NSNull)
 }
 
+@Test func connectionParserReadsPagingContextFromResultHtml() throws {
+    let html = """
+    <script>
+    var connResult = new Conn.ConnResult(params, null, {
+      "handle":123,
+      "arrivalThere":"0001-01-01T00:00:00",
+      "connData":[],
+      "searchItem":{
+        "oConn":{
+          "oUserInput":{
+            "dtSearchDate":"2026-06-21T12:00:00+02:00",
+            "oFrom":{"sName":"Praha","sAdvancedName":"Praha"},
+            "oTo":{"sName":"Brno","sAdvancedName":"Brno"}
+          }
+        }
+      }
+    });
+    </script>
+    """
+
+    let context = try #require(IDOSConnectionParser.pagingContext(html: html))
+
+    #expect(context.handle == 123)
+    #expect(context.searchDate == "2026-06-21T12:00:00+02:00")
+    #expect(context.arrivalThere == "0001-01-01T00:00:00")
+    #expect(context.from == "Praha")
+    #expect(context.to == "Brno")
+    #expect(context.allowNext == true)
+}
+
 @Test func connectionParserKeepsHtmlOutsideLineNames() {
     let html = """
     <div id="connectionBox-1122672429" class="box connection">
@@ -953,6 +1003,22 @@ import Testing
       <h3 title="" style="color: #008000;"><span>RJ 1045 RegioJet</span></h3>
       <p class="reset time" title="">15:01</p><p class="station"><strong class="name ">Praha hl.n.</strong></p>
       <p class="reset time" title="">17:40</p><p class="station"><strong class="name ">Brno hl.n.</strong></p>
+    </div>
+    """
+
+    let connection = IDOSConnectionParser.parse(html: html).first
+
+    #expect(connection?.legs.first?.transportMode == .train)
+    #expect(connection?.summaryLine(number: 1).contains("🚆") == true)
+}
+
+@Test func connectionParserKeepsMetropolitanTrainAsTrain() {
+    let html = """
+    <div id="connectionBox-1" class="box connection">
+      <p class="reset total">Overall time <strong>2 h 37 min</strong></p>
+      <h3 title="Eurocity (Praha hl.n. >> Budapest-Nyugati pu)"><span>Ex3 (EC 281 Metropolitan)</span></h3>
+      <p class="reset time" title="">13:37</p><p class="station"><strong class="name ">Praha hl.n.</strong></p>
+      <p class="reset time" title="">16:14</p><p class="station"><strong class="name ">Brno hl.n.</strong></p>
     </div>
     """
 
@@ -1008,6 +1074,8 @@ private struct MockIDOSClient: IDOSClienting {
     var expectedVia: [String] = []
     var expectedMaxTransfers: Int? = nil
     var expectedMinimumTransferTime: Int? = nil
+    var expectedConnectionResultLimit: Int? = nil
+    var validatesConnectionResultLimit = false
     var failConnectionsWithNetworkError = false
     var expectedDepartureTimetable = "odis"
     var expectedStation = "Ostrava,Hrabůvka,Benzina"
@@ -1051,6 +1119,9 @@ private struct MockIDOSClient: IDOSClienting {
         #expect(request.via == expectedVia)
         #expect(request.maxTransfers == expectedMaxTransfers)
         #expect(request.minimumTransferTime == expectedMinimumTransferTime)
+        if validatesConnectionResultLimit {
+            #expect(request.resultLimit == expectedConnectionResultLimit)
+        }
 
         if failConnectionsWithNetworkError {
             throw IDOSError.networkUnavailable("")

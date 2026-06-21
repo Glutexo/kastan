@@ -76,6 +76,9 @@ Limit the number of printed results:
 swift run kastan connections --from Praha --to Brno --limit 3
 ```
 
+For connections, Kaštan asks IDOS for later connections until the requested limit is reached or IDOS has no more results to add.
+For suggestions, station search, and departures, `--limit` controls how many returned rows are printed.
+
 Search direct connections only:
 
 ```sh
@@ -173,7 +176,8 @@ let request = IDOSConnectionRequest(
     onlyDirect: true,
     via: ["Místek,Anenská"],
     maxTransfers: 0,
-    minimumTransferTime: 10
+    minimumTransferTime: 10,
+    resultLimit: 8
 )
 let connections = try await client.findConnections(request: request)
 let calendar = try await client.connectionCalendar(for: connections[0], timetable: timetable)

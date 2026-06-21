@@ -129,9 +129,12 @@ struct CommandRunner {
             ]
         )
         let format = try options.outputFormat()
-        if options.contains("--add-to-calendar", short: "-c") && format == .ics {
+        let addToCalendar = options.contains("--add-to-calendar", short: "-c")
+        if addToCalendar && format == .ics {
             throw CommandError.conflictingOptions("--add-to-calendar", "--format ics")
         }
+        let limit = options.integerValue(for: "--limit", short: "-l") ?? 5
+        let requestedLimit = max(1, limit)
 
         let aliasDatabase = try aliasFile.load()
 
@@ -159,17 +162,17 @@ struct CommandRunner {
             onlyDirect: options.contains("--direct", short: "-x") || options.contains("--only-direct"),
             via: viaPlaces.map(\.station),
             maxTransfers: try options.nonNegativeIntegerValue(for: "--max-transfers", short: "-X"),
-            minimumTransferTime: try options.nonNegativeIntegerValue(for: "--min-transfer-time", short: "-M")
+            minimumTransferTime: try options.nonNegativeIntegerValue(for: "--min-transfer-time", short: "-M"),
+            resultLimit: format == .ics || addToCalendar ? 1 : requestedLimit
         )
-        let limit = options.integerValue(for: "--limit", short: "-l") ?? 5
         let connections = try await client.findConnections(request: request)
-        if format == .ics || options.contains("--add-to-calendar", short: "-c") {
+        if format == .ics || addToCalendar {
             guard let connection = connections.first else {
                 throw CommandError.usage("IDOS returned no connections.")
             }
 
             let calendar = try await client.connectionCalendar(for: connection, timetable: request.timetable)
-            if options.contains("--add-to-calendar", short: "-c") {
+            if addToCalendar {
                 let output = CalendarImportOutput(
                     request: request,
                     connection: connection,
@@ -184,7 +187,7 @@ struct CommandRunner {
         return try format.renderConnections(
             ConnectionsOutput(
                 request: request,
-                connections: Array(connections.prefix(max(1, limit))),
+                connections: Array(connections.prefix(requestedLimit)),
                 verbose: options.contains("--verbose", short: "-v")
             )
         )

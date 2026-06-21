@@ -65,7 +65,86 @@ public struct IDOSClient: IDOSClienting {
             throw IDOSError.invalidResponse
         }
 
-        return IDOSConnectionParser.parse(html: html)
+        var connections = IDOSConnectionParser.parse(html: html)
+        guard let limit = request.resultLimit, connections.count < limit,
+              var paging = IDOSConnectionParser.pagingContext(html: html)
+        else {
+            return connections
+        }
+
+        while connections.count < limit, paging.allowNext {
+            let page = try await nextConnectionsPage(
+                request: request,
+                paging: paging,
+                listedIDs: connections.compactMap { Int($0.id) }
+            )
+
+            guard !page.connections.isEmpty else {
+                break
+            }
+
+            let knownIDs = Set(connections.map(\.id))
+            let newConnections = page.connections.filter { !knownIDs.contains($0.id) }
+            guard !newConnections.isEmpty else {
+                break
+            }
+
+            connections.append(contentsOf: newConnections)
+            paging.allowNext = page.allowNext
+        }
+
+        return Array(connections.prefix(limit))
+    }
+
+    private func nextConnectionsPage(
+        request: IDOSConnectionRequest,
+        paging: IDOSConnectionPagingContext,
+        listedIDs: [Int]
+    ) async throws -> (connections: [IDOSConnection], allowNext: Bool) {
+        guard let lastID = listedIDs.last else {
+            return ([], false)
+        }
+
+        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        components.path = "/en/\(request.timetable.slug)/Ajax/ConnPaging"
+        components.queryItems = [URLQueryItem(name: "callback", value: "idosCallback")]
+
+        var urlRequest = URLRequest(url: try components.requiredURL)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/x-www-form-urlencoded; charset=UTF-8", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue("XMLHttpRequest", forHTTPHeaderField: "X-Requested-With")
+        urlRequest.setValue("\(baseURL.absoluteString)/en/\(request.timetable.slug)/spojeni/", forHTTPHeaderField: "Referer")
+
+        var items = listedIDs.map { URLQueryItem(name: "listedIds[]", value: String($0)) }
+        items.append(contentsOf: [
+            URLQueryItem(name: "isPrev", value: "false"),
+            URLQueryItem(name: "handle", value: String(paging.handle)),
+            URLQueryItem(name: "searchDate", value: paging.searchDate),
+            URLQueryItem(name: "connId", value: String(lastID)),
+            URLQueryItem(name: "arrivalThere", value: paging.arrivalThere),
+            URLQueryItem(name: "from", value: paging.from),
+            URLQueryItem(name: "to", value: paging.to),
+        ])
+        urlRequest.httpBody = Self.formURLEncodedData(items)
+
+        let data = try await data(for: urlRequest)
+        let json = try IDOSJSONP.decodePayload(from: data)
+        guard let object = try JSONSerialization.jsonObject(with: json) as? [String: Any] else {
+            throw IDOSError.invalidResponse
+        }
+
+        if let errorMessage = object["errorMessage"] as? String, !errorMessage.isEmpty {
+            throw IDOSError.invalidResponse
+        }
+
+        let html = (object["newConnections"] as? [String] ?? []).joined(separator: "\n")
+        let result: [String: Any] = [
+            "handle": paging.handle,
+            "connData": object["connData"] as? [[String: Any]] ?? [],
+            "searchItem": paging.searchItem,
+        ]
+        let allowNext = object["allowNext"] as? Bool ?? false
+        return (IDOSConnectionParser.parse(html: html, result: result), allowNext)
     }
 
     public func connectionCalendar(for connection: IDOSConnection, timetable: IDOSTimetable = .defaultTimetable) async throws -> String {
@@ -218,6 +297,7 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
     public var via: [String]
     public var maxTransfers: Int?
     public var minimumTransferTime: Int?
+    public var resultLimit: Int?
 
     public init(
         timetable: IDOSTimetable = .defaultTimetable,
@@ -229,7 +309,8 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
         onlyDirect: Bool = false,
         via: [String] = [],
         maxTransfers: Int? = nil,
-        minimumTransferTime: Int? = nil
+        minimumTransferTime: Int? = nil,
+        resultLimit: Int? = nil
     ) {
         self.timetable = timetable
         self.from = from
@@ -241,6 +322,7 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
         self.via = via
         self.maxTransfers = maxTransfers
         self.minimumTransferTime = minimumTransferTime
+        self.resultLimit = resultLimit
     }
 
     var formItems: [URLQueryItem] {
@@ -893,6 +975,13 @@ public enum IDOSTransportMode: String, Codable, Equatable, Sendable {
             return .cableCar
         }
 
+        if normalized.contains("train") ||
+            normalized.contains("rail") ||
+            normalized.range(of: #"\b(rj|r|rx|ex|ic|ec|sc|en|nj|os|sp|le)\s*[0-9]"#, options: .regularExpression) != nil
+        {
+            return .train
+        }
+
         if normalized.contains("metro") || normalized.contains("subway") || normalized.contains("underground") {
             return .metro
         }
@@ -903,13 +992,6 @@ public enum IDOSTransportMode: String, Codable, Equatable, Sendable {
 
         if normalized.contains("bus") || normalized.hasPrefix("bus ") {
             return .bus
-        }
-
-        if normalized.contains("train") ||
-            normalized.contains("rail") ||
-            normalized.range(of: #"\b(rj|r|rx|ex|ic|ec|sc|en|nj|os|sp|le)\s*[0-9]"#, options: .regularExpression) != nil
-        {
-            return .train
         }
 
         if normalized.contains("ferry") || normalized.contains("boat") || normalized.contains("ship") {
@@ -987,9 +1069,23 @@ enum IDOSJSONP {
     }
 }
 
+struct IDOSConnectionPagingContext {
+    var handle: Int
+    var searchDate: String
+    var arrivalThere: String
+    var from: String?
+    var to: String?
+    var searchItem: [String: Any]
+    var allowNext: Bool
+}
+
 enum IDOSConnectionParser {
     static func parse(html: String) -> [IDOSConnection] {
-        let calendarModels = calendarModels(in: html)
+        parse(html: html, result: connectionResult(from: html))
+    }
+
+    static func parse(html: String, result: [String: Any]?) -> [IDOSConnection] {
+        let calendarModels = calendarModels(in: html, result: result)
         let starts = RegexSupport.matches(
             pattern: #"<div id="connectionBox-([0-9]+)""#,
             in: html
@@ -1003,6 +1099,32 @@ enum IDOSConnectionParser {
             let id = RegexSupport.capture(pattern: #"<div id="connectionBox-([0-9]+)""#, in: block) ?? ""
             return parseConnection(id: id, block: block, calendarModel: calendarModels[id])
         }
+    }
+
+    static func pagingContext(html: String) -> IDOSConnectionPagingContext? {
+        guard let result = connectionResult(from: html),
+              let handle = integer(result["handle"]),
+              let searchItem = result["searchItem"] as? [String: Any],
+              let connection = searchItem["oConn"] as? [String: Any],
+              let input = connection["oUserInput"] as? [String: Any],
+              let searchDate = input["dtSearchDate"] as? String
+        else {
+            return nil
+        }
+
+        let from = (input["oFrom"] as? [String: Any]).flatMap(placeName)
+        let to = (input["oTo"] as? [String: Any]).flatMap(placeName)
+        let arrivalThere = result["arrivalThere"] as? String ?? "0001-01-01T00:00:00"
+
+        return IDOSConnectionPagingContext(
+            handle: handle,
+            searchDate: searchDate,
+            arrivalThere: arrivalThere,
+            from: from,
+            to: to,
+            searchItem: searchItem,
+            allowNext: result["allowNext"] as? Bool ?? true
+        )
     }
 
     private static func parseConnection(id: String, block: String, calendarModel: String?) -> IDOSConnection? {
@@ -1079,8 +1201,8 @@ enum IDOSConnectionParser {
         )
     }
 
-    private static func calendarModels(in html: String) -> [String: String] {
-        guard let result = connectionResult(from: html),
+    private static func calendarModels(in html: String, result: [String: Any]?) -> [String: String] {
+        guard let result,
               let connectionData = result["connData"] as? [[String: Any]],
               let searchItem = result["searchItem"]
         else {
@@ -1193,6 +1315,32 @@ enum IDOSConnectionParser {
 
         if let id = connection["connId"] as? String {
             return id
+        }
+
+        return nil
+    }
+
+    private static func integer(_ value: Any?) -> Int? {
+        if let value = value as? Int {
+            return value
+        }
+
+        if let value = value as? NSNumber {
+            return value.intValue
+        }
+
+        if let value = value as? String {
+            return Int(value)
+        }
+
+        return nil
+    }
+
+    private static func placeName(_ value: [String: Any]) -> String? {
+        for key in ["sName", "sAdvancedName"] {
+            if let name = value[key] as? String, !name.isEmpty {
+                return name
+            }
         }
 
         return nil
