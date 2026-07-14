@@ -6,6 +6,16 @@ enum AppLanguage: String, CaseIterable {
     case english = "en"
     case czech = "cs"
 
+    /// Selects the matching IDOS language for platform-supplied detail text.
+    var idosLanguage: IDOSLanguage {
+        switch self {
+        case .english:
+            return .english
+        case .czech:
+            return .czech
+        }
+    }
+
     /// Resolves a command-line or locale identifier, including regional variants such as `cs-CZ`.
     init?(identifier: String) {
         let normalized = identifier

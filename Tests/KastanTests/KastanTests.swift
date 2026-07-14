@@ -748,7 +748,9 @@ import Testing
 }
 
 @Test func serviceCommandLocalizesCzechOutput() async {
-    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(
+        client: MockIDOSClient(expectedServiceLanguage: .czech)
+    ).output(
         for: ["service", "vlaky:0-74552-18.06.2026 12:04:00", "--language", "cs"]
     )
 
@@ -756,6 +758,10 @@ import Testing
     #expect(output.contains("ID spoje: vlaky:0-74552-18.06.2026 12:04:00"))
     #expect(output.contains("🛤️ Trasa:"))
     #expect(output.contains("Příjezd \u{001B}[1m11:53\u{001B}[0m · Odjezd \u{001B}[1m12:04\u{001B}[0m"))
+    #expect(output.contains("🚧 Omezení provozu"))
+    #expect(output.contains("🚇 přestup na Metro"))
+    #expect(output.contains("♿ bezbariérově přístupná stanice"))
+    #expect(output.contains("🚉 železniční stanice"))
 }
 
 @Test func serviceCommandRequiresIdentifier() async {
@@ -1505,6 +1511,58 @@ import Testing
     #expect(legacy.id == "odis:1-4286-18.06.2026 16:03:00")
 }
 
+@Test func idosLanguageBuildsLocalizedServiceDetailPaths() {
+    let timetable = IDOSTimetable(slug: "vlaky", displayName: "Trains")
+
+    #expect(IDOSLanguage.english.path(
+        timetable: timetable,
+        endpoint: "Ajax/TrainDetail"
+    ) == "/en/vlaky/Ajax/TrainDetail")
+    #expect(IDOSLanguage.czech.path(
+        timetable: timetable,
+        endpoint: "Ajax/TrainDetail"
+    ) == "/vlaky/Ajax/TrainDetail")
+}
+
+@Test func serviceDetailParserReadsCzechStopMetadata() throws {
+    let html = """
+    <div id="train-detail-151">
+      <p class="line-top-date print-only">Odjezd z výchozí stanice <strong>18.6.2026</strong></p>
+      <h1 title="vlak"><span>RJ 1051 RegioJet</span></h1>
+      <ul class="reset line-itinerary">
+        <li class="item" title="Omezen&#237; provozu">
+          <span class="arrival"><span class="label out"></span>11:53</span>
+          <span class="departure"><span class="label out"></span>12:04</span>
+          <strong class="name">Praha hl.n.</strong>
+          <span title="přestup na Metro">#</span>
+          <span class="fixed-codes">
+            <span title="tarifní zóna">P</span>
+            <span title="nástupiště">2</span>
+            <span title="kolej">4</span>
+            <span title="nástupiště/kolej">2/4</span>
+          </span>
+          <span class="distance"><span class="label out"></span>7 km</span>
+        </li>
+      </ul>
+      <ul class="reset messages"></ul>
+      <ul class="reset line-share"></ul>
+    </div>
+    """
+
+    let detail = try #require(IDOSServiceDetailParser.parse(
+        html: html,
+        id: "vlaky:0-74552-18.06.2026 12:04:00",
+        timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains")
+    ))
+    let stop = try #require(detail.stops.first)
+
+    #expect(stop.tariffZone == "P")
+    #expect(stop.platform == "2")
+    #expect(stop.track == "4")
+    #expect(stop.platformTrack == "2/4")
+    #expect(stop.notes == ["Omezení provozu", "přestup na Metro"])
+}
+
 /// Keeps legacy output assertions deterministic regardless of the developer machine's locale.
 private func englishCommandRunner(
     client: IDOSClienting = IDOSClient(),
@@ -1540,6 +1598,7 @@ private struct MockIDOSClient: IDOSClienting {
     var departureResults: [IDOSDeparture]? = nil
     var suggestionResultsByPrefix: [String: [IDOSSuggestion]] = [:]
     var stationResultsByPrefix: [String: [IDOSSuggestion]] = [:]
+    var expectedServiceLanguage: IDOSLanguage = .english
 
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
         if let suggestions = suggestionResultsByPrefix[prefix] {
@@ -1669,10 +1728,25 @@ private struct MockIDOSClient: IDOSClienting {
         #expect(timetable.slug == IDOSTimetable.defaultTimetable.slug)
         return mockServiceDetail(id: id)
     }
+
+    func serviceDetail(
+        id: String,
+        timetable: IDOSTimetable,
+        language: IDOSLanguage
+    ) async throws -> IDOSServiceDetail {
+        #expect(id == "vlaky:0-74552-18.06.2026 12:04:00")
+        #expect(timetable.slug == IDOSTimetable.defaultTimetable.slug)
+        #expect(language == expectedServiceLanguage)
+        return mockServiceDetail(id: id, language: language)
+    }
 }
 
-private func mockServiceDetail(id: String) -> IDOSServiceDetail {
-    IDOSServiceDetail(
+private func mockServiceDetail(
+    id: String,
+    language: IDOSLanguage = .english
+) -> IDOSServiceDetail {
+    let isCzech = language == .czech
+    return IDOSServiceDetail(
         id: id,
         timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
         name: "RJ 1051 RegioJet",
@@ -1685,7 +1759,7 @@ private func mockServiceDetail(id: String) -> IDOSServiceDetail {
                 departureTime: "11:45",
                 track: "3",
                 distance: "0 km",
-                notes: ["Traffic restrictions"]
+                notes: [isCzech ? "Omezení provozu" : "Traffic restrictions"]
             ),
             IDOSServiceStop(
                 name: "Praha hl.n.",
@@ -1693,17 +1767,22 @@ private func mockServiceDetail(id: String) -> IDOSServiceDetail {
                 departureTime: "12:04",
                 tariffZone: "P",
                 distance: "7 km",
-                notes: ["transfer to the undeground"]
+                notes: [isCzech ? "přestup na Metro" : "transfer to the undeground"]
             ),
             IDOSServiceStop(
                 name: "Brno hl.n.",
                 arrivalTime: "15:44",
                 platformTrack: "3/1",
                 distance: "262 km",
-                notes: ["wheelchair accessible station", "rail station"]
+                notes: isCzech
+                    ? ["bezbariérově přístupná stanice", "železniční stanice"]
+                    : ["wheelchair accessible station", "rail station"]
             ),
         ],
-        information: ["Planned traffic restriction", "České dráhy, a.s."],
+        information: [
+            isCzech ? "Plánované omezení provozu" : "Planned traffic restriction",
+            "České dráhy, a.s.",
+        ],
         shareURL: "https://idos.cz/service"
     )
 }

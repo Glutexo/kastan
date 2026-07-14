@@ -364,15 +364,17 @@ struct CommandRunner {
             throw CommandError.usage(.usageService)
         }
 
-        let service: IDOSServiceDetail
+        let timetable: IDOSTimetable
         if let timetableValue = options.value(for: "--timetable", short: "-T") {
-            service = try await client.serviceDetail(
-                id: positional[0],
-                timetable: IDOSTimetable.resolve(timetableValue)
-            )
+            timetable = try IDOSTimetable.resolve(timetableValue)
         } else {
-            service = try await client.serviceDetail(id: positional[0])
+            timetable = .defaultTimetable
         }
+        let service = try await client.serviceDetail(
+            id: positional[0],
+            timetable: timetable,
+            language: localization.language.idosLanguage
+        )
         return try format.renderServiceDetail(
             ServiceDetailOutput(service: service),
             localization: localization
@@ -1287,13 +1289,19 @@ private enum ServiceStopNote {
         if normalized.contains("wheelchair accessible") || normalized.contains("bezbarier") {
             return "♿"
         }
-        if normalized.contains("rail station") || normalized.contains("railway station") {
+        if normalized.contains("rail station") ||
+            normalized.contains("railway station") ||
+            normalized.contains("zeleznicni stanice")
+        {
             return "🚉"
         }
         if normalized.contains("undeground") || normalized.contains("underground") || normalized.contains("metro") {
             return "🚇"
         }
-        if normalized.contains("traffic restriction") || normalized.contains("vyluk") {
+        if normalized.contains("traffic restriction") ||
+            normalized.contains("vyluk") ||
+            normalized.contains("omezeni provozu")
+        {
             return "🚧"
         }
         if normalized.contains("stops on signal") || normalized.contains("request stop") || normalized.contains("na znameni") {

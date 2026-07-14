@@ -3,6 +3,18 @@ import Foundation
 import FoundationNetworking
 #endif
 
+/// A language variant exposed by IDOS for platform-supplied names, notes, and messages.
+public enum IDOSLanguage: String, Codable, Equatable, Sendable {
+    case english = "en"
+    case czech = "cs"
+
+    /// Builds an IDOS endpoint path; Czech is the site's unprefixed default language.
+    func path(timetable: IDOSTimetable, endpoint: String) -> String {
+        let languagePrefix = self == .english ? "/en" : ""
+        return "\(languagePrefix)/\(timetable.slug)/\(endpoint)"
+    }
+}
+
 public protocol IDOSClienting: Sendable {
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion]
     func searchStations(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion]
@@ -10,12 +22,32 @@ public protocol IDOSClienting: Sendable {
     func connectionCalendar(for connection: IDOSConnection, timetable: IDOSTimetable) async throws -> String
     func findDepartures(request: IDOSDeparturesRequest) async throws -> [IDOSDeparture]
     func serviceDetail(id: String, timetable: IDOSTimetable) async throws -> IDOSServiceDetail
+    /// Loads a complete route with platform-supplied text in the selected language.
+    func serviceDetail(
+        id: String,
+        timetable: IDOSTimetable,
+        language: IDOSLanguage
+    ) async throws -> IDOSServiceDetail
 }
 
 public extension IDOSClienting {
     /// Loads a service whose self-contained ID carries its own timetable context.
     func serviceDetail(id: String) async throws -> IDOSServiceDetail {
         try await serviceDetail(id: id, timetable: .defaultTimetable)
+    }
+
+    /// Loads a self-contained service ID using the selected language for text supplied by IDOS.
+    func serviceDetail(id: String, language: IDOSLanguage) async throws -> IDOSServiceDetail {
+        try await serviceDetail(id: id, timetable: .defaultTimetable, language: language)
+    }
+
+    /// Preserves compatibility for custom clients that have not added language-aware service details yet.
+    func serviceDetail(
+        id: String,
+        timetable: IDOSTimetable,
+        language: IDOSLanguage
+    ) async throws -> IDOSServiceDetail {
+        try await serviceDetail(id: id, timetable: timetable)
     }
 }
 
@@ -202,9 +234,18 @@ public struct IDOSClient: IDOSClienting {
         id: String,
         timetable: IDOSTimetable = .defaultTimetable
     ) async throws -> IDOSServiceDetail {
+        try await serviceDetail(id: id, timetable: timetable, language: .english)
+    }
+
+    /// Loads a complete route in the selected IDOS language; `timetable` is only a legacy-ID fallback.
+    public func serviceDetail(
+        id: String,
+        timetable: IDOSTimetable = .defaultTimetable,
+        language: IDOSLanguage
+    ) async throws -> IDOSServiceDetail {
         let reference = try IDOSServiceReference(id: id, fallbackTimetable: timetable)
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
-        components.path = "/en/\(reference.timetable.slug)/Ajax/TrainDetail"
+        components.path = language.path(timetable: reference.timetable, endpoint: "Ajax/TrainDetail")
         components.queryItems = [URLQueryItem(name: "callback", value: "idosCallback")]
 
         var urlRequest = URLRequest(url: try components.requiredURL)
@@ -1928,7 +1969,13 @@ enum IDOSServiceDetailParser {
                 return nil
             }
 
-            let knownTitles = Set(["tariff zone", "platform", "track", "platform/track"])
+            let tariffZoneTitles = ["tariff zone", "tarifní pásmo", "tarifní zóna"]
+            let platformTitles = ["platform", "nástupiště"]
+            let trackTitles = ["track", "kolej"]
+            let platformTrackTitles = ["platform/track", "nástupiště/kolej"]
+            let knownTitles = Set(
+                tariffZoneTitles + platformTitles + trackTitles + platformTrackTitles
+            )
             var notes = RegexSupport.captures(
                 pattern: #"\btitle="([^"]*)""#,
                 in: block
@@ -1945,10 +1992,10 @@ enum IDOSServiceDetailParser {
                 name: stopName,
                 arrivalTime: time(className: "arrival", in: block),
                 departureTime: time(className: "departure", in: block),
-                tariffZone: titledValue("tariff zone", in: block),
-                platform: titledValue("platform", in: block),
-                track: titledValue("track", in: block),
-                platformTrack: titledValue("platform/track", in: block),
+                tariffZone: titledValue(tariffZoneTitles, in: block),
+                platform: titledValue(platformTitles, in: block),
+                track: titledValue(trackTitles, in: block),
+                platformTrack: titledValue(platformTrackTitles, in: block),
                 distance: time(className: "distance", in: block),
                 notes: unique(notes)
             )
@@ -1987,12 +2034,14 @@ enum IDOSServiceDetailParser {
         ).map(HTMLText.clean).flatMap(nonEmpty)
     }
 
-    private static func titledValue(_ title: String, in html: String) -> String? {
-        RegexSupport.capture(
-            pattern: #"<span\b[^>]*\btitle="\#(NSRegularExpression.escapedPattern(for: title))"[^>]*>(.*?)</span>"#,
-            in: html,
-            options: [.dotMatchesLineSeparators]
-        ).map(HTMLText.clean).flatMap(nonEmpty)
+    private static func titledValue(_ titles: [String], in html: String) -> String? {
+        titles.lazy.compactMap { title in
+            RegexSupport.capture(
+                pattern: #"<span\b[^>]*\btitle="\#(NSRegularExpression.escapedPattern(for: title))"[^>]*>(.*?)</span>"#,
+                in: html,
+                options: [.dotMatchesLineSeparators]
+            ).map(HTMLText.clean).flatMap(nonEmpty)
+        }.first
     }
 
     private static func information(in html: String) -> [String] {
