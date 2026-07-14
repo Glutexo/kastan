@@ -68,6 +68,7 @@ struct ContentView: View {
     @StateObject private var connectionsModel: ConnectionsViewModel
     @StateObject private var departuresModel: DeparturesViewModel
     @State private var selection = AppSection.connections
+    @State private var showsAppInformation = false
 
     init(client: any IDOSClienting) {
         self.client = client
@@ -83,17 +84,28 @@ struct ContentView: View {
             }
             .navigationTitle("Kaštan")
             .safeAreaInset(edge: .bottom) {
-                HStack(spacing: 8) {
-                    Text("🌰")
-                    Text("Powered by public IDOS web data")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(3)
-                        .fixedSize(horizontal: false, vertical: true)
+                Button {
+                    showsAppInformation = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Text("🌰")
+                            .accessibilityHidden(true)
+                        Text("Powered by public IDOS web data")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(3)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 4)
+                        Image(systemName: "info.circle")
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
-                .padding(10)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .buttonStyle(.plain)
                 .background(.bar)
+                .help("Show app and data source information")
             }
             .navigationSplitViewColumnWidth(min: 170, ideal: 210)
         } detail: {
@@ -103,6 +115,9 @@ struct ContentView: View {
             case .departures:
                 DeparturesView(model: departuresModel, client: client)
             }
+        }
+        .sheet(isPresented: $showsAppInformation) {
+            AppInformationView()
         }
     }
 }

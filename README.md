@@ -321,6 +321,7 @@ The first app release supports:
 - line colors, transport symbols, platforms, tariff zones, carriers, and delay details supplied by IDOS;
 - complete service routes opened from connection legs and station-board rows;
 - IDOS calendar export opened in the user's macOS calendar application;
+- an in-app information panel covering the data source and limitations, with links to IDOS, its terms, and the Kaštan repository;
 - English and Czech user-interface localization.
 
 Open the shared Xcode project and run the `KastanApp` scheme:

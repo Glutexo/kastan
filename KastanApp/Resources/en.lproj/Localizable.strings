@@ -1,5 +1,6 @@
 "Add to Calendar" = "Add to Calendar";
 "All timetables" = "All timetables";
+"Availability and accuracy are not guaranteed. Confirm important journey details with the carrier." = "Availability and accuracy are not guaranteed. Confirm important journey details with the carrier.";
 "Arrival" = "Arrival";
 "Arrival place" = "Arrival place";
 "Arrivals" = "Arrivals";
@@ -17,6 +18,7 @@
 "Departures and arrivals" = "Departures and arrivals";
 "Direct" = "Direct";
 "Direct only" = "Direct only";
+"Data source and limitations" = "Data source and limitations";
 "Done" = "Done";
 "Enter a route and start a search." = "Enter a route and start a search.";
 "Enter a station or stop." = "Enter a station or stop.";
@@ -26,12 +28,16 @@
 "From" = "From";
 "IDOS could not load this service detail." = "IDOS could not load this service detail.";
 "IDOS could not load this service detail. %@" = "IDOS could not load this service detail. %@";
+"IDOS Terms and Conditions" = "IDOS Terms and Conditions";
 "IDOS did not provide calendar export data for this connection." = "IDOS did not provide calendar export data for this connection.";
 "IDOS returned an unexpected JSONP format." = "IDOS returned an unexpected JSONP format.";
 "IDOS returned an unexpected response." = "IDOS returned an unexpected response.";
 "Invalid service ID: %@." = "Invalid service ID: %@.";
 "Invalid timetable: %@." = "Invalid timetable: %@.";
 "Journey options" = "Journey options";
+"Kaštan on GitHub" = "Kaštan on GitHub";
+"Kaštan retrieves journey information from publicly accessible IDOS web pages. It is not an official IDOS or CHAPS application." = "Kaštan retrieves journey information from publicly accessible IDOS web pages. It is not an official IDOS or CHAPS application.";
+"Independent macOS client for occasional personal IDOS searches." = "Independent macOS client for occasional personal IDOS searches.";
 "Loading service route…" = "Loading service route…";
 "Loading station board…" = "Loading station board…";
 "No application could open the calendar event." = "No application could open the calendar event.";
@@ -40,6 +46,8 @@
 "Network request failed. Check your internet connection." = "Network request failed. Check your internet connection.";
 "Network request failed. Check your internet connection. %@" = "Network request failed. Check your internet connection. %@";
 "Open in IDOS" = "Open in IDOS";
+"Open IDOS website" = "Open IDOS website";
+"Opens in the default web browser" = "Opens in the default web browser";
 "Platform %@" = "Platform %@";
 "Powered by public IDOS web data" = "Powered by public IDOS web data";
 "Results" = "Results";
@@ -48,6 +56,7 @@
 "Service information" = "Service information";
 "Service route" = "Service route";
 "Service route unavailable" = "Service route unavailable";
+"Show app and data source information" = "Show app and data source information";
 "Station" = "Station";
 "Station board" = "Station board";
 "Station or stop" = "Station or stop";
@@ -64,6 +73,7 @@
 "Prague + PID" = "Prague + PID";
 "Up to %lld transfers" = "Up to %lld transfers";
 "Urban Public Transport" = "Urban Public Transport";
+"Version %@" = "Version %@";
 "Via places, separated by commas" = "Via places, separated by commas";
 "Zone %@" = "Zone %@";
 "via %@" = "via %@";

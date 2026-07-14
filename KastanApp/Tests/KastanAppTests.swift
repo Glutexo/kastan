@@ -5,6 +5,17 @@ import XCTest
 
 @MainActor
 final class KastanAppTests: XCTestCase {
+    func testAppInformationLinksUseLocalizedOfficialIDOSPages() {
+        let czech = AppInformationLinks(languageCode: "cs")
+        let english = AppInformationLinks(languageCode: "en")
+
+        XCTAssertEqual(czech.idosWebsite.absoluteString, "https://idos.cz/")
+        XCTAssertEqual(czech.idosTerms.absoluteString, "https://idos.cz/smluvni-podminky/")
+        XCTAssertEqual(english.idosWebsite.absoluteString, "https://idos.cz/en/")
+        XCTAssertEqual(english.idosTerms.absoluteString, "https://idos.cz/en/smluvni-podminky/")
+        XCTAssertEqual(english.projectWebsite.absoluteString, "https://github.com/Glutexo/kastan")
+    }
+
     func testDetailLayoutStacksControlsAtCompactWidths() {
         let layout = DetailLayout(availableWidth: 510)
 
