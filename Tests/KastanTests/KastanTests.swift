@@ -761,7 +761,7 @@ import Testing
     #expect(output.contains("🚧 Omezení provozu"))
     #expect(output.contains("🚇 přestup na Metro"))
     #expect(output.contains("♿ bezbariérově přístupná stanice"))
-    #expect(output.contains("🚉 železniční stanice"))
+    #expect(output.contains("🚉 zastávka s možností přestupu na železniční dopravu"))
 }
 
 @Test func serviceCommandRequiresIdentifier() async {
@@ -1536,8 +1536,8 @@ import Testing
           <strong class="name">Praha hl.n.</strong>
           <span title="přestup na Metro">#</span>
           <span class="fixed-codes">
-            <span title="tarifní zóna">P</span>
-            <span title="nástupiště">2</span>
+            <span title="tar. pásmo">1,2</span>
+            <span title="stanoviště">2</span>
             <span title="kolej">4</span>
             <span title="nástupiště/kolej">2/4</span>
           </span>
@@ -1556,7 +1556,7 @@ import Testing
     ))
     let stop = try #require(detail.stops.first)
 
-    #expect(stop.tariffZone == "P")
+    #expect(stop.tariffZone == "1,2")
     #expect(stop.platform == "2")
     #expect(stop.track == "4")
     #expect(stop.platformTrack == "2/4")
@@ -1775,7 +1775,10 @@ private func mockServiceDetail(
                 platformTrack: "3/1",
                 distance: "262 km",
                 notes: isCzech
-                    ? ["bezbariérově přístupná stanice", "železniční stanice"]
+                    ? [
+                        "bezbariérově přístupná stanice",
+                        "zastávka s možností přestupu na železniční dopravu",
+                    ]
                     : ["wheelchair accessible station", "rail station"]
             ),
         ],

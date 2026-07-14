@@ -1969,8 +1969,10 @@ enum IDOSServiceDetailParser {
                 return nil
             }
 
-            let tariffZoneTitles = ["tariff zone", "tarifní pásmo", "tarifní zóna"]
-            let platformTitles = ["platform", "nástupiště"]
+            let tariffZoneTitles = [
+                "tariff zone", "tarifní pásmo", "tarifní zóna", "tar. pásmo",
+            ]
+            let platformTitles = ["platform", "nástupiště", "stanoviště"]
             let trackTitles = ["track", "kolej"]
             let platformTrackTitles = ["platform/track", "nástupiště/kolej"]
             let knownTitles = Set(

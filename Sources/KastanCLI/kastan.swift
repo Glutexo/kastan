@@ -1291,7 +1291,8 @@ private enum ServiceStopNote {
         }
         if normalized.contains("rail station") ||
             normalized.contains("railway station") ||
-            normalized.contains("zeleznicni stanice")
+            normalized.contains("zeleznicni stanice") ||
+            normalized.contains("zeleznicni dopravu")
         {
             return "🚉"
         }
