@@ -64,11 +64,7 @@ struct ConnectionsView: View {
 
             searchControls(stacked: layout.usesStackedSearchControls)
 
-            DisclosureGroup("Journey options") {
-                journeyOptions(stacked: layout.usesStackedOptions)
-                    .padding(.top, 8)
-            }
-            .frame(maxWidth: 840, alignment: .leading)
+            journeyOptions(stacked: layout.usesStackedOptions)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -209,22 +205,35 @@ struct ConnectionsView: View {
         .disabled(!model.canSearch)
     }
 
-    @ViewBuilder
     private func journeyOptions(stacked: Bool) -> some View {
-        if stacked {
-            VStack(alignment: .leading, spacing: 10) {
-                viaField
-                directToggle
-                transfersStepper
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Journey options")
+
+            Divider()
+
+            Group {
+                if stacked {
+                    VStack(alignment: .leading, spacing: 10) {
+                        viaField
+                            .frame(maxWidth: 520)
+                        directToggle
+                        transfersStepper
+                    }
+                } else {
+                    HStack(spacing: 18) {
+                        viaField
+                            .frame(minWidth: 240, maxWidth: 520)
+                        directToggle
+                        transfersStepper
+                        Spacer(minLength: 0)
+                    }
+                }
             }
-        } else {
-            HStack(spacing: 18) {
-                viaField
-                    .frame(minWidth: 240)
-                directToggle
-                transfersStepper
-            }
+            .padding(.vertical, 2)
+
+            Divider()
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var viaField: some View {
