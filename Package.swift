@@ -5,6 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "kastan",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v12),
     ],
@@ -18,7 +19,8 @@ let package = Package(
         ),
         .executableTarget(
             name: "KastanCLI",
-            dependencies: ["Kastan"]
+            dependencies: ["Kastan"],
+            resources: [.process("Resources")]
         ),
         .testTarget(
             name: "KastanTests",

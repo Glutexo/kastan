@@ -4,14 +4,14 @@ import Testing
 @testable import KastanCLI
 
 @Test func defaultOutputNamesApplication() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(for: [])
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(for: [])
 
     #expect(output.contains("🌰 Kaštan"))
     #expect(output.contains("Search occasional IDOS connections"))
 }
 
 @Test func helpOutputShowsUsage() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(for: ["--help"])
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(for: ["--help"])
 
     #expect(output.contains("🌰 Usage:"))
     #expect(output.contains("connections"))
@@ -38,14 +38,121 @@ import Testing
     #expect(output.contains("--version"))
 }
 
+@Test func systemLanguageSelectsFirstSupportedLocalization() async {
+    let output = await CommandRunner(
+        client: MockIDOSClient(),
+        preferredLanguageIdentifiers: ["it-CZ", "cs-CZ"],
+        environment: [:]
+    ).output(for: ["--help"])
+    let fallback = await CommandRunner(
+        client: MockIDOSClient(),
+        preferredLanguageIdentifiers: ["de-DE"],
+        environment: ["LANG": "C.UTF-8"]
+    ).output(for: ["--help"])
+
+    #expect(output.contains("🌰 Použití:"))
+    #expect(output.contains("⚙️ Možnosti:"))
+    #expect(output.contains("--language, --lang"))
+    #expect(fallback.contains("🌰 Usage:"))
+}
+
+@Test func posixLocaleSelectsCzechLocalization() async {
+    let output = await CommandRunner(
+        client: MockIDOSClient(),
+        preferredLanguageIdentifiers: ["de-DE"],
+        environment: ["LC_ALL": "cs_CZ.UTF-8"]
+    ).output(for: [])
+
+    #expect(output.contains("Vyhledávání spojení"))
+    #expect(output.contains("Nápovědu zobrazíte"))
+}
+
+@Test func explicitLanguageOverridesSystemLanguage() async {
+    let runner = CommandRunner(
+        client: MockIDOSClient(),
+        preferredLanguageIdentifiers: ["cs-CZ"],
+        environment: [:]
+    )
+    let english = await runner.output(for: ["--lang=en", "--help"])
+    let czech = await runner.output(for: ["--language", "cs", "--help"])
+
+    #expect(english.contains("🌰 Usage:"))
+    #expect(english.contains("Output language: en or cs"))
+    #expect(czech.contains("🌰 Použití:"))
+    #expect(czech.contains("Jazyk výstupu: en nebo cs"))
+}
+
+@Test func czechLanguageLocalizesConnectionText() async {
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+        for: [
+            "connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky",
+            "--verbose", "--limit", "1", "--language", "cs",
+        ]
+    )
+
+    #expect(output.contains("🧭 Spojení Praha → Brno (Vlaky)"))
+    #expect(output.contains("➡️ Přímý · ⚡ Nejrychlejší"))
+    #expect(output.contains("tarifní zóna P · nástupiště 4"))
+}
+
+@Test func czechLanguageLocalizesMarkdownAndErrors() async {
+    let runner = englishCommandRunner(client: MockIDOSClient())
+    let markdown = await runner.output(
+        for: [
+            "departures", "--station", "Ostrava,Hrabůvka,Benzina", "--timetable", "odis",
+            "--format", "markdown", "--verbose", "--limit", "1", "--lang", "cs",
+        ]
+    )
+    let error = await runner.output(for: ["stations", "Praha", "--unknown", "--language", "cs"])
+
+    #expect(markdown.contains("## 🚏 Odjezdy"))
+    #expect(markdown.contains("| # | Čas | Linka | Cíl | Tarifní zóna | Nástupiště | Přes | Dopravce | Zpoždění |"))
+    #expect(error.contains("❌ Chyba: Neznámá volba: --unknown."))
+}
+
+@Test func localizedOutputKeepsJSONSchemaAndValuesStable() async throws {
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+        for: ["timetables", "--format", "json", "--language", "cs"]
+    )
+    let json = try jsonDictionary(output)
+    let timetables = try #require(json["timetables"] as? [[String: Any]])
+
+    #expect(timetables.contains {
+        $0["slug"] as? String == "vlaky" && $0["displayName"] as? String == "Trains"
+    })
+}
+
+@Test func unsupportedAndMissingLanguagesReturnLocalizedErrors() async {
+    let runner = CommandRunner(
+        client: MockIDOSClient(),
+        preferredLanguageIdentifiers: ["cs-CZ"],
+        environment: [:]
+    )
+    let unsupported = await runner.output(for: ["--language", "de", "--format", "json"])
+    let missing = await runner.output(for: ["--lang"])
+    let unsupportedJSON = try? jsonDictionary(unsupported)
+
+    #expect(unsupportedJSON?["error"] as? String == "Nepodporovaný jazyk: de. Použijte en nebo cs.")
+    #expect(missing == "❌ Chyba: Chybí hodnota pro --lang. Použijte en nebo cs.")
+}
+
+@Test func everyLocalizationKeyExistsInBothLanguages() {
+    for language in AppLanguage.allCases {
+        let localization = Localization(language: language)
+        for key in LocalizationKey.allCases {
+            #expect(localization.text(key) != key.rawValue, "Missing \(key.rawValue) for \(language.rawValue)")
+        }
+    }
+}
+
 @Test func versionOutputShowsCurrentVersion() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(for: ["--version"])
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(for: ["--version"])
 
     #expect(output == "0.1.0")
 }
 
 @Test func suggestCommandPrintsSuggestions() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(for: ["suggest", "Praha", "--timetable", "pid"])
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(for: ["suggest", "Praha", "--timetable", "pid"])
 
     #expect(output.contains("🔎 Suggested places (Prague + PID)"))
     #expect(output.contains("Praha hl.n."))
@@ -53,7 +160,7 @@ import Testing
 }
 
 @Test func suggestCommandPrintsJSON() async throws {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["suggest", "Praha", "--timetable", "pid", "--format", "json"]
     )
     let json = try jsonDictionary(output)
@@ -64,7 +171,7 @@ import Testing
 }
 
 @Test func suggestCommandAcceptsShortOptions() async throws {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["suggest", "Praha", "-T", "pid", "-o", "json", "-l", "1"]
     )
     let json = try jsonDictionary(output)
@@ -74,13 +181,13 @@ import Testing
 }
 
 @Test func suggestCommandRejectsUnknownOptions() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(for: ["suggest", "Praha", "--unknown"])
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(for: ["suggest", "Praha", "--unknown"])
 
     #expect(output.contains("❌ Error: Unknown option: --unknown."))
 }
 
 @Test func stationsCommandPrintsStations() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(for: ["stations", "Praha", "--timetable", "pid"])
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(for: ["stations", "Praha", "--timetable", "pid"])
 
     #expect(output.contains("🚏 Stations (Prague + PID):"))
     #expect(output.contains("Praha hl.n."))
@@ -88,7 +195,7 @@ import Testing
 }
 
 @Test func stationsCommandPrintsJSON() async throws {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["stations", "Praha", "-T", "pid", "-o", "json", "-l", "1"]
     )
     let json = try jsonDictionary(output)
@@ -100,13 +207,13 @@ import Testing
 }
 
 @Test func stationsCommandRejectsUnknownOptions() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(for: ["stations", "Praha", "--unknown"])
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(for: ["stations", "Praha", "--unknown"])
 
     #expect(output.contains("❌ Error: Unknown option: --unknown."))
 }
 
 @Test func connectionCommandPrintsConnections() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--limit", "1"]
     )
 
@@ -120,7 +227,7 @@ import Testing
 }
 
 @Test func connectionCommandHighlightsDirectAndShortestResultsIndependently() async {
-    let output = await CommandRunner(
+    let output = await englishCommandRunner(
         client: MockIDOSClient(connectionResults: [
             connectionResult(id: "1", duration: "3 h 40 min", legNames: ["R 1"]),
             connectionResult(id: "2", duration: "3 h 15 min", legNames: ["R 2", "R 3"]),
@@ -143,7 +250,7 @@ import Testing
 }
 
 @Test func connectionCommandHighlightsAllResultsTiedForShortestDuration() async {
-    let output = await CommandRunner(
+    let output = await englishCommandRunner(
         client: MockIDOSClient(connectionResults: [
             connectionResult(id: "1", duration: "2 h 5 min", legNames: ["R 1"]),
             connectionResult(id: "2", duration: "125 min", legNames: ["R 2", "R 3"]),
@@ -158,7 +265,7 @@ import Testing
 }
 
 @Test func connectionCommandPassesLimitToIDOSRequest() async {
-    let output = await CommandRunner(
+    let output = await englishCommandRunner(
         client: MockIDOSClient(
             expectedConnectionResultLimit: 12,
             validatesConnectionResultLimit: true
@@ -171,7 +278,7 @@ import Testing
 }
 
 @Test func connectionCommandPrintsVerboseConnections() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--limit", "1", "--verbose"]
     )
 
@@ -181,7 +288,7 @@ import Testing
 }
 
 @Test func connectionCommandRequestsViaPlaces() async {
-    let output = await CommandRunner(client: MockIDOSClient(expectedVia: ["Pardubice", "Olomouc"])).output(
+    let output = await englishCommandRunner(client: MockIDOSClient(expectedVia: ["Pardubice", "Olomouc"])).output(
         for: [
             "connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky",
             "--via", "Pardubice", "--via=Olomouc", "--limit", "1",
@@ -193,7 +300,7 @@ import Testing
 }
 
 @Test func connectionCommandAcceptsShortOptions() async {
-    let output = await CommandRunner(
+    let output = await englishCommandRunner(
         client: MockIDOSClient(
             expectedIsArrival: true,
             expectedOnlyDirect: true,
@@ -213,7 +320,7 @@ import Testing
 }
 
 @Test func connectionCommandAcceptsCombinedShortFlags() async {
-    let output = await CommandRunner(
+    let output = await englishCommandRunner(
         client: MockIDOSClient(expectedOnlyDirect: true)
     ).output(
         for: ["connections", "-vx", "-f", "Praha", "-t", "Brno", "-T", "vlaky", "-l", "1"]
@@ -224,7 +331,7 @@ import Testing
 }
 
 @Test func rootCommandAcceptsCombinedShortFlagsBeforeRoute() async {
-    let output = await CommandRunner(
+    let output = await englishCommandRunner(
         client: MockIDOSClient(expectedOnlyDirect: true)
     ).output(
         for: ["-vx", "Praha", "Brno", "-T", "vlaky", "-l", "1"]
@@ -235,7 +342,7 @@ import Testing
 }
 
 @Test func rootCommandAcceptsCombinedShortFlagsWithValueOptionAtEnd() async {
-    let output = await CommandRunner(
+    let output = await englishCommandRunner(
         client: MockIDOSClient(expectedOnlyDirect: true)
     ).output(
         for: ["-vxT", "vlaky", "Praha", "Brno", "-l", "1"]
@@ -246,7 +353,7 @@ import Testing
 }
 
 @Test func connectionCommandAcceptsHyphenRouteExpression() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["connections", "Praha-Brno", "--timetable", "vlaky", "--limit", "1"]
     )
 
@@ -255,7 +362,7 @@ import Testing
 }
 
 @Test func rootCommandAcceptsHyphenRouteExpression() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["Praha-Brno", "--timetable", "vlaky", "--limit", "1"]
     )
 
@@ -264,7 +371,7 @@ import Testing
 }
 
 @Test func connectionCommandAcceptsTwoPositionalPlaces() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["connections", "Praha", "Brno", "--timetable", "vlaky", "--limit", "1"]
     )
 
@@ -273,7 +380,7 @@ import Testing
 }
 
 @Test func rootCommandAcceptsTwoPositionalPlaces() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["Praha", "Brno", "--timetable", "vlaky", "--limit", "1"]
     )
 
@@ -282,7 +389,7 @@ import Testing
 }
 
 @Test func connectionCommandAcceptsAsciiArrowRouteExpression() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["connections", "Praha->Brno", "--timetable", "vlaky", "--limit", "1"]
     )
 
@@ -291,7 +398,7 @@ import Testing
 }
 
 @Test func rootCommandAcceptsAsciiArrowRouteExpression() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["Praha->Brno", "--timetable", "vlaky", "--limit", "1"]
     )
 
@@ -300,7 +407,7 @@ import Testing
 }
 
 @Test func connectionCommandAcceptsUnicodeArrowRouteExpression() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["connections", "Praha→Brno", "--timetable", "vlaky", "--limit", "1"]
     )
 
@@ -309,7 +416,7 @@ import Testing
 }
 
 @Test func rootCommandAcceptsUnicodeArrowRouteExpression() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["Praha→Brno", "--timetable", "vlaky", "--limit", "1"]
     )
 
@@ -318,7 +425,7 @@ import Testing
 }
 
 @Test func connectionCommandPrintsMarkdown() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--format", "markdown", "--limit", "1"]
     )
 
@@ -332,7 +439,7 @@ import Testing
 }
 
 @Test func connectionCommandPrintsVerboseMarkdown() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: [
             "connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky",
             "--format", "markdown", "--limit", "1", "--verbose",
@@ -344,7 +451,7 @@ import Testing
 }
 
 @Test func connectionCommandPrintsMarkdownWithVia() async {
-    let output = await CommandRunner(client: MockIDOSClient(expectedVia: ["Pardubice"])).output(
+    let output = await englishCommandRunner(client: MockIDOSClient(expectedVia: ["Pardubice"])).output(
         for: [
             "connections", "--from", "Praha", "--to", "Brno", "--via", "Pardubice",
             "--timetable", "vlaky", "--format", "markdown", "--limit", "1",
@@ -355,7 +462,7 @@ import Testing
 }
 
 @Test func connectionCommandPrintsJSONWithTransferLimits() async throws {
-    let output = await CommandRunner(
+    let output = await englishCommandRunner(
         client: MockIDOSClient(expectedIsArrival: true, expectedMaxTransfers: 0, expectedMinimumTransferTime: 10)
     ).output(
         for: [
@@ -376,7 +483,7 @@ import Testing
 }
 
 @Test func connectionCommandPrintsIDOSCalendar() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--format", "ics"]
     )
 
@@ -386,7 +493,7 @@ import Testing
 }
 
 @Test func connectionCommandAddsIDOSCalendar() async {
-    let output = await CommandRunner(
+    let output = await englishCommandRunner(
         client: MockIDOSClient(),
         calendarImporter: MockCalendarImporter(path: "/tmp/kastan-test.ics")
     ).output(
@@ -398,7 +505,7 @@ import Testing
 }
 
 @Test func connectionCommandAddsIDOSCalendarAsJSON() async throws {
-    let output = await CommandRunner(
+    let output = await englishCommandRunner(
         client: MockIDOSClient(),
         calendarImporter: MockCalendarImporter(path: "/tmp/kastan-test.ics")
     ).output(
@@ -414,7 +521,7 @@ import Testing
 }
 
 @Test func connectionCommandRejectsCalendarImportWithICSOutput() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: [
             "connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky",
             "--add-to-calendar", "--format", "ics",
@@ -425,7 +532,7 @@ import Testing
 }
 
 @Test func connectionCommandPrintsJSONWithVia() async throws {
-    let output = await CommandRunner(client: MockIDOSClient(expectedVia: ["Pardubice"])).output(
+    let output = await englishCommandRunner(client: MockIDOSClient(expectedVia: ["Pardubice"])).output(
         for: [
             "connections", "--from", "Praha", "--to", "Brno", "--via", "Pardubice",
             "--timetable", "vlaky", "--format", "json", "--limit", "1",
@@ -438,7 +545,7 @@ import Testing
 }
 
 @Test func connectionCommandRequestsDirectConnections() async {
-    let output = await CommandRunner(client: MockIDOSClient(expectedOnlyDirect: true)).output(
+    let output = await englishCommandRunner(client: MockIDOSClient(expectedOnlyDirect: true)).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--direct", "--limit", "1"]
     )
 
@@ -447,7 +554,7 @@ import Testing
 }
 
 @Test func connectionCommandRequestsArrivalTime() async {
-    let output = await CommandRunner(client: MockIDOSClient(expectedIsArrival: true)).output(
+    let output = await englishCommandRunner(client: MockIDOSClient(expectedIsArrival: true)).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--time", "15:00", "--arrival", "--limit", "1"]
     )
 
@@ -456,7 +563,7 @@ import Testing
 }
 
 @Test func connectionCommandRequestsDepartureTime() async {
-    let output = await CommandRunner(client: MockIDOSClient(expectedIsArrival: false)).output(
+    let output = await englishCommandRunner(client: MockIDOSClient(expectedIsArrival: false)).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--time", "15:00", "--departure", "--limit", "1"]
     )
 
@@ -465,7 +572,7 @@ import Testing
 }
 
 @Test func connectionCommandRejectsConflictingTimeModes() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--time", "15:00", "--arrival", "--departure"]
     )
 
@@ -473,7 +580,7 @@ import Testing
 }
 
 @Test func connectionCommandRejectsUnknownOptions() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--unknown"]
     )
 
@@ -481,7 +588,7 @@ import Testing
 }
 
 @Test func connectionCommandRejectsUnknownOptionsAsJSON() async throws {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--format", "json", "--unknown"]
     )
     let json = try jsonDictionary(output)
@@ -490,7 +597,7 @@ import Testing
 }
 
 @Test func connectionCommandPrintsNetworkErrors() async {
-    let output = await CommandRunner(client: MockIDOSClient(failConnectionsWithNetworkError: true)).output(
+    let output = await englishCommandRunner(client: MockIDOSClient(failConnectionsWithNetworkError: true)).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky"]
     )
 
@@ -498,7 +605,7 @@ import Testing
 }
 
 @Test func connectionCommandReportsAmbiguousPlaceNames() async {
-    let output = await CommandRunner(
+    let output = await englishCommandRunner(
         client: MockIDOSClient(suggestionResultsByPrefix: ["sí pe": ambiguousPIDStationSuggestions()])
     ).output(
         for: ["connections", "Santoška", "sí pe", "--timetable", "pid"]
@@ -510,7 +617,7 @@ import Testing
 }
 
 @Test func connectionCommandLimitsMaximumTransfers() async {
-    let output = await CommandRunner(client: MockIDOSClient(expectedMaxTransfers: 0)).output(
+    let output = await englishCommandRunner(client: MockIDOSClient(expectedMaxTransfers: 0)).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--max-transfers", "0", "--limit", "1"]
     )
 
@@ -519,7 +626,7 @@ import Testing
 }
 
 @Test func connectionCommandSetsMinimumTransferTime() async {
-    let output = await CommandRunner(client: MockIDOSClient(expectedMinimumTransferTime: 10)).output(
+    let output = await englishCommandRunner(client: MockIDOSClient(expectedMinimumTransferTime: 10)).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--min-transfer-time", "10", "--limit", "1"]
     )
 
@@ -528,7 +635,7 @@ import Testing
 }
 
 @Test func connectionCommandRejectsNegativeMaximumTransfers() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--max-transfers", "-1"]
     )
 
@@ -536,7 +643,7 @@ import Testing
 }
 
 @Test func connectionCommandRejectsNegativeShortMaximumTransfers() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["connections", "-f", "Praha", "-t", "Brno", "-T", "vlaky", "-X", "-1"]
     )
 
@@ -544,7 +651,7 @@ import Testing
 }
 
 @Test func connectionCommandRejectsNegativeMinimumTransferTime() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--min-transfer-time", "-1"]
     )
 
@@ -552,7 +659,7 @@ import Testing
 }
 
 @Test func departuresCommandPrintsDepartures() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["departures", "--station", "Ostrava,Hrabůvka,Benzina", "--timetable", "odis", "--time", "16:00", "--limit", "1"]
     )
 
@@ -567,7 +674,7 @@ import Testing
 }
 
 @Test func departuresCommandPrintsVerboseDepartures() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: [
             "departures", "--station", "Ostrava,Hrabůvka,Benzina", "--timetable", "odis",
             "--time", "16:00", "--limit", "1", "--verbose",
@@ -580,7 +687,7 @@ import Testing
 }
 
 @Test func departuresCommandAcceptsShortOptions() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["departures", "-s", "Ostrava,Hrabůvka,Benzina", "-T", "odis", "-m", "16:00", "-v", "-l", "1"]
     )
 
@@ -589,7 +696,7 @@ import Testing
 }
 
 @Test func departuresCommandPrintsResolvedStationName() async {
-    let output = await CommandRunner(
+    let output = await englishCommandRunner(
         client: MockIDOSClient(
             expectedStation: "Frýdek,sportovní",
             resolvedStationName: "Frýdek,Sportovní hala Polárka"
@@ -603,7 +710,7 @@ import Testing
 }
 
 @Test func departuresCommandAcceptsFromOption() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["departures", "--from", "Ostrava,Hrabůvka,Benzina", "--timetable", "odis", "--time", "16:00", "--limit", "1"]
     )
 
@@ -612,7 +719,7 @@ import Testing
 }
 
 @Test func rootCommandWithOnePlacePrintsDepartures() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["Ostrava,Hrabůvka,Benzina", "--timetable", "odis", "--time", "16:00", "--limit", "1"]
     )
 
@@ -621,7 +728,7 @@ import Testing
 }
 
 @Test func departuresCommandPrintsJSON() async throws {
-    let output = await CommandRunner(client: MockIDOSClient(expectedDepartureIsArrival: true)).output(
+    let output = await englishCommandRunner(client: MockIDOSClient(expectedDepartureIsArrival: true)).output(
         for: [
             "departures", "--station", "Ostrava,Hrabůvka,Benzina", "--timetable", "odis",
             "--time", "16:00", "--arrival", "--format", "json", "--limit", "1",
@@ -636,7 +743,7 @@ import Testing
 }
 
 @Test func departuresCommandPrintsMarkdown() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: [
             "departures", "--station", "Ostrava,Hrabůvka,Benzina", "--timetable", "odis",
             "--format", "markdown", "--limit", "1",
@@ -652,7 +759,7 @@ import Testing
 }
 
 @Test func departuresCommandPrintsVerboseMarkdown() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: [
             "departures", "--station", "Ostrava,Hrabůvka,Benzina", "--timetable", "odis",
             "--format", "markdown", "--limit", "1", "--verbose",
@@ -664,7 +771,7 @@ import Testing
 }
 
 @Test func departuresCommandRejectsUnknownOptions() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["departures", "--station", "Ostrava,Hrabůvka,Benzina", "--unknown"]
     )
 
@@ -672,7 +779,7 @@ import Testing
 }
 
 @Test func departuresCommandReportsAmbiguousStationNames() async {
-    let output = await CommandRunner(
+    let output = await englishCommandRunner(
         client: MockIDOSClient(stationResultsByPrefix: ["sí pe": ambiguousPIDStationSuggestions()])
     ).output(
         for: ["departures", "sí pe", "--timetable", "pid"]
@@ -684,7 +791,7 @@ import Testing
 }
 
 @Test func timetablesCommandPrintsCommonAliases() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(for: ["timetables"])
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(for: ["timetables"])
 
     #expect(output.contains("🗂 Timetables:"))
     #expect(output.contains("vlakyautobusymhdvse"))
@@ -697,7 +804,7 @@ import Testing
 }
 
 @Test func timetablesCommandPrintsJSON() async throws {
-    let output = await CommandRunner(client: MockIDOSClient()).output(for: ["timetables", "-o=json"])
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(for: ["timetables", "-o=json"])
     let json = try jsonDictionary(output)
     let timetables = json["timetables"] as? [[String: Any]]
 
@@ -706,14 +813,14 @@ import Testing
 }
 
 @Test func timetablesCommandRejectsUnknownOptions() async {
-    let output = await CommandRunner(client: MockIDOSClient()).output(for: ["timetables", "--unknown"])
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(for: ["timetables", "--unknown"])
 
     #expect(output.contains("❌ Error: Unknown option: --unknown."))
 }
 
 @Test func aliasesCommandAddsListsAndRemovesStopAliases() async throws {
     let aliasFile = temporaryAliasFile()
-    let runner = CommandRunner(client: MockIDOSClient(), aliasFile: aliasFile)
+    let runner = englishCommandRunner(client: MockIDOSClient(), aliasFile: aliasFile)
 
     let addOutput = await runner.output(for: [
         "aliases", "add", "home", "-s", "Frýdek,Na Veselé", "-T", "odis",
@@ -740,7 +847,7 @@ import Testing
 
 @Test func aliasesCommandAddsStopAliasWithPositionalStation() async throws {
     let aliasFile = temporaryAliasFile()
-    let runner = CommandRunner(client: MockIDOSClient(), aliasFile: aliasFile)
+    let runner = englishCommandRunner(client: MockIDOSClient(), aliasFile: aliasFile)
 
     let addOutput = await runner.output(for: [
         "aliases", "add", "s", "Sídliště Petrovice", "--timetable", "pid",
@@ -754,7 +861,7 @@ import Testing
 
 @Test func aliasesCommandRejectsAmbiguousStationNames() async {
     let aliasFile = temporaryAliasFile()
-    let runner = CommandRunner(
+    let runner = englishCommandRunner(
         client: MockIDOSClient(stationResultsByPrefix: ["sí pe": ambiguousPIDStationSuggestions()]),
         aliasFile: aliasFile
     )
@@ -770,7 +877,7 @@ import Testing
 
 @Test func aliasesCommandPrintsDatabasePath() async {
     let aliasFile = temporaryAliasFile()
-    let output = await CommandRunner(client: MockIDOSClient(), aliasFile: aliasFile).output(for: ["aliases", "path"])
+    let output = await englishCommandRunner(client: MockIDOSClient(), aliasFile: aliasFile).output(for: ["aliases", "path"])
 
     #expect(output.contains("🌰 Alias database:"))
     #expect(output.contains(aliasFile.fileURL.path))
@@ -783,7 +890,7 @@ import Testing
     try database.upsert(StopAlias(name: "work", station: "Ostrava,Hrabůvka,Benzina", timetable: try IDOSTimetable.resolve("odis")))
     try aliasFile.save(database)
 
-    let output = await CommandRunner(
+    let output = await englishCommandRunner(
         client: MockIDOSClient(
             expectedConnectionTimetable: "odis",
             expectedFrom: "Frýdek,Na Veselé",
@@ -802,7 +909,7 @@ import Testing
     try database.upsert(StopAlias(name: "work", station: "Ostrava,Hrabůvka,Benzina", timetable: try IDOSTimetable.resolve("odis")))
     try aliasFile.save(database)
 
-    let output = await CommandRunner(
+    let output = await englishCommandRunner(
         client: MockIDOSClient(
             expectedConnectionTimetable: "odis",
             expectedFrom: "Frýdek,Na Veselé",
@@ -821,7 +928,7 @@ import Testing
     try database.upsert(StopAlias(name: "work", station: "Ostrava,Hrabůvka,Benzina", timetable: try IDOSTimetable.resolve("odis")))
     try aliasFile.save(database)
 
-    let output = await CommandRunner(
+    let output = await englishCommandRunner(
         client: MockIDOSClient(
             expectedConnectionTimetable: "odis",
             expectedFrom: "Frýdek,Na Veselé",
@@ -840,7 +947,7 @@ import Testing
     try database.upsert(StopAlias(name: "work", station: "Ostrava,Hrabůvka,Benzina", timetable: try IDOSTimetable.resolve("odis")))
     try aliasFile.save(database)
 
-    let output = await CommandRunner(
+    let output = await englishCommandRunner(
         client: MockIDOSClient(
             expectedConnectionTimetable: "odis",
             expectedFrom: "Frýdek,Na Veselé",
@@ -862,7 +969,7 @@ import Testing
     ))
     try aliasFile.save(database)
 
-    let output = await CommandRunner(client: MockIDOSClient(), aliasFile: aliasFile).output(
+    let output = await englishCommandRunner(client: MockIDOSClient(), aliasFile: aliasFile).output(
         for: ["departures", "--station", "benzina", "--limit", "1"]
     )
 
@@ -879,7 +986,7 @@ import Testing
     ))
     try aliasFile.save(database)
 
-    let output = await CommandRunner(client: MockIDOSClient(), aliasFile: aliasFile).output(
+    let output = await englishCommandRunner(client: MockIDOSClient(), aliasFile: aliasFile).output(
         for: ["work", "--limit", "1"]
     )
 
@@ -893,7 +1000,7 @@ import Testing
     try database.upsert(StopAlias(name: "main", station: "Praha hl.n.", timetable: try IDOSTimetable.resolve("vlaky")))
     try aliasFile.save(database)
 
-    let output = await CommandRunner(client: MockIDOSClient(), aliasFile: aliasFile).output(
+    let output = await englishCommandRunner(client: MockIDOSClient(), aliasFile: aliasFile).output(
         for: ["connections", "--from", "home", "--to", "main"]
     )
 
@@ -1217,6 +1324,21 @@ import Testing
     #expect(departure?.delay == "Currently no delay")
     #expect(departure?.summaryLine(number: 1).contains("🚌") == true)
     #expect(departure?.summaryLine(number: 1).contains("tariff zone 70 · platform 1") == true)
+}
+
+/// Keeps legacy output assertions deterministic regardless of the developer machine's locale.
+private func englishCommandRunner(
+    client: IDOSClienting = IDOSClient(),
+    aliasFile: StopAliasFile = StopAliasFile(),
+    calendarImporter: CalendarImporting = SystemCalendarImporter()
+) -> CommandRunner {
+    CommandRunner(
+        client: client,
+        aliasFile: aliasFile,
+        calendarImporter: calendarImporter,
+        preferredLanguageIdentifiers: ["en"],
+        environment: [:]
+    )
 }
 
 private struct MockIDOSClient: IDOSClienting {

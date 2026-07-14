@@ -166,6 +166,22 @@ Use `--verbose` to show IDOS tariff zones, platforms, carriers, and current dela
 Departure headings use the station name resolved by IDOS, not necessarily the exact query text.
 When a connection place, departure station, or alias station is not an exact match and IDOS returns multiple candidates, Kaštan reports the ambiguous name and lists the possible IDOS choices.
 
+### Language
+
+Human-readable text and Markdown output is available in English and Czech.
+Kaštan selects the first supported language from the system preferences or POSIX locale variables and falls back to English when neither language is configured.
+Override that choice for any invocation with `--language en`, `--language cs`, or the `--lang` alias; the option can appear before or after the command.
+Regional locale identifiers such as `en-US`, `cs-CZ`, and `cs_CZ.UTF-8` are accepted too.
+
+```sh
+swift run kastan --language cs --help
+swift run kastan connections Praha Brno --lang en
+swift run kastan timetables --language cs --format markdown
+```
+
+Command names, option names, JSON keys and domain data values, and iCalendar data stay language-independent so scripts keep a stable interface; the human-readable JSON `error` value follows the selected language.
+Names and status details received from IDOS remain in the form supplied by IDOS; Kaštan localizes its own headings, labels, help, and error messages.
+
 ### Output Format
 
 All data and alias commands support `--format text`, `--format markdown`, and `--format json`. The default is `text`.
@@ -187,6 +203,7 @@ swift run kastan aliases list --format json
 ```
 
 Common options also have short switches: `-f` (`--from`), `-t` (`--to`), `-s` (`--station`), `-T` (`--timetable`), `-d` (`--date`), `-m` (`--time`), `-a` (`--arrival`), `-p` (`--departure`), `-V` (`--via`), `-x` (`--direct`), `-c` (`--add-to-calendar`), `-v` (`--verbose`), `-X` (`--max-transfers`), `-M` (`--min-transfer-time`), `-o` (`--format`), and `-l` (`--limit`).
+Language uses the long `--language` option or its `--lang` alias.
 Short flags can be combined, for example `-vx` is the same as `-v -x`; a short option with a value can be the last item in the group, such as `-vxT odis`.
 
 Limit the number of printed results:

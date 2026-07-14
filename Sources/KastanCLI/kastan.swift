@@ -12,78 +12,184 @@ struct KastanApp {
     }
 }
 
+/// Executes one Kaštan CLI invocation and renders its human-readable output in the selected language.
 struct CommandRunner {
     let version = "0.1.0"
     let client: IDOSClienting
     let aliasFile: StopAliasFile
     let calendarImporter: CalendarImporting
+    let preferredLanguageIdentifiers: [String]
+    let environment: [String: String]
 
     init(
         client: IDOSClienting = IDOSClient(),
         aliasFile: StopAliasFile = StopAliasFile(),
-        calendarImporter: CalendarImporting = SystemCalendarImporter()
+        calendarImporter: CalendarImporting = SystemCalendarImporter(),
+        preferredLanguageIdentifiers: [String] = Locale.preferredLanguages,
+        environment: [String: String] = ProcessInfo.processInfo.environment
     ) {
         self.client = client
         self.aliasFile = aliasFile
         self.calendarImporter = calendarImporter
+        self.preferredLanguageIdentifiers = preferredLanguageIdentifiers
+        self.environment = environment
     }
 
     func output<S: Sequence<String>>(for arguments: S) async -> String {
-        let arguments = CommandOptions.normalized(Array(arguments))
-
-        if arguments.contains("--help") || arguments.contains("-h") {
-            return helpText
-        }
-
-        if arguments.contains("--version") {
-            return version
-        }
-
-        guard let command = arguments.first else {
-            return """
-            🌰 Kaštan
-
-            Search occasional IDOS connections, stations, or suggested places.
-            Run kastan --help for usage.
-            """
-        }
+        let originalArguments = CommandOptions.normalized(Array(arguments))
+        var localization = Localization(language: AppLanguage.preferred(
+            languageIdentifiers: preferredLanguageIdentifiers,
+            environment: environment
+        ))
+        var arguments = originalArguments
 
         do {
+            let invocation = try localizedInvocation(arguments)
+            localization = invocation.localization
+            arguments = invocation.arguments
+
+            if arguments.contains("--help") || arguments.contains("-h") {
+                return localization.text(.help)
+            }
+
+            if arguments.contains("--version") {
+                return version
+            }
+
+            guard let command = arguments.first else {
+                return """
+                🌰 Kaštan
+
+                \(localization.text(.appDescription))
+                \(localization.text(.appHelpHint))
+                """
+            }
+
             switch command {
             case "suggest":
-                return try await suggestOutput(for: Array(arguments.dropFirst()))
+                return try await suggestOutput(for: Array(arguments.dropFirst()), localization: localization)
             case "stations":
-                return try await stationsOutput(for: Array(arguments.dropFirst()))
+                return try await stationsOutput(for: Array(arguments.dropFirst()), localization: localization)
             case "connections":
-                return try await connectionsOutput(for: Array(arguments.dropFirst()))
+                return try await connectionsOutput(for: Array(arguments.dropFirst()), localization: localization)
             case "departures":
-                return try await departuresOutput(for: Array(arguments.dropFirst()))
+                return try await departuresOutput(for: Array(arguments.dropFirst()), localization: localization)
             case "aliases":
-                return try await aliasesOutput(for: Array(arguments.dropFirst()))
+                return try await aliasesOutput(for: Array(arguments.dropFirst()), localization: localization)
             case "timetables":
-                return try timetablesOutput(for: Array(arguments.dropFirst()))
+                return try timetablesOutput(for: Array(arguments.dropFirst()), localization: localization)
             default:
-                if let output = try await shorthandOutput(for: arguments) {
+                if let output = try await shorthandOutput(for: arguments, localization: localization) {
                     return output
                 }
 
-                return "❌ Unknown command: \(command)\n\n\(helpText)"
+                return "❌ \(localization.text(.unknownCommand, command))\n\n\(localization.text(.help))"
             }
         } catch {
-            return OutputFormat.preferredErrorFormat(in: arguments).renderError(Self.errorMessage(for: error))
+            return OutputFormat.preferredErrorFormat(in: originalArguments).renderError(
+                Self.errorMessage(for: error, localization: localization),
+                localization: localization
+            )
         }
     }
 
-    private static func errorMessage(for error: Error) -> String {
+    /// Removes global language options before command parsing and resolves the invocation's output language.
+    private func localizedInvocation(_ arguments: [String]) throws -> (arguments: [String], localization: Localization) {
+        var remaining: [String] = []
+        var requestedLanguage: AppLanguage?
+        var index = 0
+
+        while index < arguments.count {
+            let argument = arguments[index]
+            if argument == "--language" || argument == "--lang" {
+                guard arguments.indices.contains(index + 1), !arguments[index + 1].hasPrefix("-") else {
+                    throw CommandError.missingLanguage(argument)
+                }
+
+                let value = arguments[index + 1]
+                guard let language = AppLanguage(identifier: value) else {
+                    throw CommandError.invalidLanguage(value)
+                }
+
+                requestedLanguage = language
+                index += 2
+                continue
+            }
+
+            if argument.hasPrefix("--language=") || argument.hasPrefix("--lang=") {
+                let value = argument
+                    .split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+                    .last
+                    .map(String.init) ?? ""
+                guard !value.isEmpty else {
+                    throw CommandError.missingLanguage(String(argument.prefix { $0 != "=" }))
+                }
+                guard let language = AppLanguage(identifier: value) else {
+                    throw CommandError.invalidLanguage(value)
+                }
+
+                requestedLanguage = language
+                index += 1
+                continue
+            }
+
+            remaining.append(argument)
+            index += 1
+        }
+
+        let language = requestedLanguage ?? AppLanguage.preferred(
+            languageIdentifiers: preferredLanguageIdentifiers,
+            environment: environment
+        )
+        return (remaining, Localization(language: language))
+    }
+
+    /// Translates product and library errors while preserving useful platform-provided error details.
+    private static func errorMessage(for error: Error, localization: Localization) -> String {
+        if let error = error as? CommandError {
+            return error.message(localization: localization)
+        }
+
+        if let error = error as? IDOSError {
+            switch error {
+            case .invalidResponse:
+                return localization.text(.idosInvalidResponse)
+            case .invalidURL:
+                return localization.text(.idosInvalidURL)
+            case .invalidJSONP:
+                return localization.text(.idosInvalidJSONP)
+            case .invalidTimetable(let value):
+                return localization.text(.idosInvalidTimetable, value)
+            case .networkUnavailable(let detail):
+                let detail = detail.trimmingCharacters(in: .whitespacesAndNewlines)
+                return detail.isEmpty
+                    ? localization.text(.networkUnavailable)
+                    : localization.text(.networkUnavailableWithDetail, detail)
+            case .calendarUnavailable:
+                return localization.text(.calendarUnavailable)
+            }
+        }
+
+        if let error = error as? StopAliasError {
+            switch error {
+            case .aliasNotFound(let name):
+                return localization.text(.aliasNotFound, name)
+            case .invalidAliasName:
+                return localization.text(.invalidAliasName)
+            case .invalidStation:
+                return localization.text(.invalidAliasStation)
+            }
+        }
+
         let localized = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !localized.isEmpty else {
-            return "The operation failed, but no error details were provided."
+            return localization.text(.fallbackError)
         }
 
         return localized
     }
 
-    private func suggestOutput(for arguments: [String]) async throws -> String {
+    private func suggestOutput(for arguments: [String], localization: Localization) async throws -> String {
         let options = CommandOptions(arguments)
         try options.rejectUnknownOptions(allowedValueOptions: ["--timetable", "-T", "--format", "-o", "--limit", "-l"])
         let format = try options.outputFormat()
@@ -92,16 +198,17 @@ struct CommandRunner {
         let prefix = options.positional.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !prefix.isEmpty else {
-            throw CommandError.usage("Usage: kastan suggest <text> [--timetable alias] [--format text|markdown|json] [--limit count]")
+            throw CommandError.usage(.usageSuggest)
         }
 
         let suggestions = try await client.suggest(prefix: prefix, limit: limit, timetable: timetable)
         return try format.renderSuggestions(
-            SuggestedPlacesOutput(query: prefix, timetable: timetable, suggestions: suggestions)
+            SuggestedPlacesOutput(query: prefix, timetable: timetable, suggestions: suggestions),
+            localization: localization
         )
     }
 
-    private func stationsOutput(for arguments: [String]) async throws -> String {
+    private func stationsOutput(for arguments: [String], localization: Localization) async throws -> String {
         let options = CommandOptions(arguments)
         try options.rejectUnknownOptions(allowedValueOptions: ["--timetable", "-T", "--format", "-o", "--limit", "-l"])
         let format = try options.outputFormat()
@@ -110,16 +217,17 @@ struct CommandRunner {
         let prefix = options.positional.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !prefix.isEmpty else {
-            throw CommandError.usage("Usage: kastan stations <name> [-T alias] [-o text|markdown|json] [-l count]")
+            throw CommandError.usage(.usageStations)
         }
 
         let stations = try await client.searchStations(prefix: prefix, limit: limit, timetable: timetable)
         return try format.renderStations(
-            StationsOutput(query: prefix, timetable: timetable, stations: stations)
+            StationsOutput(query: prefix, timetable: timetable, stations: stations),
+            localization: localization
         )
     }
 
-    private func connectionsOutput(for arguments: [String]) async throws -> String {
+    private func connectionsOutput(for arguments: [String], localization: Localization) async throws -> String {
         let options = CommandOptions(arguments)
         try options.rejectUnknownOptions(
             allowedFlags: ["--arrival", "-a", "--departure", "-p", "--direct", "--only-direct", "-x", "--add-to-calendar", "-c", "--verbose", "-v"],
@@ -173,7 +281,7 @@ struct CommandRunner {
         let connections = try await client.findConnections(request: request)
         if format == .ics || addToCalendar {
             guard let connection = connections.first else {
-                throw CommandError.usage("IDOS returned no connections.")
+                throw CommandError.usage(.idosNoConnections)
             }
 
             let calendar = try await client.connectionCalendar(for: connection, timetable: request.timetable)
@@ -183,7 +291,7 @@ struct CommandRunner {
                     connection: connection,
                     path: try calendarImporter.add(calendar: calendar, fileName: "kastan-\(connection.id).ics").path
                 )
-                return try format.renderCalendarImport(output)
+                return try format.renderCalendarImport(output, localization: localization)
             }
 
             return calendar
@@ -194,11 +302,12 @@ struct CommandRunner {
                 request: request,
                 connections: Array(connections.prefix(requestedLimit)),
                 verbose: options.contains("--verbose", short: "-v")
-            )
+            ),
+            localization: localization
         )
     }
 
-    private func departuresOutput(for arguments: [String]) async throws -> String {
+    private func departuresOutput(for arguments: [String], localization: Localization) async throws -> String {
         let options = CommandOptions(arguments)
         try options.rejectUnknownOptions(
             allowedFlags: ["--arrival", "-a", "--departure", "-p", "--verbose", "-v"],
@@ -208,7 +317,7 @@ struct CommandRunner {
         let aliasDatabase = try aliasFile.load()
 
         guard let station = departureStation(in: options), !station.isEmpty else {
-            throw CommandError.usage(departuresUsage)
+            throw CommandError.usage(.usageDepartures)
         }
 
         let stationPlace = resolvePlace(station, in: aliasDatabase)
@@ -232,34 +341,38 @@ struct CommandRunner {
                 request: request,
                 departures: Array(departures.prefix(max(1, limit))),
                 verbose: options.contains("--verbose", short: "-v")
-            )
+            ),
+            localization: localization
         )
     }
 
-    private func timetablesOutput(for arguments: [String]) throws -> String {
+    private func timetablesOutput(for arguments: [String], localization: Localization) throws -> String {
         let options = CommandOptions(arguments)
         try options.rejectUnknownOptions(allowedValueOptions: ["--format", "-o"])
         let format = try options.outputFormat()
-        return try format.renderTimetables(TimetablesOutput(timetables: IDOSTimetable.known))
+        return try format.renderTimetables(
+            TimetablesOutput(timetables: IDOSTimetable.known),
+            localization: localization
+        )
     }
 
-    private func shorthandOutput(for arguments: [String]) async throws -> String? {
+    private func shorthandOutput(for arguments: [String], localization: Localization) async throws -> String? {
         let options = CommandOptions(arguments)
 
         if isConnectionShorthand(options) {
-            return try await connectionsOutput(for: arguments)
+            return try await connectionsOutput(for: arguments, localization: localization)
         }
 
         if positionalValues(in: options).count == 1 {
-            return try await departuresOutput(for: arguments)
+            return try await departuresOutput(for: arguments, localization: localization)
         }
 
         return nil
     }
 
-    private func aliasesOutput(for arguments: [String]) async throws -> String {
+    private func aliasesOutput(for arguments: [String], localization: Localization) async throws -> String {
         guard let action = arguments.first else {
-            throw CommandError.usage("Usage: kastan aliases list|add|remove|path")
+            throw CommandError.usage(.usageAliases)
         }
 
         let actionArguments = Array(arguments.dropFirst())
@@ -269,10 +382,13 @@ struct CommandRunner {
         case "list":
             try options.rejectUnknownOptions(allowedValueOptions: ["--format", "-o"])
             let format = try options.outputFormat()
-            return try format.renderStopAliases(StopAliasesOutput(
-                aliases: aliasFile.load().aliases,
-                path: aliasFile.fileURL.path
-            ))
+            return try format.renderStopAliases(
+                StopAliasesOutput(
+                    aliases: aliasFile.load().aliases,
+                    path: aliasFile.fileURL.path
+                ),
+                localization: localization
+            )
 
         case "add":
             try options.rejectUnknownOptions(allowedValueOptions: ["--station", "-s", "--timetable", "-T", "--format", "-o"])
@@ -285,7 +401,7 @@ struct CommandRunner {
                   !station.isEmpty,
                   let timetableValue = options.value(for: "--timetable", short: "-T"), !timetableValue.isEmpty
             else {
-                throw CommandError.usage("Usage: kastan aliases add name [place|--station place] --timetable alias [--format text|markdown|json]")
+                throw CommandError.usage(.usageAliasesAdd)
             }
 
             let timetable = try IDOSTimetable.resolve(timetableValue)
@@ -296,37 +412,46 @@ struct CommandRunner {
             try database.upsert(alias)
             try aliasFile.save(database)
 
-            return try format.renderStopAliasMutation(StopAliasMutationOutput(
-                action: action,
-                alias: alias,
-                path: aliasFile.fileURL.path
-            ))
+            return try format.renderStopAliasMutation(
+                StopAliasMutationOutput(
+                    action: action,
+                    alias: alias,
+                    path: aliasFile.fileURL.path
+                ),
+                localization: localization
+            )
 
         case "remove":
             try options.rejectUnknownOptions(allowedValueOptions: ["--format", "-o"])
             let format = try options.outputFormat()
 
             guard let name = options.positional.first, !name.isEmpty else {
-                throw CommandError.usage("Usage: kastan aliases remove name [--format text|markdown|json]")
+                throw CommandError.usage(.usageAliasesRemove)
             }
 
             var database = try aliasFile.load()
             let alias = try database.remove(name: name)
             try aliasFile.save(database)
 
-            return try format.renderStopAliasMutation(StopAliasMutationOutput(
-                action: "removed",
-                alias: alias,
-                path: aliasFile.fileURL.path
-            ))
+            return try format.renderStopAliasMutation(
+                StopAliasMutationOutput(
+                    action: "removed",
+                    alias: alias,
+                    path: aliasFile.fileURL.path
+                ),
+                localization: localization
+            )
 
         case "path":
             try options.rejectUnknownOptions(allowedValueOptions: ["--format", "-o"])
             let format = try options.outputFormat()
-            return try format.renderStopAliasPath(StopAliasPathOutput(path: aliasFile.fileURL.path))
+            return try format.renderStopAliasPath(
+                StopAliasPathOutput(path: aliasFile.fileURL.path),
+                localization: localization
+            )
 
         default:
-            throw CommandError.usage("Usage: kastan aliases list|add|remove|path")
+            throw CommandError.usage(.usageAliases)
         }
     }
 
@@ -366,7 +491,7 @@ struct CommandRunner {
             PlaceAmbiguity(
                 input: value,
                 timetable: timetable,
-                kind: stationOnly ? "station" : "place",
+                kind: stationOnly ? .station : .place,
                 candidates: exactMatches.isEmpty ? candidates : exactMatches
             )
         )
@@ -408,7 +533,7 @@ struct CommandRunner {
         }
 
         if from?.isEmpty == false || to?.isEmpty == false {
-            throw CommandError.usage(connectionUsage)
+            throw CommandError.usage(.usageConnections)
         }
 
         let positional = positionalValues(positional)
@@ -419,7 +544,7 @@ struct CommandRunner {
 
         let expression = positional.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !expression.isEmpty, let endpoints = parseConnectionExpression(expression) else {
-            throw CommandError.usage(connectionUsage)
+            throw CommandError.usage(.usageConnections)
         }
 
         return endpoints
@@ -497,53 +622,11 @@ struct CommandRunner {
         return ConnectionEndpoints(from: from, to: to)
     }
 
-    private var connectionUsage: String {
-        "Usage: kastan connections route|from to|-f place -t place [-V place] [-T alias] [-d d.m.yyyy] [-m h:mm] [-a|-p] [-x] [-X count] [-M minutes] [-c] [-v] [-o text|markdown|json|ics] [-l count]"
-    }
-
-    private var departuresUsage: String {
-        "Usage: kastan departures station|-f place|-s place [-T alias] [-d d.m.yyyy] [-m h:mm] [-a|-p] [-v] [-o text|markdown|json] [-l count]"
-    }
-
-    private var helpText: String {
-        """
-        🌰 Usage:
-          kastan route|from to
-          kastan station
-          kastan suggest <text> [-T alias] [-o text|markdown|json] [-l count]
-          kastan stations <name> [-T alias] [-o text|markdown|json] [-l count]
-          kastan connections route|from to|-f place -t place [-V place] [-T alias] [-d d.m.yyyy] [-m h:mm] [-a|-p] [-x] [-X count] [-M minutes] [-c] [-v] [-o text|markdown|json|ics] [-l count]
-          kastan departures station|-f place|-s place [-T alias] [-d d.m.yyyy] [-m h:mm] [-a|-p] [-v] [-o text|markdown|json] [-l count]
-          kastan aliases list|add|remove|path [-o text|markdown|json]
-          kastan timetables [-o text|markdown|json]
-
-        ⚙️ Options:
-          -h, --help              Show help
-          --version               Show the app version
-          -f, --from              Departure place or station
-          -t, --to                Arrival place
-          -s, --station           Station for departures or arrivals
-          -T, --timetable         Timetable alias or IDOS URL slug
-          -d, --date              Search date
-          -m, --time              Search time
-          -a, --arrival           Search by arrival time instead of departure time
-          -p, --departure         Search by departure time
-          -V, --via               Via place, repeat for multiple places
-          -x, --direct            Direct connections only
-          -c, --add-to-calendar   Open the first returned connection as an iCalendar import
-          -v, --verbose           Show tariff zones, platforms, carriers, and delay details
-          -X, --max-transfers     Maximum transfers permitted, including 0
-          -M, --min-transfer-time Minimum transfer time in minutes, including 0
-          -o, --format            Output format: text, markdown, json, or ics for connections
-          -l, --limit             Maximum number of printed results
-
-        Default timetable is vlakyautobusymhdvse.
-        Stop aliases are stored in ~/.config/kastan/aliases.json unless KASTAN_ALIAS_DATABASE is set.
-        """
-    }
 }
 
-private enum CommandError: LocalizedError {
+private enum CommandError: Error {
+    case invalidLanguage(String)
+    case missingLanguage(String)
     case invalidOutputFormat(String)
     case invalidNonNegativeInteger(name: String, value: String)
     case conflictingOptions(String, String)
@@ -553,30 +636,43 @@ private enum CommandError: LocalizedError {
     case unknownOption(String)
     case unsupportedOutputFormat(format: String, command: String)
     case ambiguousPlace(PlaceAmbiguity)
-    case usage(String)
+    case usage(LocalizationKey)
 
-    var errorDescription: String? {
+    func message(localization: Localization) -> String {
         switch self {
+        case .invalidLanguage(let value):
+            return localization.text(.invalidLanguage, value)
+        case .missingLanguage(let option):
+            return localization.text(.missingLanguage, option)
         case .invalidOutputFormat(let value):
-            return "Invalid output format: \(value). Use text, markdown, json, or ics."
+            return localization.text(.invalidOutputFormat, value)
         case .invalidNonNegativeInteger(let name, let value):
-            return "Invalid \(name): \(value). Use a non-negative integer."
+            return localization.text(.invalidNonNegativeInteger, name, value)
         case .conflictingOptions(let first, let second):
-            return "Conflicting options: \(first) and \(second). Use only one."
+            return localization.text(.conflictingOptions, first, second)
         case .aliasTimetableMismatch(let alias, let aliasTimetable, let requestedTimetable):
-            return "Stop alias \(alias) belongs to \(aliasTimetable.displayName), but requested timetable is \(requestedTimetable.displayName)."
+            return localization.text(
+                .aliasTimetableMismatch,
+                alias,
+                localization.timetableName(aliasTimetable),
+                localization.timetableName(requestedTimetable)
+            )
         case .conflictingAliasTimetables(let first, let second):
-            return "Stop aliases use conflicting timetables: \(first.displayName) and \(second.displayName). Use --timetable only when all used aliases belong to it."
+            return localization.text(
+                .conflictingAliasTimetables,
+                localization.timetableName(first),
+                localization.timetableName(second)
+            )
         case .calendarImportUnavailable:
-            return "Calendar import is not available on this system."
+            return localization.text(.calendarImportUnavailable)
         case .unknownOption(let value):
-            return "Unknown option: \(value)."
+            return localization.text(.unknownOption, value)
         case .unsupportedOutputFormat(let format, let command):
-            return "\(format) output is not available for \(command)."
+            return localization.text(.unsupportedOutputFormat, format, command)
         case .ambiguousPlace(let ambiguity):
-            return ambiguity.message
-        case .usage(let message):
-            return message
+            return ambiguity.message(localization: localization)
+        case .usage(let key):
+            return localization.text(key)
         }
     }
 }
@@ -607,41 +703,43 @@ private enum OutputFormat: String {
     }
 
     static func preferredErrorFormat(in arguments: [String]) -> OutputFormat {
-        let options = CommandOptions(Array(arguments.dropFirst()))
+        let options = CommandOptions(arguments)
         return (try? options.outputFormat()) ?? .text
     }
 
-    func renderError(_ message: String) -> String {
+    func renderError(_ message: String, localization: Localization) -> String {
+        let label = localization.text(.errorLabel)
         switch self {
         case .text, .ics:
-            return "❌ Error: \(message)"
+            return "❌ \(label): \(message)"
         case .markdown:
             let lines = message.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
             guard let first = lines.first else {
-                return "> ❌ Error"
+                return "> ❌ \(label)"
             }
 
-            return (["> ❌ Error: \(Markdown.escape(first))"] + lines.dropFirst().map { "> \(Markdown.escape($0))" })
+            return (["> ❌ \(label): \(Markdown.escape(first))"] + lines.dropFirst().map { "> \(Markdown.escape($0))" })
                 .joined(separator: "\n")
         case .json:
             return (try? JSON.write(ErrorOutput(error: message))) ?? #"{"error":"\#(message)"}"#
         }
     }
 
-    func renderSuggestions(_ output: SuggestedPlacesOutput) throws -> String {
+    func renderSuggestions(_ output: SuggestedPlacesOutput, localization: Localization) throws -> String {
+        let title = localization.text(.suggestedPlaces)
         switch self {
         case .text:
             guard !output.suggestions.isEmpty else {
-                return "🔎 No suggested places found."
+                return "🔎 \(localization.text(.noSuggestedPlaces))"
             }
 
-            return (["🔎 Suggested places (\(output.timetable.displayName)):"] + output.suggestions.enumerated().map { index, suggestion in
+            return (["🔎 \(title) (\(localization.timetableName(output.timetable))):"] + output.suggestions.enumerated().map { index, suggestion in
                 let detail = suggestionDetails(suggestion).joined(separator: ", ")
                 return "\(index + 1). \(suggestion.text)\(detail.isEmpty ? "" : " - \(detail)")"
             }).joined(separator: "\n")
         case .markdown:
             guard !output.suggestions.isEmpty else {
-                return "## 🔎 Suggested Places\n\nNo suggested places found."
+                return "## 🔎 \(title)\n\n\(localization.text(.noSuggestedPlaces))"
             }
 
             let rows = output.suggestions.enumerated().map { index, suggestion in
@@ -649,11 +747,11 @@ private enum OutputFormat: String {
             }.joined(separator: "\n")
 
             return """
-            ## 🔎 Suggested Places
+            ## 🔎 \(title)
 
-            Timetable: **\(Markdown.escape(output.timetable.displayName))**
+            \(localization.text(.timetable)): **\(Markdown.escape(localization.timetableName(output.timetable)))**
 
-            | # | Place | Details |
+            | # | \(localization.text(.place)) | \(localization.text(.details)) |
             | ---: | --- | --- |
             \(rows)
             """
@@ -664,20 +762,21 @@ private enum OutputFormat: String {
         }
     }
 
-    func renderStations(_ output: StationsOutput) throws -> String {
+    func renderStations(_ output: StationsOutput, localization: Localization) throws -> String {
+        let title = localization.text(.stations)
         switch self {
         case .text:
             guard !output.stations.isEmpty else {
-                return "🚏 No stations found."
+                return "🚏 \(localization.text(.noStations))"
             }
 
-            return (["🚏 Stations (\(output.timetable.displayName)):"] + output.stations.enumerated().map { index, station in
+            return (["🚏 \(title) (\(localization.timetableName(output.timetable))):"] + output.stations.enumerated().map { index, station in
                 let detail = suggestionDetails(station).joined(separator: ", ")
                 return "\(index + 1). \(station.text)\(detail.isEmpty ? "" : " - \(detail)")"
             }).joined(separator: "\n")
         case .markdown:
             guard !output.stations.isEmpty else {
-                return "## 🚏 Stations\n\nNo stations found."
+                return "## 🚏 \(title)\n\n\(localization.text(.noStations))"
             }
 
             let rows = output.stations.enumerated().map { index, station in
@@ -685,11 +784,11 @@ private enum OutputFormat: String {
             }.joined(separator: "\n")
 
             return """
-            ## 🚏 Stations
+            ## 🚏 \(title)
 
-            Timetable: **\(Markdown.escape(output.timetable.displayName))**
+            \(localization.text(.timetable)): **\(Markdown.escape(localization.timetableName(output.timetable)))**
 
-            | # | Station | Details |
+            | # | \(localization.text(.station)) | \(localization.text(.details)) |
             | ---: | --- | --- |
             \(rows)
             """
@@ -700,32 +799,33 @@ private enum OutputFormat: String {
         }
     }
 
-    func renderConnections(_ output: ConnectionsOutput) throws -> String {
+    func renderConnections(_ output: ConnectionsOutput, localization: Localization) throws -> String {
+        let title = localization.text(.connections)
         switch self {
         case .text:
             guard !output.connections.isEmpty else {
-                return "🔎 IDOS returned no connections."
+                return "🔎 \(localization.text(.idosNoConnections))"
             }
 
             let rows = output.items.enumerated().map { index, item in
-                item.summaryLine(number: index + 1, includeDetails: output.verbose)
+                item.summaryLine(number: index + 1, includeDetails: output.verbose, localization: localization)
             }
 
             return """
-            🧭 Connections \(routeDescription(output.request)) (\(output.request.timetable.displayName)):
+            🧭 \(title) \(routeDescription(output.request, localization: localization)) (\(localization.timetableName(output.request.timetable))):
             \(rows.joined(separator: "\n"))
             """
         case .markdown:
             guard !output.connections.isEmpty else {
                 return """
-                ## 🧭 Connections
+                ## 🧭 \(title)
 
-                **From:** \(Markdown.escape(output.request.from))
-                **To:** \(Markdown.escape(output.request.to))
-                \(markdownViaLine(output.request))
-                **Timetable:** \(Markdown.escape(output.request.timetable.displayName))
+                **\(localization.text(.from)):** \(Markdown.escape(output.request.from))
+                **\(localization.text(.to)):** \(Markdown.escape(output.request.to))
+                \(markdownViaLine(output.request, localization: localization))
+                **\(localization.text(.timetable)):** \(Markdown.escape(localization.timetableName(output.request.timetable)))
 
-                No connections found.
+                \(localization.text(.noConnections))
                 """
             }
 
@@ -739,17 +839,17 @@ private enum OutputFormat: String {
                     return "| \(Markdown.lineName(leg)) | \(Markdown.escape(leg.fromStation)) | \(Markdown.bold(leg.departureTime)) | \(Markdown.escape(leg.toStation)) | \(Markdown.bold(leg.arrivalTime)) |"
                 }.joined(separator: "\n")
                 let tableHeader = output.verbose ? """
-                | Line | From | From Tariff Zone | From Platform | Departure | To | To Tariff Zone | To Platform | Arrival | Carrier | Delay |
+                | \(localization.text(.line)) | \(localization.text(.from)) | \(localization.text(.fromTariffZone)) | \(localization.text(.fromPlatform)) | \(localization.text(.departure)) | \(localization.text(.to)) | \(localization.text(.toTariffZone)) | \(localization.text(.toPlatform)) | \(localization.text(.arrival)) | \(localization.text(.carrier)) | \(localization.text(.delay)) |
                 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
                 """ : """
-                | Line | From | Departure | To | Arrival |
+                | \(localization.text(.line)) | \(localization.text(.from)) | \(localization.text(.departure)) | \(localization.text(.to)) | \(localization.text(.arrival)) |
                 | --- | --- | --- | --- | --- |
                 """
 
                 return """
-                ### \(index + 1). \(item.markdownLabel)\(Markdown.bold(connection.departureTime)) \(Markdown.escape(connection.departureStation)) → \(Markdown.bold(connection.arrivalTime)) \(Markdown.escape(connection.arrivalStation))
+                ### \(index + 1). \(item.markdownLabel(localization: localization))\(Markdown.bold(connection.departureTime)) \(Markdown.escape(connection.departureStation)) → \(Markdown.bold(connection.arrivalTime)) \(Markdown.escape(connection.arrivalStation))
 
-                Duration: **\(Markdown.escape(connection.duration))**
+                \(localization.text(.duration)): **\(Markdown.escape(connection.duration))**
 
                 \(tableHeader)
                 \(legs)
@@ -757,12 +857,12 @@ private enum OutputFormat: String {
             }.joined(separator: "\n\n")
 
             return """
-            ## 🧭 Connections
+            ## 🧭 \(title)
 
-            **From:** \(Markdown.escape(output.request.from))
-            **To:** \(Markdown.escape(output.request.to))
-            \(markdownViaLine(output.request))
-            **Timetable:** \(Markdown.escape(output.request.timetable.displayName))
+            **\(localization.text(.from)):** \(Markdown.escape(output.request.from))
+            **\(localization.text(.to)):** \(Markdown.escape(output.request.to))
+            \(markdownViaLine(output.request, localization: localization))
+            **\(localization.text(.timetable)):** \(Markdown.escape(localization.timetableName(output.request.timetable)))
 
             \(sections)
             """
@@ -773,38 +873,48 @@ private enum OutputFormat: String {
         }
     }
 
-    func renderCalendarImport(_ output: CalendarImportOutput) throws -> String {
+    func renderCalendarImport(_ output: CalendarImportOutput, localization: Localization) throws -> String {
         switch self {
         case .text, .ics:
-            return "📅 Opened calendar import for \(routeDescription(output.request)): \(output.path)"
+            let message = localization.text(
+                .calendarOpened,
+                routeDescription(output.request, localization: localization),
+                output.path
+            )
+            return "📅 \(message)"
         case .markdown:
             return """
-            ## 📅 Calendar Import
+            ## 📅 \(localization.text(.calendarImport))
 
-            **Connection:** \(Markdown.bold(output.connection.departureTime)) \(Markdown.escape(output.connection.departureStation)) → \(Markdown.bold(output.connection.arrivalTime)) \(Markdown.escape(output.connection.arrivalStation))
-            **File:** `\(Markdown.escape(output.path))`
+            **\(localization.text(.connection)):** \(Markdown.bold(output.connection.departureTime)) \(Markdown.escape(output.connection.departureStation)) → \(Markdown.bold(output.connection.arrivalTime)) \(Markdown.escape(output.connection.arrivalStation))
+            **\(localization.text(.file)):** `\(Markdown.escape(output.path))`
             """
         case .json:
             return try JSON.write(output)
         }
     }
 
-    func renderDepartures(_ output: DeparturesOutput) throws -> String {
-        let title = output.request.isArrival ? "Arrivals" : "Departures"
+    func renderDepartures(_ output: DeparturesOutput, localization: Localization) throws -> String {
+        let title = localization.text(output.request.isArrival ? .arrivals : .departures)
         let stationName = output.departures.first?.stationName ?? output.request.station
 
         switch self {
         case .text:
             guard !output.departures.isEmpty else {
-                return "🔎 IDOS returned no \(title.lowercased())."
+                return "🔎 \(localization.text(output.request.isArrival ? .idosNoArrivals : .idosNoDepartures))"
             }
 
             let rows = output.departures.enumerated().map { index, departure in
-                departure.summaryLine(number: index + 1, includeDetails: output.verbose)
+                departureSummaryLine(
+                    departure,
+                    number: index + 1,
+                    includeDetails: output.verbose,
+                    localization: localization
+                )
             }
 
             return """
-            🚏 \(title) \(stationName) (\(output.request.timetable.displayName)):
+            🚏 \(title) \(stationName) (\(localization.timetableName(output.request.timetable))):
             \(rows.joined(separator: "\n"))
             """
         case .markdown:
@@ -812,10 +922,10 @@ private enum OutputFormat: String {
                 return """
                 ## 🚏 \(title)
 
-                **Station:** \(Markdown.escape(output.request.station))
-                **Timetable:** \(Markdown.escape(output.request.timetable.displayName))
+                **\(localization.text(.station)):** \(Markdown.escape(output.request.station))
+                **\(localization.text(.timetable)):** \(Markdown.escape(localization.timetableName(output.request.timetable)))
 
-                No \(title.lowercased()) found.
+                \(localization.text(output.request.isArrival ? .noArrivals : .noDepartures))
                 """
             }
 
@@ -827,18 +937,18 @@ private enum OutputFormat: String {
                 return "| \(index + 1) | \(Markdown.bold(departure.time)) | \(Markdown.departureLineName(departure)) | \(Markdown.escape(departure.destination)) | \(Markdown.escape(departure.via ?? "")) |"
             }.joined(separator: "\n")
             let tableHeader = output.verbose ? """
-            | # | Time | Line | Destination | Tariff Zone | Platform | Via | Carrier | Delay |
+            | # | \(localization.text(.time)) | \(localization.text(.line)) | \(localization.text(.destination)) | \(localization.text(.tariffZone)) | \(localization.text(.platform)) | \(localization.text(.via)) | \(localization.text(.carrier)) | \(localization.text(.delay)) |
             | ---: | --- | --- | --- | --- | --- | --- | --- | --- |
             """ : """
-            | # | Time | Line | Destination | Via |
+            | # | \(localization.text(.time)) | \(localization.text(.line)) | \(localization.text(.destination)) | \(localization.text(.via)) |
             | ---: | --- | --- | --- | --- |
             """
 
             return """
             ## 🚏 \(title)
 
-            **Station:** \(Markdown.escape(stationName))
-            **Timetable:** \(Markdown.escape(output.request.timetable.displayName))
+            **\(localization.text(.station)):** \(Markdown.escape(stationName))
+            **\(localization.text(.timetable)):** \(Markdown.escape(localization.timetableName(output.request.timetable)))
 
             \(tableHeader)
             \(rows)
@@ -846,36 +956,37 @@ private enum OutputFormat: String {
         case .json:
             return try JSON.write(output)
         case .ics:
-            throw CommandError.unsupportedOutputFormat(format: "iCal", command: title.lowercased())
+            throw CommandError.unsupportedOutputFormat(format: "iCal", command: "departures")
         }
     }
 
-    func renderTimetables(_ output: TimetablesOutput) throws -> String {
+    func renderTimetables(_ output: TimetablesOutput, localization: Localization) throws -> String {
+        let title = localization.text(.timetables)
         switch self {
         case .text:
             let rows = output.timetables.map { timetable in
-                "  \(timetable.slug) - \(timetable.displayName)"
+                "  \(timetable.slug) - \(localization.timetableName(timetable))"
             }
 
             return """
-            🗂 Timetables:
+            🗂 \(title):
             \(rows.joined(separator: "\n"))
 
-            --timetable also accepts a custom IDOS URL slug when IDOS supports it.
+            \(localization.text(.customTimetableHint))
             """
         case .markdown:
             let rows = output.timetables.map { timetable in
-                "| \(Markdown.escape(timetable.slug)) | \(Markdown.escape(timetable.displayName)) |"
+                "| \(Markdown.escape(timetable.slug)) | \(Markdown.escape(localization.timetableName(timetable))) |"
             }.joined(separator: "\n")
 
             return """
-            ## 🗂 Timetables
+            ## 🗂 \(title)
 
-            | Slug | Name |
+            | \(localization.text(.slug)) | \(localization.text(.name)) |
             | --- | --- |
             \(rows)
 
-            `--timetable` also accepts a custom IDOS URL slug when IDOS supports it.
+            \(localization.text(.customTimetableHint).replacingOccurrences(of: "--timetable", with: "`--timetable`"))
             """
         case .json:
             return try JSON.write(output)
@@ -884,46 +995,47 @@ private enum OutputFormat: String {
         }
     }
 
-    func renderStopAliases(_ output: StopAliasesOutput) throws -> String {
+    func renderStopAliases(_ output: StopAliasesOutput, localization: Localization) throws -> String {
+        let title = localization.text(.stopAliases)
         switch self {
         case .text:
             guard !output.aliases.isEmpty else {
-                return "🌰 No stop aliases saved.\nDatabase: \(output.path)"
+                return "🌰 \(localization.text(.noStopAliases))\n\(localization.text(.database)): \(output.path)"
             }
 
             let rows = output.aliases.map { alias in
-                "  \(alias.name) → \(alias.station) (\(alias.timetable.displayName))"
+                "  \(alias.name) → \(alias.station) (\(localization.timetableName(alias.timetable)))"
             }
 
             return """
-            🌰 Stop aliases:
+            🌰 \(title):
             \(rows.joined(separator: "\n"))
 
-            Database: \(output.path)
+            \(localization.text(.database)): \(output.path)
             """
         case .markdown:
             guard !output.aliases.isEmpty else {
                 return """
-                ## 🌰 Stop Aliases
+                ## 🌰 \(title)
 
-                No stop aliases saved.
+                \(localization.text(.noStopAliases))
 
-                Database: `\(Markdown.escape(output.path))`
+                \(localization.text(.database)): `\(Markdown.escape(output.path))`
                 """
             }
 
             let rows = output.aliases.map { alias in
-                "| \(Markdown.escape(alias.name)) | \(Markdown.escape(alias.station)) | \(Markdown.escape(alias.timetable.displayName)) | \(Markdown.escape(alias.timetable.slug)) |"
+                "| \(Markdown.escape(alias.name)) | \(Markdown.escape(alias.station)) | \(Markdown.escape(localization.timetableName(alias.timetable))) | \(Markdown.escape(alias.timetable.slug)) |"
             }.joined(separator: "\n")
 
             return """
-            ## 🌰 Stop Aliases
+            ## 🌰 \(title)
 
-            | Alias | Station | Timetable | Slug |
+            | \(localization.text(.alias)) | \(localization.text(.station)) | \(localization.text(.timetable)) | \(localization.text(.slug)) |
             | --- | --- | --- | --- |
             \(rows)
 
-            Database: `\(Markdown.escape(output.path))`
+            \(localization.text(.database)): `\(Markdown.escape(output.path))`
             """
         case .json:
             return try JSON.write(output)
@@ -932,18 +1044,19 @@ private enum OutputFormat: String {
         }
     }
 
-    func renderStopAliasMutation(_ output: StopAliasMutationOutput) throws -> String {
+    func renderStopAliasMutation(_ output: StopAliasMutationOutput, localization: Localization) throws -> String {
+        let action = localizedAliasAction(output.action, localization: localization)
         switch self {
         case .text:
-            return "🌰 Alias \(output.action): \(output.alias.name) → \(output.alias.station) (\(output.alias.timetable.displayName))"
+            return "🌰 \(localization.text(.aliasMutation, action)): \(output.alias.name) → \(output.alias.station) (\(localization.timetableName(output.alias.timetable)))"
         case .markdown:
             return """
-            ## 🌰 Stop Alias \(output.action.capitalized)
+            ## 🌰 \(localization.text(.stopAliasMutation, action.capitalized))
 
-            **Alias:** \(Markdown.escape(output.alias.name))
-            **Station:** \(Markdown.escape(output.alias.station))
-            **Timetable:** \(Markdown.escape(output.alias.timetable.displayName))
-            **Database:** `\(Markdown.escape(output.path))`
+            **\(localization.text(.alias)):** \(Markdown.escape(output.alias.name))
+            **\(localization.text(.station)):** \(Markdown.escape(output.alias.station))
+            **\(localization.text(.timetable)):** \(Markdown.escape(localization.timetableName(output.alias.timetable)))
+            **\(localization.text(.database)):** `\(Markdown.escape(output.path))`
             """
         case .json:
             return try JSON.write(output)
@@ -952,13 +1065,13 @@ private enum OutputFormat: String {
         }
     }
 
-    func renderStopAliasPath(_ output: StopAliasPathOutput) throws -> String {
+    func renderStopAliasPath(_ output: StopAliasPathOutput, localization: Localization) throws -> String {
         switch self {
         case .text:
-            return "🌰 Alias database: \(output.path)"
+            return "🌰 \(localization.text(.aliasDatabaseText)): \(output.path)"
         case .markdown:
             return """
-            ## 🌰 Alias Database
+            ## 🌰 \(localization.text(.aliasDatabase))
 
             `\(Markdown.escape(output.path))`
             """
@@ -969,17 +1082,67 @@ private enum OutputFormat: String {
         }
     }
 
-    private func routeDescription(_ request: IDOSConnectionRequest) -> String {
-        let via = request.via.isEmpty ? "" : " via \(request.via.joined(separator: ", "))"
+    private func routeDescription(_ request: IDOSConnectionRequest, localization: Localization) -> String {
+        let via = request.via.isEmpty
+            ? ""
+            : " \(localization.text(.viaInline, request.via.joined(separator: ", ")))"
         return "\(request.from) → \(request.to)\(via)"
     }
 
-    private func markdownViaLine(_ request: IDOSConnectionRequest) -> String {
+    private func markdownViaLine(_ request: IDOSConnectionRequest, localization: Localization) -> String {
         guard !request.via.isEmpty else {
             return ""
         }
 
-        return "**Via:** \(Markdown.escape(request.via.joined(separator: ", ")))"
+        return "**\(localization.text(.via)):** \(Markdown.escape(request.via.joined(separator: ", ")))"
+    }
+
+    private func localizedAliasAction(_ action: String, localization: Localization) -> String {
+        switch action {
+        case "added":
+            return localization.text(.added)
+        case "updated":
+            return localization.text(.updated)
+        case "removed":
+            return localization.text(.removed)
+        default:
+            return action
+        }
+    }
+
+    /// Builds one localized departure row while retaining names and status details supplied by IDOS.
+    private func departureSummaryLine(
+        _ departure: IDOSDeparture,
+        number: Int,
+        includeDetails: Bool,
+        localization: Localization
+    ) -> String {
+        var result = "\(number). \(Terminal.bold(departure.time)) \(departure.displayLineName) → \(departure.destination)"
+
+        if includeDetails {
+            if let tariffZone = departure.tariffZone, !tariffZone.isEmpty {
+                result += " · \(localization.text(.tariffZoneInline, tariffZone))"
+            }
+            if let platform = departure.platform, !platform.isEmpty {
+                result += " · \(localization.text(.platformInline, platform))"
+            }
+        }
+
+        var details: [String] = []
+        if let via = departure.via, !via.isEmpty {
+            details.append(localization.text(.viaInline, via))
+        }
+        if includeDetails {
+            details.append(contentsOf: [departure.carrier, departure.delay]
+                .compactMap(\.self)
+                .filter { !$0.isEmpty })
+        }
+
+        if !details.isEmpty {
+            result += "\n   \(details.joined(separator: "\n   "))"
+        }
+
+        return result
     }
 }
 
@@ -1028,25 +1191,96 @@ private struct ConnectionOutput: Encodable {
     var isDirect: Bool
     var isShortest: Bool
 
-    private var labels: [String] {
+    private func labels(localization: Localization) -> [String] {
         [
-            isDirect ? "➡️ Direct" : nil,
-            isShortest ? "⚡ Shortest" : nil,
+            isDirect ? "➡️ \(localization.text(.direct))" : nil,
+            isShortest ? "⚡ \(localization.text(.shortest))" : nil,
         ].compactMap(\.self)
     }
 
-    var markdownLabel: String {
-        labels.isEmpty ? "" : "\(labels.joined(separator: " · ")) — "
+    func markdownLabel(localization: Localization) -> String {
+        let labels = labels(localization: localization)
+        return labels.isEmpty ? "" : "\(labels.joined(separator: " · ")) — "
     }
 
-    func summaryLine(number: Int, includeDetails: Bool) -> String {
-        let summary = connection.summaryLine(number: number, includeDetails: includeDetails)
+    func summaryLine(number: Int, includeDetails: Bool, localization: Localization) -> String {
+        let labels = labels(localization: localization)
+        let summary = localizedSummaryLine(
+            number: number,
+            includeDetails: includeDetails,
+            localization: localization
+        )
         guard !labels.isEmpty else {
             return summary
         }
 
         let numberPrefix = "\(number). "
         return "\(numberPrefix)\(labels.joined(separator: " · ")) — \(summary.dropFirst(numberPrefix.count))"
+    }
+
+    /// Recreates the library summary with localized labels while retaining IDOS data and terminal styling.
+    private func localizedSummaryLine(
+        number: Int,
+        includeDetails: Bool,
+        localization: Localization
+    ) -> String {
+        var result = "\(number). \(Terminal.bold(connection.departureTime)) \(connection.departureStation) → \(Terminal.bold(connection.arrivalTime)) \(connection.arrivalStation)"
+
+        if !connection.duration.isEmpty {
+            result += " (\(connection.duration))"
+        }
+
+        if !connection.legs.isEmpty {
+            let legSummary = connection.legs.map { leg in
+                let line = [
+                    leg.displayName,
+                    stationDisplay(
+                        name: leg.fromStation,
+                        tariffZone: includeDetails ? leg.fromTariffZone : nil,
+                        platform: includeDetails ? leg.fromPlatform : nil,
+                        localization: localization
+                    ),
+                    Terminal.bold(leg.departureTime),
+                    "→",
+                    Terminal.bold(leg.arrivalTime),
+                    stationDisplay(
+                        name: leg.toStation,
+                        tariffZone: includeDetails ? leg.toTariffZone : nil,
+                        platform: includeDetails ? leg.toPlatform : nil,
+                        localization: localization
+                    ),
+                ]
+                    .filter { !$0.isEmpty }
+                    .joined(separator: " ")
+                let details = includeDetails ? [leg.carrier, leg.delay]
+                    .compactMap(\.self)
+                    .filter { !$0.isEmpty }
+                    .map { "      \($0)" }
+                    .joined(separator: "\n") : ""
+
+                return details.isEmpty ? line : "\(line)\n\(details)"
+            }.map { "   \($0)" }
+                .joined(separator: "\n")
+            result += "\n\(legSummary)"
+        }
+
+        return result
+    }
+
+    private func stationDisplay(
+        name: String,
+        tariffZone: String?,
+        platform: String?,
+        localization: Localization
+    ) -> String {
+        var parts = [name]
+        if let tariffZone, !tariffZone.isEmpty {
+            parts.append(localization.text(.tariffZoneInline, tariffZone))
+        }
+        if let platform, !platform.isEmpty {
+            parts.append(localization.text(.platformInline, platform))
+        }
+        return parts.joined(separator: " · ")
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1157,20 +1391,29 @@ private struct ResolvedPlace {
     var alias: StopAlias?
 }
 
+private enum AmbiguousPlaceKind {
+    case station
+    case place
+}
+
 private struct PlaceAmbiguity {
     var input: String
     var timetable: IDOSTimetable
-    var kind: String
+    var kind: AmbiguousPlaceKind
     var candidates: [IDOSSuggestion]
 
-    var message: String {
-        let header = "Ambiguous \(kind) name: \(input) (\(timetable.displayName))."
+    func message(localization: Localization) -> String {
+        let header = localization.text(
+            kind == .station ? .ambiguousStation : .ambiguousPlace,
+            input,
+            localization.timetableName(timetable)
+        )
         let rows = candidates.enumerated().map { index, suggestion in
             let detail = suggestionDetails(suggestion).joined(separator: ", ")
             return "\(index + 1). \(suggestion.text)\(detail.isEmpty ? "" : " - \(detail)")"
         }
 
-        return ([header, "Choose one of:"] + rows).joined(separator: "\n")
+        return ([header, localization.text(.chooseOne)] + rows).joined(separator: "\n")
     }
 }
 
@@ -1260,6 +1503,20 @@ private enum JSON {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         let data = try encoder.encode(value)
         return String(decoding: data, as: UTF8.self)
+    }
+}
+
+/// Applies terminal emphasis required by Kaštan's text output without changing its textual content.
+private enum Terminal {
+    private static let boldCode = "\u{001B}[1m"
+    private static let resetCode = "\u{001B}[0m"
+
+    static func bold(_ text: String) -> String {
+        guard !text.isEmpty else {
+            return ""
+        }
+
+        return "\(boldCode)\(text)\(resetCode)"
     }
 }
 
