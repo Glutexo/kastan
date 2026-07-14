@@ -1,0 +1,473 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A00000000000000000000210 /* KastanApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000110 /* KastanApp.swift */; };
+		A00000000000000000000211 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000111 /* ContentView.swift */; };
+		A00000000000000000000212 /* ConnectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000112 /* ConnectionsView.swift */; };
+		A00000000000000000000213 /* ConnectionsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000113 /* ConnectionsViewModel.swift */; };
+		A00000000000000000000214 /* DeparturesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000114 /* DeparturesView.swift */; };
+		A00000000000000000000215 /* DeparturesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000115 /* DeparturesViewModel.swift */; };
+		A00000000000000000000216 /* PlaceAutocompleteField.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000116 /* PlaceAutocompleteField.swift */; };
+		A00000000000000000000217 /* ServiceDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000117 /* ServiceDetailSheet.swift */; };
+		A00000000000000000000218 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000118 /* EmptyStateView.swift */; };
+		A00000000000000000000219 /* AppFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000119 /* AppFormatting.swift */; };
+		A0000000000000000000021A /* CalendarImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000011A /* CalendarImporter.swift */; };
+		A00000000000000000000230 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000132 /* Localizable.strings */; };
+		A00000000000000000000241 /* Kastan in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000601 /* Kastan */; };
+		A00000000000000000000242 /* Kastan in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000602 /* Kastan */; };
+		A00000000000000000000250 /* KastanAppTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000150 /* KastanAppTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A00000000000000000000410 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A00000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A00000000000000000000401;
+			remoteInfo = KastanApp;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		A00000000000000000000101 /* Kaštan.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Kaštan.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00000000000000000000102 /* KastanAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KastanAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00000000000000000000110 /* KastanApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KastanApp.swift; sourceTree = "<group>"; };
+		A00000000000000000000111 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A00000000000000000000112 /* ConnectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionsView.swift; sourceTree = "<group>"; };
+		A00000000000000000000113 /* ConnectionsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionsViewModel.swift; sourceTree = "<group>"; };
+		A00000000000000000000114 /* DeparturesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeparturesView.swift; sourceTree = "<group>"; };
+		A00000000000000000000115 /* DeparturesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeparturesViewModel.swift; sourceTree = "<group>"; };
+		A00000000000000000000116 /* PlaceAutocompleteField.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaceAutocompleteField.swift; sourceTree = "<group>"; };
+		A00000000000000000000117 /* ServiceDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceDetailSheet.swift; sourceTree = "<group>"; };
+		A00000000000000000000118 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
+		A00000000000000000000119 /* AppFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFormatting.swift; sourceTree = "<group>"; };
+		A0000000000000000000011A /* CalendarImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarImporter.swift; sourceTree = "<group>"; };
+		A00000000000000000000130 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
+		A00000000000000000000131 /* cs */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = cs; path = cs.lproj/Localizable.strings; sourceTree = "<group>"; };
+		A00000000000000000000150 /* KastanAppTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KastanAppTests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A00000000000000000000302 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000241 /* Kastan in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A00000000000000000000312 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000242 /* Kastan in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A00000000000000000000002 = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000004 /* Sources */,
+				A00000000000000000000009 /* Resources */,
+				A0000000000000000000000A /* Tests */,
+				A00000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A00000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000101 /* Kaštan.app */,
+				A00000000000000000000102 /* KastanAppTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000004 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000110 /* KastanApp.swift */,
+				A00000000000000000000111 /* ContentView.swift */,
+				A00000000000000000000005 /* Connections */,
+				A00000000000000000000006 /* Departures */,
+				A00000000000000000000007 /* Components */,
+				A00000000000000000000008 /* Support */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000005 /* Connections */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000112 /* ConnectionsView.swift */,
+				A00000000000000000000113 /* ConnectionsViewModel.swift */,
+			);
+			path = Connections;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000006 /* Departures */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000114 /* DeparturesView.swift */,
+				A00000000000000000000115 /* DeparturesViewModel.swift */,
+			);
+			path = Departures;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000007 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000116 /* PlaceAutocompleteField.swift */,
+				A00000000000000000000117 /* ServiceDetailSheet.swift */,
+				A00000000000000000000118 /* EmptyStateView.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000008 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000119 /* AppFormatting.swift */,
+				A0000000000000000000011A /* CalendarImporter.swift */,
+			);
+			path = Support;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000009 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000132 /* Localizable.strings */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A0000000000000000000000A /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000150 /* KastanAppTests.swift */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A00000000000000000000401 /* KastanApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A00000000000000000000513 /* Build configuration list for PBXNativeTarget "KastanApp" */;
+			buildPhases = (
+				A00000000000000000000301 /* Sources */,
+				A00000000000000000000302 /* Frameworks */,
+				A00000000000000000000303 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = KastanApp;
+			packageProductDependencies = (
+				A00000000000000000000601 /* Kastan */,
+			);
+			productName = KastanApp;
+			productReference = A00000000000000000000101 /* Kaštan.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A00000000000000000000402 /* KastanAppTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A00000000000000000000523 /* Build configuration list for PBXNativeTarget "KastanAppTests" */;
+			buildPhases = (
+				A00000000000000000000311 /* Sources */,
+				A00000000000000000000312 /* Frameworks */,
+				A00000000000000000000313 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A00000000000000000000411 /* PBXTargetDependency */,
+			);
+			name = KastanAppTests;
+			packageProductDependencies = (
+				A00000000000000000000602 /* Kastan */,
+			);
+			productName = KastanAppTests;
+			productReference = A00000000000000000000102 /* KastanAppTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A00000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					A00000000000000000000401 = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					A00000000000000000000402 = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = A00000000000000000000401;
+					};
+				};
+			};
+			buildConfigurationList = A00000000000000000000503 /* Build configuration list for PBXProject "KastanApp" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				cs,
+				Base,
+			);
+			mainGroup = A00000000000000000000002;
+			packageReferences = (
+				A00000000000000000000600 /* kastan */,
+			);
+			productRefGroup = A00000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A00000000000000000000401 /* KastanApp */,
+				A00000000000000000000402 /* KastanAppTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A00000000000000000000303 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000230 /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A00000000000000000000313 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A00000000000000000000301 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000210 /* KastanApp.swift in Sources */,
+				A00000000000000000000211 /* ContentView.swift in Sources */,
+				A00000000000000000000212 /* ConnectionsView.swift in Sources */,
+				A00000000000000000000213 /* ConnectionsViewModel.swift in Sources */,
+				A00000000000000000000214 /* DeparturesView.swift in Sources */,
+				A00000000000000000000215 /* DeparturesViewModel.swift in Sources */,
+				A00000000000000000000216 /* PlaceAutocompleteField.swift in Sources */,
+				A00000000000000000000217 /* ServiceDetailSheet.swift in Sources */,
+				A00000000000000000000218 /* EmptyStateView.swift in Sources */,
+				A00000000000000000000219 /* AppFormatting.swift in Sources */,
+				A0000000000000000000021A /* CalendarImporter.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A00000000000000000000311 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000250 /* KastanAppTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A00000000000000000000411 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A00000000000000000000401 /* KastanApp */;
+			targetProxy = A00000000000000000000410 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		A00000000000000000000132 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A00000000000000000000130 /* en */,
+				A00000000000000000000131 /* cs */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		A00000000000000000000501 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		A00000000000000000000502 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		A00000000000000000000511 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				ENABLE_PREVIEWS = YES;
+				EXECUTABLE_NAME = KastanApp;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Kaštan";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = cz.glutexo.kastan;
+				PRODUCT_MODULE_NAME = KastanApp;
+				PRODUCT_NAME = "Kaštan";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Debug;
+		};
+		A00000000000000000000512 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
+				EXECUTABLE_NAME = KastanApp;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "Kaštan";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = cz.glutexo.kastan;
+				PRODUCT_MODULE_NAME = KastanApp;
+				PRODUCT_NAME = "Kaštan";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+			};
+			name = Release;
+		};
+		A00000000000000000000521 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = cz.glutexo.kastan.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Kaštan.app/Contents/MacOS/KastanApp";
+			};
+			name = Debug;
+		};
+		A00000000000000000000522 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = cz.glutexo.kastan.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Kaštan.app/Contents/MacOS/KastanApp";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A00000000000000000000503 /* Build configuration list for PBXProject "KastanApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A00000000000000000000501 /* Debug */,
+				A00000000000000000000502 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A00000000000000000000513 /* Build configuration list for PBXNativeTarget "KastanApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A00000000000000000000511 /* Debug */,
+				A00000000000000000000512 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A00000000000000000000523 /* Build configuration list for PBXNativeTarget "KastanAppTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A00000000000000000000521 /* Debug */,
+				A00000000000000000000522 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		A00000000000000000000600 /* kastan */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ..;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A00000000000000000000601 /* Kastan */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A00000000000000000000600 /* kastan */;
+			productName = Kastan;
+		};
+		A00000000000000000000602 /* Kastan */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A00000000000000000000600 /* kastan */;
+			productName = Kastan;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A00000000000000000000001 /* Project object */;
+}

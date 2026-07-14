@@ -1,6 +1,6 @@
 # 🌰 Kaštan
 
-Kaštan (`kastan`) is a personal Swift CLI, importable Swift library, and local MCP server for occasional one-off IDOS queries.
+Kaštan is a native macOS app, personal Swift CLI (`kastan`), importable Swift library, and local MCP server for occasional IDOS queries.
 It uses publicly reachable IDOS web endpoints and parses returned HTML, so it is not a stable or guaranteed data API.
 
 ## 🌰 Building
@@ -308,6 +308,34 @@ swift run kastan timetables
 The parameter also accepts a custom IDOS URL slug, such as `karlovyvary`, when IDOS supports it. Besides slugs, catalog names work too, for example `--timetable "Urban Public Transport Karlovy Vary"` or `--timetable "Zlín a Otrokovice"`.
 
 This tool is intended for low-frequency personal use. If IDOS changes its HTML or internal JSONP suggestions endpoint, the parser will need an update.
+
+## 🌰 macOS App
+
+The repository includes a native SwiftUI application for macOS 13 or newer. It imports the `Kastan` library directly, so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
+
+The first app release supports:
+
+- connection searches with IDOS place suggestions, date, time, arrival mode, direct journeys, via places, and transfer limits;
+- station departures and arrivals with station-only suggestions;
+- line colors, transport symbols, platforms, tariff zones, carriers, and delay details supplied by IDOS;
+- complete service routes opened from connection legs and station-board rows;
+- IDOS calendar export opened in the user's macOS calendar application;
+- English and Czech user-interface localization.
+
+Open the shared Xcode project and run the `KastanApp` scheme:
+
+```sh
+open KastanApp/KastanApp.xcodeproj
+```
+
+The project requires an Xcode toolchain with Swift 6.3 or newer. It can also be built and tested from Terminal:
+
+```sh
+xcodebuild build -project KastanApp/KastanApp.xcodeproj -scheme KastanApp -destination 'platform=macOS'
+xcodebuild test -project KastanApp/KastanApp.xcodeproj -scheme KastanApp -destination 'platform=macOS'
+```
+
+The app target is sandboxed and permits outgoing network connections for IDOS. Calendar files are written to a temporary app directory before macOS opens them.
 
 ## 🌰 MCP Server
 
