@@ -9,9 +9,9 @@ struct KastanApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView(client: client)
-                .frame(minWidth: 1000, minHeight: 620)
+                .frame(minWidth: 720, minHeight: 520)
         }
-        .defaultSize(width: 1180, height: 760)
+        .defaultSize(width: 1080, height: 720)
         .commands {
             SidebarCommands()
         }

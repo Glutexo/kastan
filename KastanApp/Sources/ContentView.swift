@@ -60,7 +60,7 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.bar)
             }
-            .navigationSplitViewColumnWidth(min: 190, ideal: 220)
+            .navigationSplitViewColumnWidth(min: 170, ideal: 210)
         } detail: {
             switch selection {
             case .connections:

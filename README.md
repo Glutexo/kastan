@@ -317,6 +317,7 @@ The first app release supports:
 
 - connection searches with IDOS place suggestions, date, time, arrival mode, direct journeys, via places, and transfer limits;
 - station departures and arrivals with station-only suggestions;
+- adaptive search forms that remain readable and scrollable in compact windows;
 - line colors, transport symbols, platforms, tariff zones, carriers, and delay details supplied by IDOS;
 - complete service routes opened from connection legs and station-board rows;
 - IDOS calendar export opened in the user's macOS calendar application;

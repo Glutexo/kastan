@@ -42,95 +42,11 @@ struct ConnectionsView: View {
     private var searchPanel: some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top, spacing: 10) {
-                    PlaceAutocompleteField(
-                        title: "From",
-                        prompt: "Departure place",
-                        text: $model.from,
-                        timetable: model.timetable,
-                        scope: .places,
-                        client: client
-                    )
-
-                    Button {
-                        model.swapEndpoints()
-                    } label: {
-                        Image(systemName: "arrow.left.arrow.right")
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Swap departure and arrival")
-                    .padding(.top, 24)
-
-                    PlaceAutocompleteField(
-                        title: "To",
-                        prompt: "Arrival place",
-                        text: $model.to,
-                        timetable: model.timetable,
-                        scope: .places,
-                        client: client
-                    )
-                }
-
-                HStack(alignment: .bottom, spacing: 12) {
-                    timetablePicker
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Date")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        DatePicker("Date", selection: $model.date, displayedComponents: .date)
-                            .labelsHidden()
-                    }
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Time")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        DatePicker("Time", selection: $model.time, displayedComponents: .hourAndMinute)
-                            .labelsHidden()
-                    }
-
-                    Picker("Time means", selection: $model.isArrival) {
-                        Text("Departure").tag(false)
-                        Text("Arrival").tag(true)
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .frame(width: 175)
-
-                    Spacer()
-
-                    Button {
-                        Task { await model.search() }
-                    } label: {
-                        if model.isSearching {
-                            ProgressView()
-                                .controlSize(.small)
-                                .frame(width: 70)
-                        } else {
-                            Label("Search", systemImage: "magnifyingglass")
-                                .frame(width: 70)
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!model.canSearch)
-                }
+                endpointControls
+                searchControls
 
                 DisclosureGroup("Journey options") {
-                    HStack(spacing: 18) {
-                        TextField("Via places, separated by commas", text: $model.via)
-                            .textFieldStyle(.roundedBorder)
-
-                        Toggle("Direct only", isOn: $model.onlyDirect)
-
-                        Stepper(
-                            AppLocalization.string("Up to %lld transfers", model.maximumTransfers),
-                            value: $model.maximumTransfers,
-                            in: 0...10
-                        )
-                        .disabled(model.onlyDirect)
-                    }
+                    journeyOptions
                     .padding(.top, 8)
                 }
             }
@@ -139,6 +55,173 @@ struct ConnectionsView: View {
             Label("Find a connection", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                 .font(.headline)
         }
+    }
+
+    private var endpointControls: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 10) {
+                fromField
+                    .frame(minWidth: 240)
+                swapButton
+                    .padding(.top, 24)
+                toField
+                    .frame(minWidth: 240)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                fromField
+                HStack {
+                    Spacer()
+                    swapButton
+                    Spacer()
+                }
+                toField
+            }
+        }
+    }
+
+    private var fromField: some View {
+        PlaceAutocompleteField(
+            title: "From",
+            prompt: "Departure place",
+            text: $model.from,
+            timetable: model.timetable,
+            scope: .places,
+            client: client
+        )
+    }
+
+    private var toField: some View {
+        PlaceAutocompleteField(
+            title: "To",
+            prompt: "Arrival place",
+            text: $model.to,
+            timetable: model.timetable,
+            scope: .places,
+            client: client
+        )
+    }
+
+    private var swapButton: some View {
+        Button {
+            model.swapEndpoints()
+        } label: {
+            Image(systemName: "arrow.left.arrow.right")
+        }
+        .buttonStyle(.borderless)
+        .help("Swap departure and arrival")
+    }
+
+    private var searchControls: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .bottom, spacing: 12) {
+                timetablePicker
+                    .frame(width: 240)
+                datePicker
+                timePicker
+                timeModePicker
+                    .frame(width: 175)
+                Spacer(minLength: 0)
+                searchButton
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                timetablePicker
+                HStack(alignment: .bottom, spacing: 12) {
+                    datePicker
+                    timePicker
+                    Spacer(minLength: 0)
+                }
+                timeModePicker
+                    .frame(maxWidth: 260)
+                HStack {
+                    Spacer()
+                    searchButton
+                }
+            }
+        }
+    }
+
+    private var datePicker: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Date")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            DatePicker("Date", selection: $model.date, displayedComponents: .date)
+                .labelsHidden()
+        }
+    }
+
+    private var timePicker: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Time")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            DatePicker("Time", selection: $model.time, displayedComponents: .hourAndMinute)
+                .labelsHidden()
+        }
+    }
+
+    private var timeModePicker: some View {
+        Picker("Time means", selection: $model.isArrival) {
+            Text("Departure").tag(false)
+            Text("Arrival").tag(true)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+    }
+
+    private var searchButton: some View {
+        Button {
+            Task { await model.search() }
+        } label: {
+            if model.isSearching {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(width: 70)
+            } else {
+                Label("Search", systemImage: "magnifyingglass")
+                    .frame(width: 70)
+            }
+        }
+        .buttonStyle(.borderedProminent)
+        .keyboardShortcut(.defaultAction)
+        .disabled(!model.canSearch)
+    }
+
+    private var journeyOptions: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 18) {
+                viaField
+                    .frame(minWidth: 240)
+                directToggle
+                transfersStepper
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                viaField
+                directToggle
+                transfersStepper
+            }
+        }
+    }
+
+    private var viaField: some View {
+        TextField("Via places, separated by commas", text: $model.via)
+            .textFieldStyle(.roundedBorder)
+    }
+
+    private var directToggle: some View {
+        Toggle("Direct only", isOn: $model.onlyDirect)
+    }
+
+    private var transfersStepper: some View {
+        Stepper(
+            AppLocalization.string("Up to %lld transfers", model.maximumTransfers),
+            value: $model.maximumTransfers,
+            in: 0...10
+        )
+        .disabled(model.onlyDirect)
     }
 
     private var timetablePicker: some View {
@@ -152,7 +235,7 @@ struct ConnectionsView: View {
                 }
             }
             .labelsHidden()
-            .frame(minWidth: 220)
+            .frame(maxWidth: .infinity)
             .onChange(of: model.timetable.slug) { slug in
                 if let timetable = IDOSTimetable.known.first(where: { $0.slug == slug }) {
                     model.timetable = timetable
@@ -237,13 +320,26 @@ private struct ConnectionCard: View {
                     .disabled(isImportingCalendar)
                 }
 
-                HStack {
-                    Text(connection.departureStation)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Image(systemName: "arrow.right")
-                        .foregroundStyle(.secondary)
-                    Text(connection.arrivalStation)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                ViewThatFits(in: .horizontal) {
+                    HStack {
+                        Text(connection.departureStation)
+                            .fixedSize(horizontal: true, vertical: false)
+                        Spacer()
+                        Image(systemName: "arrow.right")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(connection.arrivalStation)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(connection.departureStation)
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.down")
+                                .foregroundStyle(.secondary)
+                            Text(connection.arrivalStation)
+                        }
+                    }
                 }
 
                 if !connection.legs.isEmpty {
@@ -302,14 +398,19 @@ private struct ConnectionLegRow: View {
                                 .foregroundStyle(.tertiary)
                         }
                     }
-                    HStack(alignment: .firstTextBaseline) {
-                        Text(leg.departureTime)
-                            .font(.body.bold().monospacedDigit())
-                        Text(leg.fromStation)
-                        Spacer()
-                        Text(leg.arrivalTime)
-                            .font(.body.bold().monospacedDigit())
-                        Text(leg.toStation)
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(leg.departureTime)
+                                .font(.body.bold().monospacedDigit())
+                                .frame(width: 48, alignment: .leading)
+                            Text(leg.fromStation)
+                        }
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(leg.arrivalTime)
+                                .font(.body.bold().monospacedDigit())
+                                .frame(width: 48, alignment: .leading)
+                            Text(leg.toStation)
+                        }
                     }
                     if let metadata = ResultMetadata.joined(
                         leg.carrier,
