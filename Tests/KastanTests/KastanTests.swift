@@ -1444,11 +1444,12 @@ import Testing
           <span class="fixed-codes"><span title="track">3</span></span>
           <span class="distance"><span class="label out"></span>0 km</span>
         </li>
-        <li class="item" title="">
+        <li class="item" title="Click to refresh the current service position.">
           <span class="arrival"><span class="label out"></span>11:53</span>
           <span class="departure"><span class="label out"></span>12:04</span>
           <strong class="name">Praha hl.n.</strong>
           <span title="transfer to the undeground">#</span>
+          <button title="Click to update the vehicle position."></button>
           <span class="fixed-codes"><span title="tariff zone">P</span></span>
           <span class="distance"><span class="label out"></span>7 km</span>
         </li>
@@ -1490,6 +1491,7 @@ import Testing
     #expect(detail.stops[1].tariffZone == "P")
     #expect(detail.stops[1].notes == ["transfer to the undeground"])
     #expect(detail.stops[2].platformTrack == "3/1")
+    #expect(detail.stops[2].notes.isEmpty)
     #expect(detail.information == ["There is a planned traffic restriction.", "České dráhy, a.s."])
     #expect(detail.shareURL == "https://idos.cz/service")
 }
@@ -1535,6 +1537,7 @@ import Testing
           <span class="departure"><span class="label out"></span>12:04</span>
           <strong class="name">Praha hl.n.</strong>
           <span title="přestup na Metro">#</span>
+          <button title="Kliknutím se aktualizuje poloha spoje."></button>
           <span class="fixed-codes">
             <span title="tar. pásmo">1,2</span>
             <span title="stanoviště">2</span>

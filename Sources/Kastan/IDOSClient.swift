@@ -1984,9 +1984,16 @@ enum IDOSServiceDetailParser {
             )
             .compactMap { $0.first.map(HTMLText.decodeEntities) }
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty && !knownTitles.contains($0.lowercased()) }
+            .filter {
+                !$0.isEmpty &&
+                    !knownTitles.contains($0.lowercased()) &&
+                    !isInteractiveVehiclePositionTitle($0)
+            }
 
-            if let title = attribute("title", in: attributes), !title.isEmpty {
+            if let title = attribute("title", in: attributes),
+               !title.isEmpty,
+               !isInteractiveVehiclePositionTitle(title)
+            {
                 notes.insert(title, at: 0)
             }
 
@@ -2026,6 +2033,25 @@ enum IDOSServiceDetailParser {
                 in: html
             ).map(HTMLText.decodeEntities).flatMap(nonEmpty)
         )
+    }
+
+    /// Rejects IDOS tooltips for interactive vehicle tracking controls because they are not stop notes.
+    private static func isInteractiveVehiclePositionTitle(_ title: String) -> Bool {
+        let title = title.lowercased()
+        let describesPosition = title.contains("poloha") ||
+            title.contains("position") ||
+            title.contains("location")
+        let describesVehicle = title.contains("spoj") ||
+            title.contains("vozidl") ||
+            title.contains("service") ||
+            title.contains("vehicle") ||
+            title.contains("train")
+        let describesInteraction = title.contains("klik") ||
+            title.contains("aktualiz") ||
+            title.contains("click") ||
+            title.contains("update") ||
+            title.contains("refresh")
+        return describesPosition && describesVehicle && describesInteraction
     }
 
     private static func time(className: String, in html: String) -> String? {

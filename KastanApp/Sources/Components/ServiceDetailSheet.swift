@@ -117,13 +117,18 @@ struct ServiceDetailSheet: View {
                     }
                 }
 
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(service.stops.enumerated()), id: \.offset) { index, stop in
-                        ServiceStopRow(
-                            stop: stop,
-                            isFirst: index == 0,
-                            isLast: index == service.stops.count - 1
-                        )
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Stops", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                        .font(.headline)
+
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(service.stops.enumerated()), id: \.offset) { index, stop in
+                            ServiceStopRow(
+                                stop: stop,
+                                isFirst: index == 0,
+                                isLast: index == service.stops.count - 1
+                            )
+                        }
                     }
                 }
 
@@ -153,16 +158,28 @@ private struct ServiceStopRow: View {
         HStack(alignment: .top, spacing: 12) {
             VStack(spacing: 0) {
                 Rectangle()
-                    .fill(isFirst ? Color.clear : Color.accentColor)
+                    .fill(isFirst ? Color.clear : routeColor)
                     .frame(width: 2, height: 10)
-                Circle()
-                    .strokeBorder(Color.accentColor, lineWidth: 3)
-                    .background(Circle().fill(.background))
-                    .frame(width: 14, height: 14)
+
+                ZStack {
+                    Circle()
+                        .fill(.background)
+                    Circle()
+                        .strokeBorder(routeColor, lineWidth: 2)
+                    if isFirst || isLast {
+                        Circle()
+                            .fill(routeColor)
+                            .frame(width: 6, height: 6)
+                    }
+                }
+                .frame(width: 14, height: 14)
+
                 Rectangle()
-                    .fill(isLast ? Color.clear : Color.accentColor)
-                    .frame(width: 2, height: 40)
+                    .fill(isLast ? Color.clear : routeColor)
+                    .frame(width: 2)
+                    .frame(maxHeight: .infinity)
             }
+            .frame(width: 14)
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline) {
@@ -191,6 +208,10 @@ private struct ServiceStopRow: View {
             }
             .padding(.bottom, 12)
         }
+    }
+
+    private var routeColor: Color {
+        .secondary.opacity(0.55)
     }
 
     private var stopTimes: String {
