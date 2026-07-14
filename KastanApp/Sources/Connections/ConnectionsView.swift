@@ -1,7 +1,7 @@
 import Kastan
 import SwiftUI
 
-/// Combines connection search controls with expandable, product-focused journey cards.
+/// Combines a compact macOS search workspace with expandable journey results.
 struct ConnectionsView: View {
     @ObservedObject var model: ConnectionsViewModel
     let client: any IDOSClienting
@@ -13,7 +13,6 @@ struct ConnectionsView: View {
 
             ScrollView {
                 page(layout: layout)
-                    .frame(width: layout.containerWidth, alignment: .topLeading)
                     .frame(width: geometry.size.width, alignment: .topLeading)
             }
             .frame(
@@ -29,45 +28,48 @@ struct ConnectionsView: View {
     }
 
     private func page(layout: DetailLayout) -> some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Connections")
-                    .font(.largeTitle.bold())
-                Text("Find a public transport journey through IDOS.")
-                    .foregroundStyle(.secondary)
-            }
-
+        VStack(spacing: 0) {
             searchPanel(layout: layout)
+                .padding(.horizontal, layout.horizontalPadding)
+                .padding(.vertical, 18)
+                .frame(width: layout.containerWidth, alignment: .topLeading)
+                .frame(width: layout.availableWidth, alignment: .topLeading)
+                .background(.bar)
 
-            if let errorMessage = model.errorMessage {
-                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+            Divider()
+
+            VStack(alignment: .leading, spacing: 20) {
+                if let errorMessage = model.errorMessage {
+                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                }
+
+                results
             }
-
-            results
+            .padding(.horizontal, layout.horizontalPadding)
+            .padding(.vertical, 20)
+            .frame(width: layout.containerWidth, alignment: .topLeading)
+            .frame(width: layout.availableWidth, alignment: .topLeading)
         }
-        .padding(.horizontal, layout.horizontalPadding)
-        .padding(.vertical, 24)
     }
 
     private func searchPanel(layout: DetailLayout) -> some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 14) {
-                endpointControls(stacked: layout.usesStackedEndpoints)
-                searchControls(stacked: layout.usesStackedSearchControls)
+        VStack(alignment: .leading, spacing: 14) {
+            endpointControls(stacked: layout.usesStackedEndpoints)
 
-                DisclosureGroup("Journey options") {
-                    journeyOptions(stacked: layout.usesStackedOptions)
-                        .padding(.top, 8)
-                }
+            Divider()
+                .frame(maxWidth: 840)
+
+            searchControls(stacked: layout.usesStackedSearchControls)
+
+            DisclosureGroup("Journey options") {
+                journeyOptions(stacked: layout.usesStackedOptions)
+                    .padding(.top, 8)
             }
-            .padding(8)
-        } label: {
-            Label("Find a connection", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
-                .font(.headline)
+            .frame(maxWidth: 840, alignment: .leading)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -80,18 +82,19 @@ struct ConnectionsView: View {
                 HStack {
                     Spacer()
                     swapButton
-                    Spacer()
                 }
                 toField
             }
+            .frame(maxWidth: 520, alignment: .leading)
         } else {
             HStack(alignment: .top, spacing: 10) {
                 fromField
-                    .frame(minWidth: 240)
+                    .frame(minWidth: 240, maxWidth: 380)
                 swapButton
                     .padding(.top, 24)
                 toField
-                    .frame(minWidth: 240)
+                    .frame(minWidth: 240, maxWidth: 380)
+                Spacer(minLength: 0)
             }
         }
     }
@@ -124,7 +127,8 @@ struct ConnectionsView: View {
         } label: {
             Image(systemName: "arrow.left.arrow.right")
         }
-        .buttonStyle(.borderless)
+        .buttonStyle(.bordered)
+        .controlSize(.small)
         .help("Swap departure and arrival")
     }
 
@@ -133,16 +137,17 @@ struct ConnectionsView: View {
         if stacked {
             VStack(alignment: .leading, spacing: 12) {
                 timetablePicker
+                    .frame(maxWidth: 360)
                 HStack(alignment: .bottom, spacing: 12) {
                     datePicker
                     timePicker
                     Spacer(minLength: 0)
                 }
-                timeModePicker
-                    .frame(maxWidth: 260)
-                HStack {
-                    Spacer()
+                HStack(spacing: 12) {
+                    timeModePicker
+                        .frame(width: 220)
                     searchButton
+                    Spacer(minLength: 0)
                 }
             }
         } else {
@@ -153,8 +158,8 @@ struct ConnectionsView: View {
                 timePicker
                 timeModePicker
                     .frame(width: 175)
-                Spacer(minLength: 0)
                 searchButton
+                Spacer(minLength: 0)
             }
         }
     }
@@ -274,10 +279,7 @@ struct ConnectionsView: View {
                 description: "Enter a route and start a search."
             )
         } else {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Results")
-                    .font(.title2.bold())
-
+            LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(model.connections.enumerated()), id: \.element.id) { index, connection in
                     ConnectionCard(
                         number: index + 1,
@@ -286,6 +288,10 @@ struct ConnectionsView: View {
                         openService: { selectedService = ServiceSelection(id: $0) },
                         addToCalendar: { Task { await model.addToCalendar(connection) } }
                     )
+
+                    if index < model.connections.count - 1 {
+                        Divider()
+                    }
                 }
             }
         }
@@ -300,85 +306,82 @@ private struct ConnectionCard: View {
     let addToCalendar: () -> Void
 
     var body: some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text("\(connection.departureTime) → \(connection.arrivalTime)")
-                        .font(.title2.bold().monospacedDigit())
-                    Text(connection.duration)
-                        .foregroundStyle(.secondary)
-                    if connection.legs.count <= 1 {
-                        Text("Direct")
-                            .font(.caption.bold())
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
-                            .background(.green.opacity(0.14), in: Capsule())
-                    }
-                    Spacer()
-                    Menu {
-                        Button {
-                            addToCalendar()
-                        } label: {
-                            Label("Add to Calendar", systemImage: "calendar.badge.plus")
-                        }
-                        if let value = connection.shareURL, let url = URL(string: value) {
-                            Link(destination: url) {
-                                Label("Open in IDOS", systemImage: "arrow.up.right.square")
-                            }
-                        }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(AppLocalization.string("Connection %lld", number))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("\(connection.departureTime) → \(connection.arrivalTime)")
+                    .font(.title2.bold().monospacedDigit())
+                Text(connection.duration)
+                    .foregroundStyle(.secondary)
+                if connection.legs.count <= 1 {
+                    Text("Direct")
+                        .font(.caption.bold())
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(.green.opacity(0.14), in: Capsule())
+                }
+                Spacer()
+                Menu {
+                    Button {
+                        addToCalendar()
                     } label: {
-                        if isImportingCalendar {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Image(systemName: "ellipsis.circle")
+                        Label("Add to Calendar", systemImage: "calendar.badge.plus")
+                    }
+                    if let value = connection.shareURL, let url = URL(string: value) {
+                        Link(destination: url) {
+                            Label("Open in IDOS", systemImage: "arrow.up.right.square")
                         }
                     }
-                    .menuStyle(.borderlessButton)
-                    .disabled(isImportingCalendar)
+                } label: {
+                    if isImportingCalendar {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                }
+                .menuStyle(.borderlessButton)
+                .disabled(isImportingCalendar)
+            }
+
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    Text(connection.departureStation)
+                        .fixedSize(horizontal: true, vertical: false)
+                    Spacer()
+                    Image(systemName: "arrow.right")
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(connection.arrivalStation)
+                        .fixedSize(horizontal: true, vertical: false)
                 }
 
-                ViewThatFits(in: .horizontal) {
-                    HStack {
-                        Text(connection.departureStation)
-                            .fixedSize(horizontal: true, vertical: false)
-                        Spacer()
-                        Image(systemName: "arrow.right")
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(connection.departureStation)
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.down")
                             .foregroundStyle(.secondary)
-                        Spacer()
                         Text(connection.arrivalStation)
-                            .fixedSize(horizontal: true, vertical: false)
-                    }
-
-                    VStack(alignment: .leading, spacing: 5) {
-                        Text(connection.departureStation)
-                        HStack(spacing: 6) {
-                            Image(systemName: "arrow.down")
-                                .foregroundStyle(.secondary)
-                            Text(connection.arrivalStation)
-                        }
                     }
                 }
+            }
 
-                if !connection.legs.isEmpty {
-                    Divider()
-                    VStack(spacing: 0) {
-                        ForEach(Array(connection.legs.enumerated()), id: \.offset) { index, leg in
-                            ConnectionLegRow(leg: leg, openService: openService)
-                            if index < connection.legs.count - 1 {
-                                Divider()
-                                    .padding(.leading, 30)
-                            }
+            if !connection.legs.isEmpty {
+                Divider()
+                VStack(spacing: 0) {
+                    ForEach(Array(connection.legs.enumerated()), id: \.offset) { index, leg in
+                        ConnectionLegRow(leg: leg, openService: openService)
+                        if index < connection.legs.count - 1 {
+                            Divider()
+                                .padding(.leading, 30)
                         }
                     }
                 }
             }
-            .padding(6)
-        } label: {
-            Text(AppLocalization.string("Connection %lld", number))
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
+        .padding(.vertical, 14)
     }
 }
 

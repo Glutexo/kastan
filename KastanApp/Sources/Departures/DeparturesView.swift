@@ -1,7 +1,7 @@
 import Kastan
 import SwiftUI
 
-/// Presents an IDOS station board and opens the complete route for any returned service.
+/// Presents a compact macOS station-board search workspace and its returned services.
 struct DeparturesView: View {
     @ObservedObject var model: DeparturesViewModel
     let client: any IDOSClienting
@@ -13,7 +13,6 @@ struct DeparturesView: View {
 
             ScrollView {
                 page(layout: layout)
-                    .frame(width: layout.containerWidth, alignment: .topLeading)
                     .frame(width: geometry.size.width, alignment: .topLeading)
             }
             .frame(
@@ -29,48 +28,50 @@ struct DeparturesView: View {
     }
 
     private func page(layout: DetailLayout) -> some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Departures and arrivals")
-                    .font(.largeTitle.bold())
-                Text("Check a station board and open complete service routes.")
-                    .foregroundStyle(.secondary)
-            }
-
+        VStack(spacing: 0) {
             searchPanel(stacked: layout.usesStackedSearchControls)
+                .padding(.horizontal, layout.horizontalPadding)
+                .padding(.vertical, 18)
+                .frame(width: layout.containerWidth, alignment: .topLeading)
+                .frame(width: layout.availableWidth, alignment: .topLeading)
+                .background(.bar)
 
-            if let errorMessage = model.errorMessage {
-                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.red)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(12)
-                    .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+            Divider()
+
+            VStack(alignment: .leading, spacing: 20) {
+                if let errorMessage = model.errorMessage {
+                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                }
+
+                results
             }
-
-            results
+            .padding(.horizontal, layout.horizontalPadding)
+            .padding(.vertical, 20)
+            .frame(width: layout.containerWidth, alignment: .topLeading)
+            .frame(width: layout.availableWidth, alignment: .topLeading)
         }
-        .padding(.horizontal, layout.horizontalPadding)
-        .padding(.vertical, 24)
     }
 
     private func searchPanel(stacked: Bool) -> some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 14) {
-                PlaceAutocompleteField(
-                    title: "Station",
-                    prompt: "Station or stop",
-                    text: $model.station,
-                    timetable: model.timetable,
-                    scope: .stations,
-                    client: client
-                )
+        VStack(alignment: .leading, spacing: 14) {
+            PlaceAutocompleteField(
+                title: "Station",
+                prompt: "Station or stop",
+                text: $model.station,
+                timetable: model.timetable,
+                scope: .stations,
+                client: client
+            )
+            .frame(maxWidth: 520)
 
-                searchControls(stacked: stacked)
-            }
-            .padding(8)
-        } label: {
-            Label("Station board", systemImage: "list.bullet.rectangle")
-                .font(.headline)
+            Divider()
+                .frame(maxWidth: 840)
+
+            searchControls(stacked: stacked)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -80,16 +81,17 @@ struct DeparturesView: View {
         if stacked {
             VStack(alignment: .leading, spacing: 12) {
                 timetablePicker
+                    .frame(maxWidth: 360)
                 HStack(alignment: .bottom, spacing: 12) {
                     datePicker
                     timePicker
                     Spacer(minLength: 0)
                 }
-                boardTypePicker
-                    .frame(maxWidth: 260)
-                HStack {
-                    Spacer()
+                HStack(spacing: 12) {
+                    boardTypePicker
+                        .frame(width: 220)
                     searchButton
+                    Spacer(minLength: 0)
                 }
             }
         } else {
@@ -100,8 +102,8 @@ struct DeparturesView: View {
                 timePicker
                 boardTypePicker
                     .frame(width: 175)
-                Spacer(minLength: 0)
                 searchButton
+                Spacer(minLength: 0)
             }
         }
     }
@@ -185,13 +187,14 @@ struct DeparturesView: View {
                 description: "Choose a station and start a search."
             )
         } else {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(model.isArrival ? LocalizedStringKey("Arrivals") : LocalizedStringKey("Departures"))
-                    .font(.title2.bold())
-
-                ForEach(model.departures, id: \.id) { departure in
+            LazyVStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(model.departures.enumerated()), id: \.element.id) { index, departure in
                     DepartureRow(departure: departure) {
                         selectedService = ServiceSelection(id: departure.id)
+                    }
+
+                    if index < model.departures.count - 1 {
+                        Divider()
                     }
                 }
             }
@@ -238,8 +241,8 @@ private struct DepartureRow: View {
                 Image(systemName: "chevron.right")
                     .foregroundStyle(.tertiary)
             }
-            .padding(12)
-            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+            .padding(.horizontal, 4)
+            .padding(.vertical, 12)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
