@@ -1,6 +1,6 @@
 # 🌰 Kaštan
 
-Kaštan (`kastan`) is a personal Swift CLI and importable Swift library for occasional one-off IDOS queries.
+Kaštan (`kastan`) is a personal Swift CLI, importable Swift library, and local MCP server for occasional one-off IDOS queries.
 It uses publicly reachable IDOS web endpoints and parses returned HTML, so it is not a stable or guaranteed data API.
 
 ## 🌰 Building
@@ -298,6 +298,45 @@ The parameter also accepts a custom IDOS URL slug, such as `karlovyvary`, when I
 
 This tool is intended for low-frequency personal use. If IDOS changes its HTML or internal JSONP suggestions endpoint, the parser will need an update.
 
+## 🌰 MCP Server
+
+The repository includes a native `kastan-mcp` server that lets MCP clients query the Kaštan library directly over standard input and output. It uses the official Swift MCP SDK and exposes read-only tools; it does not parse or invoke the `kastan` CLI.
+
+The MCP server requires macOS 13 or newer, or Linux. It lives in a separate Swift package so the main CLI and library retain their macOS 12 and Windows support.
+
+Build a release executable and print its directory:
+
+```sh
+swift build --package-path MCPServer -c release
+swift build --package-path MCPServer -c release --show-bin-path
+```
+
+Configure an MCP client to launch the `kastan-mcp` executable from that directory. MCP client configuration formats differ, but clients that use a JSON server map commonly accept an entry shaped like this:
+
+```json
+{
+  "mcpServers": {
+    "kastan": {
+      "command": "/absolute/path/to/kastan-mcp"
+    }
+  }
+}
+```
+
+The server exposes these tools:
+
+| Tool | Purpose |
+| --- | --- |
+| `suggest_places` | Suggest stops, addresses, and other IDOS places by prefix. |
+| `search_stations` | Search only stations and stops by prefix. |
+| `find_connections` | Find connections with timetable, date, time, arrival, direct, via, and transfer options. |
+| `find_departures` | Find station departures or arrivals. |
+| `list_timetables` | List accepted timetable slugs and English names. |
+
+Query tools accept an optional `timetable` alias, English catalog name, or IDOS URL slug. They return the library's JSON model both as readable JSON text and as MCP structured content. Result limits default to 8 for suggestions, stations, and departures, and 5 for connections; an MCP request can raise a limit up to 20.
+
+As with the CLI, MCP queries use publicly reachable IDOS web endpoints and are intended for low-frequency personal use.
+
 ## 🌰 Swift Library
 
 The package exports the `Kastan` library product:
@@ -343,4 +382,5 @@ The public API includes `IDOSClient`, `IDOSClienting`, `IDOSConnectionRequest`, 
 swift build
 swift test
 swift run kastan
+swift test --package-path MCPServer
 ```
