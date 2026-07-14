@@ -74,6 +74,8 @@ struct CommandRunner {
                 return try await connectionsOutput(for: Array(arguments.dropFirst()), localization: localization)
             case "departures":
                 return try await departuresOutput(for: Array(arguments.dropFirst()), localization: localization)
+            case "service":
+                return try await serviceOutput(for: Array(arguments.dropFirst()), localization: localization)
             case "aliases":
                 return try await aliasesOutput(for: Array(arguments.dropFirst()), localization: localization)
             case "timetables":
@@ -167,6 +169,13 @@ struct CommandRunner {
                     : localization.text(.networkUnavailableWithDetail, detail)
             case .calendarUnavailable:
                 return localization.text(.calendarUnavailable)
+            case .invalidServiceIdentifier(let value):
+                return localization.text(.invalidServiceIdentifier, value)
+            case .serviceDetailUnavailable(let detail):
+                let detail = detail.trimmingCharacters(in: .whitespacesAndNewlines)
+                return detail.isEmpty
+                    ? localization.text(.serviceDetailUnavailable)
+                    : localization.text(.serviceDetailUnavailableWithDetail, detail)
             }
         }
 
@@ -342,6 +351,23 @@ struct CommandRunner {
                 departures: Array(departures.prefix(max(1, limit))),
                 verbose: options.contains("--verbose", short: "-v")
             ),
+            localization: localization
+        )
+    }
+
+    private func serviceOutput(for arguments: [String], localization: Localization) async throws -> String {
+        let options = CommandOptions(arguments)
+        try options.rejectUnknownOptions(allowedValueOptions: ["--timetable", "-T", "--format", "-o"])
+        let format = try options.outputFormat()
+        let positional = positionalValues(in: options)
+        guard positional.count == 1 else {
+            throw CommandError.usage(.usageService)
+        }
+
+        let timetable = try options.timetable()
+        let service = try await client.serviceDetail(id: positional[0], timetable: timetable)
+        return try format.renderServiceDetail(
+            ServiceDetailOutput(timetable: timetable, service: service),
             localization: localization
         )
     }
@@ -880,6 +906,84 @@ private enum OutputFormat: String {
         }
     }
 
+    func renderServiceDetail(_ output: ServiceDetailOutput, localization: Localization) throws -> String {
+        let service = output.service
+        switch self {
+        case .text:
+            let stops = service.stops.enumerated().map { index, stop in
+                var details: [String] = []
+                if let arrivalTime = stop.arrivalTime {
+                    details.append("\(localization.text(.arrival)) \(Terminal.bold(arrivalTime))")
+                }
+                if let departureTime = stop.departureTime {
+                    details.append("\(localization.text(.departure)) \(Terminal.bold(departureTime))")
+                }
+                if let tariffZone = stop.tariffZone {
+                    details.append(localization.text(.tariffZoneInline, tariffZone))
+                }
+                if let platform = stop.platform {
+                    details.append(localization.text(.platformInline, platform))
+                }
+                if let track = stop.track {
+                    details.append(localization.text(.trackInline, track))
+                }
+                if let platformTrack = stop.platformTrack {
+                    details.append(localization.text(.platformTrackInline, platformTrack))
+                }
+                if let distance = stop.distance {
+                    details.append(distance)
+                }
+
+                let notes = stop.notes.map { "\n      ℹ️ \($0)" }.joined()
+                let suffix = details.isEmpty ? "" : " — \(details.joined(separator: " · "))"
+                return "\(index + 1). 📍 \(stop.name)\(suffix)\(notes)"
+            }.joined(separator: "\n")
+            let date = service.date.map { "\n   \(localization.text(.date)): \($0)" } ?? ""
+            let information = service.information.isEmpty ? "" : """
+
+
+            ℹ️ \(localization.text(.information)):
+            \(service.information.map { "   • \($0)" }.joined(separator: "\n"))
+            """
+
+            return """
+            \(service.displayName) · \(localization.text(.service)) (\(localization.timetableName(output.timetable)))
+               \(localization.text(.serviceIdentifier)): \(service.id)\(date)
+            🛤️ \(localization.text(.route)):
+            \(stops)\(information)
+            """
+        case .markdown:
+            let rows = service.stops.enumerated().map { index, stop in
+                "| \(index + 1) | \(Markdown.escape(stop.name)) | \(Markdown.bold(stop.arrivalTime ?? "")) | \(Markdown.bold(stop.departureTime ?? "")) | \(Markdown.escape(stop.tariffZone ?? "")) | \(Markdown.escape(stop.platform ?? "")) | \(Markdown.escape(stop.track ?? "")) | \(Markdown.escape(stop.platformTrack ?? "")) | \(Markdown.escape(stop.distance ?? "")) | \(Markdown.escape(stop.notes.joined(separator: "; "))) |"
+            }.joined(separator: "\n")
+            let date = service.date.map { "**\(localization.text(.date)):** \(Markdown.escape($0))\n" } ?? ""
+            let information = service.information.isEmpty ? "" : """
+
+
+            ### ℹ️ \(localization.text(.information))
+
+            \(service.information.map { "- \(Markdown.escape($0))" }.joined(separator: "\n"))
+            """
+
+            return """
+            ## \(Markdown.serviceName(service)) · \(localization.text(.service))
+
+            **\(localization.text(.serviceIdentifier)):** `\(Markdown.escape(service.id))`
+            \(date)**\(localization.text(.timetable)):** \(Markdown.escape(localization.timetableName(output.timetable)))
+
+            ### 🛤️ \(localization.text(.route))
+
+            | # | \(localization.text(.station)) | \(localization.text(.arrival)) | \(localization.text(.departure)) | \(localization.text(.tariffZone)) | \(localization.text(.platform)) | \(localization.text(.track)) | \(localization.text(.platformTrack)) | \(localization.text(.distance)) | \(localization.text(.notes)) |
+            | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+            \(rows)\(information)
+            """
+        case .json:
+            return try JSON.write(output)
+        case .ics:
+            throw CommandError.unsupportedOutputFormat(format: "iCal", command: "service")
+        }
+    }
+
     func renderCalendarImport(_ output: CalendarImportOutput, localization: Localization) throws -> String {
         switch self {
         case .text, .ics:
@@ -1379,6 +1483,11 @@ private struct DeparturesOutput: Codable {
     }
 }
 
+private struct ServiceDetailOutput: Codable {
+    var timetable: IDOSTimetable
+    var service: IDOSServiceDetail
+}
+
 private struct CalendarImportOutput: Codable {
     var request: IDOSConnectionRequest
     var connection: IDOSConnection
@@ -1568,6 +1677,15 @@ private enum Markdown {
         let name = htmlEscape(departure.lineName)
         guard let color = departure.lineColor, !color.isEmpty else {
             return "\(prefix)\(escape(departure.lineName))"
+        }
+        return "\(prefix)<span style=\"color: \(htmlEscape(color))\">\(name)</span>"
+    }
+
+    static func serviceName(_ service: IDOSServiceDetail) -> String {
+        let prefix = service.transportMode.map { "\($0.emoji) " } ?? ""
+        let name = htmlEscape(service.name)
+        guard let color = service.color, !color.isEmpty else {
+            return "\(prefix)\(escape(service.name))"
         }
         return "\(prefix)<span style=\"color: \(htmlEscape(color))\">\(name)</span>"
     }

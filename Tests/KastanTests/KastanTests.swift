@@ -7,7 +7,7 @@ import Testing
     let output = await englishCommandRunner(client: MockIDOSClient()).output(for: [])
 
     #expect(output.contains("🌰 Kaštan"))
-    #expect(output.contains("Search occasional IDOS connections"))
+    #expect(output.contains("Search IDOS connections, departures, stations, service routes"))
 }
 
 @Test func helpOutputShowsUsage() async {
@@ -33,7 +33,8 @@ import Testing
     #expect(output.contains("-T, --timetable"))
     #expect(output.contains("-o, --format"))
     #expect(output.contains("-v, --verbose"))
-    #expect(output.contains("Show result IDs"))
+    #expect(output.contains("Show result and service IDs"))
+    #expect(output.contains("kastan service <service-id>"))
     #expect(output.contains("Direct connections only"))
     #expect(!output.contains("--jr"))
     #expect(output.contains("--version"))
@@ -700,6 +701,72 @@ import Testing
     #expect(output.contains("Currently no delay"))
 }
 
+@Test func serviceCommandPrintsCompleteRoute() async {
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+        for: ["service", "0-74552-18.06.2026 12:04:00", "--timetable", "vlaky"]
+    )
+
+    #expect(output.contains("🚆 \u{001B}[38;2;0;128;0mRJ 1051 RegioJet\u{001B}[0m · Service (Trains)"))
+    #expect(output.contains("Service ID: 0-74552-18.06.2026 12:04:00"))
+    #expect(output.contains("🛤️ Route:"))
+    #expect(output.contains("1. 📍 Praha-Zahradní Město — Departure \u{001B}[1m11:45\u{001B}[0m · track 3 · 0 km"))
+    #expect(output.contains("2. 📍 Praha hl.n. — Arrival \u{001B}[1m11:53\u{001B}[0m · Departure \u{001B}[1m12:04\u{001B}[0m"))
+    #expect(output.contains("ℹ️ Information:"))
+    #expect(output.contains("České dráhy, a.s."))
+}
+
+@Test func serviceCommandPrintsMarkdown() async {
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+        for: [
+            "service", "0-74552-18.06.2026 12:04:00", "-T", "vlaky", "--format", "markdown",
+        ]
+    )
+
+    #expect(output.contains("## 🚆 <span style=\"color: #008000\">RJ 1051 RegioJet</span> · Service"))
+    #expect(output.contains("**Service ID:** `0-74552-18.06.2026 12:04:00`"))
+    #expect(output.contains("| # | Station | Arrival | Departure | Tariff Zone | Platform | Track | Platform/Track | Distance | Notes |"))
+    #expect(output.contains("| 2 | Praha hl.n. | **11:53** | **12:04** | P |  |  |  | 7 km | transfer to the undeground |"))
+}
+
+@Test func serviceCommandPrintsJSON() async throws {
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+        for: ["service", "0-74552-18.06.2026 12:04:00", "-T", "vlaky", "-o", "json"]
+    )
+    let json = try jsonDictionary(output)
+    let service = json["service"] as? [String: Any]
+
+    #expect((json["timetable"] as? [String: Any])?["slug"] as? String == "vlaky")
+    #expect(service?["id"] as? String == "0-74552-18.06.2026 12:04:00")
+    #expect((service?["stops"] as? [[String: Any]])?.count == 3)
+}
+
+@Test func serviceCommandLocalizesCzechOutput() async {
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+        for: ["service", "0-74552-18.06.2026 12:04:00", "-T", "vlaky", "--language", "cs"]
+    )
+
+    #expect(output.contains("· Spoj (Vlaky)"))
+    #expect(output.contains("ID spoje: 0-74552-18.06.2026 12:04:00"))
+    #expect(output.contains("🛤️ Trasa:"))
+    #expect(output.contains("Příjezd \u{001B}[1m11:53\u{001B}[0m · Odjezd \u{001B}[1m12:04\u{001B}[0m"))
+}
+
+@Test func serviceCommandRequiresIdentifier() async {
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(for: ["service", "--timetable", "vlaky"])
+
+    #expect(output.contains("Usage: kastan service <service-id>"))
+}
+
+@Test func serviceCommandRejectsInvalidIdentifierBeforeNetworkRequest() async {
+    let client = IDOSClient(baseURL: URL(string: "http://127.0.0.1:9")!)
+    let output = await englishCommandRunner(client: client).output(
+        for: ["service", "not-an-id", "--timetable", "vlaky"]
+    )
+
+    #expect(output.contains("Invalid service ID: not-an-id."))
+    #expect(!output.contains("Network request failed"))
+}
+
 @Test func departuresCommandAcceptsShortOptions() async {
     let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["departures", "-s", "Ostrava,Hrabůvka,Benzina", "-T", "odis", "-m", "16:00", "-v", "-l", "1"]
@@ -1345,6 +1412,67 @@ import Testing
     #expect(departure?.summaryLine(number: 1).contains("tariff zone 70 · platform 1") == true)
 }
 
+@Test func serviceDetailParserReadsCompleteRouteAndInformation() throws {
+    let html = """
+    <div id="train-detail-151" data-share-url="https://idos.cz/service">
+      <p class="line-top-date print-only">Departure from the initial station <strong>18.6.2026</strong></p>
+      <h1 title="fast train" style="color: #008000;"><span>RJ 1051 RegioJet</span></h1>
+      <ul class="reset line-itinerary">
+        <li class="item inactive" title="Traffic restrictions">
+          <span class="arrival"><span class="label out"></span></span>
+          <span class="departure"><span class="label out"></span>11:45</span>
+          <strong class="name">Praha-Zahradn&#237; Město</strong>
+          <span class="fixed-codes"><span title="track">3</span></span>
+          <span class="distance"><span class="label out"></span>0 km</span>
+        </li>
+        <li class="item" title="">
+          <span class="arrival"><span class="label out"></span>11:53</span>
+          <span class="departure"><span class="label out"></span>12:04</span>
+          <strong class="name">Praha hl.n.</strong>
+          <span title="transfer to the undeground">#</span>
+          <span class="fixed-codes"><span title="tariff zone">P</span></span>
+          <span class="distance"><span class="label out"></span>7 km</span>
+        </li>
+        <li class="item" title="">
+          <span class="arrival"><span class="label out"></span>15:44</span>
+          <span class="departure"><span class="label out"></span></span>
+          <strong class="name">Brno hl.n.</strong>
+          <span class="fixed-codes"><span title="platform/track">3/1</span></span>
+          <span class="distance"><span class="label out"></span>262 km</span>
+        </li>
+      </ul>
+      <ul class="reset messages">
+        <li class="message-red"><h3>Important information</h3><ul>
+          <li>There is a planned traffic restriction.</li>
+          <li class="remarks-list__item">České dráhy, a.s.</li>
+        </ul></li>
+      </ul>
+      <ul class="reset line-share"></ul>
+    </div>
+    """
+
+    let detail = try #require(IDOSServiceDetailParser.parse(
+        html: html,
+        id: "0-74552-18.06.2026 12:04:00"
+    ))
+
+    #expect(detail.name == "RJ 1051 RegioJet")
+    #expect(detail.color == "#008000")
+    #expect(detail.transportMode == .train)
+    #expect(detail.date == "18.6.2026")
+    #expect(detail.stops.count == 3)
+    #expect(detail.stops[0].name == "Praha-Zahradní Město")
+    #expect(detail.stops[0].track == "3")
+    #expect(detail.stops[0].notes == ["Traffic restrictions"])
+    #expect(detail.stops[1].arrivalTime == "11:53")
+    #expect(detail.stops[1].departureTime == "12:04")
+    #expect(detail.stops[1].tariffZone == "P")
+    #expect(detail.stops[1].notes == ["transfer to the undeground"])
+    #expect(detail.stops[2].platformTrack == "3/1")
+    #expect(detail.information == ["There is a planned traffic restriction.", "České dráhy, a.s."])
+    #expect(detail.shareURL == "https://idos.cz/service")
+}
+
 /// Keeps legacy output assertions deterministic regardless of the developer machine's locale.
 private func englishCommandRunner(
     client: IDOSClienting = IDOSClient(),
@@ -1503,6 +1631,47 @@ private struct MockIDOSClient: IDOSClienting {
             )
         ]
     }
+
+    func serviceDetail(id: String, timetable: IDOSTimetable) async throws -> IDOSServiceDetail {
+        #expect(id == "0-74552-18.06.2026 12:04:00")
+        #expect(timetable.slug == "vlaky")
+        return mockServiceDetail(id: id)
+    }
+}
+
+private func mockServiceDetail(id: String) -> IDOSServiceDetail {
+    IDOSServiceDetail(
+        id: id,
+        name: "RJ 1051 RegioJet",
+        color: "#008000",
+        transportMode: .train,
+        date: "18.6.2026",
+        stops: [
+            IDOSServiceStop(
+                name: "Praha-Zahradní Město",
+                departureTime: "11:45",
+                track: "3",
+                distance: "0 km",
+                notes: ["Traffic restrictions"]
+            ),
+            IDOSServiceStop(
+                name: "Praha hl.n.",
+                arrivalTime: "11:53",
+                departureTime: "12:04",
+                tariffZone: "P",
+                distance: "7 km",
+                notes: ["transfer to the undeground"]
+            ),
+            IDOSServiceStop(
+                name: "Brno hl.n.",
+                arrivalTime: "15:44",
+                platformTrack: "3/1",
+                distance: "262 km"
+            ),
+        ],
+        information: ["Planned traffic restriction", "České dráhy, a.s."],
+        shareURL: "https://idos.cz/service"
+    )
 }
 
 private struct MockCalendarImporter: CalendarImporting {

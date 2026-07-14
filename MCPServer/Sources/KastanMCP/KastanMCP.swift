@@ -116,6 +116,19 @@ struct KastanMCPTools: Sendable {
             annotations: readOnlyAnnotations(title: "Find IDOS departures")
         ),
         Tool(
+            name: "get_service_detail",
+            title: "Get an IDOS service detail",
+            description: "Load the complete route, stop times, and information for a service ID returned by a connection leg or departure.",
+            inputSchema: objectSchema(
+                properties: [
+                    "id": stringSchema("Opaque service ID returned by Kaštan."),
+                    "timetable": timetableSchema,
+                ],
+                required: ["id"]
+            ),
+            annotations: readOnlyAnnotations(title: "Get an IDOS service detail")
+        ),
+        Tool(
             name: "list_timetables",
             title: "List IDOS timetables",
             description: "List timetable slugs and English display names accepted by the Kaštan tools.",
@@ -141,6 +154,8 @@ struct KastanMCPTools: Sendable {
                 try await findConnections(arguments)
             case "find_departures":
                 try await findDepartures(arguments)
+            case "get_service_detail":
+                try await getServiceDetail(arguments)
             case "list_timetables":
                 try listTimetables(arguments)
             default:
@@ -213,6 +228,14 @@ struct KastanMCPTools: Sendable {
         let limit = try arguments.integer("limit", default: 8, range: 1...20)
         let departures = try await client.findDepartures(request: request)
         return DeparturesOutput(request: request, departures: Array(departures.prefix(limit)))
+    }
+
+    private func getServiceDetail(_ values: [String: Value]) async throws -> ServiceDetailOutput {
+        let arguments = try ToolArguments(values, allowed: ["id", "timetable"])
+        let id = try arguments.requiredString("id")
+        let timetable = try IDOSTimetable.resolve(arguments.optionalString("timetable"))
+        let service = try await client.serviceDetail(id: id, timetable: timetable)
+        return ServiceDetailOutput(timetable: timetable, service: service)
     }
 
     private func listTimetables(_ values: [String: Value]) throws -> TimetablesOutput {

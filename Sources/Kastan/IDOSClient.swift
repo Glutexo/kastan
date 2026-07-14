@@ -9,6 +9,7 @@ public protocol IDOSClienting: Sendable {
     func findConnections(request: IDOSConnectionRequest) async throws -> [IDOSConnection]
     func connectionCalendar(for connection: IDOSConnection, timetable: IDOSTimetable) async throws -> String
     func findDepartures(request: IDOSDeparturesRequest) async throws -> [IDOSDeparture]
+    func serviceDetail(id: String, timetable: IDOSTimetable) async throws -> IDOSServiceDetail
 }
 
 public struct IDOSClient: IDOSClienting {
@@ -187,6 +188,40 @@ public struct IDOSClient: IDOSClienting {
         }
 
         return IDOSDepartureParser.parse(html: html)
+    }
+
+    /// Loads the complete IDOS route for one opaque service ID returned by a connection leg or departure.
+    public func serviceDetail(
+        id: String,
+        timetable: IDOSTimetable = .defaultTimetable
+    ) async throws -> IDOSServiceDetail {
+        let reference = try IDOSServiceReference(id: id)
+        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        components.path = "/en/\(timetable.slug)/Ajax/TrainDetail"
+        components.queryItems = [URLQueryItem(name: "callback", value: "idosCallback")]
+
+        var urlRequest = URLRequest(url: try components.requiredURL)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/x-www-form-urlencoded; charset=UTF-8", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = Self.formURLEncodedData(reference.formItems)
+
+        let data = try await data(for: urlRequest)
+        let json = try IDOSJSONP.decodePayload(from: data)
+        guard let object = try JSONSerialization.jsonObject(with: json) as? [String: Any] else {
+            throw IDOSError.invalidResponse
+        }
+
+        if object["hasError"] as? Bool == true {
+            throw IDOSError.serviceDetailUnavailable(object["error"] as? String ?? "")
+        }
+
+        guard let html = object["content"] as? String,
+              let detail = IDOSServiceDetailParser.parse(html: html, id: id)
+        else {
+            throw IDOSError.invalidResponse
+        }
+
+        return detail
     }
 
     private func data(from url: URL) async throws -> Data {
@@ -932,6 +967,81 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
     }
 }
 
+/// Complete route and product information for one dated public-transport service.
+public struct IDOSServiceDetail: Codable, Equatable, Sendable {
+    public var id: String
+    public var name: String
+    public var color: String?
+    public var transportMode: IDOSTransportMode?
+    public var date: String?
+    public var stops: [IDOSServiceStop]
+    public var information: [String]
+    public var shareURL: String?
+
+    public init(
+        id: String,
+        name: String,
+        color: String? = nil,
+        transportMode: IDOSTransportMode? = nil,
+        date: String? = nil,
+        stops: [IDOSServiceStop],
+        information: [String] = [],
+        shareURL: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.color = color
+        self.transportMode = transportMode
+        self.date = date
+        self.stops = stops
+        self.information = information
+        self.shareURL = shareURL
+    }
+
+    /// Combines the transport emoji with the IDOS line color without replacing the service name.
+    public var displayName: String {
+        [transportMode?.emoji, TerminalColor.color(name, htmlColor: color)]
+            .compactMap(\.self)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+}
+
+/// One calling point on a service's complete route as supplied by IDOS.
+public struct IDOSServiceStop: Codable, Equatable, Sendable {
+    public var name: String
+    public var arrivalTime: String?
+    public var departureTime: String?
+    public var tariffZone: String?
+    public var platform: String?
+    public var track: String?
+    public var platformTrack: String?
+    public var distance: String?
+    public var notes: [String]
+
+    public init(
+        name: String,
+        arrivalTime: String? = nil,
+        departureTime: String? = nil,
+        tariffZone: String? = nil,
+        platform: String? = nil,
+        track: String? = nil,
+        platformTrack: String? = nil,
+        distance: String? = nil,
+        notes: [String] = []
+    ) {
+        self.name = name
+        self.arrivalTime = arrivalTime
+        self.departureTime = departureTime
+        self.tariffZone = tariffZone
+        self.platform = platform
+        self.track = track
+        self.platformTrack = platformTrack
+        self.distance = distance
+        self.notes = notes
+    }
+}
+
 public enum IDOSTransportMode: String, Codable, Equatable, Sendable {
     case train
     case bus
@@ -1021,6 +1131,8 @@ public enum IDOSError: LocalizedError, Sendable {
     case invalidTimetable(String)
     case networkUnavailable(String)
     case calendarUnavailable
+    case invalidServiceIdentifier(String)
+    case serviceDetailUnavailable(String)
 
     public var errorDescription: String? {
         switch self {
@@ -1029,7 +1141,7 @@ public enum IDOSError: LocalizedError, Sendable {
         case .invalidURL:
             return "Could not build the IDOS URL."
         case .invalidJSONP:
-            return "IDOS suggestions returned an unexpected JSONP format."
+            return "IDOS returned an unexpected JSONP format."
         case .invalidTimetable(let value):
             return "Invalid timetable: \(value). Use an alias or a URL slug without slashes."
         case .networkUnavailable(let detail):
@@ -1041,6 +1153,13 @@ public enum IDOSError: LocalizedError, Sendable {
             return "Network request failed. Check your internet connection. \(detail)"
         case .calendarUnavailable:
             return "IDOS did not provide calendar export data for this connection."
+        case .invalidServiceIdentifier(let value):
+            return "Invalid service ID: \(value). Copy the complete ID from verbose connection or departure output."
+        case .serviceDetailUnavailable(let detail):
+            let detail = detail.trimmingCharacters(in: .whitespacesAndNewlines)
+            return detail.isEmpty
+                ? "IDOS could not load this service detail."
+                : "IDOS could not load this service detail. \(detail)"
         }
     }
 }
@@ -1650,6 +1769,201 @@ enum IDOSDepartureParser {
 
     private static func timeFromDateTime(_ value: String) -> String? {
         RegexSupport.capture(pattern: #"([0-9]{1,2}:[0-9]{2})(?::[0-9]{2})?$"#, in: value)
+    }
+}
+
+private struct IDOSServiceReference {
+    let timetableIndex: Int
+    let trainID: Int
+    let year: Int
+    let month: Int
+    let day: Int
+    let hour: Int
+    let minute: Int
+
+    init(id: String) throws {
+        let value = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let parts = RegexSupport.captures(
+            pattern: #"^(\d+)-(\d+)-(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2}):(\d{2})$"#,
+            in: value
+        ).first,
+              parts.count == 8,
+              let timetableIndex = Int(parts[0]),
+              let trainID = Int(parts[1]),
+              let day = Int(parts[2]),
+              let month = Int(parts[3]),
+              let year = Int(parts[4]),
+              let hour = Int(parts[5]),
+              let minute = Int(parts[6]),
+              let second = Int(parts[7]),
+              (0...23).contains(hour),
+              (0...59).contains(minute),
+              (0...59).contains(second),
+              Calendar(identifier: .gregorian).date(
+                from: DateComponents(year: year, month: month, day: day)
+              ) != nil
+        else {
+            throw IDOSError.invalidServiceIdentifier(value)
+        }
+
+        self.timetableIndex = timetableIndex
+        self.trainID = trainID
+        self.year = year
+        self.month = month
+        self.day = day
+        self.hour = hour
+        self.minute = minute
+    }
+
+    var formItems: [URLQueryItem] {
+        [
+            URLQueryItem(name: "ttIndex", value: String(timetableIndex)),
+            URLQueryItem(name: "train", value: String(trainID)),
+            URLQueryItem(name: "dateFrom", value: "\(day).\(month)."),
+            URLQueryItem(
+                name: "dateFromValue",
+                value: String(format: "%04d-%02d-%02dT00:00:00", year, month, day)
+            ),
+            URLQueryItem(name: "timeFrom", value: String(format: "%02d:%02d", hour, minute)),
+            URLQueryItem(name: "isDep", value: "true"),
+        ]
+    }
+}
+
+enum IDOSServiceDetailParser {
+    static func parse(html: String, id: String) -> IDOSServiceDetail? {
+        guard let heading = RegexSupport.capture(
+            pattern: #"(<h1\b.*?</h1>)"#,
+            in: html,
+            options: [.dotMatchesLineSeparators]
+        ),
+              let name = RegexSupport.capture(
+                pattern: #"<span>(.*?)</span>"#,
+                in: heading,
+                options: [.dotMatchesLineSeparators]
+              ).map(HTMLText.clean).flatMap(nonEmpty)
+        else {
+            return nil
+        }
+
+        let stops = RegexSupport.captures(
+            pattern: #"<li class="item([^"]*)"([^>]*)>(.*?)</li>"#,
+            in: html,
+            options: [.dotMatchesLineSeparators]
+        ).compactMap { row -> IDOSServiceStop? in
+            let attributes = row[1]
+            let block = row[2]
+            guard let stopName = RegexSupport.capture(
+                pattern: #"<strong class="name">(.*?)</strong>"#,
+                in: block,
+                options: [.dotMatchesLineSeparators]
+            ).map(HTMLText.clean).flatMap(nonEmpty) else {
+                return nil
+            }
+
+            let knownTitles = Set(["tariff zone", "platform", "track", "platform/track"])
+            var notes = RegexSupport.captures(
+                pattern: #"\btitle="([^"]*)""#,
+                in: block
+            )
+            .compactMap { $0.first.map(HTMLText.decodeEntities) }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && !knownTitles.contains($0.lowercased()) }
+
+            if let title = attribute("title", in: attributes), !title.isEmpty {
+                notes.insert(title, at: 0)
+            }
+
+            return IDOSServiceStop(
+                name: stopName,
+                arrivalTime: time(className: "arrival", in: block),
+                departureTime: time(className: "departure", in: block),
+                tariffZone: titledValue("tariff zone", in: block),
+                platform: titledValue("platform", in: block),
+                track: titledValue("track", in: block),
+                platformTrack: titledValue("platform/track", in: block),
+                distance: time(className: "distance", in: block),
+                notes: unique(notes)
+            )
+        }
+
+        guard !stops.isEmpty else {
+            return nil
+        }
+
+        let headingTitle = attribute("title", in: heading) ?? ""
+        return IDOSServiceDetail(
+            id: id,
+            name: name,
+            color: HTMLStyle.color(from: heading),
+            transportMode: IDOSTransportMode.infer(from: "\(headingTitle) \(name)"),
+            date: RegexSupport.capture(
+                pattern: #"line-top-date.*?<strong>(.*?)</strong>"#,
+                in: html,
+                options: [.dotMatchesLineSeparators]
+            ).map(HTMLText.clean).flatMap(nonEmpty),
+            stops: stops,
+            information: information(in: html),
+            shareURL: RegexSupport.capture(
+                pattern: #"\bdata-share-url="([^"]+)""#,
+                in: html
+            ).map(HTMLText.decodeEntities).flatMap(nonEmpty)
+        )
+    }
+
+    private static func time(className: String, in html: String) -> String? {
+        RegexSupport.capture(
+            pattern: #"<span class="\#(className)">\s*<span\b[^>]*>.*?</span>\s*([^<]*?)\s*</span>"#,
+            in: html,
+            options: [.dotMatchesLineSeparators]
+        ).map(HTMLText.clean).flatMap(nonEmpty)
+    }
+
+    private static func titledValue(_ title: String, in html: String) -> String? {
+        RegexSupport.capture(
+            pattern: #"<span\b[^>]*\btitle="\#(NSRegularExpression.escapedPattern(for: title))"[^>]*>(.*?)</span>"#,
+            in: html,
+            options: [.dotMatchesLineSeparators]
+        ).map(HTMLText.clean).flatMap(nonEmpty)
+    }
+
+    private static func information(in html: String) -> [String] {
+        guard let start = html.range(of: #"<ul class="reset messages">"#),
+              let end = html.range(of: #"<ul class="reset line-share">"#, range: start.upperBound..<html.endIndex)
+        else {
+            return []
+        }
+
+        let source = String(html[start.lowerBound..<end.lowerBound])
+        let remarks = RegexSupport.captures(
+            pattern: #"<li\b[^>]*class="[^"]*remarks-list__item[^"]*"[^>]*>(.*?)</li>"#,
+            in: source,
+            options: [.dotMatchesLineSeparators]
+        ).compactMap { $0.first.map(HTMLText.clean).flatMap(nonEmpty) }
+        let plainItems = RegexSupport.captures(
+            pattern: #"<li>\s*(?!<h3\b)(.*?)</li>"#,
+            in: source,
+            options: [.dotMatchesLineSeparators]
+        ).compactMap { $0.first.map(HTMLText.clean).flatMap(nonEmpty) }
+
+        return unique(plainItems + remarks)
+    }
+
+    private static func attribute(_ name: String, in html: String) -> String? {
+        RegexSupport.capture(
+            pattern: #"\#(name)="([^"]*)""#,
+            in: html
+        ).map(HTMLText.decodeEntities).flatMap(nonEmpty)
+    }
+
+    private static func unique(_ values: [String]) -> [String] {
+        var seen: Set<String> = []
+        return values.filter { seen.insert($0).inserted }
+    }
+
+    private static func nonEmpty(_ value: String) -> String? {
+        let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
     }
 }
 

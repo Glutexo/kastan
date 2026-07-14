@@ -19,6 +19,7 @@ import Testing
         "search_stations",
         "find_connections",
         "find_departures",
+        "get_service_detail",
         "list_timetables",
     ])
     #expect(tools.allSatisfy { $0.annotations.readOnlyHint == true })
@@ -110,6 +111,24 @@ import Testing
     #expect(request?.isArrival == true)
 }
 
+@Test func serviceDetailToolLoadsCompleteRouteByOpaqueID() async {
+    let mock = MockIDOSClient()
+    let tools = KastanMCPTools(client: mock)
+    let result = await tools.call(
+        name: "get_service_detail",
+        arguments: [
+            "id": "0-74552-18.06.2026 12:04:00",
+            "timetable": "trains",
+        ]
+    )
+
+    #expect(result.isError == false)
+    #expect(result.structuredContent?.objectValue?["service"]?.objectValue?["stops"]?.arrayValue?.count == 2)
+    #expect(text(from: result.content)?.contains("\"name\" : \"RJ 1051 RegioJet\"") == true)
+    #expect(await mock.lastServiceID == "0-74552-18.06.2026 12:04:00")
+    #expect(await mock.lastServiceTimetable == "vlaky")
+}
+
 @Test func invalidToolArgumentsReturnMCPToolErrorsWithoutCallingIDOS() async {
     let mock = MockIDOSClient()
     let tools = KastanMCPTools(client: mock)
@@ -146,6 +165,8 @@ private actor MockIDOSClient: IDOSClienting {
     var lastStationQuery: QueryCall?
     var lastConnectionRequest: IDOSConnectionRequest?
     var lastDeparturesRequest: IDOSDeparturesRequest?
+    var lastServiceID: String?
+    var lastServiceTimetable: String?
 
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
         lastSuggestionQuery = QueryCall(prefix: prefix, limit: limit, timetableSlug: timetable.slug)
@@ -182,5 +203,20 @@ private actor MockIDOSClient: IDOSClienting {
             IDOSDeparture(id: "departure-1", time: "16:01", lineName: "S2", destination: "Opava"),
             IDOSDeparture(id: "departure-2", time: "16:05", lineName: "S4", destination: "Bohumín"),
         ]
+    }
+
+    func serviceDetail(id: String, timetable: IDOSTimetable) async throws -> IDOSServiceDetail {
+        lastServiceID = id
+        lastServiceTimetable = timetable.slug
+        return IDOSServiceDetail(
+            id: id,
+            name: "RJ 1051 RegioJet",
+            transportMode: .train,
+            date: "18.6.2026",
+            stops: [
+                IDOSServiceStop(name: "Praha hl.n.", departureTime: "12:04"),
+                IDOSServiceStop(name: "Brno hl.n.", arrivalTime: "15:44"),
+            ]
+        )
     }
 }

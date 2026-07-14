@@ -167,6 +167,11 @@ struct DeparturesOutput: Encodable {
     let departures: [IDOSDeparture]
 }
 
+struct ServiceDetailOutput: Encodable {
+    let timetable: IDOSTimetable
+    let service: IDOSServiceDetail
+}
+
 struct TimetablesOutput: Encodable {
     let timetables: [IDOSTimetable]
 }
