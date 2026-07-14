@@ -845,11 +845,17 @@ private enum OutputFormat: String {
                 | \(localization.text(.line)) | \(localization.text(.from)) | \(localization.text(.departure)) | \(localization.text(.to)) | \(localization.text(.arrival)) |
                 | --- | --- | --- | --- | --- |
                 """
+                let metadata = [
+                    "\(localization.text(.duration)): **\(Markdown.escape(connection.duration))**",
+                    output.verbose
+                        ? "**\(localization.text(.identifier)):** `\(Markdown.escape(connection.id))`"
+                        : nil,
+                ].compactMap(\.self).joined(separator: "\n")
 
                 return """
                 ### \(index + 1). \(item.markdownLabel(localization: localization))\(Markdown.bold(connection.departureTime)) \(Markdown.escape(connection.departureStation)) → \(Markdown.bold(connection.arrivalTime)) \(Markdown.escape(connection.arrivalStation))
 
-                \(localization.text(.duration)): **\(Markdown.escape(connection.duration))**
+                \(metadata)
 
                 \(tableHeader)
                 \(legs)
@@ -931,14 +937,14 @@ private enum OutputFormat: String {
 
             let rows = output.departures.enumerated().map { index, departure in
                 if output.verbose {
-                    return "| \(index + 1) | \(Markdown.bold(departure.time)) | \(Markdown.departureLineName(departure)) | \(Markdown.escape(departure.destination)) | \(Markdown.escape(departure.tariffZone ?? "")) | \(Markdown.escape(departure.platform ?? "")) | \(Markdown.escape(departure.via ?? "")) | \(Markdown.escape(departure.carrier ?? "")) | \(Markdown.escape(departure.delay ?? "")) |"
+                    return "| \(index + 1) | \(Markdown.bold(departure.time)) | \(Markdown.departureLineName(departure)) | \(Markdown.escape(departure.destination)) | \(Markdown.escape(departure.tariffZone ?? "")) | \(Markdown.escape(departure.platform ?? "")) | \(Markdown.escape(departure.via ?? "")) | \(Markdown.escape(departure.carrier ?? "")) | \(Markdown.escape(departure.delay ?? "")) | `\(Markdown.escape(departure.id))` |"
                 }
 
                 return "| \(index + 1) | \(Markdown.bold(departure.time)) | \(Markdown.departureLineName(departure)) | \(Markdown.escape(departure.destination)) | \(Markdown.escape(departure.via ?? "")) |"
             }.joined(separator: "\n")
             let tableHeader = output.verbose ? """
-            | # | \(localization.text(.time)) | \(localization.text(.line)) | \(localization.text(.destination)) | \(localization.text(.tariffZone)) | \(localization.text(.platform)) | \(localization.text(.via)) | \(localization.text(.carrier)) | \(localization.text(.delay)) |
-            | ---: | --- | --- | --- | --- | --- | --- | --- | --- |
+            | # | \(localization.text(.time)) | \(localization.text(.line)) | \(localization.text(.destination)) | \(localization.text(.tariffZone)) | \(localization.text(.platform)) | \(localization.text(.via)) | \(localization.text(.carrier)) | \(localization.text(.delay)) | \(localization.text(.identifier)) |
+            | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- |
             """ : """
             | # | \(localization.text(.time)) | \(localization.text(.line)) | \(localization.text(.destination)) | \(localization.text(.via)) |
             | ---: | --- | --- | --- | --- |
@@ -1129,6 +1135,9 @@ private enum OutputFormat: String {
         }
 
         var details: [String] = []
+        if includeDetails {
+            details.append("\(localization.text(.identifier)): \(departure.id)")
+        }
         if let via = departure.via, !via.isEmpty {
             details.append(localization.text(.viaInline, via))
         }
@@ -1228,6 +1237,10 @@ private struct ConnectionOutput: Encodable {
 
         if !connection.duration.isEmpty {
             result += " (\(connection.duration))"
+        }
+
+        if includeDetails {
+            result += "\n   \(localization.text(.identifier)): \(connection.id)"
         }
 
         if !connection.legs.isEmpty {

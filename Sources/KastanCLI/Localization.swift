@@ -113,6 +113,7 @@ enum LocalizationKey: String, CaseIterable {
     case timetable = "label.timetable"
     case place = "label.place"
     case details = "label.details"
+    case identifier = "label.identifier"
     case from = "label.from"
     case to = "label.to"
     case via = "label.via"

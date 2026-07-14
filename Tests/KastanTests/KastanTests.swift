@@ -33,6 +33,7 @@ import Testing
     #expect(output.contains("-T, --timetable"))
     #expect(output.contains("-o, --format"))
     #expect(output.contains("-v, --verbose"))
+    #expect(output.contains("Show result IDs"))
     #expect(output.contains("Direct connections only"))
     #expect(!output.contains("--jr"))
     #expect(output.contains("--version"))
@@ -92,6 +93,7 @@ import Testing
 
     #expect(output.contains("🧭 Spojení Praha → Brno (Vlaky)"))
     #expect(output.contains("➡️  Přímý · ⚡ Nejrychlejší"))
+    #expect(output.contains("ID: 396829589"))
     #expect(output.contains("tarifní zóna P · nástupiště 4"))
 }
 
@@ -106,7 +108,8 @@ import Testing
     let error = await runner.output(for: ["stations", "Praha", "--unknown", "--language", "cs"])
 
     #expect(markdown.contains("## 🚏 Odjezdy"))
-    #expect(markdown.contains("| # | Čas | Linka | Cíl | Tarifní zóna | Nástupiště | Přes | Dopravce | Zpoždění |"))
+    #expect(markdown.contains("| # | Čas | Linka | Cíl | Tarifní zóna | Nástupiště | Přes | Dopravce | Zpoždění | ID |"))
+    #expect(markdown.contains("`1-4286-18.06.2026 16:03:00`"))
     #expect(error.contains("❌ Chyba: Neznámá volba: --unknown."))
 }
 
@@ -222,6 +225,7 @@ import Testing
     #expect(output.contains("\u{001B}[1m12:04\u{001B}[0m Praha hl.n. → \u{001B}[1m15:44\u{001B}[0m Brno hl.n."))
     #expect(output.contains("🚆"))
     #expect(output.contains("R9"))
+    #expect(!output.contains("ID: 396829589"))
     #expect(!output.contains("tariff zone P · platform 4"))
     #expect(!output.contains("Currently no delay"))
 }
@@ -283,6 +287,7 @@ import Testing
     )
 
     #expect(output.contains("tariff zone P · platform 4"))
+    #expect(output.contains("ID: 396829589"))
     #expect(output.contains("České dráhy, a.s."))
     #expect(output.contains("Currently no delay"))
 }
@@ -434,6 +439,7 @@ import Testing
     #expect(output.contains("| Line | From | Departure | To | Arrival |"))
     #expect(output.contains("| 🚆 <span style=\"color: #008000\">R9 (R 981 Vysočina)</span> | Praha hl.n. | **12:04** | Brno hl.n. | **15:44** |"))
     #expect(output.contains(#"🚆 <span style="color: #008000">R9 (R 981 Vysočina)</span>"#))
+    #expect(!output.contains("**ID:**"))
     #expect(!output.contains("From Tariff Zone"))
     #expect(!output.contains("Currently no delay"))
 }
@@ -448,6 +454,7 @@ import Testing
 
     #expect(output.contains("| Line | From | From Tariff Zone | From Platform | Departure | To | To Tariff Zone | To Platform | Arrival | Carrier | Delay |"))
     #expect(output.contains("| 🚆 <span style=\"color: #008000\">R9 (R 981 Vysočina)</span> | Praha hl.n. | P | 4 | **12:04** | Brno hl.n. | 100 |  | **15:44** | České dráhy, a.s. | Currently no delay |"))
+    #expect(output.contains("**ID:** `396829589`"))
 }
 
 @Test func connectionCommandPrintsMarkdownWithVia() async {
@@ -669,6 +676,7 @@ import Testing
     #expect(output.contains("Bus 980"))
     #expect(output.contains("Rožnov p.Radh.,,aut.st."))
     #expect(output.contains("via Frýdek-Místek,Místek,Anenská"))
+    #expect(!output.contains("ID: 1-4286-18.06.2026 16:03:00"))
     #expect(!output.contains("tariff zone 70 · platform 1"))
     #expect(!output.contains("Currently no delay"))
 }
@@ -682,6 +690,7 @@ import Testing
     )
 
     #expect(output.contains("tariff zone 70 · platform 1"))
+    #expect(output.contains("ID: 1-4286-18.06.2026 16:03:00"))
     #expect(output.contains("Transdev Slezsko a.s."))
     #expect(output.contains("Currently no delay"))
 }
@@ -754,6 +763,7 @@ import Testing
     #expect(output.contains("| # | Time | Line | Destination | Via |"))
     #expect(output.contains("| 1 | **16:03** | 🚌 <span style=\"color: #0000FF\">Bus 980</span> | Rožnov p.Radh.,,aut.st. | Frýdek-Místek,Místek,Anenská |"))
     #expect(output.contains(#"🚌 <span style="color: #0000FF">Bus 980</span>"#))
+    #expect(!output.contains("| ID |"))
     #expect(!output.contains("Tariff Zone"))
     #expect(!output.contains("Currently no delay"))
 }
@@ -766,8 +776,8 @@ import Testing
         ]
     )
 
-    #expect(output.contains("| # | Time | Line | Destination | Tariff Zone | Platform | Via | Carrier | Delay |"))
-    #expect(output.contains("| 1 | **16:03** | 🚌 <span style=\"color: #0000FF\">Bus 980</span> | Rožnov p.Radh.,,aut.st. | 70 | 1 | Frýdek-Místek,Místek,Anenská | Transdev Slezsko a.s. | Currently no delay |"))
+    #expect(output.contains("| # | Time | Line | Destination | Tariff Zone | Platform | Via | Carrier | Delay | ID |"))
+    #expect(output.contains("| 1 | **16:03** | 🚌 <span style=\"color: #0000FF\">Bus 980</span> | Rožnov p.Radh.,,aut.st. | 70 | 1 | Frýdek-Místek,Místek,Anenská | Transdev Slezsko a.s. | Currently no delay | `1-4286-18.06.2026 16:03:00` |"))
 }
 
 @Test func departuresCommandRejectsUnknownOptions() async {

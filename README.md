@@ -162,7 +162,9 @@ Connection legs also include transport emoji such as 🚆 for trains and 🚌 fo
 Connection result headings mark connections without a transfer as `➡️  Direct` and the shortest displayed connection as `⚡ Shortest`.
 When multiple displayed connections share the shortest duration, Kaštan marks all of them. JSON output exposes the same information as `isDirect` and `isShortest`.
 Connection and departure times are bold in text and markdown output.
-Use `--verbose` to show IDOS tariff zones, platforms, carriers, and current delay information when IDOS includes them.
+Use `--verbose` to show each result ID together with IDOS tariff zones, platforms, carriers, and current delay information when IDOS includes them.
+Connection and departure IDs are opaque values exposed for future follow-up commands; such commands may also require timetable or search context, so scripts should not parse the IDs' internal structure.
+JSON output includes the same value in each result's `id` field regardless of `--verbose`.
 Departure headings use the station name resolved by IDOS, not necessarily the exact query text.
 When a connection place, departure station, or alias station is not an exact match and IDOS returns multiple candidates, Kaštan reports the ambiguous name and lists the possible IDOS choices.
 
