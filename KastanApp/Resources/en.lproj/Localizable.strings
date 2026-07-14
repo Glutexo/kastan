@@ -46,7 +46,7 @@
 "Network request failed. Check your internet connection." = "Network request failed. Check your internet connection.";
 "Network request failed. Check your internet connection. %@" = "Network request failed. Check your internet connection. %@";
 "Open in IDOS" = "Open in IDOS";
-"Open IDOS website" = "Open IDOS website";
+"IDOS website" = "IDOS website";
 "Opens in the default web browser" = "Opens in the default web browser";
 "Platform %@" = "Platform %@";
 "Powered by public IDOS web data" = "Powered by public IDOS web data";

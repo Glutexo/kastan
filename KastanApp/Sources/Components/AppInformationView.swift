@@ -62,7 +62,7 @@ struct AppInformationView: View {
 
             VStack(spacing: 8) {
                 InformationLink(
-                    title: "Open IDOS website",
+                    title: "IDOS website",
                     systemImage: "safari",
                     destination: links.idosWebsite
                 )
