@@ -1193,7 +1193,7 @@ private struct ConnectionOutput: Encodable {
 
     private func labels(localization: Localization) -> [String] {
         [
-            isDirect ? "➡️ \(localization.text(.direct))" : nil,
+            isDirect ? "➡️  \(localization.text(.direct))" : nil,
             isShortest ? "⚡ \(localization.text(.shortest))" : nil,
         ].compactMap(\.self)
     }

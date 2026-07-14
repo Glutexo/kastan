@@ -91,7 +91,7 @@ import Testing
     )
 
     #expect(output.contains("🧭 Spojení Praha → Brno (Vlaky)"))
-    #expect(output.contains("➡️ Přímý · ⚡ Nejrychlejší"))
+    #expect(output.contains("➡️  Přímý · ⚡ Nejrychlejší"))
     #expect(output.contains("tarifní zóna P · nástupiště 4"))
 }
 
@@ -218,7 +218,7 @@ import Testing
     )
 
     #expect(output.contains("🧭 Connections Praha → Brno (Trains)"))
-    #expect(output.contains("1. ➡️ Direct · ⚡ Shortest —"))
+    #expect(output.contains("1. ➡️  Direct · ⚡ Shortest —"))
     #expect(output.contains("\u{001B}[1m12:04\u{001B}[0m Praha hl.n. → \u{001B}[1m15:44\u{001B}[0m Brno hl.n."))
     #expect(output.contains("🚆"))
     #expect(output.contains("R9"))
@@ -241,11 +241,11 @@ import Testing
     let second = lines.first { $0.hasPrefix("2. ") }
     let third = lines.first { $0.hasPrefix("3. ") }
 
-    #expect(first?.contains("➡️ Direct") == true)
+    #expect(first?.contains("➡️  Direct") == true)
     #expect(first?.contains("⚡ Shortest") == false)
-    #expect(second?.contains("➡️ Direct") == false)
+    #expect(second?.contains("➡️  Direct") == false)
     #expect(second?.contains("⚡ Shortest") == true)
-    #expect(third?.contains("➡️ Direct") == false)
+    #expect(third?.contains("➡️  Direct") == false)
     #expect(third?.contains("⚡ Shortest") == false)
 }
 
@@ -430,7 +430,7 @@ import Testing
     )
 
     #expect(output.contains("## 🧭 Connections"))
-    #expect(output.contains("### 1. ➡️ Direct · ⚡ Shortest — **12:04** Praha hl.n. → **15:44** Brno hl.n."))
+    #expect(output.contains("### 1. ➡️  Direct · ⚡ Shortest — **12:04** Praha hl.n. → **15:44** Brno hl.n."))
     #expect(output.contains("| Line | From | Departure | To | Arrival |"))
     #expect(output.contains("| 🚆 <span style=\"color: #008000\">R9 (R 981 Vysočina)</span> | Praha hl.n. | **12:04** | Brno hl.n. | **15:44** |"))
     #expect(output.contains(#"🚆 <span style="color: #008000">R9 (R 981 Vysočina)</span>"#))
