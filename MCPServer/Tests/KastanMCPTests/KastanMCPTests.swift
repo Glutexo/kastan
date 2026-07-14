@@ -23,7 +23,13 @@ import Testing
         "list_timetables",
     ])
     #expect(tools.allSatisfy { $0.annotations.readOnlyHint == true })
+    #expect(tools.allSatisfy { $0.outputSchema?.objectValue?["type"] == "object" })
     #expect(tools.first { $0.name == "find_connections" }?.inputSchema.objectValue?["required"] == ["from", "to"])
+    #expect(tools.first { $0.name == "find_connections" }?.outputSchema?.objectValue?["required"] == ["request", "connections"])
+    #expect(
+        tools.first { $0.name == "get_service_detail" }?
+            .inputSchema.objectValue?["properties"]?.objectValue?["language"]?.objectValue?["enum"] == ["en", "cs"]
+    )
 
     let result: (content: [Tool.Content], isError: Bool?) = try await client.callTool(name: "list_timetables")
     #expect(result.isError == false)
@@ -127,6 +133,25 @@ import Testing
     #expect(text(from: result.content)?.contains("\"name\" : \"RJ 1051 RegioJet\"") == true)
     #expect(await mock.lastServiceID == "vlaky:0-74552-18.06.2026 12:04:00")
     #expect(await mock.lastServiceTimetable == IDOSTimetable.defaultTimetable.slug)
+    #expect(await mock.lastServiceLanguage == .english)
+}
+
+@Test func serviceDetailToolPassesSelectedLanguageAndLegacyTimetable() async {
+    let mock = MockIDOSClient()
+    let tools = KastanMCPTools(client: mock)
+    let result = await tools.call(
+        name: "get_service_detail",
+        arguments: [
+            "id": "0-74552-18.06.2026 12:04:00",
+            "timetable": "odis",
+            "language": "cs",
+        ]
+    )
+
+    #expect(result.isError == false)
+    #expect(await mock.lastServiceID == "0-74552-18.06.2026 12:04:00")
+    #expect(await mock.lastServiceTimetable == "odis")
+    #expect(await mock.lastServiceLanguage == .czech)
 }
 
 @Test func invalidToolArgumentsReturnMCPToolErrorsWithoutCallingIDOS() async {
@@ -135,12 +160,18 @@ import Testing
 
     let missing = await tools.call(name: "find_connections", arguments: ["from": "Praha"])
     let wrongType = await tools.call(name: "find_departures", arguments: ["station": "Praha", "limit": "many"])
+    let invalidLanguage = await tools.call(
+        name: "get_service_detail",
+        arguments: ["id": "vlaky:service", "language": "de"]
+    )
     let unknown = await tools.call(name: "list_timetables", arguments: ["extra": true])
 
     #expect(missing.isError == true)
     #expect(text(from: missing.content) == "Error: Missing required argument 'to'.")
     #expect(wrongType.isError == true)
     #expect(text(from: wrongType.content) == "Error: Argument 'limit' must be an integer.")
+    #expect(invalidLanguage.isError == true)
+    #expect(text(from: invalidLanguage.content) == "Error: Invalid value 'de' for argument 'language'. Use en or cs.")
     #expect(unknown.isError == true)
     #expect(text(from: unknown.content) == "Error: Unknown argument: extra.")
     #expect(await mock.lastConnectionRequest == nil)
@@ -167,6 +198,7 @@ private actor MockIDOSClient: IDOSClienting {
     var lastDeparturesRequest: IDOSDeparturesRequest?
     var lastServiceID: String?
     var lastServiceTimetable: String?
+    var lastServiceLanguage: IDOSLanguage?
 
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
         lastSuggestionQuery = QueryCall(prefix: prefix, limit: limit, timetableSlug: timetable.slug)
@@ -208,6 +240,22 @@ private actor MockIDOSClient: IDOSClienting {
     func serviceDetail(id: String, timetable: IDOSTimetable) async throws -> IDOSServiceDetail {
         lastServiceID = id
         lastServiceTimetable = timetable.slug
+        lastServiceLanguage = .english
+        return serviceDetailFixture(id: id)
+    }
+
+    func serviceDetail(
+        id: String,
+        timetable: IDOSTimetable,
+        language: IDOSLanguage
+    ) async throws -> IDOSServiceDetail {
+        lastServiceID = id
+        lastServiceTimetable = timetable.slug
+        lastServiceLanguage = language
+        return serviceDetailFixture(id: id)
+    }
+
+    private func serviceDetailFixture(id: String) -> IDOSServiceDetail {
         return IDOSServiceDetail(
             id: id,
             timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),

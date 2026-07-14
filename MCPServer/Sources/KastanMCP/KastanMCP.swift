@@ -60,7 +60,8 @@ struct KastanMCPTools: Sendable {
                 ],
                 required: ["prefix"]
             ),
-            annotations: readOnlyAnnotations(title: "Suggest IDOS places")
+            annotations: readOnlyAnnotations(title: "Suggest IDOS places"),
+            outputSchema: MCPOutputSchemas.suggestedPlaces
         ),
         Tool(
             name: "search_stations",
@@ -74,7 +75,8 @@ struct KastanMCPTools: Sendable {
                 ],
                 required: ["prefix"]
             ),
-            annotations: readOnlyAnnotations(title: "Search IDOS stations")
+            annotations: readOnlyAnnotations(title: "Search IDOS stations"),
+            outputSchema: MCPOutputSchemas.stations
         ),
         Tool(
             name: "find_connections",
@@ -96,7 +98,8 @@ struct KastanMCPTools: Sendable {
                 ],
                 required: ["from", "to"]
             ),
-            annotations: readOnlyAnnotations(title: "Find IDOS connections")
+            annotations: readOnlyAnnotations(title: "Find IDOS connections"),
+            outputSchema: MCPOutputSchemas.connections
         ),
         Tool(
             name: "find_departures",
@@ -113,7 +116,8 @@ struct KastanMCPTools: Sendable {
                 ],
                 required: ["station"]
             ),
-            annotations: readOnlyAnnotations(title: "Find IDOS departures")
+            annotations: readOnlyAnnotations(title: "Find IDOS departures"),
+            outputSchema: MCPOutputSchemas.departures
         ),
         Tool(
             name: "get_service_detail",
@@ -123,10 +127,12 @@ struct KastanMCPTools: Sendable {
                 properties: [
                     "id": stringSchema("Opaque service ID returned by Kaštan."),
                     "timetable": stringSchema("Optional timetable context for legacy service IDs that do not embed a timetable slug."),
+                    "language": languageSchema,
                 ],
                 required: ["id"]
             ),
-            annotations: readOnlyAnnotations(title: "Get an IDOS service detail")
+            annotations: readOnlyAnnotations(title: "Get an IDOS service detail"),
+            outputSchema: MCPOutputSchemas.serviceDetail
         ),
         Tool(
             name: "list_timetables",
@@ -139,7 +145,8 @@ struct KastanMCPTools: Sendable {
                 destructiveHint: false,
                 idempotentHint: true,
                 openWorldHint: false
-            )
+            ),
+            outputSchema: MCPOutputSchemas.timetables
         ),
     ]
 
@@ -231,16 +238,18 @@ struct KastanMCPTools: Sendable {
     }
 
     private func getServiceDetail(_ values: [String: Value]) async throws -> ServiceDetailOutput {
-        let arguments = try ToolArguments(values, allowed: ["id", "timetable"])
+        let arguments = try ToolArguments(values, allowed: ["id", "timetable", "language"])
         let id = try arguments.requiredString("id")
+        let language = try arguments.idosLanguage("language", default: .english)
         let service: IDOSServiceDetail
         if let timetableValue = try arguments.optionalString("timetable") {
             service = try await client.serviceDetail(
                 id: id,
-                timetable: IDOSTimetable.resolve(timetableValue)
+                timetable: IDOSTimetable.resolve(timetableValue),
+                language: language
             )
         } else {
-            service = try await client.serviceDetail(id: id)
+            service = try await client.serviceDetail(id: id, language: language)
         }
         return ServiceDetailOutput(service: service)
     }
@@ -308,6 +317,12 @@ struct KastanMCPTools: Sendable {
     private static let timetableSchema = stringSchema(
         "Timetable alias, English catalog name, or IDOS URL slug. Defaults to vlakyautobusymhdvse (All timetables)."
     )
+
+    private static let languageSchema: Value = .object([
+        "type": "string",
+        "description": "Language for names, notes, and information supplied by IDOS. Defaults to en.",
+        "enum": ["en", "cs"],
+    ])
 
     private static func readOnlyAnnotations(title: String) -> Tool.Annotations {
         .init(

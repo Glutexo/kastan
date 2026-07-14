@@ -342,10 +342,10 @@ The server exposes these tools:
 | `search_stations` | Search only stations and stops by prefix. |
 | `find_connections` | Find connections with timetable, date, time, arrival, direct, via, and transfer options. |
 | `find_departures` | Find station departures or arrivals. |
-| `get_service_detail` | Load a service's complete route and information from its opaque ID. |
+| `get_service_detail` | Load a service's complete route and localized information from its opaque ID. |
 | `list_timetables` | List accepted timetable slugs and English names. |
 
-Query tools accept an optional `timetable` alias, English catalog name, or IDOS URL slug. `get_service_detail` reads the timetable from current service IDs and accepts `timetable` only as context for legacy IDs. Tools return the library's JSON model both as readable JSON text and as MCP structured content. Result limits default to 8 for suggestions, stations, and departures, and 5 for connections; an MCP request can raise a limit up to 20.
+Query tools accept an optional `timetable` alias, English catalog name, or IDOS URL slug. `get_service_detail` reads the timetable from current service IDs and accepts `timetable` only as context for legacy IDs. Its optional `language` argument selects English (`en`, the default) or Czech (`cs`) names, notes, and information supplied by IDOS. Tools return the library's JSON model both as readable JSON text and as MCP structured content, and every tool advertises the matching output schema. Result limits default to 8 for suggestions, stations, and departures, and 5 for connections; an MCP request can raise a limit up to 20.
 
 As with the CLI, MCP queries use publicly reachable IDOS web endpoints and are intended for low-frequency personal use.
 

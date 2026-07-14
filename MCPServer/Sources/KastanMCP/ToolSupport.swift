@@ -96,6 +96,17 @@ struct ToolArguments {
             return trimmed
         }
     }
+
+    /// Resolves the public language codes accepted by IDOS-backed product text.
+    func idosLanguage(_ name: String, default defaultValue: IDOSLanguage) throws -> IDOSLanguage {
+        guard let value = try optionalString(name) else {
+            return defaultValue
+        }
+        guard let language = IDOSLanguage(rawValue: value) else {
+            throw MCPToolError.invalidValue(name: name, value: value, allowed: ["en", "cs"])
+        }
+        return language
+    }
 }
 
 /// Presents actionable product errors to MCP clients instead of protocol-level failures.
@@ -105,6 +116,7 @@ enum MCPToolError: LocalizedError {
     case missingArgument(String)
     case emptyString(String)
     case invalidType(name: String, expected: String)
+    case invalidValue(name: String, value: String, allowed: [String])
     case outOfRange(name: String, range: ClosedRange<Int>)
     case minimum(name: String, value: Int)
     case cannotEncodeResult
@@ -121,6 +133,8 @@ enum MCPToolError: LocalizedError {
             "Argument '\(name)' must not be empty."
         case .invalidType(let name, let expected):
             "Argument '\(name)' must be \(expected)."
+        case .invalidValue(let name, let value, let allowed):
+            "Invalid value '\(value)' for argument '\(name)'. Use \(allowed.joined(separator: " or "))."
         case .outOfRange(let name, let range):
             "Argument '\(name)' must be between \(range.lowerBound) and \(range.upperBound)."
         case .minimum(let name, let value):
@@ -173,4 +187,213 @@ struct ServiceDetailOutput: Encodable {
 
 struct TimetablesOutput: Encodable {
     let timetables: [IDOSTimetable]
+}
+
+/// Describes every structured tool result with the same field names and optionality as the public Kaštan models.
+enum MCPOutputSchemas {
+    static let suggestedPlaces = objectSchema(
+        properties: [
+            "query": stringSchema,
+            "timetable": timetableSchema,
+            "suggestions": arraySchema(items: suggestionSchema),
+        ],
+        required: ["query", "timetable", "suggestions"]
+    )
+
+    static let stations = objectSchema(
+        properties: [
+            "query": stringSchema,
+            "timetable": timetableSchema,
+            "stations": arraySchema(items: suggestionSchema),
+        ],
+        required: ["query", "timetable", "stations"]
+    )
+
+    static let connections = objectSchema(
+        properties: [
+            "request": connectionRequestSchema,
+            "connections": arraySchema(items: connectionSchema),
+        ],
+        required: ["request", "connections"]
+    )
+
+    static let departures = objectSchema(
+        properties: [
+            "request": departuresRequestSchema,
+            "departures": arraySchema(items: departureSchema),
+        ],
+        required: ["request", "departures"]
+    )
+
+    static let serviceDetail = objectSchema(
+        properties: ["service": serviceDetailSchema],
+        required: ["service"]
+    )
+
+    static let timetables = objectSchema(
+        properties: ["timetables": arraySchema(items: timetableSchema)],
+        required: ["timetables"]
+    )
+
+    private static let timetableSchema = objectSchema(
+        properties: [
+            "slug": stringSchema,
+            "displayName": stringSchema,
+        ],
+        required: ["slug", "displayName"]
+    )
+
+    private static let suggestionSchema = objectSchema(
+        properties: [
+            "selectedText": stringSchema,
+            "text": stringSchema,
+            "description": stringSchema,
+            "region": stringSchema,
+            "value": stringSchema,
+            "value2": stringSchema,
+            "iconId": integerSchema,
+            "coorX": numberSchema,
+            "coorY": numberSchema,
+        ],
+        required: ["text"]
+    )
+
+    private static let connectionRequestSchema = objectSchema(
+        properties: [
+            "timetable": timetableSchema,
+            "from": stringSchema,
+            "to": stringSchema,
+            "date": stringSchema,
+            "time": stringSchema,
+            "isArrival": booleanSchema,
+            "onlyDirect": booleanSchema,
+            "via": stringArraySchema,
+            "maxTransfers": integerSchema,
+            "minimumTransferTime": integerSchema,
+            "resultLimit": integerSchema,
+        ],
+        required: ["timetable", "from", "to", "isArrival", "onlyDirect", "via", "resultLimit"]
+    )
+
+    private static let connectionSchema = objectSchema(
+        properties: [
+            "id": stringSchema,
+            "departureTime": stringSchema,
+            "departureStation": stringSchema,
+            "arrivalTime": stringSchema,
+            "arrivalStation": stringSchema,
+            "duration": stringSchema,
+            "legs": arraySchema(items: connectionLegSchema),
+            "shareURL": stringSchema,
+        ],
+        required: [
+            "id", "departureTime", "departureStation", "arrivalTime", "arrivalStation", "duration", "legs",
+        ]
+    )
+
+    private static let connectionLegSchema = objectSchema(
+        properties: [
+            "name": stringSchema,
+            "id": stringSchema,
+            "color": stringSchema,
+            "transportMode": transportModeSchema,
+            "departureTime": stringSchema,
+            "fromStation": stringSchema,
+            "fromTariffZone": stringSchema,
+            "fromPlatform": stringSchema,
+            "arrivalTime": stringSchema,
+            "toStation": stringSchema,
+            "toTariffZone": stringSchema,
+            "toPlatform": stringSchema,
+            "carrier": stringSchema,
+            "delay": stringSchema,
+        ],
+        required: ["name", "departureTime", "fromStation", "arrivalTime", "toStation"]
+    )
+
+    private static let departuresRequestSchema = objectSchema(
+        properties: [
+            "timetable": timetableSchema,
+            "station": stringSchema,
+            "date": stringSchema,
+            "time": stringSchema,
+            "isArrival": booleanSchema,
+        ],
+        required: ["timetable", "station", "isArrival"]
+    )
+
+    private static let departureSchema = objectSchema(
+        properties: [
+            "id": stringSchema,
+            "stationName": stringSchema,
+            "time": stringSchema,
+            "lineName": stringSchema,
+            "lineColor": stringSchema,
+            "transportMode": transportModeSchema,
+            "destination": stringSchema,
+            "tariffZone": stringSchema,
+            "platform": stringSchema,
+            "via": stringSchema,
+            "carrier": stringSchema,
+            "delay": stringSchema,
+        ],
+        required: ["id", "time", "lineName", "destination"]
+    )
+
+    private static let serviceDetailSchema = objectSchema(
+        properties: [
+            "id": stringSchema,
+            "timetable": timetableSchema,
+            "name": stringSchema,
+            "color": stringSchema,
+            "transportMode": transportModeSchema,
+            "date": stringSchema,
+            "stops": arraySchema(items: serviceStopSchema),
+            "information": stringArraySchema,
+            "shareURL": stringSchema,
+        ],
+        required: ["id", "timetable", "name", "stops", "information"]
+    )
+
+    private static let serviceStopSchema = objectSchema(
+        properties: [
+            "name": stringSchema,
+            "arrivalTime": stringSchema,
+            "departureTime": stringSchema,
+            "tariffZone": stringSchema,
+            "platform": stringSchema,
+            "track": stringSchema,
+            "platformTrack": stringSchema,
+            "distance": stringSchema,
+            "notes": stringArraySchema,
+        ],
+        required: ["name", "notes"]
+    )
+
+    private static let transportModeSchema: Value = .object([
+        "type": "string",
+        "enum": ["train", "bus", "tram", "metro", "trolleybus", "ferry", "cableCar", "plane", "walk"],
+    ])
+
+    private static let stringSchema: Value = .object(["type": "string"])
+    private static let integerSchema: Value = .object(["type": "integer"])
+    private static let numberSchema: Value = .object(["type": "number"])
+    private static let booleanSchema: Value = .object(["type": "boolean"])
+    private static let stringArraySchema = arraySchema(items: stringSchema)
+
+    private static func arraySchema(items: Value) -> Value {
+        .object([
+            "type": "array",
+            "items": items,
+        ])
+    }
+
+    private static func objectSchema(properties: [String: Value], required: [String]) -> Value {
+        .object([
+            "type": "object",
+            "properties": .object(properties),
+            "required": .array(required.map(Value.string)),
+            "additionalProperties": false,
+        ])
+    }
 }
