@@ -36,11 +36,11 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(layout.usesStackedSearchControls)
     }
 
-    func testDetailLayoutCapsContentWithoutShiftingItsLeadingEdge() {
+    func testDetailLayoutUsesTheEntireDetailWidth() {
         let layout = DetailLayout(availableWidth: 1400)
 
-        XCTAssertEqual(layout.containerWidth, 1100)
-        XCTAssertEqual(layout.contentWidth, 1052)
+        XCTAssertEqual(layout.containerWidth, 1400)
+        XCTAssertEqual(layout.contentWidth, 1352)
     }
 
     func testConnectionSearchBuildsCompleteIDOSRequest() async {

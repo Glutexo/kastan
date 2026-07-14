@@ -66,10 +66,9 @@ struct DeparturesView: View {
                 scope: .stations,
                 client: client
             )
-            .frame(maxWidth: 520)
+            .frame(maxWidth: .infinity)
 
             Divider()
-                .frame(maxWidth: 840)
 
             searchControls(stacked: stacked)
         }
@@ -90,8 +89,8 @@ struct DeparturesView: View {
                 HStack(spacing: 12) {
                     boardTypePicker
                         .frame(width: 220)
-                    searchButton
                     Spacer(minLength: 0)
+                    searchButton
                 }
             }
         } else {
@@ -102,8 +101,8 @@ struct DeparturesView: View {
                 timePicker
                 boardTypePicker
                     .frame(width: 175)
-                searchButton
                 Spacer(minLength: 0)
+                searchButton
             }
         }
     }

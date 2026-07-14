@@ -61,7 +61,6 @@ struct ConnectionsView: View {
             endpointControls(stacked: layout.usesStackedEndpoints)
 
             Divider()
-                .frame(maxWidth: 840)
 
             searchControls(stacked: layout.usesStackedSearchControls)
 
@@ -85,16 +84,15 @@ struct ConnectionsView: View {
                 }
                 toField
             }
-            .frame(maxWidth: 520, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             HStack(alignment: .top, spacing: 10) {
                 fromField
-                    .frame(minWidth: 240, maxWidth: 380)
+                    .frame(minWidth: 240, maxWidth: .infinity)
                 swapButton
                     .padding(.top, 24)
                 toField
-                    .frame(minWidth: 240, maxWidth: 380)
-                Spacer(minLength: 0)
+                    .frame(minWidth: 240, maxWidth: .infinity)
             }
         }
     }
@@ -146,8 +144,8 @@ struct ConnectionsView: View {
                 HStack(spacing: 12) {
                     timeModePicker
                         .frame(width: 220)
-                    searchButton
                     Spacer(minLength: 0)
+                    searchButton
                 }
             }
         } else {
@@ -158,8 +156,8 @@ struct ConnectionsView: View {
                 timePicker
                 timeModePicker
                     .frame(width: 175)
-                searchButton
                 Spacer(minLength: 0)
+                searchButton
             }
         }
     }

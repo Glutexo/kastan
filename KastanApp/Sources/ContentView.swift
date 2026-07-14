@@ -29,7 +29,6 @@ enum AppSection: String, CaseIterable, Hashable, Identifiable {
 
 /// Converts the detail column's measured width into stable responsive layout decisions.
 struct DetailLayout {
-    private static let maximumContentWidth: CGFloat = 1100
     private static let compactPaddingBreakpoint: CGFloat = 600
     private static let stackedEndpointsBreakpoint: CGFloat = 560
     private static let stackedOptionsBreakpoint: CGFloat = 620
@@ -38,7 +37,7 @@ struct DetailLayout {
     let availableWidth: CGFloat
 
     var containerWidth: CGFloat {
-        min(max(availableWidth, 0), Self.maximumContentWidth)
+        max(availableWidth, 0)
     }
 
     var horizontalPadding: CGFloat {
