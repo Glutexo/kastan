@@ -168,7 +168,6 @@ struct DeparturesOutput: Encodable {
 }
 
 struct ServiceDetailOutput: Encodable {
-    let timetable: IDOSTimetable
     let service: IDOSServiceDetail
 }
 

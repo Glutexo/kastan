@@ -160,11 +160,11 @@ swift run kastan "Ostrava,Hrabůvka,Benzina" --timetable odis --time 16:00
 Load a service's complete route from an ID shown by `connections --verbose` or `departures --verbose`:
 
 ```sh
-swift run kastan service '0-74552-14.07.2026 20:41:00' --timetable vlaky
-swift run kastan service '0-74552-14.07.2026 20:41:00' -T vlaky -o json
+swift run kastan service 'vlaky:0-74552-14.07.2026 20:41:00'
+swift run kastan service 'vlaky:0-74552-14.07.2026 20:41:00' -o json
 ```
 
-Quote the ID because it contains a space. The detail includes every stop supplied by IDOS, arrival and departure times, tariff zones, platforms or tracks, distance, stop notes, and service information.
+Quote the ID because it contains a space. Current IDs embed the timetable slug, so `service` does not need `--timetable`. The option remains available only as timetable context for legacy IDs produced by older Kaštan versions. The detail includes every stop supplied by IDOS, arrival and departure times, tariff zones, platforms or tracks, distance, stop notes, and service information.
 
 Line names in connection output use the same terminal color as IDOS sends in the HTML result.
 Connection legs also include transport emoji such as 🚆 for trains and 🚌 for buses when IDOS exposes the transport type.
@@ -173,7 +173,7 @@ When multiple displayed connections share the shortest duration, Kaštan marks a
 Connection and departure times are bold in text and markdown output.
 Use `--verbose` to show each result ID together with IDOS tariff zones, platforms, carriers, and current delay information when IDOS includes them.
 Each connection leg also shows a service ID. It is the same opaque ID that `departures` returns for the corresponding service and can be passed to `kastan service` to load the service's complete route.
-Connection-result, service, and departure IDs are opaque values. `kastan service` also requires the timetable context, so scripts should not parse the IDs' internal structure.
+Connection-result, service, and departure IDs are opaque values, so scripts should not parse their internal structure.
 JSON output includes connection-result and departure IDs in each result's `id` field and service IDs in `connections[].legs[].id` regardless of `--verbose`.
 Departure headings use the station name resolved by IDOS, not necessarily the exact query text.
 When a connection place, departure station, or alias station is not an exact match and IDOS returns multiple candidates, Kaštan reports the ambiguous name and lists the possible IDOS choices.
@@ -210,7 +210,7 @@ swift run kastan connections --from Praha --to Brno --verbose
 swift run kastan connections --from Praha --to Brno --format ics > connection.ics
 swift run kastan connections --from Praha --to Brno --add-to-calendar
 swift run kastan departures --station "Ostrava,Hrabůvka,Benzina" --format json
-swift run kastan service '0-74552-14.07.2026 20:41:00' -T vlaky --format markdown
+swift run kastan service 'vlaky:0-74552-14.07.2026 20:41:00' --format markdown
 swift run kastan timetables --format json
 swift run kastan aliases list --format json
 ```
@@ -345,7 +345,7 @@ The server exposes these tools:
 | `get_service_detail` | Load a service's complete route and information from its opaque ID. |
 | `list_timetables` | List accepted timetable slugs and English names. |
 
-Query tools accept an optional `timetable` alias, English catalog name, or IDOS URL slug. They return the library's JSON model both as readable JSON text and as MCP structured content. Result limits default to 8 for suggestions, stations, and departures, and 5 for connections; an MCP request can raise a limit up to 20.
+Query tools accept an optional `timetable` alias, English catalog name, or IDOS URL slug. `get_service_detail` reads the timetable from current service IDs and accepts `timetable` only as context for legacy IDs. Tools return the library's JSON model both as readable JSON text and as MCP structured content. Result limits default to 8 for suggestions, stations, and departures, and 5 for connections; an MCP request can raise a limit up to 20.
 
 As with the CLI, MCP queries use publicly reachable IDOS web endpoints and are intended for low-frequency personal use.
 
@@ -379,7 +379,7 @@ let departuresRequest = IDOSDeparturesRequest(
     time: "16:00"
 )
 let departures = try await client.findDepartures(request: departuresRequest)
-let service = try await client.serviceDetail(id: departures[0].id, timetable: timetable)
+let service = try await client.serviceDetail(id: departures[0].id)
 
 let aliasFile = StopAliasFile()
 var aliases = try aliasFile.load()

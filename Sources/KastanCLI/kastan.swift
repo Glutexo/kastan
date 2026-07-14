@@ -364,10 +364,17 @@ struct CommandRunner {
             throw CommandError.usage(.usageService)
         }
 
-        let timetable = try options.timetable()
-        let service = try await client.serviceDetail(id: positional[0], timetable: timetable)
+        let service: IDOSServiceDetail
+        if let timetableValue = options.value(for: "--timetable", short: "-T") {
+            service = try await client.serviceDetail(
+                id: positional[0],
+                timetable: IDOSTimetable.resolve(timetableValue)
+            )
+        } else {
+            service = try await client.serviceDetail(id: positional[0])
+        }
         return try format.renderServiceDetail(
-            ServiceDetailOutput(timetable: timetable, service: service),
+            ServiceDetailOutput(service: service),
             localization: localization
         )
     }
@@ -947,7 +954,7 @@ private enum OutputFormat: String {
             """
 
             return """
-            \(service.displayName) · \(localization.text(.service)) (\(localization.timetableName(output.timetable)))
+            \(service.displayName) · \(localization.text(.service)) (\(localization.timetableName(service.timetable)))
                \(localization.text(.serviceIdentifier)): \(service.id)\(date)
             🛤️ \(localization.text(.route)):
             \(stops)\(information)
@@ -969,7 +976,7 @@ private enum OutputFormat: String {
             ## \(Markdown.serviceName(service)) · \(localization.text(.service))
 
             **\(localization.text(.serviceIdentifier)):** `\(Markdown.escape(service.id))`
-            \(date)**\(localization.text(.timetable)):** \(Markdown.escape(localization.timetableName(output.timetable)))
+            \(date)**\(localization.text(.timetable)):** \(Markdown.escape(localization.timetableName(service.timetable)))
 
             ### 🛤️ \(localization.text(.route))
 
@@ -1484,7 +1491,6 @@ private struct DeparturesOutput: Codable {
 }
 
 private struct ServiceDetailOutput: Codable {
-    var timetable: IDOSTimetable
     var service: IDOSServiceDetail
 }
 

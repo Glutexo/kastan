@@ -12,6 +12,13 @@ public protocol IDOSClienting: Sendable {
     func serviceDetail(id: String, timetable: IDOSTimetable) async throws -> IDOSServiceDetail
 }
 
+public extension IDOSClienting {
+    /// Loads a service whose self-contained ID carries its own timetable context.
+    func serviceDetail(id: String) async throws -> IDOSServiceDetail {
+        try await serviceDetail(id: id, timetable: .defaultTimetable)
+    }
+}
+
 public struct IDOSClient: IDOSClienting {
     public var baseURL: URL
 
@@ -66,7 +73,7 @@ public struct IDOSClient: IDOSClienting {
             throw IDOSError.invalidResponse
         }
 
-        var connections = IDOSConnectionParser.parse(html: html)
+        var connections = IDOSConnectionParser.parse(html: html, timetable: request.timetable)
         guard let limit = request.resultLimit, connections.count < limit,
               var paging = IDOSConnectionParser.pagingContext(html: html)
         else {
@@ -145,7 +152,7 @@ public struct IDOSClient: IDOSClienting {
             "searchItem": paging.searchItem,
         ]
         let allowNext = object["allowNext"] as? Bool ?? false
-        return (IDOSConnectionParser.parse(html: html, result: result), allowNext)
+        return (IDOSConnectionParser.parse(html: html, result: result, timetable: request.timetable), allowNext)
     }
 
     public func connectionCalendar(for connection: IDOSConnection, timetable: IDOSTimetable = .defaultTimetable) async throws -> String {
@@ -187,17 +194,17 @@ public struct IDOSClient: IDOSClienting {
             throw IDOSError.invalidResponse
         }
 
-        return IDOSDepartureParser.parse(html: html)
+        return IDOSDepartureParser.parse(html: html, timetable: request.timetable)
     }
 
-    /// Loads the complete IDOS route for one opaque service ID returned by a connection leg or departure.
+    /// Loads a complete route; `timetable` is used only when a legacy ID lacks embedded context.
     public func serviceDetail(
         id: String,
         timetable: IDOSTimetable = .defaultTimetable
     ) async throws -> IDOSServiceDetail {
-        let reference = try IDOSServiceReference(id: id)
+        let reference = try IDOSServiceReference(id: id, fallbackTimetable: timetable)
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
-        components.path = "/en/\(timetable.slug)/Ajax/TrainDetail"
+        components.path = "/en/\(reference.timetable.slug)/Ajax/TrainDetail"
         components.queryItems = [URLQueryItem(name: "callback", value: "idosCallback")]
 
         var urlRequest = URLRequest(url: try components.requiredURL)
@@ -216,7 +223,11 @@ public struct IDOSClient: IDOSClienting {
         }
 
         guard let html = object["content"] as? String,
-              let detail = IDOSServiceDetailParser.parse(html: html, id: id)
+              let detail = IDOSServiceDetailParser.parse(
+                html: html,
+                id: reference.id,
+                timetable: reference.timetable
+              )
         else {
             throw IDOSError.invalidResponse
         }
@@ -970,6 +981,7 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
 /// Complete route and product information for one dated public-transport service.
 public struct IDOSServiceDetail: Codable, Equatable, Sendable {
     public var id: String
+    public var timetable: IDOSTimetable
     public var name: String
     public var color: String?
     public var transportMode: IDOSTransportMode?
@@ -980,6 +992,7 @@ public struct IDOSServiceDetail: Codable, Equatable, Sendable {
 
     public init(
         id: String,
+        timetable: IDOSTimetable = .defaultTimetable,
         name: String,
         color: String? = nil,
         transportMode: IDOSTransportMode? = nil,
@@ -989,6 +1002,7 @@ public struct IDOSServiceDetail: Codable, Equatable, Sendable {
         shareURL: String? = nil
     ) {
         self.id = id
+        self.timetable = timetable
         self.name = name
         self.color = color
         self.transportMode = transportMode
@@ -1203,13 +1217,20 @@ struct IDOSConnectionPagingContext {
 }
 
 enum IDOSConnectionParser {
-    static func parse(html: String) -> [IDOSConnection] {
-        parse(html: html, result: connectionResult(from: html))
+    static func parse(
+        html: String,
+        timetable: IDOSTimetable = .defaultTimetable
+    ) -> [IDOSConnection] {
+        parse(html: html, result: connectionResult(from: html), timetable: timetable)
     }
 
-    static func parse(html: String, result: [String: Any]?) -> [IDOSConnection] {
+    static func parse(
+        html: String,
+        result: [String: Any]?,
+        timetable: IDOSTimetable = .defaultTimetable
+    ) -> [IDOSConnection] {
         let calendarModels = calendarModels(in: html, result: result)
-        let legIdentifiers = legIdentifiersByConnectionID(in: result)
+        let legIdentifiers = legIdentifiersByConnectionID(in: result, timetable: timetable)
         let starts = RegexSupport.matches(
             pattern: #"<div id="connectionBox-([0-9]+)""#,
             in: html
@@ -1337,7 +1358,10 @@ enum IDOSConnectionParser {
     }
 
     /// Builds the same opaque service identifier that departure results expose for a specific run.
-    private static func legIdentifiersByConnectionID(in result: [String: Any]?) -> [String: [String?]] {
+    private static func legIdentifiersByConnectionID(
+        in result: [String: Any]?,
+        timetable: IDOSTimetable
+    ) -> [String: [String?]] {
         guard let connectionData = result?["connData"] as? [[String: Any]] else {
             return [:]
         }
@@ -1350,12 +1374,15 @@ enum IDOSConnectionParser {
                 continue
             }
 
-            identifiers[connectionID] = trains.map(serviceIdentifier)
+            identifiers[connectionID] = trains.map { serviceIdentifier(from: $0, timetable: timetable) }
         }
         return identifiers
     }
 
-    private static func serviceIdentifier(from train: [String: Any]) -> String? {
+    private static func serviceIdentifier(
+        from train: [String: Any],
+        timetable: IDOSTimetable
+    ) -> String? {
         guard let timetableIndex = integer(train["ttIndex"]),
               let trainID = integer(train["train"]),
               let date = train["dateFromValue"] as? String,
@@ -1387,7 +1414,7 @@ enum IDOSConnectionParser {
             minute,
             second
         )
-        return "\(timetableIndex)-\(trainID)-\(dateTime)"
+        return "\(timetable.slug):\(timetableIndex)-\(trainID)-\(dateTime)"
     }
 
     private static func calendarModels(in html: String, result: [String: Any]?) -> [String: String] {
@@ -1647,7 +1674,10 @@ enum IDOSConnectionParser {
 }
 
 enum IDOSDepartureParser {
-    static func parse(html: String) -> [IDOSDeparture] {
+    static func parse(
+        html: String,
+        timetable: IDOSTimetable = .defaultTimetable
+    ) -> [IDOSDeparture] {
         let stationName = resolvedStationName(in: html)
 
         return RegexSupport.captures(
@@ -1655,7 +1685,13 @@ enum IDOSDepartureParser {
             in: html,
             options: [.dotMatchesLineSeparators]
         ).compactMap { row in
-            parseDeparture(attributes: row[0], firstRow: row[1], secondRow: row[2], stationName: stationName)
+            parseDeparture(
+                attributes: row[0],
+                firstRow: row[1],
+                secondRow: row[2],
+                stationName: stationName,
+                timetable: timetable
+            )
         }
     }
 
@@ -1663,7 +1699,8 @@ enum IDOSDepartureParser {
         attributes: String,
         firstRow: String,
         secondRow: String,
-        stationName: String?
+        stationName: String?,
+        timetable: IDOSTimetable
     ) -> IDOSDeparture? {
         let headings = RegexSupport.captures(
             pattern: #"<h3\b[^>]*>(.*?)</h3>"#,
@@ -1688,8 +1725,15 @@ enum IDOSDepartureParser {
         let time = attribute("data-datetime", in: attributes)
             .flatMap(timeFromDateTime)
             ?? (headings.count > 2 ? headings[2] : "")
+        let timetableIndex = attribute("data-ttindex", in: attributes)
+        let trainID = attribute("data-train", in: attributes)
+        let dateTime = attribute("data-datetime", in: attributes)
 
-        guard !time.isEmpty, !lineName.isEmpty, !destination.isEmpty else {
+        guard !time.isEmpty, !lineName.isEmpty, !destination.isEmpty,
+              let timetableIndex, !timetableIndex.isEmpty,
+              let trainID, !trainID.isEmpty,
+              let dateTime, !dateTime.isEmpty
+        else {
             return nil
         }
 
@@ -1712,11 +1756,7 @@ enum IDOSDepartureParser {
         ).map(HTMLText.clean)
 
         return IDOSDeparture(
-            id: [
-                attribute("data-ttindex", in: attributes),
-                attribute("data-train", in: attributes),
-                attribute("data-datetime", in: attributes),
-            ].compactMap(\.self).joined(separator: "-"),
+            id: "\(timetable.slug):\(timetableIndex)-\(trainID)-\(dateTime)",
             stationName: stationName,
             time: time,
             lineName: lineName,
@@ -1772,7 +1812,10 @@ enum IDOSDepartureParser {
     }
 }
 
-private struct IDOSServiceReference {
+/// Resolves current self-contained IDs and upgrades legacy IDs with caller-supplied timetable context.
+struct IDOSServiceReference {
+    let id: String
+    let timetable: IDOSTimetable
     let timetableIndex: Int
     let trainID: Int
     let year: Int
@@ -1781,11 +1824,29 @@ private struct IDOSServiceReference {
     let hour: Int
     let minute: Int
 
-    init(id: String) throws {
+    init(id: String, fallbackTimetable: IDOSTimetable) throws {
         let value = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prefixed = RegexSupport.captures(
+            pattern: #"^([A-Za-z0-9-]+):(.*)$"#,
+            in: value
+        ).first
+        let legacyID: String
+        let timetable: IDOSTimetable
+        if let prefixed, prefixed.count == 2,
+           let embeddedTimetable = try? IDOSTimetable.resolve(prefixed[0])
+        {
+            timetable = embeddedTimetable
+            legacyID = prefixed[1]
+        } else if prefixed == nil {
+            timetable = fallbackTimetable
+            legacyID = value
+        } else {
+            throw IDOSError.invalidServiceIdentifier(value)
+        }
+
         guard let parts = RegexSupport.captures(
             pattern: #"^(\d+)-(\d+)-(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2}):(\d{2})$"#,
-            in: value
+            in: legacyID
         ).first,
               parts.count == 8,
               let timetableIndex = Int(parts[0]),
@@ -1806,6 +1867,8 @@ private struct IDOSServiceReference {
             throw IDOSError.invalidServiceIdentifier(value)
         }
 
+        self.id = "\(timetable.slug):\(legacyID)"
+        self.timetable = timetable
         self.timetableIndex = timetableIndex
         self.trainID = trainID
         self.year = year
@@ -1831,7 +1894,11 @@ private struct IDOSServiceReference {
 }
 
 enum IDOSServiceDetailParser {
-    static func parse(html: String, id: String) -> IDOSServiceDetail? {
+    static func parse(
+        html: String,
+        id: String,
+        timetable: IDOSTimetable = .defaultTimetable
+    ) -> IDOSServiceDetail? {
         guard let heading = RegexSupport.capture(
             pattern: #"(<h1\b.*?</h1>)"#,
             in: html,
@@ -1894,6 +1961,7 @@ enum IDOSServiceDetailParser {
         let headingTitle = attribute("title", in: heading) ?? ""
         return IDOSServiceDetail(
             id: id,
+            timetable: timetable,
             name: name,
             color: HTMLStyle.color(from: heading),
             transportMode: IDOSTransportMode.infer(from: "\(headingTitle) \(name)"),

@@ -122,7 +122,7 @@ struct KastanMCPTools: Sendable {
             inputSchema: objectSchema(
                 properties: [
                     "id": stringSchema("Opaque service ID returned by Kaštan."),
-                    "timetable": timetableSchema,
+                    "timetable": stringSchema("Optional timetable context for legacy service IDs that do not embed a timetable slug."),
                 ],
                 required: ["id"]
             ),
@@ -233,9 +233,16 @@ struct KastanMCPTools: Sendable {
     private func getServiceDetail(_ values: [String: Value]) async throws -> ServiceDetailOutput {
         let arguments = try ToolArguments(values, allowed: ["id", "timetable"])
         let id = try arguments.requiredString("id")
-        let timetable = try IDOSTimetable.resolve(arguments.optionalString("timetable"))
-        let service = try await client.serviceDetail(id: id, timetable: timetable)
-        return ServiceDetailOutput(timetable: timetable, service: service)
+        let service: IDOSServiceDetail
+        if let timetableValue = try arguments.optionalString("timetable") {
+            service = try await client.serviceDetail(
+                id: id,
+                timetable: IDOSTimetable.resolve(timetableValue)
+            )
+        } else {
+            service = try await client.serviceDetail(id: id)
+        }
+        return ServiceDetailOutput(service: service)
     }
 
     private func listTimetables(_ values: [String: Value]) throws -> TimetablesOutput {

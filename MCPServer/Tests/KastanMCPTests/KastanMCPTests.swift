@@ -117,16 +117,16 @@ import Testing
     let result = await tools.call(
         name: "get_service_detail",
         arguments: [
-            "id": "0-74552-18.06.2026 12:04:00",
-            "timetable": "trains",
+            "id": "vlaky:0-74552-18.06.2026 12:04:00",
         ]
     )
 
     #expect(result.isError == false)
     #expect(result.structuredContent?.objectValue?["service"]?.objectValue?["stops"]?.arrayValue?.count == 2)
+    #expect(result.structuredContent?.objectValue?["service"]?.objectValue?["timetable"]?.objectValue?["slug"]?.stringValue == "vlaky")
     #expect(text(from: result.content)?.contains("\"name\" : \"RJ 1051 RegioJet\"") == true)
-    #expect(await mock.lastServiceID == "0-74552-18.06.2026 12:04:00")
-    #expect(await mock.lastServiceTimetable == "vlaky")
+    #expect(await mock.lastServiceID == "vlaky:0-74552-18.06.2026 12:04:00")
+    #expect(await mock.lastServiceTimetable == IDOSTimetable.defaultTimetable.slug)
 }
 
 @Test func invalidToolArgumentsReturnMCPToolErrorsWithoutCallingIDOS() async {
@@ -210,6 +210,7 @@ private actor MockIDOSClient: IDOSClienting {
         lastServiceTimetable = timetable.slug
         return IDOSServiceDetail(
             id: id,
+            timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
             name: "RJ 1051 RegioJet",
             transportMode: .train,
             date: "18.6.2026",
