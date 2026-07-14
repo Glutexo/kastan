@@ -767,6 +767,8 @@ public struct IDOSConnection: Codable, Equatable, Sendable {
 
 public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
     public var name: String
+    /// Opaque ID shared with the matching departure result for future service-route lookups.
+    public var id: String?
     public var color: String?
     public var transportMode: IDOSTransportMode?
     public var departureTime: String
@@ -782,6 +784,7 @@ public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
 
     public init(
         name: String,
+        id: String? = nil,
         color: String? = nil,
         transportMode: IDOSTransportMode? = nil,
         departureTime: String,
@@ -796,6 +799,7 @@ public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
         delay: String? = nil
     ) {
         self.name = name
+        self.id = id
         self.color = color
         self.transportMode = transportMode
         self.departureTime = departureTime
@@ -1086,6 +1090,7 @@ enum IDOSConnectionParser {
 
     static func parse(html: String, result: [String: Any]?) -> [IDOSConnection] {
         let calendarModels = calendarModels(in: html, result: result)
+        let legIdentifiers = legIdentifiersByConnectionID(in: result)
         let starts = RegexSupport.matches(
             pattern: #"<div id="connectionBox-([0-9]+)""#,
             in: html
@@ -1097,7 +1102,12 @@ enum IDOSConnectionParser {
             let end = index + 1 < starts.count ? starts[index + 1].range.location : source.length
             let block = source.substring(with: NSRange(location: start, length: end - start))
             let id = RegexSupport.capture(pattern: #"<div id="connectionBox-([0-9]+)""#, in: block) ?? ""
-            return parseConnection(id: id, block: block, calendarModel: calendarModels[id])
+            return parseConnection(
+                id: id,
+                block: block,
+                legIdentifiers: legIdentifiers[id] ?? [],
+                calendarModel: calendarModels[id]
+            )
         }
     }
 
@@ -1127,7 +1137,12 @@ enum IDOSConnectionParser {
         )
     }
 
-    private static func parseConnection(id: String, block: String, calendarModel: String?) -> IDOSConnection? {
+    private static func parseConnection(
+        id: String,
+        block: String,
+        legIdentifiers: [String?],
+        calendarModel: String?
+    ) -> IDOSConnection? {
         let stationRows = RegexSupport.captures(
             pattern: #"<p class="reset time[^"]*"[^>]*>(.*?)</p>\s*<p class="station">(.*?)</p>"#,
             in: block,
@@ -1166,6 +1181,7 @@ enum IDOSConnectionParser {
             let arrival = stationRows[arrivalIndex]
             return IDOSConnectionLeg(
                 name: lines[index].name,
+                id: legIdentifiers.indices.contains(index) ? legIdentifiers[index] : nil,
                 color: lines[index].color,
                 transportMode: lines[index].transportMode,
                 departureTime: departure.time,
@@ -1199,6 +1215,60 @@ enum IDOSConnectionParser {
             ) ?? ""),
             calendarModel: calendarModel
         )
+    }
+
+    /// Builds the same opaque service identifier that departure results expose for a specific run.
+    private static func legIdentifiersByConnectionID(in result: [String: Any]?) -> [String: [String?]] {
+        guard let connectionData = result?["connData"] as? [[String: Any]] else {
+            return [:]
+        }
+
+        var identifiers: [String: [String?]] = [:]
+        for connection in connectionData {
+            guard let connectionID = connectionID(from: connection),
+                  let trains = connection["trains"] as? [[String: Any]]
+            else {
+                continue
+            }
+
+            identifiers[connectionID] = trains.map(serviceIdentifier)
+        }
+        return identifiers
+    }
+
+    private static func serviceIdentifier(from train: [String: Any]) -> String? {
+        guard let timetableIndex = integer(train["ttIndex"]),
+              let trainID = integer(train["train"]),
+              let date = train["dateFromValue"] as? String,
+              let time = train["timeFrom"] as? String,
+              let dateParts = RegexSupport.captures(
+                pattern: #"^(\d{4})-(\d{1,2})-(\d{1,2})"#,
+                in: date
+              ).first,
+              let timeParts = RegexSupport.captures(
+                pattern: #"^(\d{1,2}):(\d{2})(?::(\d{2}))?"#,
+                in: time
+              ).first,
+              let year = Int(dateParts[0]),
+              let month = Int(dateParts[1]),
+              let day = Int(dateParts[2]),
+              let hour = Int(timeParts[0]),
+              let minute = Int(timeParts[1])
+        else {
+            return nil
+        }
+
+        let second = timeParts.indices.contains(2) ? Int(timeParts[2]) ?? 0 : 0
+        let dateTime = String(
+            format: "%02d.%02d.%04d %02d:%02d:%02d",
+            day,
+            month,
+            year,
+            hour,
+            minute,
+            second
+        )
+        return "\(timetableIndex)-\(trainID)-\(dateTime)"
     }
 
     private static func calendarModels(in html: String, result: [String: Any]?) -> [String: String] {

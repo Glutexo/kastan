@@ -65,6 +65,7 @@
 "label.place" = "Místo";
 "label.details" = "Podrobnosti";
 "label.identifier" = "ID";
+"label.serviceIdentifier" = "ID spoje";
 "label.from" = "Odkud";
 "label.to" = "Kam";
 "label.via" = "Přes";

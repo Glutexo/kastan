@@ -94,6 +94,7 @@ import Testing
     #expect(output.contains("🧭 Spojení Praha → Brno (Vlaky)"))
     #expect(output.contains("➡️  Přímý · ⚡ Nejrychlejší"))
     #expect(output.contains("ID: 396829589"))
+    #expect(output.contains("ID spoje: 0-74552-18.06.2026 12:04:00"))
     #expect(output.contains("tarifní zóna P · nástupiště 4"))
 }
 
@@ -226,6 +227,7 @@ import Testing
     #expect(output.contains("🚆"))
     #expect(output.contains("R9"))
     #expect(!output.contains("ID: 396829589"))
+    #expect(!output.contains("Service ID:"))
     #expect(!output.contains("tariff zone P · platform 4"))
     #expect(!output.contains("Currently no delay"))
 }
@@ -288,6 +290,7 @@ import Testing
 
     #expect(output.contains("tariff zone P · platform 4"))
     #expect(output.contains("ID: 396829589"))
+    #expect(output.contains("Service ID: 0-74552-18.06.2026 12:04:00"))
     #expect(output.contains("České dráhy, a.s."))
     #expect(output.contains("Currently no delay"))
 }
@@ -452,8 +455,8 @@ import Testing
         ]
     )
 
-    #expect(output.contains("| Line | From | From Tariff Zone | From Platform | Departure | To | To Tariff Zone | To Platform | Arrival | Carrier | Delay |"))
-    #expect(output.contains("| 🚆 <span style=\"color: #008000\">R9 (R 981 Vysočina)</span> | Praha hl.n. | P | 4 | **12:04** | Brno hl.n. | 100 |  | **15:44** | České dráhy, a.s. | Currently no delay |"))
+    #expect(output.contains("| Line | Service ID | From | From Tariff Zone | From Platform | Departure | To | To Tariff Zone | To Platform | Arrival | Carrier | Delay |"))
+    #expect(output.contains("| 🚆 <span style=\"color: #008000\">R9 (R 981 Vysočina)</span> | `0-74552-18.06.2026 12:04:00` | Praha hl.n. | P | 4 | **12:04** | Brno hl.n. | 100 |  | **15:44** | České dráhy, a.s. | Currently no delay |"))
     #expect(output.contains("**ID:** `396829589`"))
 }
 
@@ -485,6 +488,8 @@ import Testing
     #expect(request?["minimumTransferTime"] as? Int == 10)
     let connection = (json["connections"] as? [[String: Any]])?.first
     #expect(connection?["id"] as? String == "396829589")
+    let leg = (connection?["legs"] as? [[String: Any]])?.first
+    #expect(leg?["id"] as? String == "0-74552-18.06.2026 12:04:00")
     #expect(connection?["isDirect"] as? Bool == true)
     #expect(connection?["isShortest"] as? Bool == true)
 }
@@ -1136,6 +1141,9 @@ import Testing
       <p class="reset time  " title="">12:04</p><p class="station"><strong class="name ">Praha hl.n.</strong> <span><span title="tariff zone" class="color-lightgrey">P</span> <span title="platform" class="color-green">4</span></span></p>
       <p class="reset time  " title="">15:44</p><p class="station"><strong class="name ">Brno hl.n.</strong> <span><span title="tariff zone" class="color-lightgrey">100</span></span></p>
     </div>
+    <script>
+    var connResult = new Conn.ConnResult(params, null, {"connData":[{"connId":396829589,"trains":[{"ttIndex":0,"train":74552,"dateFromValue":"2026-06-18T00:00:00","timeFrom":"12:04"}]}]});
+    </script>
     """
 
     let connections = IDOSConnectionParser.parse(html: html)
@@ -1144,6 +1152,7 @@ import Testing
     #expect(connections.first?.id == "396829589")
     #expect(connections.first?.duration == "3 h 40 min")
     #expect(connections.first?.legs.first?.name == "R9 (R 981 Vysocina)")
+    #expect(connections.first?.legs.first?.id == "0-74552-18.06.2026 12:04:00")
     #expect(connections.first?.legs.first?.color == "#FF0000")
     #expect(connections.first?.legs.first?.transportMode == .train)
     #expect(connections.first?.legs.first?.fromTariffZone == "P")
@@ -1436,6 +1445,7 @@ private struct MockIDOSClient: IDOSClienting {
                 legs: [
                     IDOSConnectionLeg(
                         name: "R9 (R 981 Vysočina)",
+                        id: "0-74552-18.06.2026 12:04:00",
                         color: "#008000",
                         transportMode: .train,
                         departureTime: "12:04",

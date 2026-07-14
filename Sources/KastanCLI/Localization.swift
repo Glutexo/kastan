@@ -114,6 +114,7 @@ enum LocalizationKey: String, CaseIterable {
     case place = "label.place"
     case details = "label.details"
     case identifier = "label.identifier"
+    case serviceIdentifier = "label.serviceIdentifier"
     case from = "label.from"
     case to = "label.to"
     case via = "label.via"

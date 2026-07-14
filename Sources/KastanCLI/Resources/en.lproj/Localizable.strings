@@ -65,6 +65,7 @@
 "label.place" = "Place";
 "label.details" = "Details";
 "label.identifier" = "ID";
+"label.serviceIdentifier" = "Service ID";
 "label.from" = "From";
 "label.to" = "To";
 "label.via" = "Via";
