@@ -5,15 +5,34 @@ It uses publicly reachable IDOS web endpoints and parses returned HTML, so it is
 
 ## 🌰 Building
 
-Kaštan requires Git and Swift 6.3 or newer. Check the active toolchain before building:
-
-```sh
-swift --version
-```
+Kaštan requires Git and Swift 6.3 or newer. Download Swift only from the [official Swift installation page](https://www.swift.org/install/); development snapshots are not required.
 
 ### macOS
 
-Install Swift 6.3 or newer using the [official macOS instructions](https://www.swift.org/install/macos/). The package declares macOS 12 as its minimum deployment target.
+Open Terminal. If Git and Apple's command-line developer tools are not installed yet, request their installer first:
+
+```sh
+xcode-select --install
+```
+
+Download the official Swiftly toolchain manager from swift.org and let it install the latest stable Swift release for the current user:
+
+```sh
+curl -O https://download.swift.org/swiftly/darwin/swiftly.pkg
+installer -pkg swiftly.pkg -target CurrentUserHomeDirectory
+~/.swiftly/bin/swiftly init --quiet-shell-followup
+. "${SWIFTLY_HOME_DIR:-$HOME/.swiftly}/env.sh"
+hash -r
+```
+
+These commands are also available in the [official macOS instructions](https://www.swift.org/install/macos/). Verify that Swift 6.3 or newer and Git are available:
+
+```sh
+swift --version
+git --version
+```
+
+Then clone and build Kaštan. The package declares macOS 12 as its minimum deployment target.
 
 ```sh
 git clone https://github.com/Glutexo/kastan.git
@@ -27,7 +46,30 @@ The release executable is in the directory printed by `swift build -c release --
 
 ### Windows
 
-Follow the [official Windows instructions](https://www.swift.org/install/windows/) to install Swift 6.3 or newer and its required Visual Studio C++ build tools, Windows SDK, Python, and Git dependencies. Enable Windows Developer Mode as described there, then run these commands in PowerShell:
+This WinGet installation route requires Windows 10 version 1809 or newer. WinGet is included with current Windows 10 and Windows 11 installations as part of App Installer; follow the [Microsoft WinGet instructions](https://learn.microsoft.com/en-us/windows/package-manager/winget/) if the `winget` command is missing.
+
+Enable **Developer Mode** in Windows Settings before installing Swift. Search Settings for "Developer Mode" and turn it on; Microsoft documents the current location in its [Developer Mode instructions](https://learn.microsoft.com/en-us/windows/advanced-settings/developer-mode).
+
+Open PowerShell and install the Visual Studio C++ toolchain and Windows SDK. Accept an administrator elevation prompt if Windows shows one:
+
+```powershell
+winget install --id Microsoft.VisualStudio.2022.Community --exact --force --custom "--add Microsoft.VisualStudio.Component.Windows11SDK.22621 --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.VC.Tools.ARM64" --source winget
+```
+
+Install the latest stable Swift toolchain. The Swift WinGet package also installs compatible Git and Python dependencies when they are missing:
+
+```powershell
+winget install --id Swift.Toolchain --exact --source winget
+```
+
+These commands come from the [official Windows instructions](https://www.swift.org/install/windows/). Close and reopen PowerShell after installation, then verify the tools:
+
+```powershell
+swift --version
+git --version
+```
+
+Clone and build Kaštan in PowerShell:
 
 ```powershell
 git clone https://github.com/Glutexo/kastan.git
@@ -40,7 +82,31 @@ $binPath = swift build -c release --show-bin-path
 
 ### Linux
 
-Install Swift 6.3 or newer and its distribution dependencies using the [official Linux instructions](https://www.swift.org/install/linux/). The recommended Swiftly installer supports Ubuntu, Debian, Fedora, Red Hat Enterprise Linux, and Amazon Linux.
+The official Swiftly installer supports Ubuntu, Debian, Fedora, Red Hat Enterprise Linux, and Amazon Linux. First install Git and the small set of tools used to download and verify Swift. For example, on Ubuntu or Debian:
+
+```sh
+sudo apt update
+sudo apt install -y curl ca-certificates gnupg tar git
+```
+
+Use the equivalent package names and package manager on other supported distributions. Then download Swiftly directly from swift.org and let it install the latest stable Swift release and any additional distribution dependencies:
+
+```sh
+curl -O https://download.swift.org/swiftly/linux/swiftly-$(uname -m).tar.gz
+tar zxf swiftly-$(uname -m).tar.gz
+./swiftly init --quiet-shell-followup
+. "${SWIFTLY_HOME_DIR:-$HOME/.local/share/swiftly}/env.sh"
+hash -r
+```
+
+These are the commands from the [official Linux instructions](https://www.swift.org/install/linux/). Follow any package-installation prompts from Swiftly, then verify the tools:
+
+```sh
+swift --version
+git --version
+```
+
+Clone and build Kaštan:
 
 ```sh
 git clone https://github.com/Glutexo/kastan.git
