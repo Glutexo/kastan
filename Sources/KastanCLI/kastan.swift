@@ -707,8 +707,8 @@ private enum OutputFormat: String {
                 return "🔎 IDOS returned no connections."
             }
 
-            let rows = output.connections.enumerated().map { index, connection in
-                connection.summaryLine(number: index + 1, includeDetails: output.verbose)
+            let rows = output.items.enumerated().map { index, item in
+                item.summaryLine(number: index + 1, includeDetails: output.verbose)
             }
 
             return """
@@ -729,7 +729,8 @@ private enum OutputFormat: String {
                 """
             }
 
-            let sections = output.connections.enumerated().map { index, connection in
+            let sections = output.items.enumerated().map { index, item in
+                let connection = item.connection
                 let legs = connection.legs.map { leg in
                     if output.verbose {
                         return "| \(Markdown.lineName(leg)) | \(Markdown.escape(leg.fromStation)) | \(Markdown.escape(leg.fromTariffZone ?? "")) | \(Markdown.escape(leg.fromPlatform ?? "")) | \(Markdown.bold(leg.departureTime)) | \(Markdown.escape(leg.toStation)) | \(Markdown.escape(leg.toTariffZone ?? "")) | \(Markdown.escape(leg.toPlatform ?? "")) | \(Markdown.bold(leg.arrivalTime)) | \(Markdown.escape(leg.carrier ?? "")) | \(Markdown.escape(leg.delay ?? "")) |"
@@ -746,7 +747,7 @@ private enum OutputFormat: String {
                 """
 
                 return """
-                ### \(index + 1). \(Markdown.bold(connection.departureTime)) \(Markdown.escape(connection.departureStation)) → \(Markdown.bold(connection.arrivalTime)) \(Markdown.escape(connection.arrivalStation))
+                ### \(index + 1). \(item.markdownLabel)\(Markdown.bold(connection.departureTime)) \(Markdown.escape(connection.departureStation)) → \(Markdown.bold(connection.arrivalTime)) \(Markdown.escape(connection.arrivalStation))
 
                 Duration: **\(Markdown.escape(connection.duration))**
 
@@ -994,14 +995,124 @@ private struct StationsOutput: Codable {
     var stations: [IDOSSuggestion]
 }
 
-private struct ConnectionsOutput: Codable {
+private struct ConnectionsOutput: Encodable {
     var request: IDOSConnectionRequest
     var connections: [IDOSConnection]
     var verbose = false
 
+    var items: [ConnectionOutput] {
+        let shortestDuration = connections.compactMap(\.durationInMinutes).min()
+        return connections.map { connection in
+            ConnectionOutput(
+                connection: connection,
+                isDirect: connection.legs.count == 1,
+                isShortest: shortestDuration.map { connection.durationInMinutes == $0 } ?? false
+            )
+        }
+    }
+
     enum CodingKeys: String, CodingKey {
         case request
         case connections
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(request, forKey: .request)
+        try container.encode(items, forKey: .connections)
+    }
+}
+
+private struct ConnectionOutput: Encodable {
+    var connection: IDOSConnection
+    var isDirect: Bool
+    var isShortest: Bool
+
+    private var labels: [String] {
+        [
+            isDirect ? "➡️ Direct" : nil,
+            isShortest ? "⚡ Shortest" : nil,
+        ].compactMap(\.self)
+    }
+
+    var markdownLabel: String {
+        labels.isEmpty ? "" : "\(labels.joined(separator: " · ")) — "
+    }
+
+    func summaryLine(number: Int, includeDetails: Bool) -> String {
+        let summary = connection.summaryLine(number: number, includeDetails: includeDetails)
+        guard !labels.isEmpty else {
+            return summary
+        }
+
+        let numberPrefix = "\(number). "
+        return "\(numberPrefix)\(labels.joined(separator: " · ")) — \(summary.dropFirst(numberPrefix.count))"
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case departureTime
+        case departureStation
+        case arrivalTime
+        case arrivalStation
+        case duration
+        case legs
+        case shareURL
+        case isDirect
+        case isShortest
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(connection.id, forKey: .id)
+        try container.encode(connection.departureTime, forKey: .departureTime)
+        try container.encode(connection.departureStation, forKey: .departureStation)
+        try container.encode(connection.arrivalTime, forKey: .arrivalTime)
+        try container.encode(connection.arrivalStation, forKey: .arrivalStation)
+        try container.encode(connection.duration, forKey: .duration)
+        try container.encode(connection.legs, forKey: .legs)
+        try container.encodeIfPresent(connection.shareURL, forKey: .shareURL)
+        try container.encode(isDirect, forKey: .isDirect)
+        try container.encode(isShortest, forKey: .isShortest)
+    }
+}
+
+private extension IDOSConnection {
+    /// Converts the IDOS overall-time label into a value that can be compared within one result list.
+    var durationInMinutes: Int? {
+        guard let expression = try? NSRegularExpression(pattern: #"(\d+)\s*([[:alpha:]]+)"#) else {
+            return nil
+        }
+
+        let matches = expression.matches(
+            in: duration,
+            range: NSRange(duration.startIndex..<duration.endIndex, in: duration)
+        )
+        var total = 0
+        var foundSupportedUnit = false
+
+        for match in matches {
+            guard let valueRange = Range(match.range(at: 1), in: duration),
+                  let unitRange = Range(match.range(at: 2), in: duration),
+                  let value = Int(duration[valueRange])
+            else {
+                continue
+            }
+
+            let unit = duration[unitRange].lowercased()
+            if unit == "d" || unit.hasPrefix("day") {
+                total += value * 24 * 60
+                foundSupportedUnit = true
+            } else if unit == "h" || unit.hasPrefix("hour") || unit.hasPrefix("hod") {
+                total += value * 60
+                foundSupportedUnit = true
+            } else if unit == "m" || unit.hasPrefix("min") {
+                total += value
+                foundSupportedUnit = true
+            }
+        }
+
+        return foundSupportedUnit ? total : nil
     }
 }
 

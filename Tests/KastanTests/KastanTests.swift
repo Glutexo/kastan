@@ -111,11 +111,50 @@ import Testing
     )
 
     #expect(output.contains("🧭 Connections Praha → Brno (Trains)"))
+    #expect(output.contains("1. ➡️ Direct · ⚡ Shortest —"))
     #expect(output.contains("\u{001B}[1m12:04\u{001B}[0m Praha hl.n. → \u{001B}[1m15:44\u{001B}[0m Brno hl.n."))
     #expect(output.contains("🚆"))
     #expect(output.contains("R9"))
     #expect(!output.contains("tariff zone P · platform 4"))
     #expect(!output.contains("Currently no delay"))
+}
+
+@Test func connectionCommandHighlightsDirectAndShortestResultsIndependently() async {
+    let output = await CommandRunner(
+        client: MockIDOSClient(connectionResults: [
+            connectionResult(id: "1", duration: "3 h 40 min", legNames: ["R 1"]),
+            connectionResult(id: "2", duration: "3 h 15 min", legNames: ["R 2", "R 3"]),
+            connectionResult(id: "3", duration: "3 h 50 min", legNames: ["R 4", "R 5"]),
+        ])
+    ).output(
+        for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--limit", "3"]
+    )
+    let lines = output.split(separator: "\n")
+    let first = lines.first { $0.hasPrefix("1. ") }
+    let second = lines.first { $0.hasPrefix("2. ") }
+    let third = lines.first { $0.hasPrefix("3. ") }
+
+    #expect(first?.contains("➡️ Direct") == true)
+    #expect(first?.contains("⚡ Shortest") == false)
+    #expect(second?.contains("➡️ Direct") == false)
+    #expect(second?.contains("⚡ Shortest") == true)
+    #expect(third?.contains("➡️ Direct") == false)
+    #expect(third?.contains("⚡ Shortest") == false)
+}
+
+@Test func connectionCommandHighlightsAllResultsTiedForShortestDuration() async {
+    let output = await CommandRunner(
+        client: MockIDOSClient(connectionResults: [
+            connectionResult(id: "1", duration: "2 h 5 min", legNames: ["R 1"]),
+            connectionResult(id: "2", duration: "125 min", legNames: ["R 2", "R 3"]),
+        ])
+    ).output(
+        for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--limit", "2"]
+    )
+    let resultHeadings = output.split(separator: "\n").filter { $0.hasPrefix("1. ") || $0.hasPrefix("2. ") }
+
+    #expect(resultHeadings.count == 2)
+    #expect(resultHeadings.allSatisfy { $0.contains("⚡ Shortest") })
 }
 
 @Test func connectionCommandPassesLimitToIDOSRequest() async {
@@ -284,7 +323,7 @@ import Testing
     )
 
     #expect(output.contains("## 🧭 Connections"))
-    #expect(output.contains("### 1. **12:04** Praha hl.n. → **15:44** Brno hl.n."))
+    #expect(output.contains("### 1. ➡️ Direct · ⚡ Shortest — **12:04** Praha hl.n. → **15:44** Brno hl.n."))
     #expect(output.contains("| Line | From | Departure | To | Arrival |"))
     #expect(output.contains("| 🚆 <span style=\"color: #008000\">R9 (R 981 Vysočina)</span> | Praha hl.n. | **12:04** | Brno hl.n. | **15:44** |"))
     #expect(output.contains(#"🚆 <span style="color: #008000">R9 (R 981 Vysočina)</span>"#))
@@ -330,7 +369,10 @@ import Testing
     #expect(request?["isArrival"] as? Bool == true)
     #expect(request?["maxTransfers"] as? Int == 0)
     #expect(request?["minimumTransferTime"] as? Int == 10)
-    #expect((json["connections"] as? [[String: Any]])?.first?["id"] as? String == "396829589")
+    let connection = (json["connections"] as? [[String: Any]])?.first
+    #expect(connection?["id"] as? String == "396829589")
+    #expect(connection?["isDirect"] as? Bool == true)
+    #expect(connection?["isShortest"] as? Bool == true)
 }
 
 @Test func connectionCommandPrintsIDOSCalendar() async {
@@ -1330,6 +1372,27 @@ private struct MockCalendarImporter: CalendarImporting {
 
         return URL(fileURLWithPath: path)
     }
+}
+
+private func connectionResult(id: String, duration: String, legNames: [String]) -> IDOSConnection {
+    IDOSConnection(
+        id: id,
+        departureTime: "12:00",
+        departureStation: "Praha hl.n.",
+        arrivalTime: "16:00",
+        arrivalStation: "Brno hl.n.",
+        duration: duration,
+        legs: legNames.enumerated().map { index, name in
+            IDOSConnectionLeg(
+                name: name,
+                transportMode: .train,
+                departureTime: "1\(index + 2):00",
+                fromStation: index == 0 ? "Praha hl.n." : "Pardubice hl.n.",
+                arrivalTime: "1\(index + 3):00",
+                toStation: index == legNames.count - 1 ? "Brno hl.n." : "Pardubice hl.n."
+            )
+        }
+    )
 }
 
 private func ambiguousPIDStationSuggestions() -> [IDOSSuggestion] {

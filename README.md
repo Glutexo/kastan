@@ -159,6 +159,8 @@ swift run kastan "Ostrava,Hrabůvka,Benzina" --timetable odis --time 16:00
 
 Line names in connection output use the same terminal color as IDOS sends in the HTML result.
 Connection legs also include transport emoji such as 🚆 for trains and 🚌 for buses when IDOS exposes the transport type.
+Connection result headings mark connections without a transfer as `➡️ Direct` and the shortest displayed connection as `⚡ Shortest`.
+When multiple displayed connections share the shortest duration, Kaštan marks all of them. JSON output exposes the same information as `isDirect` and `isShortest`.
 Connection and departure times are bold in text and markdown output.
 Use `--verbose` to show IDOS tariff zones, platforms, carriers, and current delay information when IDOS includes them.
 Departure headings use the station name resolved by IDOS, not necessarily the exact query text.
