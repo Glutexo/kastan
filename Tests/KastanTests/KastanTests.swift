@@ -710,7 +710,11 @@ import Testing
     #expect(output.contains("Service ID: vlaky:0-74552-18.06.2026 12:04:00"))
     #expect(output.contains("🛤️ Route:"))
     #expect(output.contains("1. 📍 Praha-Zahradní Město — Departure \u{001B}[1m11:45\u{001B}[0m · track 3 · 0 km"))
+    #expect(output.contains("🚧 Traffic restrictions"))
     #expect(output.contains("2. 📍 Praha hl.n. — Arrival \u{001B}[1m11:53\u{001B}[0m · Departure \u{001B}[1m12:04\u{001B}[0m"))
+    #expect(output.contains("🚇 transfer to the undeground"))
+    #expect(output.contains("♿ wheelchair accessible station"))
+    #expect(output.contains("🚉 rail station"))
     #expect(output.contains("ℹ️ Information:"))
     #expect(output.contains("České dráhy, a.s."))
 }
@@ -725,7 +729,8 @@ import Testing
     #expect(output.contains("## 🚆 <span style=\"color: #008000\">RJ 1051 RegioJet</span> · Service"))
     #expect(output.contains("**Service ID:** `vlaky:0-74552-18.06.2026 12:04:00`"))
     #expect(output.contains("| # | Station | Arrival | Departure | Tariff Zone | Platform | Track | Platform/Track | Distance | Notes |"))
-    #expect(output.contains("| 2 | Praha hl.n. | **11:53** | **12:04** | P |  |  |  | 7 km | transfer to the undeground |"))
+    #expect(output.contains("| 2 | Praha hl.n. | **11:53** | **12:04** | P |  |  |  | 7 km | 🚇 transfer to the undeground |"))
+    #expect(output.contains("| 3 | Brno hl.n. | **15:44** |  |  |  |  | 3/1 | 262 km | ♿ wheelchair accessible station<br>🚉 rail station |"))
 }
 
 @Test func serviceCommandPrintsJSON() async throws {
@@ -734,10 +739,12 @@ import Testing
     )
     let json = try jsonDictionary(output)
     let service = json["service"] as? [String: Any]
+    let stops = service?["stops"] as? [[String: Any]]
 
     #expect((service?["timetable"] as? [String: Any])?["slug"] as? String == "vlaky")
     #expect(service?["id"] as? String == "vlaky:0-74552-18.06.2026 12:04:00")
-    #expect((service?["stops"] as? [[String: Any]])?.count == 3)
+    #expect(stops?.count == 3)
+    #expect(stops?[2]["notes"] as? [String] == ["wheelchair accessible station", "rail station"])
 }
 
 @Test func serviceCommandLocalizesCzechOutput() async {
@@ -1692,7 +1699,8 @@ private func mockServiceDetail(id: String) -> IDOSServiceDetail {
                 name: "Brno hl.n.",
                 arrivalTime: "15:44",
                 platformTrack: "3/1",
-                distance: "262 km"
+                distance: "262 km",
+                notes: ["wheelchair accessible station", "rail station"]
             ),
         ],
         information: ["Planned traffic restriction", "České dráhy, a.s."],

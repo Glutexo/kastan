@@ -941,7 +941,7 @@ private enum OutputFormat: String {
                     details.append(distance)
                 }
 
-                let notes = stop.notes.map { "\n      ℹ️ \($0)" }.joined()
+                let notes = stop.notes.map { "\n      \(ServiceStopNote.render($0))" }.joined()
                 let suffix = details.isEmpty ? "" : " — \(details.joined(separator: " · "))"
                 return "\(index + 1). 📍 \(stop.name)\(suffix)\(notes)"
             }.joined(separator: "\n")
@@ -961,7 +961,10 @@ private enum OutputFormat: String {
             """
         case .markdown:
             let rows = service.stops.enumerated().map { index, stop in
-                "| \(index + 1) | \(Markdown.escape(stop.name)) | \(Markdown.bold(stop.arrivalTime ?? "")) | \(Markdown.bold(stop.departureTime ?? "")) | \(Markdown.escape(stop.tariffZone ?? "")) | \(Markdown.escape(stop.platform ?? "")) | \(Markdown.escape(stop.track ?? "")) | \(Markdown.escape(stop.platformTrack ?? "")) | \(Markdown.escape(stop.distance ?? "")) | \(Markdown.escape(stop.notes.joined(separator: "; "))) |"
+                let notes = stop.notes
+                    .map { Markdown.escape(ServiceStopNote.render($0)) }
+                    .joined(separator: "<br>")
+                return "| \(index + 1) | \(Markdown.escape(stop.name)) | \(Markdown.bold(stop.arrivalTime ?? "")) | \(Markdown.bold(stop.departureTime ?? "")) | \(Markdown.escape(stop.tariffZone ?? "")) | \(Markdown.escape(stop.platform ?? "")) | \(Markdown.escape(stop.track ?? "")) | \(Markdown.escape(stop.platformTrack ?? "")) | \(Markdown.escape(stop.distance ?? "")) | \(notes) |"
             }.joined(separator: "\n")
             let date = service.date.map { "**\(localization.text(.date)):** \(Markdown.escape($0))\n" } ?? ""
             let information = service.information.isEmpty ? "" : """
@@ -1264,6 +1267,40 @@ private enum OutputFormat: String {
         }
 
         return result
+    }
+}
+
+/// Adds a quick visual category to common IDOS stop notes without replacing their original text.
+private enum ServiceStopNote {
+    static func render(_ note: String) -> String {
+        "\(emoji(for: note)) \(note)"
+    }
+
+    private static func emoji(for note: String) -> String {
+        let normalized = note
+            .folding(
+                options: [.diacriticInsensitive, .caseInsensitive],
+                locale: Locale(identifier: "en_US_POSIX")
+            )
+            .lowercased()
+
+        if normalized.contains("wheelchair accessible") || normalized.contains("bezbarier") {
+            return "♿"
+        }
+        if normalized.contains("rail station") || normalized.contains("railway station") {
+            return "🚉"
+        }
+        if normalized.contains("undeground") || normalized.contains("underground") || normalized.contains("metro") {
+            return "🚇"
+        }
+        if normalized.contains("traffic restriction") || normalized.contains("vyluk") {
+            return "🚧"
+        }
+        if normalized.contains("stops on signal") || normalized.contains("request stop") || normalized.contains("na znameni") {
+            return "🔔"
+        }
+
+        return "ℹ️"
     }
 }
 

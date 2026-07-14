@@ -164,7 +164,7 @@ swift run kastan service 'vlaky:0-74552-14.07.2026 20:41:00'
 swift run kastan service 'vlaky:0-74552-14.07.2026 20:41:00' -o json
 ```
 
-Quote the ID because it contains a space. Current IDs embed the timetable slug, so `service` does not need `--timetable`. The option remains available only as timetable context for legacy IDs produced by older Kaštan versions. The detail includes every stop supplied by IDOS, arrival and departure times, tariff zones, platforms or tracks, distance, stop notes, and service information.
+Quote the ID because it contains a space. Current IDs embed the timetable slug, so `service` does not need `--timetable`. The option remains available only as timetable context for legacy IDs produced by older Kaštan versions. The detail includes every stop supplied by IDOS, arrival and departure times, tariff zones, platforms or tracks, distance, stop notes, and service information. Text and Markdown output add semantic emoji to common stop notes, such as ♿ for wheelchair accessibility and 🚉 for rail stations; JSON retains the original IDOS text.
 
 Line names in connection output use the same terminal color as IDOS sends in the HTML result.
 Connection legs also include transport emoji such as 🚆 for trains and 🚌 for buses when IDOS exposes the transport type.
