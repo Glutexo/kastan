@@ -3,6 +3,55 @@
 Kaštan (`kastan`) is a personal Swift CLI and importable Swift library for occasional one-off IDOS queries.
 It uses publicly reachable IDOS web endpoints and parses returned HTML, so it is not a stable or guaranteed data API.
 
+## 🌰 Building
+
+Kaštan requires Git and Swift 6.3 or newer. Check the active toolchain before building:
+
+```sh
+swift --version
+```
+
+### macOS
+
+Install Swift 6.3 or newer using the [official macOS instructions](https://www.swift.org/install/macos/). The package declares macOS 12 as its minimum deployment target.
+
+```sh
+git clone https://github.com/Glutexo/kastan.git
+cd kastan
+swift build -c release
+swift test
+"$(swift build -c release --show-bin-path)/kastan" --help
+```
+
+The release executable is in the directory printed by `swift build -c release --show-bin-path`.
+
+### Windows
+
+Follow the [official Windows instructions](https://www.swift.org/install/windows/) to install Swift 6.3 or newer and its required Visual Studio C++ build tools, Windows SDK, Python, and Git dependencies. Enable Windows Developer Mode as described there, then run these commands in PowerShell:
+
+```powershell
+git clone https://github.com/Glutexo/kastan.git
+Set-Location kastan
+swift build -c release
+swift test
+$binPath = swift build -c release --show-bin-path
+& "$binPath\kastan.exe" --help
+```
+
+### Linux
+
+Install Swift 6.3 or newer and its distribution dependencies using the [official Linux instructions](https://www.swift.org/install/linux/). The recommended Swiftly installer supports Ubuntu, Debian, Fedora, Red Hat Enterprise Linux, and Amazon Linux.
+
+```sh
+git clone https://github.com/Glutexo/kastan.git
+cd kastan
+swift build -c release
+swift test
+"$(swift build -c release --show-bin-path)/kastan" --help
+```
+
+All query, alias, and output-format commands build on the three platforms. Direct calendar opening with `--add-to-calendar` is available only on macOS; use `--format ics` to save a calendar file on Windows or Linux.
+
 ## 🌰 Usage
 
 Suggest a station or place:
