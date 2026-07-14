@@ -8,30 +8,19 @@ struct ConnectionsView: View {
     @State private var selectedService: ServiceSelection?
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Connections")
-                        .font(.largeTitle.bold())
-                    Text("Find a public transport journey through IDOS.")
-                        .foregroundStyle(.secondary)
-                }
+        GeometryReader { geometry in
+            let layout = DetailLayout(availableWidth: geometry.size.width)
 
-                searchPanel
-
-                if let errorMessage = model.errorMessage {
-                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(12)
-                        .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-                }
-
-                results
+            ScrollView {
+                page(layout: layout)
+                    .frame(width: layout.containerWidth, alignment: .topLeading)
+                    .frame(width: geometry.size.width, alignment: .topLeading)
             }
-            .padding(24)
-            .frame(maxWidth: 1100, alignment: .leading)
-            .frame(maxWidth: .infinity)
+            .frame(
+                width: geometry.size.width,
+                height: geometry.size.height,
+                alignment: .topLeading
+            )
         }
         .navigationTitle("Connections")
         .sheet(item: $selectedService) { selection in
@@ -39,15 +28,40 @@ struct ConnectionsView: View {
         }
     }
 
-    private var searchPanel: some View {
+    private func page(layout: DetailLayout) -> some View {
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Connections")
+                    .font(.largeTitle.bold())
+                Text("Find a public transport journey through IDOS.")
+                    .foregroundStyle(.secondary)
+            }
+
+            searchPanel(layout: layout)
+
+            if let errorMessage = model.errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+            }
+
+            results
+        }
+        .padding(.horizontal, layout.horizontalPadding)
+        .padding(.vertical, 24)
+    }
+
+    private func searchPanel(layout: DetailLayout) -> some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 14) {
-                endpointControls
-                searchControls
+                endpointControls(stacked: layout.usesStackedEndpoints)
+                searchControls(stacked: layout.usesStackedSearchControls)
 
                 DisclosureGroup("Journey options") {
-                    journeyOptions
-                    .padding(.top, 8)
+                    journeyOptions(stacked: layout.usesStackedOptions)
+                        .padding(.top, 8)
                 }
             }
             .padding(8)
@@ -55,19 +69,12 @@ struct ConnectionsView: View {
             Label("Find a connection", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                 .font(.headline)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var endpointControls: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .top, spacing: 10) {
-                fromField
-                    .frame(minWidth: 240)
-                swapButton
-                    .padding(.top, 24)
-                toField
-                    .frame(minWidth: 240)
-            }
-
+    @ViewBuilder
+    private func endpointControls(stacked: Bool) -> some View {
+        if stacked {
             VStack(alignment: .leading, spacing: 8) {
                 fromField
                 HStack {
@@ -76,6 +83,15 @@ struct ConnectionsView: View {
                     Spacer()
                 }
                 toField
+            }
+        } else {
+            HStack(alignment: .top, spacing: 10) {
+                fromField
+                    .frame(minWidth: 240)
+                swapButton
+                    .padding(.top, 24)
+                toField
+                    .frame(minWidth: 240)
             }
         }
     }
@@ -112,19 +128,9 @@ struct ConnectionsView: View {
         .help("Swap departure and arrival")
     }
 
-    private var searchControls: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .bottom, spacing: 12) {
-                timetablePicker
-                    .frame(width: 240)
-                datePicker
-                timePicker
-                timeModePicker
-                    .frame(width: 175)
-                Spacer(minLength: 0)
-                searchButton
-            }
-
+    @ViewBuilder
+    private func searchControls(stacked: Bool) -> some View {
+        if stacked {
             VStack(alignment: .leading, spacing: 12) {
                 timetablePicker
                 HStack(alignment: .bottom, spacing: 12) {
@@ -138,6 +144,17 @@ struct ConnectionsView: View {
                     Spacer()
                     searchButton
                 }
+            }
+        } else {
+            HStack(alignment: .bottom, spacing: 12) {
+                timetablePicker
+                    .frame(width: 240)
+                datePicker
+                timePicker
+                timeModePicker
+                    .frame(width: 175)
+                Spacer(minLength: 0)
+                searchButton
             }
         }
     }
@@ -189,17 +206,18 @@ struct ConnectionsView: View {
         .disabled(!model.canSearch)
     }
 
-    private var journeyOptions: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 18) {
+    @ViewBuilder
+    private func journeyOptions(stacked: Bool) -> some View {
+        if stacked {
+            VStack(alignment: .leading, spacing: 10) {
                 viaField
-                    .frame(minWidth: 240)
                 directToggle
                 transfersStepper
             }
-
-            VStack(alignment: .leading, spacing: 10) {
+        } else {
+            HStack(spacing: 18) {
                 viaField
+                    .frame(minWidth: 240)
                 directToggle
                 transfersStepper
             }

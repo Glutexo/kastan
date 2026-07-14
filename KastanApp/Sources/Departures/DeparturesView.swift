@@ -8,30 +8,19 @@ struct DeparturesView: View {
     @State private var selectedService: ServiceSelection?
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Departures and arrivals")
-                        .font(.largeTitle.bold())
-                    Text("Check a station board and open complete service routes.")
-                        .foregroundStyle(.secondary)
-                }
+        GeometryReader { geometry in
+            let layout = DetailLayout(availableWidth: geometry.size.width)
 
-                searchPanel
-
-                if let errorMessage = model.errorMessage {
-                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(12)
-                        .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-                }
-
-                results
+            ScrollView {
+                page(layout: layout)
+                    .frame(width: layout.containerWidth, alignment: .topLeading)
+                    .frame(width: geometry.size.width, alignment: .topLeading)
             }
-            .padding(24)
-            .frame(maxWidth: 1100, alignment: .leading)
-            .frame(maxWidth: .infinity)
+            .frame(
+                width: geometry.size.width,
+                height: geometry.size.height,
+                alignment: .topLeading
+            )
         }
         .navigationTitle("Departures")
         .sheet(item: $selectedService) { selection in
@@ -39,7 +28,32 @@ struct DeparturesView: View {
         }
     }
 
-    private var searchPanel: some View {
+    private func page(layout: DetailLayout) -> some View {
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Departures and arrivals")
+                    .font(.largeTitle.bold())
+                Text("Check a station board and open complete service routes.")
+                    .foregroundStyle(.secondary)
+            }
+
+            searchPanel(stacked: layout.usesStackedSearchControls)
+
+            if let errorMessage = model.errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+            }
+
+            results
+        }
+        .padding(.horizontal, layout.horizontalPadding)
+        .padding(.vertical, 24)
+    }
+
+    private func searchPanel(stacked: Bool) -> some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 14) {
                 PlaceAutocompleteField(
@@ -51,28 +65,19 @@ struct DeparturesView: View {
                     client: client
                 )
 
-                searchControls
+                searchControls(stacked: stacked)
             }
             .padding(8)
         } label: {
             Label("Station board", systemImage: "list.bullet.rectangle")
                 .font(.headline)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var searchControls: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .bottom, spacing: 12) {
-                timetablePicker
-                    .frame(width: 240)
-                datePicker
-                timePicker
-                boardTypePicker
-                    .frame(width: 175)
-                Spacer(minLength: 0)
-                searchButton
-            }
-
+    @ViewBuilder
+    private func searchControls(stacked: Bool) -> some View {
+        if stacked {
             VStack(alignment: .leading, spacing: 12) {
                 timetablePicker
                 HStack(alignment: .bottom, spacing: 12) {
@@ -86,6 +91,17 @@ struct DeparturesView: View {
                     Spacer()
                     searchButton
                 }
+            }
+        } else {
+            HStack(alignment: .bottom, spacing: 12) {
+                timetablePicker
+                    .frame(width: 240)
+                datePicker
+                timePicker
+                boardTypePicker
+                    .frame(width: 175)
+                Spacer(minLength: 0)
+                searchButton
             }
         }
     }

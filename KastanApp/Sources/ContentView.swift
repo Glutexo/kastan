@@ -27,6 +27,41 @@ enum AppSection: String, CaseIterable, Hashable, Identifiable {
     }
 }
 
+/// Converts the detail column's measured width into stable responsive layout decisions.
+struct DetailLayout {
+    private static let maximumContentWidth: CGFloat = 1100
+    private static let compactPaddingBreakpoint: CGFloat = 600
+    private static let stackedEndpointsBreakpoint: CGFloat = 560
+    private static let stackedOptionsBreakpoint: CGFloat = 620
+    private static let stackedSearchBreakpoint: CGFloat = 820
+
+    let availableWidth: CGFloat
+
+    var containerWidth: CGFloat {
+        min(max(availableWidth, 0), Self.maximumContentWidth)
+    }
+
+    var horizontalPadding: CGFloat {
+        availableWidth < Self.compactPaddingBreakpoint ? 16 : 24
+    }
+
+    var contentWidth: CGFloat {
+        max(containerWidth - (2 * horizontalPadding), 0)
+    }
+
+    var usesStackedEndpoints: Bool {
+        contentWidth < Self.stackedEndpointsBreakpoint
+    }
+
+    var usesStackedOptions: Bool {
+        contentWidth < Self.stackedOptionsBreakpoint
+    }
+
+    var usesStackedSearchControls: Bool {
+        contentWidth < Self.stackedSearchBreakpoint
+    }
+}
+
 /// Retains independent search state while the user switches between connections and station boards.
 struct ContentView: View {
     private let client: any IDOSClienting

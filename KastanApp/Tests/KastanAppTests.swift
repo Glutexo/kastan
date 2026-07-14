@@ -5,6 +5,33 @@ import XCTest
 
 @MainActor
 final class KastanAppTests: XCTestCase {
+    func testDetailLayoutStacksControlsAtCompactWidths() {
+        let layout = DetailLayout(availableWidth: 510)
+
+        XCTAssertEqual(layout.containerWidth, 510)
+        XCTAssertEqual(layout.horizontalPadding, 16)
+        XCTAssertTrue(layout.usesStackedEndpoints)
+        XCTAssertTrue(layout.usesStackedOptions)
+        XCTAssertTrue(layout.usesStackedSearchControls)
+    }
+
+    func testDetailLayoutUsesHorizontalControlsWhenEnoughSpaceIsAvailable() {
+        let layout = DetailLayout(availableWidth: 900)
+
+        XCTAssertEqual(layout.containerWidth, 900)
+        XCTAssertEqual(layout.horizontalPadding, 24)
+        XCTAssertFalse(layout.usesStackedEndpoints)
+        XCTAssertFalse(layout.usesStackedOptions)
+        XCTAssertFalse(layout.usesStackedSearchControls)
+    }
+
+    func testDetailLayoutCapsContentWithoutShiftingItsLeadingEdge() {
+        let layout = DetailLayout(availableWidth: 1400)
+
+        XCTAssertEqual(layout.containerWidth, 1100)
+        XCTAssertEqual(layout.contentWidth, 1052)
+    }
+
     func testConnectionSearchBuildsCompleteIDOSRequest() async {
         let client = MockIDOSClient()
         let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())
