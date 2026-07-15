@@ -20,6 +20,7 @@
 		A0000000000000000000021A /* CalendarImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000011A /* CalendarImporter.swift */; };
 		A0000000000000000000021B /* AppInformationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000011B /* AppInformationView.swift */; };
 		A00000000000000000000230 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000132 /* Localizable.strings */; };
+		A00000000000000000000231 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000133 /* Assets.xcassets */; };
 		A00000000000000000000241 /* Kastan in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000601 /* Kastan */; };
 		A00000000000000000000242 /* Kastan in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000602 /* Kastan */; };
 		A00000000000000000000250 /* KastanAppTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000150 /* KastanAppTests.swift */; };
@@ -52,6 +53,7 @@
 		A0000000000000000000011B /* AppInformationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppInformationView.swift; sourceTree = "<group>"; };
 		A00000000000000000000130 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A00000000000000000000131 /* cs */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = cs; path = cs.lproj/Localizable.strings; sourceTree = "<group>"; };
+		A00000000000000000000133 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A00000000000000000000150 /* KastanAppTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KastanAppTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -148,6 +150,7 @@
 		A00000000000000000000009 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				A00000000000000000000133 /* Assets.xcassets */,
 				A00000000000000000000132 /* Localizable.strings */,
 			);
 			path = Resources;
@@ -252,6 +255,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A00000000000000000000231 /* Assets.xcassets in Resources */,
 				A00000000000000000000230 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -355,6 +359,7 @@
 		A00000000000000000000511 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = YES;
@@ -377,6 +382,7 @@
 		A00000000000000000000512 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = YES;
