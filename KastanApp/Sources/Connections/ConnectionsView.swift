@@ -342,7 +342,7 @@ struct ConnectionsView: View {
                 AppTimetablePickerOptions()
             }
             .labelsHidden()
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .onChange(of: model.timetable.slug) { slug in
                 if let timetable = IDOSTimetable.known.first(where: { $0.slug == slug }) {
                     model.timetable = timetable
