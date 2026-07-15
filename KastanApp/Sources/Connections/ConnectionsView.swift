@@ -1,17 +1,29 @@
 import Kastan
 import SwiftUI
 
-/// Builds a compact route-aware title without exposing incomplete endpoint input.
+/// Keeps route and timetable context in the title after their controls scroll out of view.
 enum ConnectionNavigationTitle {
-    static func text(from: String, to: String, includesRoute: Bool) -> String {
-        let baseTitle = AppLocalization.string("Connections")
-        guard includesRoute else { return baseTitle }
+    static func text(
+        from: String,
+        to: String,
+        timetable: String,
+        includesRoute: Bool,
+        includesTimetable: Bool
+    ) -> String {
+        var title = AppLocalization.string("Connections")
 
         let departure = from.trimmingCharacters(in: .whitespacesAndNewlines)
         let arrival = to.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !departure.isEmpty, !arrival.isEmpty else { return baseTitle }
+        if includesRoute, !departure.isEmpty, !arrival.isEmpty {
+            title = AppLocalization.string("Connections: %@ → %@", departure, arrival)
+        }
 
-        return AppLocalization.string("Connections: %@ → %@", departure, arrival)
+        let timetable = timetable.trimmingCharacters(in: .whitespacesAndNewlines)
+        if includesTimetable, !timetable.isEmpty {
+            title += " (\(timetable))"
+        }
+
+        return title
     }
 }
 
@@ -23,6 +35,7 @@ struct ConnectionsView: View {
     let client: any IDOSClienting
     @State private var selectedService: ServiceSelection?
     @State private var includesRouteInTitle = false
+    @State private var includesTimetableInTitle = false
     @State private var isJourneyOptionsExpanded = false
 
     var body: some View {
@@ -44,7 +57,9 @@ struct ConnectionsView: View {
             ConnectionNavigationTitle.text(
                 from: model.from,
                 to: model.to,
-                includesRoute: includesRouteInTitle
+                timetable: model.timetable.navigationTitleDisplayName,
+                includesRoute: includesRouteInTitle,
+                includesTimetable: includesTimetableInTitle
             )
         )
         .sheet(item: $selectedService) { selection in
@@ -371,6 +386,23 @@ struct ConnectionsView: View {
                 }
             }
         }
+        .background {
+            GeometryReader { geometry in
+                let bottom = geometry.frame(in: .named(Self.scrollCoordinateSpace)).maxY
+
+                Color.clear
+                    .onAppear {
+                        updateNavigationTitle(timetablePickerBottom: bottom)
+                    }
+                    .onChange(of: bottom) { value in
+                        updateNavigationTitle(timetablePickerBottom: value)
+                    }
+            }
+        }
+    }
+
+    private func updateNavigationTitle(timetablePickerBottom: CGFloat) {
+        includesTimetableInTitle = timetablePickerBottom <= 0
     }
 
     @ViewBuilder

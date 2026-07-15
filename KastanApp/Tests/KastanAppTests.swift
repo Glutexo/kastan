@@ -43,22 +43,36 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(layout.contentWidth, 1352)
     }
 
-    func testConnectionNavigationTitleAddsCompleteRouteOnlyWhenEndpointsAreHidden() {
+    func testConnectionNavigationTitleAddsHiddenRouteAndTimetableContext() {
         XCTAssertEqual(
             ConnectionNavigationTitle.text(
                 from: " Frýdek-Místek ",
                 to: " Ostrava ",
-                includesRoute: true
+                timetable: "vlaky",
+                includesRoute: true,
+                includesTimetable: true
             ),
-            AppLocalization.string("Connections: %@ → %@", "Frýdek-Místek", "Ostrava")
+            AppLocalization.string("Connections: %@ → %@", "Frýdek-Místek", "Ostrava") + " (vlaky)"
         )
         XCTAssertEqual(
-            ConnectionNavigationTitle.text(from: "Praha", to: "Brno", includesRoute: false),
+            ConnectionNavigationTitle.text(
+                from: "Praha",
+                to: "Brno",
+                timetable: "vlaky",
+                includesRoute: false,
+                includesTimetable: false
+            ),
             AppLocalization.string("Connections")
         )
         XCTAssertEqual(
-            ConnectionNavigationTitle.text(from: "Praha", to: "", includesRoute: true),
-            AppLocalization.string("Connections")
+            ConnectionNavigationTitle.text(
+                from: "Praha",
+                to: "",
+                timetable: "ODIS",
+                includesRoute: true,
+                includesTimetable: true
+            ),
+            AppLocalization.string("Connections") + " (ODIS)"
         )
     }
 
@@ -79,6 +93,14 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(
             AppTimetableGroup.cityTransport.timetables.first { $0.slug == "karlovyvary" }?.appDisplayName,
             "Karlovy Vary"
+        )
+        XCTAssertEqual(
+            IDOSTimetable(slug: "vlaky", displayName: "Trains").navigationTitleDisplayName,
+            AppLocalization.string("Trains").lowercased(with: .current)
+        )
+        XCTAssertEqual(
+            IDOSTimetable(slug: "odis", displayName: "ODIS").navigationTitleDisplayName,
+            "ODIS"
         )
 
         let groupedSlugs = Set(AppTimetableGroup.allCases.flatMap { $0.timetables.map(\.slug) })
