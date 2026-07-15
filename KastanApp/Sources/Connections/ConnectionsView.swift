@@ -23,6 +23,7 @@ struct ConnectionsView: View {
     let client: any IDOSClienting
     @State private var selectedService: ServiceSelection?
     @State private var includesRouteInTitle = false
+    @State private var isJourneyOptionsExpanded = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -260,24 +261,25 @@ struct ConnectionsView: View {
     }
 
     private func journeyOptions(stacked: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Journey options")
-                .padding(.bottom, 8)
+        DisclosureGroup("Journey options", isExpanded: $isJourneyOptionsExpanded) {
+            VStack(alignment: .leading, spacing: 0) {
+                Divider()
 
-            Divider()
+                ForEach($model.viaPlaces) { $viaPlace in
+                    viaPlaceRow(name: $viaPlace.name, id: viaPlace.id)
+                        .padding(.vertical, 6)
 
-            ForEach($model.viaPlaces) { $viaPlace in
-                viaPlaceRow(name: $viaPlace.name, id: viaPlace.id)
-                    .padding(.vertical, 6)
+                    Divider()
+                }
+
+                journeyConstraintControls(stacked: stacked)
+                    .padding(.vertical, 8)
 
                 Divider()
             }
-
-            journeyConstraintControls(stacked: stacked)
-                .padding(.vertical, 8)
-
-            Divider()
+            .padding(.top, 8)
         }
+        .accessibilityLabel("Journey options")
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
