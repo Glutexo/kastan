@@ -19,6 +19,24 @@ enum ApplicationArtwork {
     }
 }
 
+/// Stable identifiers for secondary windows that should be reused instead of duplicated.
+enum AppWindow {
+    static let information = "app-information"
+}
+
+/// Routes the standard About command to Kaštan's product and data-source information window.
+struct AppInformationCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(replacing: .appInfo) {
+            Button("About Kaštan") {
+                openWindow(id: AppWindow.information)
+            }
+        }
+    }
+}
+
 /// Mirrors the active window's primary navigation in the standard View menu.
 struct AppSectionCommands: Commands {
     @FocusedValue(\.appSectionSelection) private var selection: Binding<AppSection>?
@@ -69,6 +87,16 @@ struct KastanApp: App {
         .commands {
             SidebarCommands()
             AppSectionCommands()
+            AppInformationCommands()
+        }
+
+        Window("About Kaštan", id: AppWindow.information) {
+            AppInformationView()
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
+        .commands {
+            AppInformationCommands()
         }
     }
 }

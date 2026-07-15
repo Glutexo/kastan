@@ -75,11 +75,11 @@ struct DetailLayout {
 
 /// Retains independent search state while the user switches between connections and station boards.
 struct ContentView: View {
+    @Environment(\.openWindow) private var openWindow
     private let client: any IDOSClienting
     @StateObject private var connectionsModel: ConnectionsViewModel
     @StateObject private var departuresModel: DeparturesViewModel
     @State private var selection = AppSection.connections
-    @State private var showsAppInformation = false
 
     init(client: any IDOSClienting) {
         self.client = client
@@ -96,7 +96,7 @@ struct ContentView: View {
             .navigationTitle("Kaštan")
             .safeAreaInset(edge: .bottom) {
                 Button {
-                    showsAppInformation = true
+                    openWindow(id: AppWindow.information)
                 } label: {
                     HStack(spacing: 8) {
                         ApplicationIcon(size: 28)
@@ -125,9 +125,6 @@ struct ContentView: View {
             case .departures:
                 DeparturesView(model: departuresModel, client: client)
             }
-        }
-        .sheet(isPresented: $showsAppInformation) {
-            AppInformationView()
         }
         .focusedSceneValue(\.appSectionSelection, $selection)
     }
