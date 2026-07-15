@@ -43,6 +43,25 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(layout.contentWidth, 1352)
     }
 
+    func testTimetableCatalogIsSplitIntoGeneralIntegratedAndCityGroups() {
+        XCTAssertEqual(
+            AppTimetableGroup.general.timetables.map(\.slug),
+            ["vlakyautobusymhdvse", "vlakyautobusymhd", "vlaky", "autobusy", "vlakyautobusy"]
+        )
+        XCTAssertEqual(
+            AppTimetableGroup.integratedSystems.timetables.map(\.slug),
+            ["pid", "idsjmk", "odis", "idol"]
+        )
+        XCTAssertTrue(
+            AppTimetableGroup.cityTransport.timetables.allSatisfy {
+                $0.displayName.hasPrefix("Urban Public Transport ")
+            }
+        )
+
+        let groupedSlugs = Set(AppTimetableGroup.allCases.flatMap { $0.timetables.map(\.slug) })
+        XCTAssertEqual(groupedSlugs, Set(IDOSTimetable.known.map(\.slug)))
+    }
+
     func testConnectionSearchBuildsCompleteIDOSRequest() async {
         let client = MockIDOSClient()
         let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())

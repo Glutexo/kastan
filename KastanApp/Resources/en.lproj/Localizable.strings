@@ -39,6 +39,7 @@
 "Kaštan on GitHub" = "Kaštan on GitHub";
 "Kaštan retrieves journey information from publicly accessible IDOS web pages. It is not an official IDOS or CHAPS application." = "Kaštan retrieves journey information from publicly accessible IDOS web pages. It is not an official IDOS or CHAPS application.";
 "Independent macOS client for occasional personal IDOS searches." = "Independent macOS client for occasional personal IDOS searches.";
+"Integrated transport systems" = "Integrated transport systems";
 "Loading service route…" = "Loading service route…";
 "Loading station board…" = "Loading station board…";
 "No application could open the calendar event." = "No application could open the calendar event.";
@@ -71,11 +72,13 @@
 "To" = "To";
 "Track %@" = "Track %@";
 "Trains" = "Trains";
+"Trains, buses, and all" = "Trains, buses, and all";
 "Trains + Buses" = "Trains + Buses";
 "Trains + Buses + Urban Public Transport" = "Trains + Buses + Urban Public Transport";
 "Prague + PID" = "Prague + PID";
 "Up to %lld transfers" = "Up to %lld transfers";
 "Urban Public Transport" = "Urban Public Transport";
+"Urban public transport by city" = "Urban public transport by city";
 "Version %@" = "Version %@";
 "Via" = "Via";
 "Zone %@" = "Zone %@";

@@ -71,6 +71,72 @@ enum AppErrorPresentation {
     }
 }
 
+/// Product-facing sections that keep the long IDOS timetable catalog scannable.
+enum AppTimetableGroup: CaseIterable, Identifiable {
+    case general
+    case integratedSystems
+    case cityTransport
+
+    private static let generalSlugs: Set<String> = [
+        "vlakyautobusymhdvse",
+        "vlakyautobusymhd",
+        "vlaky",
+        "autobusy",
+        "vlakyautobusy"
+    ]
+    private static let cityTransportPrefix = "Urban Public Transport "
+
+    var id: Self { self }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .general:
+            "Trains, buses, and all"
+        case .integratedSystems:
+            "Integrated transport systems"
+        case .cityTransport:
+            "Urban public transport by city"
+        }
+    }
+
+    var timetables: [IDOSTimetable] {
+        let matches = IDOSTimetable.known.filter(contains)
+        guard self == .cityTransport else { return matches }
+        return matches.sorted {
+            $0.appDisplayName.localizedStandardCompare($1.appDisplayName) == .orderedAscending
+        }
+    }
+
+    private func contains(_ timetable: IDOSTimetable) -> Bool {
+        let isGeneral = Self.generalSlugs.contains(timetable.slug)
+        let isCityTransport = timetable.displayName.hasPrefix(Self.cityTransportPrefix)
+
+        switch self {
+        case .general:
+            return isGeneral
+        case .integratedSystems:
+            return !isGeneral && !isCityTransport
+        case .cityTransport:
+            return isCityTransport
+        }
+    }
+}
+
+/// Supplies the same sectioned timetable menu to connection and station-board pickers.
+struct AppTimetablePickerOptions: View {
+    var body: some View {
+        ForEach(AppTimetableGroup.allCases) { group in
+            Section {
+                ForEach(group.timetables, id: \.slug) { timetable in
+                    Text(timetable.appDisplayName).tag(timetable.slug)
+                }
+            } header: {
+                Text(group.title)
+            }
+        }
+    }
+}
+
 extension IDOSTimetable {
     /// Localizes catalog labels while preserving city and integrated-system proper names.
     var appDisplayName: String {

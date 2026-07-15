@@ -290,9 +290,7 @@ struct ConnectionsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Picker("Timetable", selection: $model.timetable.slug) {
-                ForEach(IDOSTimetable.known, id: \.slug) { timetable in
-                    Text(timetable.appDisplayName).tag(timetable.slug)
-                }
+                AppTimetablePickerOptions()
             }
             .labelsHidden()
             .frame(maxWidth: .infinity)
