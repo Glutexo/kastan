@@ -417,7 +417,7 @@ struct ConnectionsView: View {
                 description: "Enter a route and start a search."
             )
         } else {
-            LazyVStack(alignment: .leading, spacing: 0) {
+            LazyVStack(alignment: .leading, spacing: 12) {
                 ForEach(Array(model.connections.enumerated()), id: \.element.id) { index, connection in
                     ConnectionCard(
                         number: index + 1,
@@ -426,16 +426,13 @@ struct ConnectionsView: View {
                         openService: { selectedService = $0 },
                         addToCalendar: { Task { await model.addToCalendar(connection) } }
                     )
-
-                    if index < model.connections.count - 1 {
-                        Divider()
-                    }
                 }
             }
         }
     }
 }
 
+/// Contains one complete journey and all of its legs in a distinct native result card.
 private struct ConnectionCard: View {
     let number: Int
     let connection: IDOSConnection
@@ -444,82 +441,85 @@ private struct ConnectionCard: View {
     let addToCalendar: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(AppLocalization.string("Connection %lld", number))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("\(connection.departureTime) → \(connection.arrivalTime)")
-                    .font(.title2.bold().monospacedDigit())
-                Text(connection.duration)
-                    .foregroundStyle(.secondary)
-                if connection.legs.count <= 1 {
-                    Text("Direct")
-                        .font(.caption.bold())
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(.green.opacity(0.14), in: Capsule())
-                }
-                Spacer()
-                Menu {
-                    Button {
-                        addToCalendar()
-                    } label: {
-                        Label("Add to Calendar", systemImage: "calendar.badge.plus")
-                    }
-                    if let value = connection.shareURL, let url = URL(string: value) {
-                        Link(destination: url) {
-                            Label("Open in IDOS", systemImage: "arrow.up.right.square")
-                        }
-                    }
-                } label: {
-                    if isImportingCalendar {
-                        ProgressView()
-                            .controlSize(.small)
-                    } else {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                }
-                .menuStyle(.borderlessButton)
-                .disabled(isImportingCalendar)
-            }
-
-            ViewThatFits(in: .horizontal) {
-                HStack {
-                    Text(connection.departureStation)
-                        .fixedSize(horizontal: true, vertical: false)
-                    Spacer()
-                    Image(systemName: "arrow.right")
+        GroupBox {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text(AppLocalization.string("Connection %lld", number))
+                        .font(.caption)
                         .foregroundStyle(.secondary)
+                    Text("\(connection.departureTime) → \(connection.arrivalTime)")
+                        .font(.title2.bold().monospacedDigit())
+                    Text(connection.duration)
+                        .foregroundStyle(.secondary)
+                    if connection.legs.count <= 1 {
+                        Text("Direct")
+                            .font(.caption.bold())
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(.green.opacity(0.14), in: Capsule())
+                    }
                     Spacer()
-                    Text(connection.arrivalStation)
-                        .fixedSize(horizontal: true, vertical: false)
+                    Menu {
+                        Button {
+                            addToCalendar()
+                        } label: {
+                            Label("Add to Calendar", systemImage: "calendar.badge.plus")
+                        }
+                        if let value = connection.shareURL, let url = URL(string: value) {
+                            Link(destination: url) {
+                                Label("Open in IDOS", systemImage: "arrow.up.right.square")
+                            }
+                        }
+                    } label: {
+                        if isImportingCalendar {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Image(systemName: "ellipsis.circle")
+                        }
+                    }
+                    .menuStyle(.borderlessButton)
+                    .disabled(isImportingCalendar)
                 }
 
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(connection.departureStation)
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.down")
+                ViewThatFits(in: .horizontal) {
+                    HStack {
+                        Text(connection.departureStation)
+                            .fixedSize(horizontal: true, vertical: false)
+                        Spacer()
+                        Image(systemName: "arrow.right")
                             .foregroundStyle(.secondary)
+                        Spacer()
                         Text(connection.arrivalStation)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(connection.departureStation)
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.down")
+                                .foregroundStyle(.secondary)
+                            Text(connection.arrivalStation)
+                        }
                     }
                 }
-            }
 
-            if !connection.legs.isEmpty {
-                Divider()
-                VStack(spacing: 0) {
-                    ForEach(Array(connection.legs.enumerated()), id: \.offset) { index, leg in
-                        ConnectionLegRow(leg: leg, openService: openService)
-                        if index < connection.legs.count - 1 {
-                            Divider()
-                                .padding(.leading, 30)
+                if !connection.legs.isEmpty {
+                    Divider()
+                    VStack(spacing: 0) {
+                        ForEach(Array(connection.legs.enumerated()), id: \.offset) { index, leg in
+                            ConnectionLegRow(leg: leg, openService: openService)
+                            if index < connection.legs.count - 1 {
+                                Divider()
+                                    .padding(.leading, 30)
+                            }
                         }
                     }
                 }
             }
+            .padding(4)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 14)
     }
 }
 

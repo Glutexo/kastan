@@ -319,10 +319,11 @@ The first app release supports:
 - station departures and arrivals with station-only suggestions;
 - timetable menus grouped into general rail and bus choices, integrated transport systems, and individual city networks listed by city name;
 - native search workspaces with flat macOS-style option rows that avoid repeated page headings, use the full detail width, and adapt to narrow windows;
+- connection results contained in separate native cards so every journey's route, legs, and metadata remain visually grouped;
 - line colors, transport symbols, platforms, tariff zones, carriers, and localized known delay states supplied by IDOS;
 - complete service routes opened from connection legs and station-board rows, with the search-relevant segment highlighted without implying live vehicle position;
 - IDOS calendar export opened in the user's macOS calendar application;
-- an in-app information panel covering the data source and limitations, with links to IDOS, its terms, and the Kaštan repository;
+- a standalone app-information window covering the data source and limitations, with links to IDOS, its terms, and the Kaštan repository;
 - English and Czech user-interface localization.
 
 Open the shared Xcode project and run the `KastanApp` scheme:
