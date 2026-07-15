@@ -43,6 +43,25 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(layout.contentWidth, 1352)
     }
 
+    func testConnectionNavigationTitleAddsCompleteRouteOnlyWhenEndpointsAreHidden() {
+        XCTAssertEqual(
+            ConnectionNavigationTitle.text(
+                from: " Frýdek-Místek ",
+                to: " Ostrava ",
+                includesRoute: true
+            ),
+            AppLocalization.string("Connections: %@ → %@", "Frýdek-Místek", "Ostrava")
+        )
+        XCTAssertEqual(
+            ConnectionNavigationTitle.text(from: "Praha", to: "Brno", includesRoute: false),
+            AppLocalization.string("Connections")
+        )
+        XCTAssertEqual(
+            ConnectionNavigationTitle.text(from: "Praha", to: "", includesRoute: true),
+            AppLocalization.string("Connections")
+        )
+    }
+
     func testTimetableCatalogIsSplitIntoGeneralIntegratedAndCityGroups() {
         XCTAssertEqual(
             AppTimetableGroup.general.timetables.map(\.slug),

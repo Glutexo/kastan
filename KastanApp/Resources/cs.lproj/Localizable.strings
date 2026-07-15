@@ -15,6 +15,7 @@
 "Currently no delay" = "Aktuálně bez zpoždění";
 "Connection %lld" = "Spojení %lld";
 "Connections" = "Spojení";
+"Connections: %@ → %@" = "Spojení: %@ → %@";
 "Date" = "Datum";
 "Departure" = "Odjezd";
 "Departure place" = "Výchozí místo";

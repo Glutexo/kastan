@@ -1,11 +1,28 @@
 import Kastan
 import SwiftUI
 
+/// Builds a compact route-aware title without exposing incomplete endpoint input.
+enum ConnectionNavigationTitle {
+    static func text(from: String, to: String, includesRoute: Bool) -> String {
+        let baseTitle = AppLocalization.string("Connections")
+        guard includesRoute else { return baseTitle }
+
+        let departure = from.trimmingCharacters(in: .whitespacesAndNewlines)
+        let arrival = to.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !departure.isEmpty, !arrival.isEmpty else { return baseTitle }
+
+        return AppLocalization.string("Connections: %@ → %@", departure, arrival)
+    }
+}
+
 /// Combines a compact macOS search workspace with expandable journey results.
 struct ConnectionsView: View {
+    private static let scrollCoordinateSpace = "connections-scroll"
+
     @ObservedObject var model: ConnectionsViewModel
     let client: any IDOSClienting
     @State private var selectedService: ServiceSelection?
+    @State private var includesRouteInTitle = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -15,13 +32,20 @@ struct ConnectionsView: View {
                 page(layout: layout)
                     .frame(width: geometry.size.width, alignment: .topLeading)
             }
+            .coordinateSpace(name: Self.scrollCoordinateSpace)
             .frame(
                 width: geometry.size.width,
                 height: geometry.size.height,
                 alignment: .topLeading
             )
         }
-        .navigationTitle("Connections")
+        .navigationTitle(
+            ConnectionNavigationTitle.text(
+                from: model.from,
+                to: model.to,
+                includesRoute: includesRouteInTitle
+            )
+        )
         .sheet(item: $selectedService) { selection in
             ServiceDetailSheet(selection: selection, client: client)
         }
@@ -59,6 +83,19 @@ struct ConnectionsView: View {
     private func searchPanel(layout: DetailLayout) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             endpointControls(stacked: layout.usesStackedEndpoints)
+                .background {
+                    GeometryReader { geometry in
+                        let bottom = geometry.frame(in: .named(Self.scrollCoordinateSpace)).maxY
+
+                        Color.clear
+                            .onAppear {
+                                updateNavigationTitle(endpointControlsBottom: bottom)
+                            }
+                            .onChange(of: bottom) { value in
+                                updateNavigationTitle(endpointControlsBottom: value)
+                            }
+                    }
+                }
 
             Divider()
 
@@ -67,6 +104,10 @@ struct ConnectionsView: View {
             journeyOptions(stacked: layout.usesStackedOptions)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func updateNavigationTitle(endpointControlsBottom: CGFloat) {
+        includesRouteInTitle = endpointControlsBottom <= 0
     }
 
     @ViewBuilder
