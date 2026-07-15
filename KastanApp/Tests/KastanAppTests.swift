@@ -33,7 +33,6 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(layout.containerWidth, 510)
         XCTAssertEqual(layout.horizontalPadding, 16)
         XCTAssertTrue(layout.usesStackedEndpoints)
-        XCTAssertTrue(layout.usesStackedOptions)
         XCTAssertTrue(layout.usesStackedSearchControls)
     }
 
@@ -43,7 +42,6 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(layout.containerWidth, 900)
         XCTAssertEqual(layout.horizontalPadding, 24)
         XCTAssertFalse(layout.usesStackedEndpoints)
-        XCTAssertFalse(layout.usesStackedOptions)
         XCTAssertFalse(layout.usesStackedSearchControls)
     }
 
@@ -220,6 +218,22 @@ final class KastanAppTests: XCTestCase {
 
         model.removeViaPlace(id: secondID)
         XCTAssertEqual(model.viaPlaces.map(\.name), [""])
+    }
+
+    func testZeroTransferLimitRequestsAndLabelsDirectConnections() async {
+        let client = MockIDOSClient()
+        let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())
+        model.from = "Praha"
+        model.to = "Brno"
+        model.maximumTransfers = 0
+
+        XCTAssertEqual(model.transferLimitLabel, AppLocalization.string("Direct only"))
+
+        await model.search()
+
+        let request = await client.lastConnectionRequest
+        XCTAssertEqual(request?.onlyDirect, true)
+        XCTAssertEqual(request?.maxTransfers, 0)
     }
 
     func testConnectionSearchRejectsMissingEndpointWithoutCallingIDOS() async {

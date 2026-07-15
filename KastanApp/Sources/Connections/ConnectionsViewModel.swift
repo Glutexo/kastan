@@ -22,7 +22,6 @@ final class ConnectionsViewModel: ObservableObject {
     @Published var date = Date()
     @Published var time = Date()
     @Published var isArrival = false
-    @Published var onlyDirect = false
     @Published var maximumTransfers = 4
     @Published private(set) var connections: [IDOSConnection] = []
     @Published private(set) var isSearching = false
@@ -44,6 +43,14 @@ final class ConnectionsViewModel: ObservableObject {
         !from.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
             !to.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
             !isSearching
+    }
+
+    /// Presents zero transfers as the equivalent, clearer direct-only journey constraint.
+    var transferLimitLabel: String {
+        if maximumTransfers == 0 {
+            return AppLocalization.string("Direct only")
+        }
+        return AppLocalization.string("Up to %lld transfers", maximumTransfers)
     }
 
     func swapEndpoints() {
@@ -88,9 +95,9 @@ final class ConnectionsViewModel: ObservableObject {
             date: IDOSRequestFormatting.date(from: date),
             time: IDOSRequestFormatting.time(from: time),
             isArrival: isArrival,
-            onlyDirect: onlyDirect,
+            onlyDirect: maximumTransfers == 0,
             via: requestedViaPlaces,
-            maxTransfers: onlyDirect ? 0 : maximumTransfers,
+            maxTransfers: maximumTransfers,
             resultLimit: 10
         )
 

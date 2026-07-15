@@ -117,7 +117,7 @@ struct ConnectionsView: View {
 
             searchControls(stacked: layout.usesStackedSearchControls)
 
-            journeyOptions(stacked: layout.usesStackedOptions)
+            journeyOptions
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -279,7 +279,7 @@ struct ConnectionsView: View {
         .disabled(!model.canSearch)
     }
 
-    private func journeyOptions(stacked: Bool) -> some View {
+    private var journeyOptions: some View {
         DisclosureGroup(isExpanded: $isJourneyOptionsExpanded) {
             VStack(alignment: .leading, spacing: 0) {
                 Divider()
@@ -291,7 +291,7 @@ struct ConnectionsView: View {
                     Divider()
                 }
 
-                journeyConstraintControls(stacked: stacked)
+                transfersStepper
                     .padding(.vertical, 8)
 
                 Divider()
@@ -341,33 +341,12 @@ struct ConnectionsView: View {
         }
     }
 
-    @ViewBuilder
-    private func journeyConstraintControls(stacked: Bool) -> some View {
-        if stacked {
-            VStack(alignment: .leading, spacing: 10) {
-                directToggle
-                transfersStepper
-            }
-        } else {
-            HStack(spacing: 18) {
-                directToggle
-                transfersStepper
-                Spacer(minLength: 0)
-            }
-        }
-    }
-
-    private var directToggle: some View {
-        Toggle("Direct only", isOn: $model.onlyDirect)
-    }
-
     private var transfersStepper: some View {
         Stepper(
-            AppLocalization.string("Up to %lld transfers", model.maximumTransfers),
+            model.transferLimitLabel,
             value: $model.maximumTransfers,
             in: 0...10
         )
-        .disabled(model.onlyDirect)
     }
 
     private var timetablePicker: some View {

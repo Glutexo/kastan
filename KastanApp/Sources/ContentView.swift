@@ -43,7 +43,6 @@ extension FocusedValues {
 struct DetailLayout {
     private static let compactPaddingBreakpoint: CGFloat = 600
     private static let stackedEndpointsBreakpoint: CGFloat = 560
-    private static let stackedOptionsBreakpoint: CGFloat = 620
     private static let stackedSearchBreakpoint: CGFloat = 820
 
     let availableWidth: CGFloat
@@ -62,10 +61,6 @@ struct DetailLayout {
 
     var usesStackedEndpoints: Bool {
         contentWidth < Self.stackedEndpointsBreakpoint
-    }
-
-    var usesStackedOptions: Bool {
-        contentWidth < Self.stackedOptionsBreakpoint
     }
 
     var usesStackedSearchControls: Bool {
