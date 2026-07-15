@@ -322,7 +322,7 @@ The first app release supports:
 - native File menu actions for opening a new tab and closing either the selected tab or its complete window;
 - connection results contained in separate native cards so every journey's route, legs, and metadata remain visually grouped;
 - line colors, transport symbols, platforms, tariff zones, carriers, and localized known delay states supplied by IDOS;
-- complete service routes opened from connection legs and station-board rows, with the search-relevant segment highlighted without implying live vehicle position;
+- complete service routes opened in independent, resizable windows from connection legs and station-board rows, with the search-relevant segment highlighted without implying live vehicle position;
 - IDOS calendar export opened in the user's macOS calendar application;
 - a standalone app-information window covering the data source and limitations, with links to IDOS, its terms, and the Kaštan repository;
 - English and Czech user-interface localization.

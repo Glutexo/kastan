@@ -3,9 +3,9 @@ import SwiftUI
 
 /// Presents a compact macOS station-board search workspace and its returned services.
 struct DeparturesView: View {
+    @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: DeparturesViewModel
     let client: any IDOSClienting
-    @State private var selectedService: ServiceSelection?
 
     var body: some View {
         GeometryReader { geometry in
@@ -22,9 +22,6 @@ struct DeparturesView: View {
             )
         }
         .navigationTitle("Departures")
-        .sheet(item: $selectedService) { selection in
-            ServiceDetailSheet(selection: selection, client: client)
-        }
     }
 
     private func page(layout: DetailLayout) -> some View {
@@ -202,11 +199,14 @@ struct DeparturesView: View {
                 ForEach(Array(model.departures.enumerated()), id: \.element.id) { index, departure in
                     DepartureRow(departure: departure) {
                         let station = departure.stationName ?? model.station
-                        selectedService = ServiceSelection(
-                            id: departure.id,
-                            highlight: model.isArrival
-                                ? ServiceRouteHighlight(toStop: station)
-                                : ServiceRouteHighlight(fromStop: station)
+                        openWindow(
+                            id: AppWindow.serviceDetail,
+                            value: ServiceSelection(
+                                id: departure.id,
+                                highlight: model.isArrival
+                                    ? ServiceRouteHighlight(toStop: station)
+                                    : ServiceRouteHighlight(fromStop: station)
+                            )
                         )
                     }
 

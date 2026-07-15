@@ -176,6 +176,17 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testServiceSelectionRoundTripsThroughWindowState() throws {
+        let selection = ServiceSelection(
+            id: "service-301",
+            highlight: ServiceRouteHighlight(fromStop: "Frýdlant n. O.", toStop: "Ostravice")
+        )
+
+        let data = try JSONEncoder().encode(selection)
+
+        XCTAssertEqual(try JSONDecoder().decode(ServiceSelection.self, from: data), selection)
+    }
+
     func testConnectionSearchBuildsCompleteIDOSRequest() async {
         let client = MockIDOSClient()
         let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())

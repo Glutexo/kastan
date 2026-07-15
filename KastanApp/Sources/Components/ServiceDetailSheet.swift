@@ -33,7 +33,7 @@ final class ServiceDetailViewModel: ObservableObject {
 }
 
 /// Describes the part of a complete service route relevant to the originating search.
-struct ServiceRouteHighlight: Equatable {
+struct ServiceRouteHighlight: Codable, Hashable {
     let fromStop: String?
     let toStop: String?
 
@@ -87,7 +87,7 @@ struct ServiceRouteHighlight: Equatable {
 }
 
 /// Identifies a selected service and preserves the route context that supplied it.
-struct ServiceSelection: Identifiable {
+struct ServiceSelection: Codable, Hashable, Identifiable {
     let id: String
     let highlight: ServiceRouteHighlight?
 
@@ -97,9 +97,8 @@ struct ServiceSelection: Identifiable {
     }
 }
 
-/// Shows every stop and piece of service information supplied by IDOS.
-struct ServiceDetailSheet: View {
-    @Environment(\.dismiss) private var dismiss
+/// Shows every stop and piece of service information supplied by IDOS in its own window.
+struct ServiceDetailView: View {
     @StateObject private var model: ServiceDetailViewModel
     private let routeHighlight: ServiceRouteHighlight?
 
@@ -109,64 +108,42 @@ struct ServiceDetailSheet: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                sheetTitle
-                    .font(.title2.bold())
-                    .lineLimit(1)
-                Spacer()
-                Button("Done") {
-                    dismiss()
-                }
-                .keyboardShortcut(.cancelAction)
-            }
-            .padding()
-
-            Divider()
-
-            Group {
-                if model.isLoading {
-                    ProgressView("Loading service route…")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if let errorMessage = model.errorMessage {
-                    VStack(spacing: 10) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.system(size: 34))
-                            .foregroundStyle(.secondary)
-                        Text("Service route unavailable")
-                            .font(.title3.bold())
-                        Text(errorMessage)
-                            .foregroundStyle(.secondary)
-                    }
-                    .multilineTextAlignment(.center)
+        Group {
+            if model.isLoading {
+                ProgressView("Loading service route…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if let service = model.service {
-                    serviceContent(service)
-                } else {
-                    Color.clear
+            } else if let errorMessage = model.errorMessage {
+                VStack(spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle")
+                        .font(.system(size: 34))
+                        .foregroundStyle(.secondary)
+                    Text("Service route unavailable")
+                        .font(.title3.bold())
+                    Text(errorMessage)
+                        .foregroundStyle(.secondary)
                 }
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let service = model.service {
+                serviceContent(service)
+            } else {
+                Color.clear
             }
         }
         .frame(minWidth: 680, minHeight: 520)
+        .navigationTitle(windowTitle)
         .task {
             await model.load()
         }
     }
 
-    @ViewBuilder
-    private var sheetTitle: some View {
+    private var windowTitle: String {
         if let service = model.service {
-            HStack(spacing: 8) {
-                if let color = Color(idosHTMLColor: service.color) {
-                    Circle()
-                        .fill(color)
-                        .frame(width: 10, height: 10)
-                }
-                Text([service.transportMode?.emoji, service.name].compactMap { $0 }.joined(separator: " "))
-            }
-        } else {
-            Text("Service route")
+            return [service.transportMode?.emoji, service.name]
+                .compactMap { $0 }
+                .joined(separator: " ")
         }
+        return AppLocalization.string("Service route")
     }
 
     private func serviceContent(_ service: IDOSServiceDetail) -> some View {

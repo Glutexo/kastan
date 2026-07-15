@@ -19,9 +19,10 @@ enum ApplicationArtwork {
     }
 }
 
-/// Stable identifiers for secondary windows that should be reused instead of duplicated.
+/// Stable identifiers for the app's secondary window scenes.
 enum AppWindow {
     static let information = "app-information"
+    static let serviceDetail = "service-detail"
 }
 
 /// Performs native tab and window operations for the active macOS window.
@@ -246,6 +247,16 @@ struct KastanApp: App {
         }
         .windowResizability(.contentSize)
         .defaultPosition(.center)
+        .commands {
+            AppInformationCommands()
+        }
+
+        WindowGroup("Service route", id: AppWindow.serviceDetail, for: ServiceSelection.self) { selection in
+            if let selection = selection.wrappedValue {
+                ServiceDetailView(selection: selection, client: client)
+            }
+        }
+        .defaultSize(width: 760, height: 640)
         .commands {
             AppInformationCommands()
         }

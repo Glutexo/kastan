@@ -31,9 +31,9 @@ enum ConnectionNavigationTitle {
 struct ConnectionsView: View {
     private static let scrollCoordinateSpace = "connections-scroll"
 
+    @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: ConnectionsViewModel
     let client: any IDOSClienting
-    @State private var selectedService: ServiceSelection?
     @State private var includesRouteInTitle = false
     @State private var includesTimetableInTitle = false
     @State private var isJourneyOptionsExpanded = false
@@ -62,9 +62,6 @@ struct ConnectionsView: View {
                 includesTimetable: includesTimetableInTitle
             )
         )
-        .sheet(item: $selectedService) { selection in
-            ServiceDetailSheet(selection: selection, client: client)
-        }
     }
 
     private func page(layout: DetailLayout) -> some View {
@@ -402,7 +399,7 @@ struct ConnectionsView: View {
                         number: index + 1,
                         connection: connection,
                         isImportingCalendar: model.importingConnectionID == connection.id,
-                        openService: { selectedService = $0 },
+                        openService: { openWindow(id: AppWindow.serviceDetail, value: $0) },
                         addToCalendar: { Task { await model.addToCalendar(connection) } }
                     )
                 }
