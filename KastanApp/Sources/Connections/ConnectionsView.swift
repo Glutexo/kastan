@@ -265,7 +265,7 @@ struct ConnectionsView: View {
     }
 
     private func journeyOptions(stacked: Bool) -> some View {
-        DisclosureGroup("Journey options", isExpanded: $isJourneyOptionsExpanded) {
+        DisclosureGroup(isExpanded: $isJourneyOptionsExpanded) {
             VStack(alignment: .leading, spacing: 0) {
                 Divider()
 
@@ -282,6 +282,15 @@ struct ConnectionsView: View {
                 Divider()
             }
             .padding(.top, 8)
+        } label: {
+            Text("Journey options")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation {
+                        isJourneyOptionsExpanded.toggle()
+                    }
+                }
         }
         .accessibilityLabel("Journey options")
         .frame(maxWidth: .infinity, alignment: .leading)
