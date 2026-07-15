@@ -57,6 +57,10 @@ final class KastanAppTests: XCTestCase {
                 $0.displayName.hasPrefix("Urban Public Transport ")
             }
         )
+        XCTAssertEqual(
+            AppTimetableGroup.cityTransport.timetables.first { $0.slug == "karlovyvary" }?.appDisplayName,
+            "Karlovy Vary"
+        )
 
         let groupedSlugs = Set(AppTimetableGroup.allCases.flatMap { $0.timetables.map(\.slug) })
         XCTAssertEqual(groupedSlugs, Set(IDOSTimetable.known.map(\.slug)))

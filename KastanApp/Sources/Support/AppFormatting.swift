@@ -156,7 +156,7 @@ extension IDOSTimetable {
         default:
             let prefix = "Urban Public Transport "
             if displayName.hasPrefix(prefix) {
-                return "\(AppLocalization.string("Urban Public Transport")) \(displayName.dropFirst(prefix.count))"
+                return String(displayName.dropFirst(prefix.count))
             }
             return displayName
         }
