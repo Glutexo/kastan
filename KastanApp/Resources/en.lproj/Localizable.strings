@@ -7,6 +7,7 @@
 "Arrivals" = "Arrivals";
 "Board type" = "Board type";
 "Buses" = "Buses";
+"buses" = "buses";
 "Check a station board and open complete service routes." = "Check a station board and open complete service routes.";
 "Choose a station and start a search." = "Choose a station and start a search.";
 "Could not build the IDOS URL." = "Could not build the IDOS URL.";
@@ -19,6 +20,7 @@
 "Departures and arrivals" = "Departures and arrivals";
 "Direct" = "Direct";
 "Direct only" = "Direct only";
+"district %@" = "district %@";
 "Data source and limitations" = "Data source and limitations";
 "Done" = "Done";
 "Enter a route and start a search." = "Enter a route and start a search.";
@@ -42,6 +44,7 @@
 "Integrated transport systems" = "Integrated transport systems";
 "Loading service route…" = "Loading service route…";
 "Loading station board…" = "Loading station board…";
+"municipality" = "municipality";
 "No application could open the calendar event." = "No application could open the calendar event.";
 "No connections yet" = "No connections yet";
 "No station board yet" = "No station board yet";
@@ -52,6 +55,7 @@
 "Opens in the default web browser" = "Opens in the default web browser";
 "Platform %@" = "Platform %@";
 "Powered by public IDOS web data" = "Powered by public IDOS web data";
+"public transport" = "public transport";
 "Results" = "Results";
 "Remove via place" = "Remove via place";
 "Search" = "Search";
@@ -63,6 +67,8 @@
 "Station" = "Station";
 "Station board" = "Station board";
 "Station or stop" = "Station or stop";
+"station" = "station";
+"stop" = "stop";
 "Stops" = "Stops";
 "Swap departure and arrival" = "Swap departure and arrival";
 "The calendar data could not be saved." = "The calendar data could not be saved.";
@@ -72,6 +78,7 @@
 "To" = "To";
 "Track %@" = "Track %@";
 "Trains" = "Trains";
+"trains" = "trains";
 "Trains, buses, and all" = "Trains, buses, and all";
 "Trains + Buses" = "Trains + Buses";
 "Trains + Buses + Urban Public Transport" = "Trains + Buses + Urban Public Transport";

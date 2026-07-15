@@ -81,16 +81,30 @@ struct DeparturesView: View {
             VStack(alignment: .leading, spacing: 12) {
                 timetablePicker
                     .frame(maxWidth: 360)
-                HStack(alignment: .bottom, spacing: 12) {
-                    datePicker
-                    timePicker
-                    Spacer(minLength: 0)
-                }
-                HStack(spacing: 12) {
-                    boardTypePicker
-                        .frame(width: 220)
-                    Spacer(minLength: 0)
-                    searchButton
+
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .bottom, spacing: 12) {
+                        datePicker
+                        timePicker
+                        boardTypePicker
+                            .frame(width: 220)
+                        Spacer(minLength: 8)
+                        searchButton
+                    }
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .bottom, spacing: 12) {
+                            datePicker
+                            timePicker
+                            Spacer(minLength: 0)
+                        }
+                        HStack(spacing: 12) {
+                            boardTypePicker
+                                .frame(width: 220)
+                            Spacer(minLength: 0)
+                            searchButton
+                        }
+                    }
                 }
             }
         } else {

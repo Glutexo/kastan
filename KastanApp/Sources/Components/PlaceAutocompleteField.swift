@@ -86,6 +86,83 @@ final class PlaceSuggestionsModel: ObservableObject {
     }
 }
 
+/// Converts raw IDOS suggestion metadata into a localized, deduplicated app row.
+struct PlaceSuggestionPresentation: Equatable {
+    let emoji: String
+    let detail: String?
+
+    init(suggestion: IDOSSuggestion) {
+        let rawDescription = suggestion.description ?? ""
+        emoji = Self.emoji(for: rawDescription)
+
+        var components = rawDescription
+            .split(separator: ",")
+            .map { Self.localizedComponent(String($0)) }
+            .filter { !$0.isEmpty }
+
+        if let region = suggestion.region?.trimmingCharacters(in: .whitespacesAndNewlines), !region.isEmpty {
+            components.append(Self.localizedComponent(region))
+        }
+
+        var uniqueComponents: [String] = []
+        for component in components where !uniqueComponents.contains(where: {
+            $0.compare(component, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+        }) {
+            uniqueComponents.append(component)
+        }
+
+        detail = uniqueComponents.isEmpty ? nil : uniqueComponents.joined(separator: " · ")
+    }
+
+    private static func emoji(for description: String) -> String {
+        let value = description.lowercased()
+        if value.contains("trains") || value.contains("railway") {
+            return "🚆"
+        }
+        if value.contains("buses") || value.contains("bus") {
+            return "🚌"
+        }
+        if value.contains("urban public transport") || value.contains(", pt") {
+            return "🚋"
+        }
+        if value.contains("stop") {
+            return "🚏"
+        }
+        return "📍"
+    }
+
+    private static func localizedComponent(_ component: String) -> String {
+        let trimmed = component.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = trimmed.lowercased()
+
+        switch value {
+        case "station":
+            return AppLocalization.string("station")
+        case "stop":
+            return AppLocalization.string("stop")
+        case "trains":
+            return AppLocalization.string("trains")
+        case "buses":
+            return AppLocalization.string("buses")
+        case "municipality", "city":
+            return AppLocalization.string("municipality")
+        case "pt", "urban public transport":
+            return AppLocalization.string("public transport")
+        default:
+            if value.hasPrefix("district ") {
+                return AppLocalization.string("district %@", String(trimmed.dropFirst("district ".count)))
+            }
+            if value.hasPrefix("stop (") {
+                return "\(AppLocalization.string("stop"))\(trimmed.dropFirst("stop".count))"
+            }
+            if value.hasPrefix("station (") {
+                return "\(AppLocalization.string("station"))\(trimmed.dropFirst("station".count))"
+            }
+            return trimmed
+        }
+    }
+}
+
 /// Presents a native text field with IDOS suggestions directly below the current input.
 struct PlaceAutocompleteField: View {
     let title: LocalizedStringKey
@@ -140,19 +217,30 @@ struct PlaceAutocompleteField: View {
             if isFocused, !model.suggestions.isEmpty {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(model.suggestions.enumerated()), id: \.offset) { _, suggestion in
+                        let presentation = PlaceSuggestionPresentation(suggestion: suggestion)
+
                         Button {
                             text = suggestion.text
                             model.selectedSuggestion()
                             isFocused = false
                         } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(suggestion.text)
-                                    .foregroundStyle(.primary)
-                                if let detail = ResultMetadata.joined(suggestion.description, suggestion.region) {
-                                    Text(detail)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                            HStack(spacing: 10) {
+                                Text(presentation.emoji)
+                                    .font(.title3)
+                                    .frame(width: 24)
+                                    .accessibilityHidden(true)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(suggestion.text)
+                                        .foregroundStyle(.primary)
+                                    if let detail = presentation.detail {
+                                        Text(detail)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
                                 }
+
+                                Spacer(minLength: 0)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 8)

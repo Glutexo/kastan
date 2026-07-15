@@ -131,16 +131,30 @@ struct ConnectionsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 timetablePicker
                     .frame(maxWidth: 360)
-                HStack(alignment: .bottom, spacing: 12) {
-                    datePicker
-                    timePicker
-                    Spacer(minLength: 0)
-                }
-                HStack(spacing: 12) {
-                    timeModePicker
-                        .frame(width: 220)
-                    Spacer(minLength: 0)
-                    searchButton
+
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .bottom, spacing: 12) {
+                        datePicker
+                        timePicker
+                        timeModePicker
+                            .frame(width: 220)
+                        Spacer(minLength: 8)
+                        searchButton
+                    }
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .bottom, spacing: 12) {
+                            datePicker
+                            timePicker
+                            Spacer(minLength: 0)
+                        }
+                        HStack(spacing: 12) {
+                            timeModePicker
+                                .frame(width: 220)
+                            Spacer(minLength: 0)
+                            searchButton
+                        }
+                    }
                 }
             }
         } else {
@@ -239,6 +253,7 @@ struct ConnectionsView: View {
             } label: {
                 Label("Remove via place", systemImage: "minus")
                     .labelStyle(.iconOnly)
+                    .frame(width: 20, height: 14)
             }
             .buttonStyle(.bordered)
             .help("Remove via place")
@@ -248,6 +263,7 @@ struct ConnectionsView: View {
             } label: {
                 Label("Add via place", systemImage: "plus")
                     .labelStyle(.iconOnly)
+                    .frame(width: 20, height: 14)
             }
             .buttonStyle(.bordered)
             .help("Add via place")

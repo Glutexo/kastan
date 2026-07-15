@@ -62,6 +62,32 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(groupedSlugs, Set(IDOSTimetable.known.map(\.slug)))
     }
 
+    func testSuggestionPresentationLocalizesMetadataAndRemovesRepeatedRegion() {
+        let station = PlaceSuggestionPresentation(
+            suggestion: IDOSSuggestion(
+                text: "Frýdek-Místek",
+                description: "station, district Frýdek-Místek, trains",
+                region: "district Frýdek-Místek"
+            )
+        )
+        let busStop = PlaceSuggestionPresentation(
+            suggestion: IDOSSuggestion(
+                text: "Frýdek-Místek,Frýdek,magistrát",
+                description: "stop, district Frýdek-Místek, buses, PT",
+                region: "district Frýdek-Místek"
+            )
+        )
+
+        XCTAssertEqual(station.emoji, "🚆")
+        XCTAssertEqual(station.detail?.components(separatedBy: " · ").count, 3)
+        XCTAssertEqual(
+            station.detail?.components(separatedBy: " · ").filter { $0.contains("Frýdek-Místek") }.count,
+            1
+        )
+        XCTAssertEqual(busStop.emoji, "🚌")
+        XCTAssertEqual(busStop.detail?.components(separatedBy: " · ").count, 4)
+    }
+
     func testConnectionSearchBuildsCompleteIDOSRequest() async {
         let client = MockIDOSClient()
         let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())
