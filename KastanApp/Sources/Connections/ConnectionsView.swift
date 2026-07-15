@@ -206,39 +206,69 @@ struct ConnectionsView: View {
     }
 
     private func journeyOptions(stacked: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             Text("Journey options")
+                .padding(.bottom, 8)
 
             Divider()
 
-            Group {
-                if stacked {
-                    VStack(alignment: .leading, spacing: 10) {
-                        viaField
-                            .frame(maxWidth: 520)
-                        directToggle
-                        transfersStepper
-                    }
-                } else {
-                    HStack(spacing: 18) {
-                        viaField
-                            .frame(minWidth: 240, maxWidth: 520)
-                        directToggle
-                        transfersStepper
-                        Spacer(minLength: 0)
-                    }
-                }
+            ForEach($model.viaPlaces) { $viaPlace in
+                viaPlaceRow(name: $viaPlace.name, id: viaPlace.id)
+                    .padding(.vertical, 6)
+
+                Divider()
             }
-            .padding(.vertical, 2)
+
+            journeyConstraintControls(stacked: stacked)
+                .padding(.vertical, 8)
 
             Divider()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var viaField: some View {
-        TextField("Via places, separated by commas", text: $model.via)
-            .textFieldStyle(.roundedBorder)
+    private func viaPlaceRow(name: Binding<String>, id: ViaPlaceEntry.ID) -> some View {
+        HStack(spacing: 8) {
+            TextField("Via", text: name)
+                .textFieldStyle(.roundedBorder)
+                .frame(minWidth: 160, maxWidth: 520)
+
+            Spacer(minLength: 0)
+
+            Button {
+                model.removeViaPlace(id: id)
+            } label: {
+                Label("Remove via place", systemImage: "minus")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.bordered)
+            .help("Remove via place")
+
+            Button {
+                model.addViaPlace(after: id)
+            } label: {
+                Label("Add via place", systemImage: "plus")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.bordered)
+            .help("Add via place")
+        }
+    }
+
+    @ViewBuilder
+    private func journeyConstraintControls(stacked: Bool) -> some View {
+        if stacked {
+            VStack(alignment: .leading, spacing: 10) {
+                directToggle
+                transfersStepper
+            }
+        } else {
+            HStack(spacing: 18) {
+                directToggle
+                transfersStepper
+                Spacer(minLength: 0)
+            }
+        }
     }
 
     private var directToggle: some View {

@@ -1,4 +1,5 @@
 "Add to Calendar" = "Add to Calendar";
+"Add via place" = "Add via place";
 "All timetables" = "All timetables";
 "Availability and accuracy are not guaranteed. Confirm important journey details with the carrier." = "Availability and accuracy are not guaranteed. Confirm important journey details with the carrier.";
 "Arrival" = "Arrival";
@@ -51,6 +52,7 @@
 "Platform %@" = "Platform %@";
 "Powered by public IDOS web data" = "Powered by public IDOS web data";
 "Results" = "Results";
+"Remove via place" = "Remove via place";
 "Search" = "Search";
 "Searching connections…" = "Searching connections…";
 "Service information" = "Service information";
@@ -75,7 +77,7 @@
 "Up to %lld transfers" = "Up to %lld transfers";
 "Urban Public Transport" = "Urban Public Transport";
 "Version %@" = "Version %@";
-"Via places, separated by commas" = "Via places, separated by commas";
+"Via" = "Via";
 "Zone %@" = "Zone %@";
 "via %@" = "via %@";
 "→ %@" = "→ %@";

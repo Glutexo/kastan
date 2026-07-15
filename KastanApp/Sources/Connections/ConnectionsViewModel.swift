@@ -1,12 +1,23 @@
 import Foundation
 import Kastan
 
+/// One independently editable intermediate place in the connection search form.
+struct ViaPlaceEntry: Identifiable, Equatable {
+    let id: UUID
+    var name: String
+
+    init(id: UUID = UUID(), name: String = "") {
+        self.id = id
+        self.name = name
+    }
+}
+
 /// Owns one connection search and exposes only UI-ready state to the SwiftUI view.
 @MainActor
 final class ConnectionsViewModel: ObservableObject {
     @Published var from = ""
     @Published var to = ""
-    @Published var via = ""
+    @Published var viaPlaces = [ViaPlaceEntry()]
     @Published var timetable = IDOSTimetable.defaultTimetable
     @Published var date = Date()
     @Published var time = Date()
@@ -39,6 +50,22 @@ final class ConnectionsViewModel: ObservableObject {
         (from, to) = (to, from)
     }
 
+    /// Inserts another intermediate-place row directly after the selected row.
+    func addViaPlace(after id: ViaPlaceEntry.ID) {
+        guard let index = viaPlaces.firstIndex(where: { $0.id == id }) else { return }
+        viaPlaces.insert(ViaPlaceEntry(), at: index + 1)
+    }
+
+    /// Removes the selected row while retaining one empty row for future input.
+    func removeViaPlace(id: ViaPlaceEntry.ID) {
+        guard let index = viaPlaces.firstIndex(where: { $0.id == id }) else { return }
+        if viaPlaces.count == 1 {
+            viaPlaces[0].name = ""
+        } else {
+            viaPlaces.remove(at: index)
+        }
+    }
+
     func search() async {
         let departure = from.trimmingCharacters(in: .whitespacesAndNewlines)
         let arrival = to.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -51,9 +78,8 @@ final class ConnectionsViewModel: ObservableObject {
         errorMessage = nil
         defer { isSearching = false }
 
-        let viaPlaces = via
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let requestedViaPlaces = viaPlaces
+            .map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         let request = IDOSConnectionRequest(
             timetable: timetable,
@@ -63,7 +89,7 @@ final class ConnectionsViewModel: ObservableObject {
             time: IDOSRequestFormatting.time(from: time),
             isArrival: isArrival,
             onlyDirect: onlyDirect,
-            via: viaPlaces,
+            via: requestedViaPlaces,
             maxTransfers: onlyDirect ? 0 : maximumTransfers,
             resultLimit: 10
         )

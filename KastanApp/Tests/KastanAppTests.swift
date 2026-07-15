@@ -48,7 +48,11 @@ final class KastanAppTests: XCTestCase {
         let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())
         model.from = " Praha "
         model.to = " Brno "
-        model.via = "Pardubice, Olomouc"
+        model.viaPlaces = [
+            ViaPlaceEntry(name: " Pardubice "),
+            ViaPlaceEntry(name: ""),
+            ViaPlaceEntry(name: "Olomouc")
+        ]
         model.timetable = IDOSTimetable(slug: "vlaky", displayName: "Trains")
         model.isArrival = true
         model.maximumTransfers = 2
@@ -65,6 +69,22 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(request?.resultLimit, 10)
         XCTAssertEqual(model.connections.first?.id, "connection-1")
         XCTAssertNil(model.errorMessage)
+    }
+
+    func testConnectionViaRowsCanBeAddedAndRemovedWithoutDroppingTheLastField() {
+        let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
+        let firstID = model.viaPlaces[0].id
+
+        model.addViaPlace(after: firstID)
+        XCTAssertEqual(model.viaPlaces.count, 2)
+
+        let secondID = model.viaPlaces[1].id
+        model.viaPlaces[1].name = "Olomouc"
+        model.removeViaPlace(id: firstID)
+        XCTAssertEqual(model.viaPlaces.map(\.name), ["Olomouc"])
+
+        model.removeViaPlace(id: secondID)
+        XCTAssertEqual(model.viaPlaces.map(\.name), [""])
     }
 
     func testConnectionSearchRejectsMissingEndpointWithoutCallingIDOS() async {
