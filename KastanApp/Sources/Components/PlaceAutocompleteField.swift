@@ -197,44 +197,46 @@ struct PlaceAutocompleteField: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            HStack(spacing: 8) {
-                TextField(prompt, text: $text)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($isFocused)
-                    .onChange(of: text) { value in
-                        model.update(query: value, timetable: timetable)
-                    }
-                    .onChange(of: timetable.slug) { _ in
-                        model.update(query: text, timetable: timetable)
-                    }
-
-                if model.isLoading {
-                    ProgressView()
-                        .controlSize(.small)
+            TextField(prompt, text: $text)
+                .textFieldStyle(.roundedBorder)
+                .focused($isFocused)
+                .onChange(of: text) { value in
+                    model.update(query: value, timetable: timetable)
                 }
-            }
-            .alignmentGuide(.placeInputCenter) { dimensions in
-                dimensions[VerticalAlignment.center]
-            }
-            .background {
-                GeometryReader { geometry in
-                    Color.clear
-                        .onAppear {
-                            inputWidth = geometry.size.width
-                        }
-                        .onChange(of: geometry.size.width) { width in
-                            inputWidth = width
-                        }
+                .onChange(of: timetable.slug) { _ in
+                    model.update(query: text, timetable: timetable)
                 }
-            }
-            .popover(
-                isPresented: showsSuggestions,
-                attachmentAnchor: .rect(.bounds),
-                arrowEdge: .top
-            ) {
-                suggestionsList
-                    .frame(width: inputWidth)
-            }
+                .overlay(alignment: .trailing) {
+                    if model.isLoading {
+                        ProgressView()
+                            .controlSize(.small)
+                            .padding(.trailing, 6)
+                            .allowsHitTesting(false)
+                            .accessibilityLabel("Loading suggestions")
+                    }
+                }
+                .alignmentGuide(.placeInputCenter) { dimensions in
+                    dimensions[VerticalAlignment.center]
+                }
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .onAppear {
+                                inputWidth = geometry.size.width
+                            }
+                            .onChange(of: geometry.size.width) { width in
+                                inputWidth = width
+                            }
+                    }
+                }
+                .popover(
+                    isPresented: showsSuggestions,
+                    attachmentAnchor: .rect(.bounds),
+                    arrowEdge: .top
+                ) {
+                    suggestionsList
+                        .frame(width: inputWidth)
+                }
         }
     }
 
