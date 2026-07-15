@@ -207,6 +207,7 @@ struct ConnectionsView: View {
                 .foregroundStyle(.secondary)
             DatePicker("Date", selection: $model.date, displayedComponents: .date)
                 .labelsHidden()
+                .datePickerStyle(.field)
         }
     }
 
