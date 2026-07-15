@@ -174,16 +174,29 @@ struct ConnectionsView: View {
                 timetablePicker
                     .frame(maxWidth: 360)
 
-                HStack(alignment: .bottom, spacing: 12) {
-                    datePicker
-                    timePicker
-                    Spacer(minLength: 0)
-                }
-                HStack(spacing: 12) {
-                    timeModePicker
-                        .frame(width: 220)
-                    Spacer(minLength: 0)
-                    searchButton
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .bottom, spacing: 12) {
+                        datePicker
+                        timePicker
+                        timeModePicker
+                            .frame(width: 220)
+                        Spacer(minLength: 8)
+                        searchButton
+                    }
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .bottom, spacing: 12) {
+                            datePicker
+                            timePicker
+                            Spacer(minLength: 0)
+                        }
+                        HStack(spacing: 12) {
+                            timeModePicker
+                                .frame(width: 220)
+                            Spacer(minLength: 0)
+                            searchButton
+                        }
+                    }
                 }
             }
         } else {
@@ -459,7 +472,6 @@ private struct ConnectionCard: View {
                         ConnectionLegRow(leg: leg, openService: openService)
                         if index < connection.legs.count - 1 {
                             Divider()
-                                .padding(.leading, 30)
                         }
                     }
                 }
@@ -487,53 +499,40 @@ private struct ConnectionLegRow: View {
                 )
             }
         } label: {
-            HStack(alignment: .top, spacing: 10) {
-                VStack(spacing: 3) {
-                    if let color = Color(idosHTMLColor: leg.color) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(color)
-                            .frame(width: 5, height: 38)
-                    } else {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(.secondary.opacity(0.4))
-                            .frame(width: 5, height: 38)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text([leg.transportMode?.emoji, leg.name].compactMap { $0 }.joined(separator: " "))
+                        .font(.headline)
+                        .foregroundStyle(Color(idosHTMLColor: leg.color) ?? Color.primary)
+                    Spacer()
+                    if leg.id != nil {
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
                     }
                 }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text([leg.transportMode?.emoji, leg.name].compactMap { $0 }.joined(separator: " "))
-                            .font(.headline)
-                        Spacer()
-                        if leg.id != nil {
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
-                        }
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(leg.departureTime)
+                            .font(.body.bold().monospacedDigit())
+                            .frame(width: 48, alignment: .leading)
+                        Text(leg.fromStation)
                     }
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(leg.departureTime)
-                                .font(.body.bold().monospacedDigit())
-                                .frame(width: 48, alignment: .leading)
-                            Text(leg.fromStation)
-                        }
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(leg.arrivalTime)
-                                .font(.body.bold().monospacedDigit())
-                                .frame(width: 48, alignment: .leading)
-                            Text(leg.toStation)
-                        }
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(leg.arrivalTime)
+                            .font(.body.bold().monospacedDigit())
+                            .frame(width: 48, alignment: .leading)
+                        Text(leg.toStation)
                     }
-                    if let metadata = ResultMetadata.joined(
-                        leg.carrier,
-                        ResultMetadata.delay(leg.delay),
-                        ResultMetadata.station(tariffZone: leg.fromTariffZone, platform: leg.fromPlatform)
-                    ) {
-                        Text(metadata)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                }
+                if let metadata = ResultMetadata.joined(
+                    leg.carrier,
+                    ResultMetadata.delay(leg.delay),
+                    ResultMetadata.station(tariffZone: leg.fromTariffZone, platform: leg.fromPlatform)
+                ) {
+                    Text(metadata)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
             .contentShape(Rectangle())

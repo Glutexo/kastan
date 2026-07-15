@@ -230,16 +230,11 @@ private struct DepartureRow: View {
                     .font(.title3.bold().monospacedDigit())
                     .frame(width: 58, alignment: .leading)
 
-                if let color = Color(idosHTMLColor: departure.lineColor) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(color)
-                        .frame(width: 5, height: 38)
-                }
-
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         Text([departure.transportMode?.emoji, departure.lineName].compactMap { $0 }.joined(separator: " "))
                             .font(.headline)
+                            .foregroundStyle(Color(idosHTMLColor: departure.lineColor) ?? Color.primary)
                         Text("→ \(departure.destination)")
                     }
                     if let metadata = ResultMetadata.joined(
