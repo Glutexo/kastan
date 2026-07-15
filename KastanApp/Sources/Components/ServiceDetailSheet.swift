@@ -49,8 +49,9 @@ struct ServiceDetailSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Service route")
+                sheetTitle
                     .font(.title2.bold())
+                    .lineLimit(1)
                 Spacer()
                 Button("Done") {
                     dismiss()
@@ -90,24 +91,29 @@ struct ServiceDetailSheet: View {
         }
     }
 
+    @ViewBuilder
+    private var sheetTitle: some View {
+        if let service = model.service {
+            HStack(spacing: 8) {
+                if let color = Color(idosHTMLColor: service.color) {
+                    Circle()
+                        .fill(color)
+                        .frame(width: 10, height: 10)
+                }
+                Text([service.transportMode?.emoji, service.name].compactMap { $0 }.joined(separator: " "))
+            }
+        } else {
+            Text("Service route")
+        }
+    }
+
     private func serviceContent(_ service: IDOSServiceDetail) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 8) {
-                            if let color = Color(idosHTMLColor: service.color) {
-                                Circle()
-                                    .fill(color)
-                                    .frame(width: 12, height: 12)
-                            }
-                            Text([service.transportMode?.emoji, service.name].compactMap { $0 }.joined(separator: " "))
-                                .font(.title.bold())
-                        }
-                        if let date = service.date {
-                            Text(date)
-                                .foregroundStyle(.secondary)
-                        }
+                    if let date = service.date {
+                        Text(date)
+                            .foregroundStyle(.secondary)
                     }
                     Spacer()
                     if let value = service.shareURL, let url = URL(string: value) {
