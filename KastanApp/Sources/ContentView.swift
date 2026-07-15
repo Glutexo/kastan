@@ -27,6 +27,18 @@ enum AppSection: String, CaseIterable, Hashable, Identifiable {
     }
 }
 
+/// Exposes the active window's sidebar selection to app-level menu commands.
+struct AppSectionSelectionKey: FocusedValueKey {
+    typealias Value = Binding<AppSection>
+}
+
+extension FocusedValues {
+    var appSectionSelection: Binding<AppSection>? {
+        get { self[AppSectionSelectionKey.self] }
+        set { self[AppSectionSelectionKey.self] = newValue }
+    }
+}
+
 /// Converts the detail column's measured width into stable responsive layout decisions.
 struct DetailLayout {
     private static let compactPaddingBreakpoint: CGFloat = 600
@@ -117,5 +129,6 @@ struct ContentView: View {
         .sheet(isPresented: $showsAppInformation) {
             AppInformationView()
         }
+        .focusedSceneValue(\.appSectionSelection, $selection)
     }
 }

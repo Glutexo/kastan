@@ -19,6 +19,38 @@ enum ApplicationArtwork {
     }
 }
 
+/// Mirrors the active window's primary navigation in the standard View menu.
+struct AppSectionCommands: Commands {
+    @FocusedValue(\.appSectionSelection) private var selection: Binding<AppSection>?
+
+    var body: some Commands {
+        CommandGroup(after: .sidebar) {
+            Divider()
+
+            sectionToggle(.connections)
+            sectionToggle(.departures)
+        }
+    }
+
+    private func sectionToggle(_ section: AppSection) -> some View {
+        Toggle(isOn: binding(for: section)) {
+            Label(section.title, systemImage: section.systemImage)
+        }
+        .disabled(selection == nil)
+    }
+
+    private func binding(for section: AppSection) -> Binding<Bool> {
+        Binding(
+            get: { selection?.wrappedValue == section },
+            set: { isSelected in
+                if isSelected {
+                    selection?.wrappedValue = section
+                }
+            }
+        )
+    }
+}
+
 /// Launches the native Kaštan experience while sharing all IDOS behavior with the CLI and MCP server.
 @main
 struct KastanApp: App {
@@ -36,6 +68,7 @@ struct KastanApp: App {
         .defaultSize(width: 1080, height: 720)
         .commands {
             SidebarCommands()
+            AppSectionCommands()
         }
     }
 }
