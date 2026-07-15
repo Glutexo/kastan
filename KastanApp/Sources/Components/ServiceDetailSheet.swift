@@ -32,18 +32,80 @@ final class ServiceDetailViewModel: ObservableObject {
     }
 }
 
-/// Identifies a selected service independently of the result type that supplied it.
+/// Describes the part of a complete service route relevant to the originating search.
+struct ServiceRouteHighlight: Equatable {
+    let fromStop: String?
+    let toStop: String?
+
+    init(fromStop: String? = nil, toStop: String? = nil) {
+        self.fromStop = fromStop
+        self.toStop = toStop
+    }
+
+    func range(in stops: [IDOSServiceStop]) -> ClosedRange<Int>? {
+        guard !stops.isEmpty else { return nil }
+
+        let startIndex = fromStop.flatMap { stopIndex(matching: $0, in: stops.indices, stops: stops) }
+        let endSearchIndices = (startIndex ?? stops.startIndex)..<stops.endIndex
+        let endIndex = toStop.flatMap { stopIndex(matching: $0, in: endSearchIndices, stops: stops) }
+
+        switch (startIndex, endIndex) {
+        case let (start?, end?) where start <= end:
+            return start...end
+        case let (start?, _):
+            return start...(stops.endIndex - 1)
+        case let (_, end?):
+            return stops.startIndex...end
+        default:
+            return nil
+        }
+    }
+
+    private func stopIndex(
+        matching name: String,
+        in indices: Range<Int>,
+        stops: [IDOSServiceStop]
+    ) -> Int? {
+        let query = Self.normalizedStopName(name)
+        guard query.count >= 3 else { return nil }
+
+        if let exact = indices.first(where: { Self.normalizedStopName(stops[$0].name) == query }) {
+            return exact
+        }
+        return indices.first { index in
+            let candidate = Self.normalizedStopName(stops[index].name)
+            return candidate.hasSuffix(query) || query.hasSuffix(candidate)
+        }
+    }
+
+    private static func normalizedStopName(_ value: String) -> String {
+        value
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "cs_CZ"))
+            .lowercased()
+            .filter { $0.isLetter || $0.isNumber }
+    }
+}
+
+/// Identifies a selected service and preserves the route context that supplied it.
 struct ServiceSelection: Identifiable {
     let id: String
+    let highlight: ServiceRouteHighlight?
+
+    init(id: String, highlight: ServiceRouteHighlight? = nil) {
+        self.id = id
+        self.highlight = highlight
+    }
 }
 
 /// Shows every stop and piece of service information supplied by IDOS.
 struct ServiceDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var model: ServiceDetailViewModel
+    private let routeHighlight: ServiceRouteHighlight?
 
-    init(id: String, client: any IDOSClienting) {
-        _model = StateObject(wrappedValue: ServiceDetailViewModel(id: id, client: client))
+    init(selection: ServiceSelection, client: any IDOSClienting) {
+        routeHighlight = selection.highlight
+        _model = StateObject(wrappedValue: ServiceDetailViewModel(id: selection.id, client: client))
     }
 
     var body: some View {
@@ -108,7 +170,10 @@ struct ServiceDetailSheet: View {
     }
 
     private func serviceContent(_ service: IDOSServiceDetail) -> some View {
-        ScrollView {
+        let highlightedRange = routeHighlight?.range(in: service.stops)
+        let highlightedColor = Color(idosHTMLColor: service.color) ?? .accentColor
+
+        return ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(alignment: .firstTextBaseline) {
                     if let date = service.date {
@@ -132,7 +197,18 @@ struct ServiceDetailSheet: View {
                             ServiceStopRow(
                                 stop: stop,
                                 isFirst: index == 0,
-                                isLast: index == service.stops.count - 1
+                                isLast: index == service.stops.count - 1,
+                                hasHighlight: highlightedRange != nil,
+                                isHighlighted: highlightedRange?.contains(index) == true,
+                                isHighlightBoundary: index == highlightedRange?.lowerBound ||
+                                    index == highlightedRange?.upperBound,
+                                topIsHighlighted: highlightedRange.map {
+                                    index > $0.lowerBound && index <= $0.upperBound
+                                } ?? false,
+                                bottomIsHighlighted: highlightedRange.map {
+                                    index >= $0.lowerBound && index < $0.upperBound
+                                } ?? false,
+                                highlightedColor: highlightedColor
                             )
                         }
                     }
@@ -159,29 +235,35 @@ private struct ServiceStopRow: View {
     let stop: IDOSServiceStop
     let isFirst: Bool
     let isLast: Bool
+    let hasHighlight: Bool
+    let isHighlighted: Bool
+    let isHighlightBoundary: Bool
+    let topIsHighlighted: Bool
+    let bottomIsHighlighted: Bool
+    let highlightedColor: Color
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(spacing: 0) {
                 Rectangle()
-                    .fill(isFirst ? Color.clear : routeColor)
+                    .fill(isFirst ? Color.clear : topRouteColor)
                     .frame(width: 2, height: 10)
 
                 ZStack {
                     Circle()
                         .fill(.background)
                     Circle()
-                        .strokeBorder(routeColor, lineWidth: 2)
-                    if isFirst || isLast {
+                        .strokeBorder(markerColor, lineWidth: isHighlighted ? 3 : 2)
+                    if isFirst || isLast || isHighlightBoundary {
                         Circle()
-                            .fill(routeColor)
+                            .fill(markerColor)
                             .frame(width: 6, height: 6)
                     }
                 }
                 .frame(width: 14, height: 14)
 
                 Rectangle()
-                    .fill(isLast ? Color.clear : routeColor)
+                    .fill(isLast ? Color.clear : bottomRouteColor)
                     .frame(width: 2)
                     .frame(maxHeight: .infinity)
             }
@@ -191,9 +273,11 @@ private struct ServiceStopRow: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text(stop.name)
                         .font(.headline)
+                        .foregroundStyle(isDimmed ? Color.secondary : Color.primary)
                     Spacer()
                     Text(stopTimes)
                         .font(.body.monospacedDigit())
+                        .foregroundStyle(isDimmed ? Color.secondary : Color.primary)
                 }
 
                 if let metadata = ResultMetadata.joined(
@@ -216,8 +300,24 @@ private struct ServiceStopRow: View {
         }
     }
 
-    private var routeColor: Color {
+    private var neutralRouteColor: Color {
         .secondary.opacity(0.55)
+    }
+
+    private var markerColor: Color {
+        isHighlighted ? highlightedColor : neutralRouteColor
+    }
+
+    private var topRouteColor: Color {
+        topIsHighlighted ? highlightedColor : neutralRouteColor
+    }
+
+    private var bottomRouteColor: Color {
+        bottomIsHighlighted ? highlightedColor : neutralRouteColor
+    }
+
+    private var isDimmed: Bool {
+        hasHighlight && !isHighlighted
     }
 
     private var stopTimes: String {

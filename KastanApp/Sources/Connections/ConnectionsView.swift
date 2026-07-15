@@ -23,7 +23,7 @@ struct ConnectionsView: View {
         }
         .navigationTitle("Connections")
         .sheet(item: $selectedService) { selection in
-            ServiceDetailSheet(id: selection.id, client: client)
+            ServiceDetailSheet(selection: selection, client: client)
         }
     }
 
@@ -335,7 +335,7 @@ struct ConnectionsView: View {
                         number: index + 1,
                         connection: connection,
                         isImportingCalendar: model.importingConnectionID == connection.id,
-                        openService: { selectedService = ServiceSelection(id: $0) },
+                        openService: { selectedService = $0 },
                         addToCalendar: { Task { await model.addToCalendar(connection) } }
                     )
 
@@ -352,7 +352,7 @@ private struct ConnectionCard: View {
     let number: Int
     let connection: IDOSConnection
     let isImportingCalendar: Bool
-    let openService: (String) -> Void
+    let openService: (ServiceSelection) -> Void
     let addToCalendar: () -> Void
 
     var body: some View {
@@ -437,12 +437,20 @@ private struct ConnectionCard: View {
 
 private struct ConnectionLegRow: View {
     let leg: IDOSConnectionLeg
-    let openService: (String) -> Void
+    let openService: (ServiceSelection) -> Void
 
     var body: some View {
         Button {
             if let id = leg.id {
-                openService(id)
+                openService(
+                    ServiceSelection(
+                        id: id,
+                        highlight: ServiceRouteHighlight(
+                            fromStop: leg.fromStation,
+                            toStop: leg.toStation
+                        )
+                    )
+                )
             }
         } label: {
             HStack(alignment: .top, spacing: 10) {

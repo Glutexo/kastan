@@ -92,6 +92,31 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(busStop.detail?.components(separatedBy: " · ").count, 4)
     }
 
+    func testServiceRouteHighlightMatchesSearchStopsAndDirection() {
+        let stops = [
+            IDOSServiceStop(name: "Frýdek,Dobrovského"),
+            IDOSServiceStop(name: "Frýdek,T.G.Masaryka"),
+            IDOSServiceStop(name: "Frýdek,magistrát"),
+            IDOSServiceStop(name: "Místek,Anenská")
+        ]
+
+        XCTAssertEqual(
+            ServiceRouteHighlight(fromStop: "Frýdek-Místek,Frýdek,magistrát").range(in: stops),
+            2...3
+        )
+        XCTAssertEqual(
+            ServiceRouteHighlight(
+                fromStop: "Frýdek,T.G.Masaryka",
+                toStop: "Frýdek,magistrát"
+            ).range(in: stops),
+            1...2
+        )
+        XCTAssertEqual(
+            ServiceRouteHighlight(toStop: "Frýdek,T.G.Masaryka").range(in: stops),
+            0...1
+        )
+    }
+
     func testConnectionSearchBuildsCompleteIDOSRequest() async {
         let client = MockIDOSClient()
         let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())

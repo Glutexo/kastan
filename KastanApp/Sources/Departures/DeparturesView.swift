@@ -23,7 +23,7 @@ struct DeparturesView: View {
         }
         .navigationTitle("Departures")
         .sheet(item: $selectedService) { selection in
-            ServiceDetailSheet(id: selection.id, client: client)
+            ServiceDetailSheet(selection: selection, client: client)
         }
     }
 
@@ -201,7 +201,13 @@ struct DeparturesView: View {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(model.departures.enumerated()), id: \.element.id) { index, departure in
                     DepartureRow(departure: departure) {
-                        selectedService = ServiceSelection(id: departure.id)
+                        let station = departure.stationName ?? model.station
+                        selectedService = ServiceSelection(
+                            id: departure.id,
+                            highlight: model.isArrival
+                                ? ServiceRouteHighlight(toStop: station)
+                                : ServiceRouteHighlight(fromStop: station)
+                        )
                     }
 
                     if index < model.departures.count - 1 {

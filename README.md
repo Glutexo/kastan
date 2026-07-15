@@ -320,7 +320,7 @@ The first app release supports:
 - timetable menus grouped into general rail and bus choices, integrated transport systems, and individual city networks listed by city name;
 - native search workspaces with flat macOS-style option rows that avoid repeated page headings, use the full detail width, and adapt to narrow windows;
 - line colors, transport symbols, platforms, tariff zones, carriers, and delay details supplied by IDOS;
-- complete service routes opened from connection legs and station-board rows, presented as a neutral stop sequence rather than a live-position indicator;
+- complete service routes opened from connection legs and station-board rows, with the search-relevant segment highlighted without implying live vehicle position;
 - IDOS calendar export opened in the user's macOS calendar application;
 - an in-app information panel covering the data source and limitations, with links to IDOS, its terms, and the Kaštan repository;
 - English and Czech user-interface localization.
