@@ -29,7 +29,7 @@ struct ApplicationIcon: View {
     let size: CGFloat
 
     var body: some View {
-        Image(nsImage: NSApplication.shared.applicationIconImage)
+        Image(nsImage: ApplicationArtwork.icon)
             .resizable()
             .interpolation(.high)
             .aspectRatio(contentMode: .fit)
