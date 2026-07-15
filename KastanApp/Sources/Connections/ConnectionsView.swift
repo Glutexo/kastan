@@ -82,11 +82,10 @@ struct ConnectionsView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         } else {
-            HStack(alignment: .top, spacing: 10) {
+            HStack(alignment: .placeInputCenter, spacing: 10) {
                 fromField
                     .frame(minWidth: 240, maxWidth: .infinity)
                 swapButton
-                    .padding(.top, 24)
                 toField
                     .frame(minWidth: 240, maxWidth: .infinity)
             }

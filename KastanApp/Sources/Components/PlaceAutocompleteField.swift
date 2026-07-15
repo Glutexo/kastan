@@ -1,6 +1,17 @@
 import Kastan
 import SwiftUI
 
+private struct PlaceInputCenterAlignment: AlignmentID {
+    static func defaultValue(in context: ViewDimensions) -> CGFloat {
+        context[VerticalAlignment.center]
+    }
+}
+
+extension VerticalAlignment {
+    /// Aligns adjacent actions with the input control rather than its caption or suggestions.
+    static let placeInputCenter = VerticalAlignment(PlaceInputCenterAlignment.self)
+}
+
 /// Distinguishes general IDOS places from station-only station-board inputs.
 enum PlaceSuggestionScope {
     case places
@@ -121,6 +132,9 @@ struct PlaceAutocompleteField: View {
                     ProgressView()
                         .controlSize(.small)
                 }
+            }
+            .alignmentGuide(.placeInputCenter) { dimensions in
+                dimensions[VerticalAlignment.center]
             }
 
             if isFocused, !model.suggestions.isEmpty {
