@@ -146,6 +146,8 @@ struct PlaceSuggestionPresentation: Equatable {
             return AppLocalization.string("buses")
         case "municipality", "city":
             return AppLocalization.string("municipality")
+        case "address":
+            return AppLocalization.string("address")
         case "pt", "urban public transport":
             return AppLocalization.string("public transport")
         default:
@@ -172,6 +174,7 @@ struct PlaceAutocompleteField: View {
 
     @StateObject private var model: PlaceSuggestionsModel
     @FocusState private var isFocused: Bool
+    @State private var inputWidth: CGFloat = 320
 
     init(
         title: LocalizedStringKey,
@@ -213,54 +216,78 @@ struct PlaceAutocompleteField: View {
             .alignmentGuide(.placeInputCenter) { dimensions in
                 dimensions[VerticalAlignment.center]
             }
-
-            if isFocused, !model.suggestions.isEmpty {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(model.suggestions.enumerated()), id: \.offset) { _, suggestion in
-                        let presentation = PlaceSuggestionPresentation(suggestion: suggestion)
-
-                        Button {
-                            text = suggestion.text
-                            model.selectedSuggestion()
-                            isFocused = false
-                        } label: {
-                            HStack(spacing: 10) {
-                                Text(presentation.emoji)
-                                    .font(.title3)
-                                    .frame(width: 24)
-                                    .accessibilityHidden(true)
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(suggestion.text)
-                                        .foregroundStyle(.primary)
-                                    if let detail = presentation.detail {
-                                        Text(detail)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-
-                                Spacer(minLength: 0)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 6)
+            .background {
+                GeometryReader { geometry in
+                    Color.clear
+                        .onAppear {
+                            inputWidth = geometry.size.width
                         }
-                        .buttonStyle(.plain)
-
-                        if suggestion.text != model.suggestions.last?.text {
-                            Divider()
+                        .onChange(of: geometry.size.width) { width in
+                            inputWidth = width
                         }
-                    }
                 }
-                .background(.background)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(.separator, lineWidth: 1)
-                }
-                .shadow(radius: 5, y: 2)
+            }
+            .popover(
+                isPresented: showsSuggestions,
+                attachmentAnchor: .rect(.bounds),
+                arrowEdge: .top
+            ) {
+                suggestionsList
+                    .frame(width: inputWidth)
             }
         }
+    }
+
+    private var showsSuggestions: Binding<Bool> {
+        Binding(
+            get: { isFocused && !model.suggestions.isEmpty },
+            set: { isPresented in
+                if !isPresented {
+                    model.selectedSuggestion()
+                }
+            }
+        )
+    }
+
+    private var suggestionsList: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(model.suggestions.enumerated()), id: \.offset) { _, suggestion in
+                let presentation = PlaceSuggestionPresentation(suggestion: suggestion)
+
+                Button {
+                    text = suggestion.text
+                    model.selectedSuggestion()
+                    isFocused = false
+                } label: {
+                    HStack(spacing: 10) {
+                        Text(presentation.emoji)
+                            .font(.title3)
+                            .frame(width: 24)
+                            .accessibilityHidden(true)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(suggestion.text)
+                                .foregroundStyle(.primary)
+                            if let detail = presentation.detail {
+                                Text(detail)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+
+                if suggestion.text != model.suggestions.last?.text {
+                    Divider()
+                }
+            }
+        }
+        .background(.background)
     }
 }
