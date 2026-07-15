@@ -174,29 +174,16 @@ struct ConnectionsView: View {
                 timetablePicker
                     .frame(maxWidth: 360)
 
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .bottom, spacing: 12) {
-                        datePicker
-                        timePicker
-                        timeModePicker
-                            .frame(width: 220)
-                        Spacer(minLength: 8)
-                        searchButton
-                    }
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(alignment: .bottom, spacing: 12) {
-                            datePicker
-                            timePicker
-                            Spacer(minLength: 0)
-                        }
-                        HStack(spacing: 12) {
-                            timeModePicker
-                                .frame(width: 220)
-                            Spacer(minLength: 0)
-                            searchButton
-                        }
-                    }
+                HStack(alignment: .bottom, spacing: 12) {
+                    datePicker
+                    timePicker
+                    Spacer(minLength: 0)
+                }
+                HStack(spacing: 12) {
+                    timeModePicker
+                        .frame(width: 220)
+                    Spacer(minLength: 0)
+                    searchButton
                 }
             }
         } else {
@@ -246,16 +233,19 @@ struct ConnectionsView: View {
         Button {
             Task { await model.search() }
         } label: {
-            if model.isSearching {
-                ProgressView()
-                    .controlSize(.small)
-                    .frame(width: 70)
-            } else {
-                Label("Search", systemImage: "magnifyingglass")
-                    .frame(width: 70)
+            Group {
+                if model.isSearching {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Label("Search", systemImage: "magnifyingglass")
+                }
             }
+            .frame(width: 140)
+            .frame(minHeight: 26)
         }
         .buttonStyle(.borderedProminent)
+        .controlSize(.large)
         .keyboardShortcut(.defaultAction)
         .disabled(!model.canSearch)
     }
