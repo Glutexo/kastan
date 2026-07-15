@@ -12,6 +12,8 @@
 "buses" = "buses";
 "Check a station board and open complete service routes." = "Check a station board and open complete service routes.";
 "Choose a station and start a search." = "Choose a station and start a search.";
+"Close Tab" = "Close Tab";
+"Close Window" = "Close Window";
 "Could not build the IDOS URL." = "Could not build the IDOS URL.";
 "Currently no delay" = "Currently no delay";
 "Connection %lld" = "Connection %lld";
@@ -49,6 +51,7 @@
 "Loading service route…" = "Loading service route…";
 "Loading suggestions" = "Loading suggestions";
 "Loading station board…" = "Loading station board…";
+"New Tab" = "New Tab";
 "municipality" = "municipality";
 "No application could open the calendar event." = "No application could open the calendar event.";
 "No connections yet" = "No connections yet";

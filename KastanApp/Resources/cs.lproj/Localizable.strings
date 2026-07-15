@@ -12,6 +12,8 @@
 "buses" = "autobusy";
 "Check a station board and open complete service routes." = "Prohlédněte si odjezdovou tabuli a otevřete celou trasu spoje.";
 "Choose a station and start a search." = "Vyberte stanici a spusťte hledání.";
+"Close Tab" = "Zavřít panel";
+"Close Window" = "Zavřít okno";
 "Could not build the IDOS URL." = "Adresu URL pro IDOS se nepodařilo sestavit.";
 "Currently no delay" = "Aktuálně bez zpoždění";
 "Connection %lld" = "Spojení %lld";
@@ -49,6 +51,7 @@
 "Loading service route…" = "Načítání trasy spoje…";
 "Loading suggestions" = "Načítání návrhů";
 "Loading station board…" = "Načítání odjezdové tabule…";
+"New Tab" = "Nový panel";
 "municipality" = "obec";
 "No application could open the calendar event." = "Událost kalendáře se nepodařilo otevřít v žádné aplikaci.";
 "No connections yet" = "Zatím žádné spojení";

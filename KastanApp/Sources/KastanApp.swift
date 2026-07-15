@@ -24,6 +24,155 @@ enum AppWindow {
     static let information = "app-information"
 }
 
+/// Performs native tab and window operations for the active macOS window.
+@MainActor
+enum AppWindowActions {
+    static func newTab() {
+        guard let sourceWindow = NSApplication.shared.keyWindow else { return }
+        let existingWindows = Set(NSApplication.shared.windows.map(ObjectIdentifier.init))
+
+        NSApplication.shared.sendAction(
+            #selector(NSResponder.newWindowForTab(_:)),
+            to: nil,
+            from: nil
+        )
+
+        attachNewWindow(
+            to: sourceWindow,
+            excluding: existingWindows,
+            remainingAttempts: 8
+        )
+    }
+
+    static func closeTab() {
+        NSApplication.shared.keyWindow?.performClose(nil)
+    }
+
+    static func closeWindow() {
+        guard let window = NSApplication.shared.keyWindow else { return }
+
+        for window in windowsToClose(for: window).reversed() {
+            window.performClose(nil)
+        }
+    }
+
+    /// Returns every tab hosted in the same visual window for the Close Window command.
+    static func windowsToClose(for window: NSWindow) -> [NSWindow] {
+        closeTargets(selected: window, tabGroup: window.tabGroup?.windows)
+    }
+
+    /// Keeps a single ungrouped window as the fallback close target.
+    static func closeTargets<Element>(selected: Element, tabGroup: [Element]?) -> [Element] {
+        tabGroup ?? [selected]
+    }
+
+    private static func attachNewWindow(
+        to sourceWindow: NSWindow,
+        excluding existingWindows: Set<ObjectIdentifier>,
+        remainingAttempts: Int
+    ) {
+        DispatchQueue.main.async {
+            let newWindow = NSApplication.shared.keyWindow.flatMap { window in
+                existingWindows.contains(ObjectIdentifier(window)) ? nil : window
+            } ?? NSApplication.shared.windows.first { window in
+                !existingWindows.contains(ObjectIdentifier(window)) && window.canBecomeMain
+            }
+
+            if let newWindow {
+                sourceWindow.addTabbedWindow(newWindow, ordered: .above)
+                newWindow.makeKeyAndOrderFront(nil)
+            } else if remainingAttempts > 1 {
+                attachNewWindow(
+                    to: sourceWindow,
+                    excluding: existingWindows,
+                    remainingAttempts: remainingAttempts - 1
+                )
+            }
+        }
+    }
+}
+
+/// Keeps SwiftUI's generic close commands from duplicating Kaštan's explicit tab and window actions.
+@MainActor
+final class ApplicationMainMenu: NSObject {
+    static let shared = ApplicationMainMenu()
+    private var cleanupScheduled = false
+
+    func install() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(menuDidAddItem(_:)),
+            name: NSMenu.didAddItemNotification,
+            object: nil
+        )
+
+        scheduleCleanup()
+    }
+
+    @objc private func menuDidAddItem(_ notification: Notification) {
+        guard let menu = notification.object as? NSMenu,
+              menu.supermenu === NSApplication.shared.mainMenu
+        else { return }
+
+        scheduleCleanup()
+    }
+
+    private func scheduleCleanup() {
+        guard !cleanupScheduled else { return }
+        cleanupScheduled = true
+
+        DispatchQueue.main.async { [self] in
+            cleanupScheduled = false
+            for menu in NSApplication.shared.mainMenu?.items.compactMap(\.submenu) ?? [] {
+                removeGenericCloseCommands(from: menu)
+            }
+        }
+    }
+
+    private func removeGenericCloseCommands(from menu: NSMenu) {
+        let genericActions = [
+            #selector(NSWindow.performClose(_:)),
+            Selector(("closeAll:"))
+        ]
+        let genericItems = menu.items.filter { item in
+            guard let action = item.action else { return false }
+            return genericActions.contains(action)
+        }
+
+        for item in genericItems {
+            menu.removeItem(item)
+        }
+
+        while menu.items.last?.isSeparatorItem == true {
+            menu.removeItem(at: menu.items.count - 1)
+        }
+    }
+}
+
+/// Gives the primary WindowGroup a complete, unambiguous set of File menu commands.
+struct AppWindowCommands: Commands {
+    var body: some Commands {
+        CommandGroup(after: .newItem) {
+            Button("New Tab") {
+                AppWindowActions.newTab()
+            }
+            .keyboardShortcut("t")
+
+            Divider()
+
+            Button("Close Tab") {
+                AppWindowActions.closeTab()
+            }
+            .keyboardShortcut("w")
+
+            Button("Close Window") {
+                AppWindowActions.closeWindow()
+            }
+            .keyboardShortcut("w", modifiers: [.command, .shift])
+        }
+    }
+}
+
 /// Routes the standard About command to Kaštan's product and data-source information window.
 struct AppInformationCommands: Commands {
     @Environment(\.openWindow) private var openWindow
@@ -76,6 +225,7 @@ struct KastanApp: App {
 
     init() {
         ApplicationArtwork.installAsSystemIcon()
+        ApplicationMainMenu.shared.install()
     }
 
     var body: some Scene {
@@ -85,6 +235,7 @@ struct KastanApp: App {
         }
         .defaultSize(width: 1080, height: 720)
         .commands {
+            AppWindowCommands()
             SidebarCommands()
             AppSectionCommands()
             AppInformationCommands()

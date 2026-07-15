@@ -319,6 +319,7 @@ The first app release supports:
 - station departures and arrivals with station-only suggestions;
 - timetable menus grouped into general rail and bus choices, integrated transport systems, and individual city networks listed by city name;
 - native search workspaces with flat macOS-style option rows that avoid repeated page headings, use the full detail width, and adapt to narrow windows;
+- native File menu actions for opening a new tab and closing either the selected tab or its complete window;
 - connection results contained in separate native cards so every journey's route, legs, and metadata remain visually grouped;
 - line colors, transport symbols, platforms, tariff zones, carriers, and localized known delay states supplied by IDOS;
 - complete service routes opened from connection legs and station-board rows, with the search-relevant segment highlighted without implying live vehicle position;

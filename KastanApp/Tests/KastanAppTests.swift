@@ -5,6 +5,17 @@ import XCTest
 
 @MainActor
 final class KastanAppTests: XCTestCase {
+    func testCloseWindowTargetsEveryTabInTheSelectedWindow() {
+        XCTAssertEqual(
+            AppWindowActions.closeTargets(selected: "selected", tabGroup: ["first", "selected"]),
+            ["first", "selected"]
+        )
+        XCTAssertEqual(
+            AppWindowActions.closeTargets(selected: "selected", tabGroup: nil),
+            ["selected"]
+        )
+    }
+
     func testAppInformationLinksUseLocalizedOfficialIDOSPages() {
         let czech = AppInformationLinks(languageCode: "cs")
         let english = AppInformationLinks(languageCode: "en")
