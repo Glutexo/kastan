@@ -87,8 +87,7 @@ struct ContentView: View {
                     showsAppInformation = true
                 } label: {
                     HStack(spacing: 8) {
-                        Text("🌰")
-                            .accessibilityHidden(true)
+                        ApplicationIcon(size: 28)
                         Text("Powered by public IDOS web data")
                             .font(.caption2)
                             .foregroundStyle(.secondary)

@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 
@@ -23,6 +24,20 @@ struct AppInformationLinks: Equatable {
     }
 }
 
+/// Presents the installed app artwork wherever Kaštan identifies itself inside the interface.
+struct ApplicationIcon: View {
+    let size: CGFloat
+
+    var body: some View {
+        Image(nsImage: NSApplication.shared.applicationIconImage)
+            .resizable()
+            .interpolation(.high)
+            .aspectRatio(contentMode: .fit)
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
+    }
+}
+
 /// Explains Kaštan's relationship to IDOS and links to the source service and project details.
 struct AppInformationView: View {
     @Environment(\.dismiss) private var dismiss
@@ -35,9 +50,7 @@ struct AppInformationView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 14) {
-                Text("🌰")
-                    .font(.system(size: 42))
-                    .accessibilityHidden(true)
+                ApplicationIcon(size: 44)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Kaštan")
