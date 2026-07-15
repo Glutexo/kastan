@@ -92,6 +92,15 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(busStop.detail?.components(separatedBy: " · ").count, 4)
     }
 
+    func testDelayPresentationLocalizesKnownStateAndPreservesCarrierDetail() {
+        XCTAssertEqual(
+            ResultMetadata.delay(" Currently no delay "),
+            AppLocalization.string("Currently no delay")
+        )
+        XCTAssertEqual(ResultMetadata.delay("Delay 12 min"), "Delay 12 min")
+        XCTAssertNil(ResultMetadata.delay("  "))
+    }
+
     func testServiceRouteHighlightMatchesSearchStopsAndDirection() {
         let stops = [
             IDOSServiceStop(name: "Frýdek,Dobrovského"),

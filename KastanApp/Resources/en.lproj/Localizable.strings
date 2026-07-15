@@ -12,6 +12,7 @@
 "Check a station board and open complete service routes." = "Check a station board and open complete service routes.";
 "Choose a station and start a search." = "Choose a station and start a search.";
 "Could not build the IDOS URL." = "Could not build the IDOS URL.";
+"Currently no delay" = "Currently no delay";
 "Connection %lld" = "Connection %lld";
 "Connections" = "Connections";
 "Date" = "Date";

@@ -493,7 +493,7 @@ private struct ConnectionLegRow: View {
                     }
                     if let metadata = ResultMetadata.joined(
                         leg.carrier,
-                        leg.delay,
+                        ResultMetadata.delay(leg.delay),
                         ResultMetadata.station(tariffZone: leg.fromTariffZone, platform: leg.fromPlatform)
                     ) {
                         Text(metadata)

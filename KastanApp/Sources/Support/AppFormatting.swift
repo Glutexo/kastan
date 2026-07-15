@@ -179,6 +179,17 @@ enum ResultMetadata {
             platform.map { AppLocalization.string("Platform %@", $0) }
         )
     }
+
+    /// Localizes known IDOS delay states while preserving unrecognized carrier messages verbatim.
+    static func delay(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+            return nil
+        }
+        if value.compare("Currently no delay", options: .caseInsensitive) == .orderedSame {
+            return AppLocalization.string("Currently no delay")
+        }
+        return value
+    }
 }
 
 extension Color {

@@ -246,7 +246,7 @@ private struct DepartureRow: View {
                         ResultMetadata.station(tariffZone: departure.tariffZone, platform: departure.platform),
                         departure.via.map { AppLocalization.string("via %@", $0) },
                         departure.carrier,
-                        departure.delay
+                        ResultMetadata.delay(departure.delay)
                     ) {
                         Text(metadata)
                             .font(.caption)

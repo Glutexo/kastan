@@ -12,6 +12,7 @@
 "Check a station board and open complete service routes." = "Prohlédněte si odjezdovou tabuli a otevřete celou trasu spoje.";
 "Choose a station and start a search." = "Vyberte stanici a spusťte hledání.";
 "Could not build the IDOS URL." = "Adresu URL pro IDOS se nepodařilo sestavit.";
+"Currently no delay" = "Aktuálně bez zpoždění";
 "Connection %lld" = "Spojení %lld";
 "Connections" = "Spojení";
 "Date" = "Datum";
