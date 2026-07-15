@@ -179,7 +179,7 @@ struct ConnectionsView: View {
                         datePicker
                         timePicker
                         timeModePicker
-                            .frame(width: 220)
+                            .fixedSize(horizontal: true, vertical: false)
                         Spacer(minLength: 8)
                         searchButton
                     }
@@ -192,7 +192,7 @@ struct ConnectionsView: View {
                         }
                         HStack(spacing: 12) {
                             timeModePicker
-                                .frame(width: 220)
+                                .fixedSize(horizontal: true, vertical: false)
                             Spacer(minLength: 0)
                             searchButton
                         }
