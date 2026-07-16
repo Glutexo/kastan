@@ -218,6 +218,19 @@ struct AppInformationCommands: Commands {
     }
 }
 
+/// Replaces the unavailable system help book with the maintained Kaštan project page.
+struct AppHelpCommands: Commands {
+    var body: some Commands {
+        CommandGroup(replacing: .help) {
+            Button {
+                NSWorkspace.shared.open(AppInformationLinks.localized.projectWebsite)
+            } label: {
+                Label("Kaštan on GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
+            }
+        }
+    }
+}
+
 /// Mirrors the active window's primary navigation in the standard View menu.
 struct AppSectionCommands: Commands {
     @FocusedValue(\.appSectionSelection) private var selection: Binding<AppSection>?
@@ -277,6 +290,7 @@ struct KastanApp: App {
             SidebarCommands()
             AppSectionCommands()
             AppInformationCommands()
+            AppHelpCommands()
         }
 
         Window("About Kaštan", id: AppWindow.information) {
@@ -286,6 +300,7 @@ struct KastanApp: App {
         .defaultPosition(.center)
         .commands {
             AppInformationCommands()
+            AppHelpCommands()
         }
 
         WindowGroup("Service route", id: AppWindow.serviceDetail, for: ServiceSelection.self) { selection in
@@ -296,6 +311,7 @@ struct KastanApp: App {
         .defaultSize(width: 760, height: 640)
         .commands {
             AppInformationCommands()
+            AppHelpCommands()
         }
     }
 }
