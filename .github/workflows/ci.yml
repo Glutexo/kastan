@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.4.1.app/Contents/Developer
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Show toolchain versions
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Test Swift package
+        run: swift test
+
+      - name: Test MCP server
+        run: swift test --package-path MCPServer
+
+      - name: Test macOS app
+        run: |
+          xcodebuild test \
+            -project KastanApp/KastanApp.xcodeproj \
+            -scheme KastanApp \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO
