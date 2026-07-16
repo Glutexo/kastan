@@ -1,5 +1,7 @@
 # 🌰 Kaštan
 
+<img src="KastanApp/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-256.png" alt="Kaštan app icon" width="128">
+
 Kaštan is a native macOS app, personal Swift CLI (`kastan`), importable Swift library, and local MCP server for occasional IDOS queries.
 It uses publicly reachable IDOS web endpoints and parses returned HTML, so it is not a stable or guaranteed data API.
 
