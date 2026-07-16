@@ -27,6 +27,24 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(english.projectWebsite.absoluteString, "https://github.com/Glutexo/kastan")
     }
 
+    func testPermanentIDOSLinksFollowTheAppLanguage() {
+        let englishURL = "https://idos.cz/en/vlaky/spojeni/prehled/?p=abc%20123#connection"
+        let czechURL = "https://idos.cz/vlaky/spojeni/prehled/?p=abc%20123#connection"
+
+        XCTAssertEqual(
+            AppLanguagePreference.localizedIDOSURL(from: englishURL, language: .czech)?.absoluteString,
+            czechURL
+        )
+        XCTAssertEqual(
+            AppLanguagePreference.localizedIDOSURL(from: czechURL, language: .english)?.absoluteString,
+            englishURL
+        )
+        XCTAssertEqual(
+            AppLanguagePreference.localizedIDOSURL(from: englishURL, language: .english)?.absoluteString,
+            englishURL
+        )
+    }
+
     func testDetailLayoutStacksControlsAtCompactWidths() {
         let layout = DetailLayout(availableWidth: 510)
 

@@ -315,7 +315,7 @@ The repository includes a native SwiftUI application for macOS 13 or newer. It i
 
 The first app release supports:
 
-- connection searches with side-by-side endpoints even at the minimum window width, non-displacing localized and transport-marked IDOS place suggestions, date, time, arrival mode, individually editable via-place rows, and one transfer limit that presents zero transfers as direct-only journeys;
+- connection searches with side-by-side endpoints even at the minimum window width, non-displacing localized and transport-marked IDOS place suggestions, date, time, arrival mode, individually editable via-place rows, one transfer limit that presents zero transfers as direct-only journeys, and permanent result links that open in the IDOS language matching the app;
 - station departures and arrivals with station-only suggestions;
 - timetable menus grouped into general rail and bus choices, integrated transport systems, and individual city networks listed by city name;
 - connection and station-board workspaces built from the same native timetable, date, time, mode, and search controls so their layout stays aligned while adapting to narrow windows;

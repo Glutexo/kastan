@@ -158,7 +158,9 @@ struct ServiceDetailView: View {
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
-                    if let value = service.shareURL, let url = URL(string: value) {
+                    if let value = service.shareURL,
+                       let url = AppLanguagePreference.localizedIDOSURL(from: value)
+                    {
                         Link(destination: url) {
                             Label("Open in IDOS", systemImage: "arrow.up.right.square")
                         }

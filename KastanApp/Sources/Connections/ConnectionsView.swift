@@ -319,7 +319,9 @@ private struct ConnectionCard: View {
                         } label: {
                             Label("Add to Calendar", systemImage: "calendar.badge.plus")
                         }
-                        if let value = connection.shareURL, let url = URL(string: value) {
+                        if let value = connection.shareURL,
+                           let url = AppLanguagePreference.localizedIDOSURL(from: value)
+                        {
                             Link(destination: url) {
                                 Label("Open in IDOS", systemImage: "arrow.up.right.square")
                             }

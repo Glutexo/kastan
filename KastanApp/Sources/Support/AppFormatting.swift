@@ -27,6 +27,40 @@ enum AppLanguagePreference {
     static var idosLanguage: IDOSLanguage {
         Bundle.main.preferredLocalizations.first == "cs" ? .czech : .english
     }
+
+    /// Converts a permanent IDOS result link to the website variant matching the app language.
+    static func localizedIDOSURL(from value: String) -> URL? {
+        localizedIDOSURL(from: value, language: idosLanguage)
+    }
+
+    /// Provides an explicit language variant for deterministic presentation tests.
+    static func localizedIDOSURL(from value: String, language: IDOSLanguage) -> URL? {
+        guard let url = URL(string: value),
+              var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        else {
+            return nil
+        }
+
+        guard components.host?.lowercased() == "idos.cz" else {
+            return url
+        }
+
+        var path = components.percentEncodedPath
+        switch language {
+        case .czech:
+            if path == "/en" {
+                path = "/"
+            } else if path.hasPrefix("/en/") {
+                path.removeFirst(3)
+            }
+        case .english:
+            if path != "/en", !path.hasPrefix("/en/") {
+                path = "/en" + (path.hasPrefix("/") ? path : "/\(path)")
+            }
+        }
+        components.percentEncodedPath = path
+        return components.url
+    }
 }
 
 /// Resolves runtime-generated text through the same bundle localization SwiftUI uses for static labels.
