@@ -22,8 +22,6 @@ struct FavoriteTimetablesView: View {
                         timetableRow(timetable, isFavorite: true)
                     }
                 }
-            } header: {
-                Text("Favorites")
             }
 
             ForEach(AppTimetableGroup.allCases) { group in
