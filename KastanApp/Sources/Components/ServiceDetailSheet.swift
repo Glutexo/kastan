@@ -161,9 +161,17 @@ struct ServiceDetailView: View {
                     if let value = service.shareURL,
                        let url = AppLanguagePreference.localizedIDOSURL(from: value)
                     {
-                        Link(destination: url) {
-                            Label("Open in IDOS", systemImage: "arrow.up.right.square")
+                        Menu {
+                            ShareLink(item: url) {
+                                Label("Share Link", systemImage: "square.and.arrow.up")
+                            }
+                            Link(destination: url) {
+                                Label("Open in IDOS", systemImage: "arrow.up.right.square")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
                         }
+                        .menuStyle(.borderlessButton)
                     }
                 }
 
