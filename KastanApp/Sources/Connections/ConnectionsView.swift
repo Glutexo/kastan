@@ -218,11 +218,16 @@ struct ConnectionsView: View {
     }
 
     private var transfersStepper: some View {
-        Stepper(
-            model.transferLimitLabel,
-            value: $model.maximumTransfers,
-            in: 0...10
-        )
+        Stepper(value: $model.maximumTransfers, in: 0...10) {
+            ZStack(alignment: .leading) {
+                Text(AppLocalization.plural("Up to %lld transfers", count: 10))
+                    .hidden()
+                    .accessibilityHidden(true)
+                Text(model.transferLimitLabel)
+            }
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+        }
     }
 
     @ViewBuilder
