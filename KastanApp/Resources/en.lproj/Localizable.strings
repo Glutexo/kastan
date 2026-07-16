@@ -34,6 +34,7 @@
 "Find a connection" = "Find a connection";
 "Find a public transport journey through IDOS." = "Find a public transport journey through IDOS.";
 "Favorites" = "Favorites";
+"Favorite timetables" = "Favorite timetables";
 "From" = "From";
 "IDOS could not load this service detail." = "IDOS could not load this service detail.";
 "IDOS could not load this service detail. %@" = "IDOS could not load this service detail. %@";
@@ -55,6 +56,7 @@
 "municipality" = "municipality";
 "No application could open the calendar event." = "No application could open the calendar event.";
 "No connections yet" = "No connections yet";
+"No favorite timetables" = "No favorite timetables";
 "No station board yet" = "No station board yet";
 "Network request failed. Check your internet connection." = "Network request failed. Check your internet connection.";
 "Network request failed. Check your internet connection. %@" = "Network request failed. Check your internet connection. %@";
@@ -68,6 +70,7 @@
 "Remove via place" = "Remove via place";
 "Remove timetable from favorites" = "Remove timetable from favorites";
 "Search" = "Search";
+"Searches" = "Search";
 "Searching connections…" = "Searching connections…";
 "Service information" = "Service information";
 "Service route" = "Service route";
@@ -84,6 +87,7 @@
 "Time" = "Time";
 "Time means" = "Time means";
 "Timetable" = "Timetable";
+"Timetables" = "Timetables";
 "To" = "To";
 "Track %@" = "Track %@";
 "Trains" = "Trains";
@@ -94,6 +98,7 @@
 "Prague + PID" = "Prague + PID";
 "Up to %lld transfers" = "Up to %lld transfers";
 "Urban public transport by city" = "Urban public transport by city";
+"Use the stars to choose which timetables appear first in search menus." = "Use the stars to choose which timetables appear first in search menus.";
 "Version %@" = "Version %@";
 "Via" = "Via";
 "Zone %@" = "Zone %@";

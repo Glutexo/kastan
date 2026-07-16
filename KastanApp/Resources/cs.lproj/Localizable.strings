@@ -34,6 +34,7 @@
 "Find a connection" = "Vyhledat spojení";
 "Find a public transport journey through IDOS." = "Vyhledejte cestu veřejnou dopravou přes IDOS.";
 "Favorites" = "Oblíbené";
+"Favorite timetables" = "Oblíbené jízdní řády";
 "From" = "Odkud";
 "IDOS could not load this service detail." = "IDOS nedokázal načíst detail tohoto spoje.";
 "IDOS could not load this service detail. %@" = "IDOS nedokázal načíst detail tohoto spoje. %@";
@@ -55,6 +56,7 @@
 "municipality" = "obec";
 "No application could open the calendar event." = "Událost kalendáře se nepodařilo otevřít v žádné aplikaci.";
 "No connections yet" = "Zatím žádné spojení";
+"No favorite timetables" = "Zatím žádné oblíbené jízdní řády";
 "No station board yet" = "Zatím žádná odjezdová tabule";
 "Network request failed. Check your internet connection." = "Síťový požadavek selhal. Zkontrolujte připojení k internetu.";
 "Network request failed. Check your internet connection. %@" = "Síťový požadavek selhal. Zkontrolujte připojení k internetu. %@";
@@ -68,6 +70,7 @@
 "Remove via place" = "Odebrat místo";
 "Remove timetable from favorites" = "Odebrat jízdní řád z oblíbených";
 "Search" = "Hledat";
+"Searches" = "Vyhledávání";
 "Searching connections…" = "Vyhledávání spojení…";
 "Service information" = "Informace o spoji";
 "Service route" = "Trasa spoje";
@@ -84,6 +87,7 @@
 "Time" = "Čas";
 "Time means" = "Význam času";
 "Timetable" = "Jízdní řád";
+"Timetables" = "Jízdní řády";
 "To" = "Kam";
 "Track %@" = "kolej %@";
 "Trains" = "Vlaky";
@@ -94,6 +98,7 @@
 "Prague + PID" = "Praha + PID";
 "Up to %lld transfers" = "Nejvýše %lld přestupů";
 "Urban public transport by city" = "MHD jednotlivých měst";
+"Use the stars to choose which timetables appear first in search menus." = "Hvězdičkami vyberte jízdní řády, které se mají zobrazovat jako první v nabídkách vyhledávání.";
 "Version %@" = "Verze %@";
 "Via" = "Přes";
 "Zone %@" = "zóna %@";

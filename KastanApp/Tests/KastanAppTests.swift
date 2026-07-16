@@ -68,6 +68,13 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(layout.contentWidth, 1352)
     }
 
+    func testSidebarSeparatesSearchAndFavoriteAgendas() {
+        XCTAssertEqual(
+            AppSidebarGroup.allCases.map(\.sections),
+            [[.connections, .departures], [.favoriteTimetables]]
+        )
+    }
+
     func testTimetableCatalogIsSplitIntoGeneralIntegratedAndCityGroups() {
         XCTAssertEqual(
             AppTimetableGroup.general.timetables.map(\.slug),

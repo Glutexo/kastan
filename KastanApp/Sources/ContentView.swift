@@ -5,6 +5,7 @@ import SwiftUI
 enum AppSection: String, CaseIterable, Hashable, Identifiable {
     case connections
     case departures
+    case favoriteTimetables
 
     var id: Self { self }
 
@@ -14,6 +15,8 @@ enum AppSection: String, CaseIterable, Hashable, Identifiable {
             "Connections"
         case .departures:
             "Departures"
+        case .favoriteTimetables:
+            "Timetables"
         }
     }
 
@@ -23,6 +26,34 @@ enum AppSection: String, CaseIterable, Hashable, Identifiable {
             "arrow.left.arrow.right"
         case .departures:
             "list.bullet.rectangle"
+        case .favoriteTimetables:
+            "star"
+        }
+    }
+}
+
+/// Groups top-level destinations into the two product areas shown in the sidebar.
+enum AppSidebarGroup: CaseIterable, Identifiable {
+    case searches
+    case favorites
+
+    var id: Self { self }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .searches:
+            "Searches"
+        case .favorites:
+            "Favorites"
+        }
+    }
+
+    var sections: [AppSection] {
+        switch self {
+        case .searches:
+            [.connections, .departures]
+        case .favorites:
+            [.favoriteTimetables]
         }
     }
 }
@@ -118,9 +149,17 @@ struct ContentView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(AppSection.allCases, selection: $selection) { section in
-                Label(section.title, systemImage: section.systemImage)
-                    .tag(section)
+            List(selection: $selection) {
+                ForEach(AppSidebarGroup.allCases) { group in
+                    Section {
+                        ForEach(group.sections) { section in
+                            Label(section.title, systemImage: section.systemImage)
+                                .tag(section)
+                        }
+                    } header: {
+                        Text(group.title)
+                    }
+                }
             }
             .navigationTitle("Kaštan")
             .safeAreaInset(edge: .bottom) {
@@ -153,6 +192,8 @@ struct ContentView: View {
                 ConnectionsView(model: connectionsModel, client: client)
             case .departures:
                 DeparturesView(model: departuresModel, client: client)
+            case .favoriteTimetables:
+                FavoriteTimetablesView()
             }
         }
         .focusedSceneValue(\.appSectionSelection, $selection)
