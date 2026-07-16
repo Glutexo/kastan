@@ -1,5 +1,6 @@
 "About Kaštan" = "About Kaštan";
 "Add to Calendar" = "Add to Calendar";
+"Add timetable to favorites" = "Add timetable to favorites";
 "Add via place" = "Add via place";
 "address" = "address";
 "All timetables" = "All timetables";
@@ -32,6 +33,7 @@
 "Enter both a departure and an arrival place." = "Enter both a departure and an arrival place.";
 "Find a connection" = "Find a connection";
 "Find a public transport journey through IDOS." = "Find a public transport journey through IDOS.";
+"Favorites" = "Favorites";
 "From" = "From";
 "IDOS could not load this service detail." = "IDOS could not load this service detail.";
 "IDOS could not load this service detail. %@" = "IDOS could not load this service detail. %@";
@@ -64,6 +66,7 @@
 "public transport" = "public transport";
 "Results" = "Results";
 "Remove via place" = "Remove via place";
+"Remove timetable from favorites" = "Remove timetable from favorites";
 "Search" = "Search";
 "Searching connections…" = "Searching connections…";
 "Service information" = "Service information";

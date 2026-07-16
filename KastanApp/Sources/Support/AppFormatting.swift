@@ -105,6 +105,62 @@ enum AppErrorPresentation {
     }
 }
 
+/// Stores an ordered, persistent subset of the known timetable catalog for quick picker access.
+struct TimetableFavorites: Equatable {
+    static let storageKey = "favoriteTimetableSlugs"
+
+    private(set) var slugs: [String]
+
+    init(slugs: [String] = []) {
+        let knownSlugs = Set(IDOSTimetable.known.map(\.slug))
+        var uniqueSlugs = Set<String>()
+        self.slugs = slugs.filter { slug in
+            knownSlugs.contains(slug) && uniqueSlugs.insert(slug).inserted
+        }
+    }
+
+    init(serialized: String) {
+        guard let data = serialized.data(using: .utf8),
+              let slugs = try? JSONDecoder().decode([String].self, from: data)
+        else {
+            self.init()
+            return
+        }
+        self.init(slugs: slugs)
+    }
+
+    var serialized: String {
+        guard let data = try? JSONEncoder().encode(slugs),
+              let value = String(data: data, encoding: .utf8)
+        else {
+            return "[]"
+        }
+        return value
+    }
+
+    var timetables: [IDOSTimetable] {
+        slugs.compactMap { slug in
+            IDOSTimetable.known.first { $0.slug == slug }
+        }
+    }
+
+    func contains(_ timetable: IDOSTimetable) -> Bool {
+        slugs.contains(timetable.slug)
+    }
+
+    func nonFavorites(in timetables: [IDOSTimetable]) -> [IDOSTimetable] {
+        timetables.filter { !slugs.contains($0.slug) }
+    }
+
+    mutating func toggle(_ timetable: IDOSTimetable) {
+        if let index = slugs.firstIndex(of: timetable.slug) {
+            slugs.remove(at: index)
+        } else if IDOSTimetable.known.contains(where: { $0.slug == timetable.slug }) {
+            slugs.append(timetable.slug)
+        }
+    }
+}
+
 /// Product-facing sections that keep the long IDOS timetable catalog scannable.
 enum AppTimetableGroup: CaseIterable, Identifiable {
     case general
@@ -158,16 +214,43 @@ enum AppTimetableGroup: CaseIterable, Identifiable {
 
 /// Supplies the same sectioned timetable menu to connection and station-board pickers.
 struct AppTimetablePickerOptions: View {
+    let favoriteSlugs: [String]
+
+    init(favoriteSlugs: [String] = []) {
+        self.favoriteSlugs = favoriteSlugs
+    }
+
     var body: some View {
-        ForEach(AppTimetableGroup.allCases) { group in
+        if !favoriteTimetables.isEmpty {
             Section {
-                ForEach(group.timetables, id: \.slug) { timetable in
+                ForEach(favoriteTimetables, id: \.slug) { timetable in
                     Text(timetable.appDisplayName).tag(timetable.slug)
                 }
             } header: {
-                Text(group.title)
+                Text("Favorites")
             }
         }
+
+        ForEach(AppTimetableGroup.allCases) { group in
+            let timetables = favorites.nonFavorites(in: group.timetables)
+            if !timetables.isEmpty {
+                Section {
+                    ForEach(timetables, id: \.slug) { timetable in
+                        Text(timetable.appDisplayName).tag(timetable.slug)
+                    }
+                } header: {
+                    Text(group.title)
+                }
+            }
+        }
+    }
+
+    private var favorites: TimetableFavorites {
+        TimetableFavorites(slugs: favoriteSlugs)
+    }
+
+    private var favoriteTimetables: [IDOSTimetable] {
+        favorites.timetables
     }
 }
 

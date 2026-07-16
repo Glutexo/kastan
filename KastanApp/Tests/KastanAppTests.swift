@@ -90,6 +90,25 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(groupedSlugs, Set(IDOSTimetable.known.map(\.slug)))
     }
 
+    func testFavoriteTimetablesPersistKnownUniqueSlugsInPickerOrder() {
+        var favorites = TimetableFavorites(slugs: ["vlaky", "unknown", "vlaky", "odis"])
+
+        XCTAssertEqual(favorites.slugs, ["vlaky", "odis"])
+        XCTAssertEqual(favorites.timetables.map(\.slug), ["vlaky", "odis"])
+
+        favorites.toggle(IDOSTimetable(slug: "vlaky", displayName: "Trains"))
+        favorites.toggle(IDOSTimetable(slug: "pid", displayName: "Prague + PID"))
+
+        XCTAssertEqual(favorites.slugs, ["odis", "pid"])
+        XCTAssertEqual(TimetableFavorites(serialized: favorites.serialized), favorites)
+
+        let pickerTimetables = favorites.timetables + AppTimetableGroup.allCases.flatMap {
+            favorites.nonFavorites(in: $0.timetables)
+        }
+        XCTAssertEqual(pickerTimetables.count, IDOSTimetable.known.count)
+        XCTAssertEqual(Set(pickerTimetables.map(\.slug)), Set(IDOSTimetable.known.map(\.slug)))
+    }
+
     func testSuggestionPresentationLocalizesMetadataAndRemovesRepeatedRegion() {
         let station = PlaceSuggestionPresentation(
             suggestion: IDOSSuggestion(

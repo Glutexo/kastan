@@ -1,5 +1,6 @@
 "About Kaštan" = "O aplikaci Kaštan";
 "Add to Calendar" = "Přidat do Kalendáře";
+"Add timetable to favorites" = "Přidat jízdní řád do oblíbených";
 "Add via place" = "Přidat další místo";
 "address" = "adresa";
 "All timetables" = "Všechny jízdní řády";
@@ -32,6 +33,7 @@
 "Enter both a departure and an arrival place." = "Zadejte výchozí i cílové místo.";
 "Find a connection" = "Vyhledat spojení";
 "Find a public transport journey through IDOS." = "Vyhledejte cestu veřejnou dopravou přes IDOS.";
+"Favorites" = "Oblíbené";
 "From" = "Odkud";
 "IDOS could not load this service detail." = "IDOS nedokázal načíst detail tohoto spoje.";
 "IDOS could not load this service detail. %@" = "IDOS nedokázal načíst detail tohoto spoje. %@";
@@ -64,6 +66,7 @@
 "public transport" = "MHD";
 "Results" = "Výsledky";
 "Remove via place" = "Odebrat místo";
+"Remove timetable from favorites" = "Odebrat jízdní řád z oblíbených";
 "Search" = "Hledat";
 "Searching connections…" = "Vyhledávání spojení…";
 "Service information" = "Informace o spoji";
