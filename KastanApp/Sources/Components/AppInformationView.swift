@@ -52,8 +52,13 @@ struct AppInformationView: View {
                 ApplicationIcon(size: 44)
 
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Kaštan")
-                        .font(.title.bold())
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text("Kaštan")
+                            .font(.title.bold())
+                        Text(versionDescription)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
                     Text("Independent macOS client for occasional personal IDOS searches.")
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -92,12 +97,6 @@ struct AppInformationView: View {
                     destination: links.projectWebsite
                 )
             }
-
-            Divider()
-
-            Text(AppLocalization.string("Version %@", versionDescription))
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
         .padding(24)
         .frame(width: 520)

@@ -201,6 +201,8 @@ struct AppSectionCommands: Commands {
             Divider()
 
             sectionToggle(.favoriteTimetables)
+
+            Divider()
         }
     }
 
