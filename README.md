@@ -2,8 +2,8 @@
 
 <img src="KastanApp/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-256.png" alt="Kaštan app icon" width="128">
 
-Kaštan provides occasional personal IDOS queries as a native macOS app, a Swift CLI, an importable Swift
-library, and a local MCP server.
+Kaštan provides occasional personal [IDOS](https://idos.cz/en/) queries as a native macOS app, a Swift CLI,
+an importable Swift library, and a local MCP server.
 
 ![Kaštan for macOS showing train connections from Prague to Brno](docs/images/kastan-macos-connections.png)
 
@@ -84,4 +84,4 @@ GitHub Actions runs all three test suites for changes to `main` and for pull req
 
 ## License
 
-Kaštan is available under the [MIT License](LICENSE).
+Kaštan is dedicated to the public domain under [CC0 1.0 Universal](LICENSE).
