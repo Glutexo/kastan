@@ -67,17 +67,16 @@ struct AppInformationView: View {
                 .layoutPriority(1)
             }
 
-            GroupBox {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Data source and limitations", systemImage: "info.circle")
+                    .font(.headline)
+
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Kaštan retrieves journey information from publicly accessible IDOS web pages. It is not an official IDOS or CHAPS application.")
                     Text("Availability and accuracy are not guaranteed. Confirm important journey details with the carrier.")
                         .foregroundStyle(.secondary)
                 }
                 .fixedSize(horizontal: false, vertical: true)
-                .padding(6)
-            } label: {
-                Label("Data source and limitations", systemImage: "info.circle")
-                    .font(.headline)
             }
 
             VStack(spacing: 8) {
