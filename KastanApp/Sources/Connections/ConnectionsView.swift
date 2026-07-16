@@ -95,7 +95,7 @@ struct ConnectionsView: View {
 
     private func searchPanel(layout: DetailLayout) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            endpointControls(stacked: layout.usesStackedEndpoints)
+            endpointControls
                 .background {
                     GeometryReader { geometry in
                         let bottom = geometry.frame(in: .named(Self.scrollCoordinateSpace)).maxY
@@ -123,26 +123,13 @@ struct ConnectionsView: View {
         includesRouteInTitle = endpointControlsBottom <= 0
     }
 
-    @ViewBuilder
-    private func endpointControls(stacked: Bool) -> some View {
-        if stacked {
-            VStack(alignment: .leading, spacing: 8) {
-                fromField
-                HStack {
-                    Spacer()
-                    swapButton
-                }
-                toField
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            HStack(alignment: .placeInputCenter, spacing: 10) {
-                fromField
-                    .frame(minWidth: 240, maxWidth: .infinity)
-                swapButton
-                toField
-                    .frame(minWidth: 240, maxWidth: .infinity)
-            }
+    private var endpointControls: some View {
+        HStack(alignment: .placeInputCenter, spacing: 10) {
+            fromField
+                .frame(minWidth: 160, maxWidth: .infinity)
+            swapButton
+            toField
+                .frame(minWidth: 160, maxWidth: .infinity)
         }
     }
 

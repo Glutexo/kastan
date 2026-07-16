@@ -32,7 +32,6 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertEqual(layout.containerWidth, 510)
         XCTAssertEqual(layout.horizontalPadding, 16)
-        XCTAssertTrue(layout.usesStackedEndpoints)
         XCTAssertTrue(layout.usesStackedSearchControls)
     }
 
@@ -41,7 +40,6 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertEqual(layout.containerWidth, 900)
         XCTAssertEqual(layout.horizontalPadding, 24)
-        XCTAssertFalse(layout.usesStackedEndpoints)
         XCTAssertFalse(layout.usesStackedSearchControls)
     }
 
