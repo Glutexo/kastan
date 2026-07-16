@@ -14,8 +14,6 @@ struct JourneySearchControls: View {
     private let isSearching: Bool
     private let canSearch: Bool
     private let usesStackedLayout: Bool
-    private let timetableCoordinateSpaceName: String?
-    private let onTimetableBottomChange: ((CGFloat) -> Void)?
     private let search: () -> Void
 
     init(
@@ -29,8 +27,6 @@ struct JourneySearchControls: View {
         isSearching: Bool,
         canSearch: Bool,
         usesStackedLayout: Bool,
-        timetableCoordinateSpaceName: String? = nil,
-        onTimetableBottomChange: ((CGFloat) -> Void)? = nil,
         search: @escaping () -> Void
     ) {
         _timetable = timetable
@@ -43,8 +39,6 @@ struct JourneySearchControls: View {
         self.isSearching = isSearching
         self.canSearch = canSearch
         self.usesStackedLayout = usesStackedLayout
-        self.timetableCoordinateSpaceName = timetableCoordinateSpaceName
-        self.onTimetableBottomChange = onTimetableBottomChange
         self.search = search
     }
 
@@ -103,21 +97,6 @@ struct JourneySearchControls: View {
             }
             .labelsHidden()
             .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .background {
-            if let timetableCoordinateSpaceName, let onTimetableBottomChange {
-                GeometryReader { geometry in
-                    let bottom = geometry.frame(in: .named(timetableCoordinateSpaceName)).maxY
-
-                    Color.clear
-                        .onAppear {
-                            onTimetableBottomChange(bottom)
-                        }
-                        .onChange(of: bottom) { value in
-                            onTimetableBottomChange(value)
-                        }
-                }
-            }
         }
     }
 

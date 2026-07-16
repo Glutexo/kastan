@@ -11,9 +11,10 @@ struct DeparturesView: View {
         GeometryReader { geometry in
             let layout = DetailLayout(availableWidth: geometry.size.width)
 
-            ScrollView {
-                page(layout: layout)
-                    .frame(width: geometry.size.width, alignment: .topLeading)
+            SearchWorkspace(layout: layout) {
+                searchPanel(stacked: layout.usesStackedSearchControls)
+            } resultsContent: {
+                resultsPanel
             }
             .frame(
                 width: geometry.size.width,
@@ -24,32 +25,17 @@ struct DeparturesView: View {
         .navigationTitle("Departures")
     }
 
-    private func page(layout: DetailLayout) -> some View {
-        VStack(spacing: 0) {
-            searchPanel(stacked: layout.usesStackedSearchControls)
-                .padding(.horizontal, layout.horizontalPadding)
-                .padding(.vertical, 18)
-                .frame(width: layout.containerWidth, alignment: .topLeading)
-                .frame(width: layout.availableWidth, alignment: .topLeading)
-                .background(.bar)
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: 20) {
-                if let errorMessage = model.errorMessage {
-                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(12)
-                        .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-                }
-
-                results
+    private var resultsPanel: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            if let errorMessage = model.errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
             }
-            .padding(.horizontal, layout.horizontalPadding)
-            .padding(.vertical, 20)
-            .frame(width: layout.containerWidth, alignment: .topLeading)
-            .frame(width: layout.availableWidth, alignment: .topLeading)
+
+            results
         }
     }
 

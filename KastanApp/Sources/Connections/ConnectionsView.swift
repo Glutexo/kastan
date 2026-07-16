@@ -1,114 +1,48 @@
 import Kastan
 import SwiftUI
 
-/// Keeps route and timetable context in the title after their controls scroll out of view.
-enum ConnectionNavigationTitle {
-    static func text(
-        from: String,
-        to: String,
-        timetable: String,
-        includesRoute: Bool,
-        includesTimetable: Bool
-    ) -> String {
-        var title = AppLocalization.string("Connections")
-
-        let departure = from.trimmingCharacters(in: .whitespacesAndNewlines)
-        let arrival = to.trimmingCharacters(in: .whitespacesAndNewlines)
-        if includesRoute, !departure.isEmpty, !arrival.isEmpty {
-            title = AppLocalization.string("Connections: %@ → %@", departure, arrival)
-        }
-
-        let timetable = timetable.trimmingCharacters(in: .whitespacesAndNewlines)
-        if includesTimetable, !timetable.isEmpty {
-            title += " (\(timetable))"
-        }
-
-        return title
-    }
-}
-
 /// Combines a compact macOS search workspace with expandable journey results.
 struct ConnectionsView: View {
-    private static let scrollCoordinateSpace = "connections-scroll"
-
     @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: ConnectionsViewModel
     let client: any IDOSClienting
-    @State private var includesRouteInTitle = false
-    @State private var includesTimetableInTitle = false
     @State private var isJourneyOptionsExpanded = false
 
     var body: some View {
         GeometryReader { geometry in
             let layout = DetailLayout(availableWidth: geometry.size.width)
 
-            ScrollView {
-                page(layout: layout)
-                    .frame(width: geometry.size.width, alignment: .topLeading)
+            SearchWorkspace(layout: layout) {
+                searchPanel(layout: layout)
+            } resultsContent: {
+                resultsPanel
             }
-            .coordinateSpace(name: Self.scrollCoordinateSpace)
             .frame(
                 width: geometry.size.width,
                 height: geometry.size.height,
                 alignment: .topLeading
             )
         }
-        .navigationTitle(
-            ConnectionNavigationTitle.text(
-                from: model.from,
-                to: model.to,
-                timetable: model.timetable.navigationTitleDisplayName,
-                includesRoute: includesRouteInTitle,
-                includesTimetable: includesTimetableInTitle
-            )
-        )
+        .navigationTitle("Connections")
     }
 
-    private func page(layout: DetailLayout) -> some View {
-        VStack(spacing: 0) {
-            searchPanel(layout: layout)
-                .padding(.horizontal, layout.horizontalPadding)
-                .padding(.vertical, 18)
-                .frame(width: layout.containerWidth, alignment: .topLeading)
-                .frame(width: layout.availableWidth, alignment: .topLeading)
-                .background(.bar)
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: 20) {
-                if let errorMessage = model.errorMessage {
-                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(12)
-                        .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-                }
-
-                results
+    private var resultsPanel: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            if let errorMessage = model.errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
             }
-            .padding(.horizontal, layout.horizontalPadding)
-            .padding(.vertical, 20)
-            .frame(width: layout.containerWidth, alignment: .topLeading)
-            .frame(width: layout.availableWidth, alignment: .topLeading)
+
+            results
         }
     }
 
     private func searchPanel(layout: DetailLayout) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             endpointControls
-                .background {
-                    GeometryReader { geometry in
-                        let bottom = geometry.frame(in: .named(Self.scrollCoordinateSpace)).maxY
-
-                        Color.clear
-                            .onAppear {
-                                updateNavigationTitle(endpointControlsBottom: bottom)
-                            }
-                            .onChange(of: bottom) { value in
-                                updateNavigationTitle(endpointControlsBottom: value)
-                            }
-                    }
-                }
 
             Divider()
 
@@ -117,10 +51,6 @@ struct ConnectionsView: View {
             journeyOptions
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private func updateNavigationTitle(endpointControlsBottom: CGFloat) {
-        includesRouteInTitle = endpointControlsBottom <= 0
     }
 
     private var endpointControls: some View {
@@ -177,9 +107,7 @@ struct ConnectionsView: View {
             arrivalLabel: "Arrival",
             isSearching: model.isSearching,
             canSearch: model.canSearch,
-            usesStackedLayout: stacked,
-            timetableCoordinateSpaceName: Self.scrollCoordinateSpace,
-            onTimetableBottomChange: updateNavigationTitle(timetablePickerBottom:)
+            usesStackedLayout: stacked
         ) {
             Task { await model.search() }
         }
@@ -253,10 +181,6 @@ struct ConnectionsView: View {
             value: $model.maximumTransfers,
             in: 0...10
         )
-    }
-
-    private func updateNavigationTitle(timetablePickerBottom: CGFloat) {
-        includesTimetableInTitle = timetablePickerBottom <= 0
     }
 
     @ViewBuilder

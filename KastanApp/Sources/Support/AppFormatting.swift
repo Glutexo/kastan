@@ -195,16 +195,6 @@ extension IDOSTimetable {
             return displayName
         }
     }
-
-    /// Uses lowercase generic timetable kinds in parentheses while preserving transport-system names.
-    var navigationTitleDisplayName: String {
-        switch slug {
-        case "vlakyautobusymhdvse", "vlakyautobusymhd", "vlaky", "autobusy", "vlakyautobusy":
-            return appDisplayName.lowercased(with: .current)
-        default:
-            return appDisplayName
-        }
-    }
 }
 
 /// Keeps optional metadata compact and readable in result rows.

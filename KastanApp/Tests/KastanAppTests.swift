@@ -68,39 +68,6 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(layout.contentWidth, 1352)
     }
 
-    func testConnectionNavigationTitleAddsHiddenRouteAndTimetableContext() {
-        XCTAssertEqual(
-            ConnectionNavigationTitle.text(
-                from: " Frýdek-Místek ",
-                to: " Ostrava ",
-                timetable: "vlaky",
-                includesRoute: true,
-                includesTimetable: true
-            ),
-            AppLocalization.string("Connections: %@ → %@", "Frýdek-Místek", "Ostrava") + " (vlaky)"
-        )
-        XCTAssertEqual(
-            ConnectionNavigationTitle.text(
-                from: "Praha",
-                to: "Brno",
-                timetable: "vlaky",
-                includesRoute: false,
-                includesTimetable: false
-            ),
-            AppLocalization.string("Connections")
-        )
-        XCTAssertEqual(
-            ConnectionNavigationTitle.text(
-                from: "Praha",
-                to: "",
-                timetable: "ODIS",
-                includesRoute: true,
-                includesTimetable: true
-            ),
-            AppLocalization.string("Connections") + " (ODIS)"
-        )
-    }
-
     func testTimetableCatalogIsSplitIntoGeneralIntegratedAndCityGroups() {
         XCTAssertEqual(
             AppTimetableGroup.general.timetables.map(\.slug),
@@ -119,15 +86,6 @@ final class KastanAppTests: XCTestCase {
             AppTimetableGroup.cityTransport.timetables.first { $0.slug == "karlovyvary" }?.appDisplayName,
             "Karlovy Vary"
         )
-        XCTAssertEqual(
-            IDOSTimetable(slug: "vlaky", displayName: "Trains").navigationTitleDisplayName,
-            AppLocalization.string("Trains").lowercased(with: .current)
-        )
-        XCTAssertEqual(
-            IDOSTimetable(slug: "odis", displayName: "ODIS").navigationTitleDisplayName,
-            "ODIS"
-        )
-
         let groupedSlugs = Set(AppTimetableGroup.allCases.flatMap { $0.timetables.map(\.slug) })
         XCTAssertEqual(groupedSlugs, Set(IDOSTimetable.known.map(\.slug)))
     }

@@ -63,6 +63,45 @@ struct DetailLayout {
     }
 }
 
+/// Keeps search controls visible while giving only the result area the remaining scrollable space.
+struct SearchWorkspace<SearchContent: View, ResultsContent: View>: View {
+    let layout: DetailLayout
+    private let searchContent: SearchContent
+    private let resultsContent: ResultsContent
+
+    init(
+        layout: DetailLayout,
+        @ViewBuilder searchContent: () -> SearchContent,
+        @ViewBuilder resultsContent: () -> ResultsContent
+    ) {
+        self.layout = layout
+        self.searchContent = searchContent()
+        self.resultsContent = resultsContent()
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            searchContent
+                .padding(.horizontal, layout.horizontalPadding)
+                .padding(.vertical, 18)
+                .frame(width: layout.containerWidth, alignment: .topLeading)
+                .frame(width: layout.availableWidth, alignment: .topLeading)
+                .background(.bar)
+
+            Divider()
+
+            ScrollView {
+                resultsContent
+                    .padding(.horizontal, layout.horizontalPadding)
+                    .padding(.vertical, 20)
+                    .frame(width: layout.containerWidth, alignment: .topLeading)
+                    .frame(width: layout.availableWidth, alignment: .topLeading)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+}
+
 /// Retains independent search state while the user switches between connections and station boards.
 struct ContentView: View {
     @Environment(\.openWindow) private var openWindow
