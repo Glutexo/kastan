@@ -7,21 +7,29 @@ final class ServiceDetailViewModel: ObservableObject {
     @Published private(set) var service: IDOSServiceDetail?
     @Published private(set) var isLoading = false
     @Published private(set) var isAddingToCalendar = false
+    @Published private(set) var isSavingPDF = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var actionErrorMessage: String?
 
     private let id: String
     private let client: any IDOSClienting
     private let calendarImporter: any CalendarImporting
+    private let pdfExporter: any PDFExporting
 
     init(
         id: String,
         client: any IDOSClienting,
-        calendarImporter: any CalendarImporting = WorkspaceCalendarImporter()
+        calendarImporter: any CalendarImporting = WorkspaceCalendarImporter(),
+        pdfExporter: any PDFExporting = WorkspacePDFExporter()
     ) {
         self.id = id
         self.client = client
         self.calendarImporter = calendarImporter
+        self.pdfExporter = pdfExporter
+    }
+
+    var isPerformingExport: Bool {
+        isAddingToCalendar || isSavingPDF
     }
 
     func load() async {
@@ -41,7 +49,7 @@ final class ServiceDetailViewModel: ObservableObject {
 
     /// Opens the dated service's native IDOS calendar export in the user's calendar application.
     func addToCalendar() async {
-        guard let service, !isAddingToCalendar else {
+        guard let service, !isPerformingExport else {
             return
         }
         isAddingToCalendar = true
@@ -51,6 +59,32 @@ final class ServiceDetailViewModel: ObservableObject {
         do {
             let calendar = try await client.serviceCalendar(for: service)
             try calendarImporter.open(calendarText: calendar)
+        } catch {
+            actionErrorMessage = AppErrorPresentation.message(for: error)
+        }
+    }
+
+    /// Saves the dated service's native IDOS PDF to a location chosen by the user.
+    func saveAsPDF() async {
+        guard let service, !isPerformingExport else {
+            return
+        }
+        isSavingPDF = true
+        actionErrorMessage = nil
+        defer { isSavingPDF = false }
+
+        do {
+            let data = try await client.servicePDF(
+                for: service,
+                language: AppLanguagePreference.idosLanguage
+            )
+            try await pdfExporter.save(
+                pdfData: data,
+                suggestedFileName: PDFExportFileName.connection(
+                    from: service.stops.first?.name ?? service.name,
+                    to: service.stops.last?.name ?? service.name
+                )
+            )
         } catch {
             actionErrorMessage = AppErrorPresentation.message(for: error)
         }
@@ -192,6 +226,11 @@ struct ServiceDetailView: View {
                             } label: {
                                 Label("Add to Calendar", systemImage: "calendar.badge.plus")
                             }
+                            Button {
+                                Task { await model.saveAsPDF() }
+                            } label: {
+                                Label("Save as PDF", systemImage: "arrow.down.doc")
+                            }
                             ShareLink(item: url) {
                                 Label("Share Link", systemImage: "square.and.arrow.up")
                             }
@@ -199,7 +238,7 @@ struct ServiceDetailView: View {
                                 Label("Open in IDOS", systemImage: "arrow.up.right.square")
                             }
                         } label: {
-                            if model.isAddingToCalendar {
+                            if model.isPerformingExport {
                                 ProgressView()
                                     .controlSize(.small)
                             } else {
@@ -207,7 +246,7 @@ struct ServiceDetailView: View {
                             }
                         }
                         .menuStyle(.borderlessButton)
-                        .disabled(model.isAddingToCalendar)
+                        .disabled(model.isPerformingExport)
                     }
                 }
 

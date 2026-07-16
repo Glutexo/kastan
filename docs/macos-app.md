@@ -23,8 +23,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Complete service routes with the search-relevant segment highlighted without implying live vehicle position.
 - Permanent connection and service-detail links using the IDOS language that matches the app, available from
   their action menus for opening in IDOS or sharing through the standard macOS share sheet.
-- IDOS calendar exports for connection results and dated service details opened in the user's calendar
-  application, and localized IDOS PDFs saved through the native macOS save panel.
+- IDOS calendar and localized PDF exports for connection results and dated service details, opened in the
+  user's calendar application or saved through the native macOS save panel.
 - English and Czech interface localization.
 - An app-information window describing the data source and linking to IDOS, its terms, and the Kaštan repository.
 - A Help menu that repeats the About window's maintained links to IDOS, its terms, and the Kaštan repository

@@ -393,6 +393,29 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(model.actionErrorMessage)
     }
 
+    func testServicePDFExportUsesDocumentReturnedByIDOS() async {
+        let client = MockIDOSClient()
+        let exporter = RecordingPDFExporter()
+        let model = ServiceDetailViewModel(
+            id: "service-1",
+            client: client,
+            pdfExporter: exporter
+        )
+
+        await model.load()
+        await model.saveAsPDF()
+
+        XCTAssertEqual(exporter.pdfData, Data("%PDF-1.4\nKaštan".utf8))
+        XCTAssertTrue(exporter.suggestedFileName?.contains("Ostrava-Svinov") == true)
+        XCTAssertTrue(exporter.suggestedFileName?.hasSuffix(".pdf") == true)
+        let serviceID = await client.lastPDFServiceID
+        let language = await client.lastServicePDFLanguage
+        XCTAssertEqual(serviceID, "service-1")
+        XCTAssertEqual(language, AppLanguagePreference.idosLanguage)
+        XCTAssertFalse(model.isSavingPDF)
+        XCTAssertNil(model.actionErrorMessage)
+    }
+
     func testPDFExportUsesDocumentReturnedByIDOSAndRouteFileName() async {
         let client = MockIDOSClient()
         let exporter = RecordingPDFExporter()
@@ -480,6 +503,8 @@ private actor MockIDOSClient: IDOSClienting {
     var lastSuggestionQuery: SuggestionQuery?
     var lastPDFLanguage: IDOSLanguage?
     var lastCalendarServiceID: String?
+    var lastPDFServiceID: String?
+    var lastServicePDFLanguage: IDOSLanguage?
 
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
         lastSuggestionQuery = SuggestionQuery(prefix: prefix, timetableSlug: timetable.slug)
@@ -512,6 +537,12 @@ private actor MockIDOSClient: IDOSClienting {
     func serviceCalendar(for service: IDOSServiceDetail) async throws -> String {
         lastCalendarServiceID = service.id
         return "BEGIN:VCALENDAR\nEND:VCALENDAR"
+    }
+
+    func servicePDF(for service: IDOSServiceDetail, language: IDOSLanguage) async throws -> Data {
+        lastPDFServiceID = service.id
+        lastServicePDFLanguage = language
+        return Data("%PDF-1.4\nKaštan".utf8)
     }
 
     func connectionPDF(
