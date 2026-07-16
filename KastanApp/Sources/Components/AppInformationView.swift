@@ -40,7 +40,6 @@ struct ApplicationIcon: View {
 
 /// Explains Kaštan's relationship to IDOS and links to the source service and project details.
 struct AppInformationView: View {
-    @Environment(\.dismiss) private var dismiss
     private let links: AppInformationLinks
 
     init(links: AppInformationLinks = .localized) {
@@ -49,7 +48,7 @@ struct AppInformationView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: 14) {
+            HStack(alignment: .top, spacing: 14) {
                 ApplicationIcon(size: 44)
 
                 VStack(alignment: .leading, spacing: 3) {
@@ -57,7 +56,10 @@ struct AppInformationView: View {
                         .font(.title.bold())
                     Text("Independent macOS client for occasional personal IDOS searches.")
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
             }
 
             GroupBox {
@@ -93,16 +95,9 @@ struct AppInformationView: View {
 
             Divider()
 
-            HStack {
-                Text(AppLocalization.string("Version %@", versionDescription))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button("Done") {
-                    dismiss()
-                }
-                .keyboardShortcut(.defaultAction)
-            }
+            Text(AppLocalization.string("Version %@", versionDescription))
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .padding(24)
         .frame(width: 520)
