@@ -6,14 +6,22 @@ import SwiftUI
 final class ServiceDetailViewModel: ObservableObject {
     @Published private(set) var service: IDOSServiceDetail?
     @Published private(set) var isLoading = false
+    @Published private(set) var isAddingToCalendar = false
     @Published private(set) var errorMessage: String?
+    @Published private(set) var actionErrorMessage: String?
 
     private let id: String
     private let client: any IDOSClienting
+    private let calendarImporter: any CalendarImporting
 
-    init(id: String, client: any IDOSClienting) {
+    init(
+        id: String,
+        client: any IDOSClienting,
+        calendarImporter: any CalendarImporting = WorkspaceCalendarImporter()
+    ) {
         self.id = id
         self.client = client
+        self.calendarImporter = calendarImporter
     }
 
     func load() async {
@@ -28,6 +36,23 @@ final class ServiceDetailViewModel: ObservableObject {
             service = try await client.serviceDetail(id: id, language: AppLanguagePreference.idosLanguage)
         } catch {
             errorMessage = AppErrorPresentation.message(for: error)
+        }
+    }
+
+    /// Opens the dated service's native IDOS calendar export in the user's calendar application.
+    func addToCalendar() async {
+        guard let service, !isAddingToCalendar else {
+            return
+        }
+        isAddingToCalendar = true
+        actionErrorMessage = nil
+        defer { isAddingToCalendar = false }
+
+        do {
+            let calendar = try await client.serviceCalendar(for: service)
+            try calendarImporter.open(calendarText: calendar)
+        } catch {
+            actionErrorMessage = AppErrorPresentation.message(for: error)
         }
     }
 }
@@ -162,6 +187,11 @@ struct ServiceDetailView: View {
                        let url = AppLanguagePreference.localizedIDOSURL(from: value)
                     {
                         Menu {
+                            Button {
+                                Task { await model.addToCalendar() }
+                            } label: {
+                                Label("Add to Calendar", systemImage: "calendar.badge.plus")
+                            }
                             ShareLink(item: url) {
                                 Label("Share Link", systemImage: "square.and.arrow.up")
                             }
@@ -169,10 +199,24 @@ struct ServiceDetailView: View {
                                 Label("Open in IDOS", systemImage: "arrow.up.right.square")
                             }
                         } label: {
-                            Image(systemName: "ellipsis.circle")
+                            if model.isAddingToCalendar {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Image(systemName: "ellipsis.circle")
+                            }
                         }
                         .menuStyle(.borderlessButton)
+                        .disabled(model.isAddingToCalendar)
                     }
+                }
+
+                if let actionErrorMessage = model.actionErrorMessage {
+                    Label(actionErrorMessage, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
                 }
 
                 VStack(alignment: .leading, spacing: 8) {

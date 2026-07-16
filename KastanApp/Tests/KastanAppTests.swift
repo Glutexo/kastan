@@ -374,6 +374,25 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(model.errorMessage)
     }
 
+    func testServiceCalendarImportUsesCalendarReturnedByIDOS() async {
+        let client = MockIDOSClient()
+        let importer = RecordingCalendarImporter()
+        let model = ServiceDetailViewModel(
+            id: "service-1",
+            client: client,
+            calendarImporter: importer
+        )
+
+        await model.load()
+        await model.addToCalendar()
+
+        XCTAssertEqual(importer.calendarText, "BEGIN:VCALENDAR\nEND:VCALENDAR")
+        let serviceID = await client.lastCalendarServiceID
+        XCTAssertEqual(serviceID, "service-1")
+        XCTAssertFalse(model.isAddingToCalendar)
+        XCTAssertNil(model.actionErrorMessage)
+    }
+
     func testPDFExportUsesDocumentReturnedByIDOSAndRouteFileName() async {
         let client = MockIDOSClient()
         let exporter = RecordingPDFExporter()
@@ -460,6 +479,7 @@ private actor MockIDOSClient: IDOSClienting {
     var lastDeparturesRequest: IDOSDeparturesRequest?
     var lastSuggestionQuery: SuggestionQuery?
     var lastPDFLanguage: IDOSLanguage?
+    var lastCalendarServiceID: String?
 
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
         lastSuggestionQuery = SuggestionQuery(prefix: prefix, timetableSlug: timetable.slug)
@@ -487,6 +507,11 @@ private actor MockIDOSClient: IDOSClienting {
 
     func connectionCalendar(for connection: IDOSConnection, timetable: IDOSTimetable) async throws -> String {
         "BEGIN:VCALENDAR\nEND:VCALENDAR"
+    }
+
+    func serviceCalendar(for service: IDOSServiceDetail) async throws -> String {
+        lastCalendarServiceID = service.id
+        return "BEGIN:VCALENDAR\nEND:VCALENDAR"
     }
 
     func connectionPDF(
