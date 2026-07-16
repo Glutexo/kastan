@@ -29,6 +29,7 @@
 "error.networkUnavailable" = "Network request failed. Check your internet connection.";
 "error.networkUnavailableWithDetail" = "Network request failed. Check your internet connection. {0}";
 "error.calendarUnavailable" = "IDOS did not provide calendar export data for this connection.";
+"error.pdfUnavailable" = "IDOS did not provide PDF export data for this connection.";
 "error.invalidServiceIdentifier" = "Invalid service ID: {0}. Copy the complete ID from verbose connection or departure output.";
 "error.serviceDetailUnavailable" = "IDOS could not load this service detail.";
 "error.serviceDetailUnavailableWithDetail" = "IDOS could not load this service detail. {0}";

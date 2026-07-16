@@ -18,6 +18,7 @@
 "Could not build the IDOS URL." = "Could not build the IDOS URL.";
 "Currently no delay" = "Currently no delay";
 "Connection %lld" = "Connection %lld";
+"Connection %@ – %@" = "Connection %@ – %@";
 "Connections" = "Connections";
 "Date" = "Date";
 "Departure" = "Departure";
@@ -41,6 +42,7 @@
 "IDOS could not load this service detail. %@" = "IDOS could not load this service detail. %@";
 "IDOS Terms and Conditions" = "IDOS Terms and Conditions";
 "IDOS did not provide calendar export data for this connection." = "IDOS did not provide calendar export data for this connection.";
+"IDOS did not provide PDF export data for this connection." = "IDOS did not provide PDF export data for this connection.";
 "IDOS returned an unexpected JSONP format." = "IDOS returned an unexpected JSONP format.";
 "IDOS returned an unexpected response." = "IDOS returned an unexpected response.";
 "Invalid service ID: %@." = "Invalid service ID: %@.";
@@ -70,6 +72,7 @@
 "Remove via place" = "Remove via place";
 "Remove timetable from favorites" = "Remove timetable from favorites";
 "Search" = "Search";
+"Save as PDF" = "Save as PDF";
 "Searches" = "Search";
 "Searching connections…" = "Searching connections…";
 "Service information" = "Service information";

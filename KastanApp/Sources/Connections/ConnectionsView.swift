@@ -247,9 +247,11 @@ struct ConnectionsView: View {
                     ConnectionCard(
                         number: index + 1,
                         connection: connection,
-                        isImportingCalendar: model.importingConnectionID == connection.id,
+                        isPerformingExport: model.importingConnectionID == connection.id ||
+                            model.exportingPDFConnectionID == connection.id,
                         openService: { openWindow(id: AppWindow.serviceDetail, value: $0) },
-                        addToCalendar: { Task { await model.addToCalendar(connection) } }
+                        addToCalendar: { Task { await model.addToCalendar(connection) } },
+                        saveAsPDF: { Task { await model.saveAsPDF(connection) } }
                     )
                 }
             }
@@ -261,9 +263,10 @@ struct ConnectionsView: View {
 private struct ConnectionCard: View {
     let number: Int
     let connection: IDOSConnection
-    let isImportingCalendar: Bool
+    let isPerformingExport: Bool
     let openService: (ServiceSelection) -> Void
     let addToCalendar: () -> Void
+    let saveAsPDF: () -> Void
 
     var body: some View {
         GroupBox {
@@ -290,6 +293,11 @@ private struct ConnectionCard: View {
                         } label: {
                             Label("Add to Calendar", systemImage: "calendar.badge.plus")
                         }
+                        Button {
+                            saveAsPDF()
+                        } label: {
+                            Label("Save as PDF", systemImage: "arrow.down.doc")
+                        }
                         if let value = connection.shareURL,
                            let url = AppLanguagePreference.localizedIDOSURL(from: value)
                         {
@@ -298,7 +306,7 @@ private struct ConnectionCard: View {
                             }
                         }
                     } label: {
-                        if isImportingCalendar {
+                        if isPerformingExport {
                             ProgressView()
                                 .controlSize(.small)
                         } else {
@@ -306,7 +314,7 @@ private struct ConnectionCard: View {
                         }
                     }
                     .menuStyle(.borderlessButton)
-                    .disabled(isImportingCalendar)
+                    .disabled(isPerformingExport)
                 }
 
                 ViewThatFits(in: .horizontal) {

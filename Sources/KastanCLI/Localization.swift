@@ -88,6 +88,7 @@ enum LocalizationKey: String, CaseIterable {
     case networkUnavailable = "error.networkUnavailable"
     case networkUnavailableWithDetail = "error.networkUnavailableWithDetail"
     case calendarUnavailable = "error.calendarUnavailable"
+    case pdfUnavailable = "error.pdfUnavailable"
     case invalidServiceIdentifier = "error.invalidServiceIdentifier"
     case serviceDetailUnavailable = "error.serviceDetailUnavailable"
     case serviceDetailUnavailableWithDetail = "error.serviceDetailUnavailableWithDetail"

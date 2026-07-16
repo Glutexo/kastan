@@ -26,17 +26,21 @@ final class ConnectionsViewModel: ObservableObject {
     @Published private(set) var connections: [IDOSConnection] = []
     @Published private(set) var isSearching = false
     @Published private(set) var importingConnectionID: String?
+    @Published private(set) var exportingPDFConnectionID: String?
     @Published var errorMessage: String?
 
     let client: any IDOSClienting
     private let calendarImporter: any CalendarImporting
+    private let pdfExporter: any PDFExporting
 
     init(
         client: any IDOSClienting,
-        calendarImporter: any CalendarImporting = WorkspaceCalendarImporter()
+        calendarImporter: any CalendarImporting = WorkspaceCalendarImporter(),
+        pdfExporter: any PDFExporting = WorkspacePDFExporter()
     ) {
         self.client = client
         self.calendarImporter = calendarImporter
+        self.pdfExporter = pdfExporter
     }
 
     var canSearch: Bool {
@@ -117,6 +121,30 @@ final class ConnectionsViewModel: ObservableObject {
         do {
             let calendar = try await client.connectionCalendar(for: connection, timetable: timetable)
             try calendarImporter.open(calendarText: calendar)
+        } catch {
+            errorMessage = AppErrorPresentation.message(for: error)
+        }
+    }
+
+    /// Downloads the native IDOS PDF and lets the user choose its destination through macOS.
+    func saveAsPDF(_ connection: IDOSConnection) async {
+        exportingPDFConnectionID = connection.id
+        errorMessage = nil
+        defer { exportingPDFConnectionID = nil }
+
+        do {
+            let data = try await client.connectionPDF(
+                for: connection,
+                timetable: timetable,
+                language: AppLanguagePreference.idosLanguage
+            )
+            try await pdfExporter.save(
+                pdfData: data,
+                suggestedFileName: PDFExportFileName.connection(
+                    from: connection.departureStation,
+                    to: connection.arrivalStation
+                )
+            )
         } catch {
             errorMessage = AppErrorPresentation.message(for: error)
         }

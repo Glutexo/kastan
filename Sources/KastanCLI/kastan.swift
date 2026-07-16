@@ -169,6 +169,8 @@ struct CommandRunner {
                     : localization.text(.networkUnavailableWithDetail, detail)
             case .calendarUnavailable:
                 return localization.text(.calendarUnavailable)
+            case .pdfUnavailable:
+                return localization.text(.pdfUnavailable)
             case .invalidServiceIdentifier(let value):
                 return localization.text(.invalidServiceIdentifier, value)
             case .serviceDetailUnavailable(let detail):

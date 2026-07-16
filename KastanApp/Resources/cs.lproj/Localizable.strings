@@ -18,6 +18,7 @@
 "Could not build the IDOS URL." = "Adresu URL pro IDOS se nepodařilo sestavit.";
 "Currently no delay" = "Aktuálně bez zpoždění";
 "Connection %lld" = "Spojení %lld";
+"Connection %@ – %@" = "Spojení %@ – %@";
 "Connections" = "Spojení";
 "Date" = "Datum";
 "Departure" = "Odjezd";
@@ -41,6 +42,7 @@
 "IDOS could not load this service detail. %@" = "IDOS nedokázal načíst detail tohoto spoje. %@";
 "IDOS Terms and Conditions" = "Smluvní podmínky IDOSu";
 "IDOS did not provide calendar export data for this connection." = "IDOS pro toto spojení neposkytl data pro export do kalendáře.";
+"IDOS did not provide PDF export data for this connection." = "IDOS pro toto spojení neposkytl data pro export do PDF.";
 "IDOS returned an unexpected JSONP format." = "IDOS vrátil neočekávaný formát JSONP.";
 "IDOS returned an unexpected response." = "IDOS vrátil neočekávanou odpověď.";
 "Invalid service ID: %@." = "Neplatné ID spoje: %@.";
@@ -70,6 +72,7 @@
 "Remove via place" = "Odebrat místo";
 "Remove timetable from favorites" = "Odebrat jízdní řád z oblíbených";
 "Search" = "Hledat";
+"Save as PDF" = "Uložit jako PDF";
 "Searches" = "Vyhledávání";
 "Searching connections…" = "Vyhledávání spojení…";
 "Service information" = "Informace o spoji";

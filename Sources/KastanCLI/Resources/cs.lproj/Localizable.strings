@@ -29,6 +29,7 @@
 "error.networkUnavailable" = "Síťový požadavek selhal. Zkontrolujte připojení k internetu.";
 "error.networkUnavailableWithDetail" = "Síťový požadavek selhal. Zkontrolujte připojení k internetu. {0}";
 "error.calendarUnavailable" = "IDOS pro toto spojení neposkytl data pro export do kalendáře.";
+"error.pdfUnavailable" = "IDOS pro toto spojení neposkytl data pro export do PDF.";
 "error.invalidServiceIdentifier" = "Neplatné ID spoje: {0}. Zkopírujte celé ID z podrobného výstupu spojení nebo odjezdů.";
 "error.serviceDetailUnavailable" = "IDOS nemohl načíst detail tohoto spoje.";
 "error.serviceDetailUnavailableWithDetail" = "IDOS nemohl načíst detail tohoto spoje. {0}";

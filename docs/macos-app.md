@@ -22,7 +22,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   states supplied by IDOS.
 - Complete service routes with the search-relevant segment highlighted without implying live vehicle position.
 - Permanent result links using the IDOS language that matches the app.
-- IDOS calendar export opened in the user's calendar application.
+- IDOS calendar export opened in the user's calendar application and localized IDOS PDFs saved through the
+  native macOS save panel.
 - English and Czech interface localization.
 - An app-information window describing the data source and linking to IDOS, its terms, and the Kaštan repository.
 - A Help menu that repeats the About window's maintained links to IDOS, its terms, and the Kaštan repository
@@ -51,7 +52,8 @@ xcodebuild test \
 ```
 
 The app target is sandboxed and permits outgoing network connections for IDOS. Calendar files are written to a
-temporary app directory before macOS opens them.
+temporary app directory before macOS opens them; PDF exports can be written only to a location explicitly
+selected by the user.
 
 ## Data Source
 

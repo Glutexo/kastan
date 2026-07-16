@@ -1270,6 +1270,14 @@ import Testing
     #expect(jsConnData["permanentUrl"] as? String == "https://idos.cz/en/vlaky/spojeni/prehled/?p=abc")
     #expect(connData.first?["connId"] as? Int == 396829589)
     #expect(connData.first?["priceOffer"] is NSNull)
+
+    let pdfModel = try #require(connection.pdfModel)
+    let pdfData = try #require(pdfModel.data(using: .utf8))
+    let pdfJSON = try #require(JSONSerialization.jsonObject(with: pdfData) as? [String: Any])
+    let pdfConnectionData = try #require(pdfJSON["jsConnData"] as? [String: Any])
+
+    #expect(pdfJSON["context"] as? Int == 2)
+    #expect(pdfConnectionData["permanentUrl"] == nil)
 }
 
 @Test func connectionParserReadsPagingContextFromResultHtml() throws {

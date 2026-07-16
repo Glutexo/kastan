@@ -366,6 +366,35 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(model.errorMessage)
     }
 
+    func testPDFExportUsesDocumentReturnedByIDOSAndRouteFileName() async {
+        let client = MockIDOSClient()
+        let exporter = RecordingPDFExporter()
+        let model = ConnectionsViewModel(client: client, pdfExporter: exporter)
+        let connection = IDOSConnection(
+            id: "connection-1",
+            departureTime: "12:00",
+            departureStation: "Praha / centrum",
+            arrivalTime: "14:30",
+            arrivalStation: "Brno: hlavní",
+            duration: "2 h 30 min",
+            legs: []
+        )
+
+        await model.saveAsPDF(connection)
+
+        XCTAssertEqual(exporter.pdfData, Data("%PDF-1.4\nKaštan".utf8))
+        XCTAssertTrue(exporter.suggestedFileName?.contains("Praha") == true)
+        XCTAssertTrue(exporter.suggestedFileName?.contains("Brno") == true)
+        XCTAssertTrue(exporter.suggestedFileName?.hasSuffix(".pdf") == true)
+        XCTAssertFalse(exporter.suggestedFileName?.contains("/") == true)
+        XCTAssertFalse(exporter.suggestedFileName?.contains(":") == true)
+        XCTAssertFalse(exporter.suggestedFileName?.hasSuffix("..pdf") == true)
+        let exportedLanguage = await client.lastPDFLanguage
+        XCTAssertEqual(exportedLanguage, AppLanguagePreference.idosLanguage)
+        XCTAssertNil(model.errorMessage)
+        XCTAssertNil(model.exportingPDFConnectionID)
+    }
+
     func testPlaceSuggestionsAreDebouncedAndUseSelectedTimetable() async throws {
         let client = MockIDOSClient()
         let model = PlaceSuggestionsModel(client: client, scope: .places)
@@ -407,10 +436,22 @@ private final class RecordingCalendarImporter: CalendarImporting {
     }
 }
 
+@MainActor
+private final class RecordingPDFExporter: PDFExporting {
+    private(set) var pdfData: Data?
+    private(set) var suggestedFileName: String?
+
+    func save(pdfData: Data, suggestedFileName: String) async throws {
+        self.pdfData = pdfData
+        self.suggestedFileName = suggestedFileName
+    }
+}
+
 private actor MockIDOSClient: IDOSClienting {
     var lastConnectionRequest: IDOSConnectionRequest?
     var lastDeparturesRequest: IDOSDeparturesRequest?
     var lastSuggestionQuery: SuggestionQuery?
+    var lastPDFLanguage: IDOSLanguage?
 
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
         lastSuggestionQuery = SuggestionQuery(prefix: prefix, timetableSlug: timetable.slug)
@@ -438,6 +479,15 @@ private actor MockIDOSClient: IDOSClienting {
 
     func connectionCalendar(for connection: IDOSConnection, timetable: IDOSTimetable) async throws -> String {
         "BEGIN:VCALENDAR\nEND:VCALENDAR"
+    }
+
+    func connectionPDF(
+        for connection: IDOSConnection,
+        timetable: IDOSTimetable,
+        language: IDOSLanguage
+    ) async throws -> Data {
+        lastPDFLanguage = language
+        return Data("%PDF-1.4\nKaštan".utf8)
     }
 
     func findDepartures(request: IDOSDeparturesRequest) async throws -> [IDOSDeparture] {

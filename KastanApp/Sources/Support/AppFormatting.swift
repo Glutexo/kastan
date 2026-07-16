@@ -165,6 +165,8 @@ enum AppErrorPresentation {
                 : AppLocalization.string("Network request failed. Check your internet connection. %@", detail)
         case .calendarUnavailable:
             return AppLocalization.string("IDOS did not provide calendar export data for this connection.")
+        case .pdfUnavailable:
+            return AppLocalization.string("IDOS did not provide PDF export data for this connection.")
         case .invalidServiceIdentifier(let value):
             return AppLocalization.string("Invalid service ID: %@.", value)
         case .serviceDetailUnavailable(let detail):
