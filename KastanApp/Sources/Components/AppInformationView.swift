@@ -55,7 +55,7 @@ struct AppInformationView: View {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text("Kaštan")
                             .font(.title.bold())
-                        Text(versionDescription)
+                        Text(AppLocalization.string("Version %@", versionDescription))
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
