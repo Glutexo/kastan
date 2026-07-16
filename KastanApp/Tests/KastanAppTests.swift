@@ -82,6 +82,34 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(layout.contentWidth, 1352)
     }
 
+    func testCollapsedSearchSummariesPreserveSubmittedQueryContext() {
+        let connection = SearchSummaryPresentation.connection(
+            from: " Praha ",
+            to: " Brno ",
+            timetable: "Vlaky",
+            date: "16.7.2026",
+            time: "14:30",
+            mode: "Odjezd",
+            via: ["", "Jihlava"],
+            transferLimit: "Jen přímé"
+        )
+        let departures = SearchSummaryPresentation.station(
+            name: " Ostrava-Svinov ",
+            timetable: "ODIS",
+            date: "16.7.2026",
+            time: "15:00",
+            mode: "Odjezdy"
+        )
+
+        XCTAssertEqual(connection.title, "Praha → Brno")
+        XCTAssertEqual(
+            connection.details,
+            ["Vlaky", "16.7.2026 14:30", "Odjezd", AppLocalization.string("via %@", "Jihlava"), "Jen přímé"]
+        )
+        XCTAssertEqual(departures.title, "Ostrava-Svinov")
+        XCTAssertEqual(departures.detailText, "ODIS · 16.7.2026 15:00 · Odjezdy")
+    }
+
     func testSidebarSeparatesSearchAndFavoriteAgendas() {
         XCTAssertEqual(
             AppSidebarGroup.allCases.map(\.sections),

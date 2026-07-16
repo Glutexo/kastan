@@ -13,7 +13,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Sidebar navigation divided into Search and Favorites, including a dedicated timetable-favorites manager.
 - Timetable menus grouped into general rail and bus choices, integrated transport systems, and city networks,
   with persistent favorites in their own first section.
-- Search forms fixed above independently scrollable result areas.
+- Search forms fixed above independently scrollable result areas, then collapsed into low query summaries after
+  submission with an explicit action for returning to the editable form.
 - Native tabs and windows, including independent resizable service-route windows.
 - Connection cards with line colors, transport symbols, platforms, tariff zones, carriers, and localized delay
   states supplied by IDOS.

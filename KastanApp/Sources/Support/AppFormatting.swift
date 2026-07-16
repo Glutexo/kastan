@@ -22,6 +22,71 @@ enum IDOSRequestFormatting {
     }
 }
 
+/// Preserves the submitted query as a compact, readable replacement for an expanded search form.
+struct SearchSummaryPresentation: Equatable {
+    let title: String
+    let details: [String]
+
+    var detailText: String {
+        details.joined(separator: " · ")
+    }
+
+    static func connection(
+        from: String,
+        to: String,
+        timetable: String,
+        date: String,
+        time: String,
+        mode: String,
+        via: [String],
+        transferLimit: String
+    ) -> Self {
+        let departure = cleaned(from)
+        let arrival = cleaned(to)
+        let viaPlaces = via.map(cleaned).filter { !$0.isEmpty }
+        var details = baseDetails(timetable: timetable, date: date, time: time, mode: mode)
+
+        if !viaPlaces.isEmpty {
+            details.append(AppLocalization.string("via %@", viaPlaces.joined(separator: " → ")))
+        }
+        details.append(cleaned(transferLimit))
+
+        return Self(
+            title: "\(departure) → \(arrival)",
+            details: details.filter { !$0.isEmpty }
+        )
+    }
+
+    static func station(
+        name: String,
+        timetable: String,
+        date: String,
+        time: String,
+        mode: String
+    ) -> Self {
+        Self(
+            title: cleaned(name),
+            details: baseDetails(timetable: timetable, date: date, time: time, mode: mode)
+        )
+    }
+
+    private static func baseDetails(
+        timetable: String,
+        date: String,
+        time: String,
+        mode: String
+    ) -> [String] {
+        let dateTime = [cleaned(date), cleaned(time)]
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        return [cleaned(timetable), dateTime, cleaned(mode)].filter { !$0.isEmpty }
+    }
+
+    private static func cleaned(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
 /// Selects the IDOS text variant that matches the app's current system language.
 enum AppLanguagePreference {
     static var idosLanguage: IDOSLanguage {

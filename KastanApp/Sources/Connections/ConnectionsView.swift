@@ -7,13 +7,27 @@ struct ConnectionsView: View {
     @ObservedObject var model: ConnectionsViewModel
     let client: any IDOSClienting
     @State private var isJourneyOptionsExpanded = false
+    @State private var isSearchFormCollapsed = false
 
     var body: some View {
         GeometryReader { geometry in
             let layout = DetailLayout(availableWidth: geometry.size.width)
 
-            SearchWorkspace(layout: layout) {
-                searchPanel(layout: layout)
+            SearchWorkspace(
+                layout: layout,
+                searchVerticalPadding: isSearchFormCollapsed ? 10 : 18
+            ) {
+                if isSearchFormCollapsed {
+                    SearchSummaryBar(
+                        summary: searchSummary,
+                        systemImage: "arrow.left.arrow.right",
+                        edit: editSearch
+                    )
+                    .transition(.opacity)
+                } else {
+                    searchPanel(layout: layout)
+                        .transition(.opacity)
+                }
             } resultsContent: {
                 resultsPanel
             }
@@ -22,6 +36,7 @@ struct ConnectionsView: View {
                 height: geometry.size.height,
                 alignment: .topLeading
             )
+            .animation(.easeInOut(duration: 0.18), value: isSearchFormCollapsed)
         }
         .navigationTitle("Connections")
     }
@@ -109,7 +124,34 @@ struct ConnectionsView: View {
             canSearch: model.canSearch,
             usesStackedLayout: stacked
         ) {
-            Task { await model.search() }
+            performSearch()
+        }
+    }
+
+    private var searchSummary: SearchSummaryPresentation {
+        .connection(
+            from: model.from,
+            to: model.to,
+            timetable: model.timetable.appDisplayName,
+            date: IDOSRequestFormatting.date(from: model.date),
+            time: IDOSRequestFormatting.time(from: model.time),
+            mode: AppLocalization.string(model.isArrival ? "Arrival" : "Departure"),
+            via: model.viaPlaces.map(\.name),
+            transferLimit: model.transferLimitLabel
+        )
+    }
+
+    private func performSearch() {
+        guard model.canSearch else { return }
+        withAnimation(.easeInOut(duration: 0.18)) {
+            isSearchFormCollapsed = true
+        }
+        Task { await model.search() }
+    }
+
+    private func editSearch() {
+        withAnimation(.easeInOut(duration: 0.18)) {
+            isSearchFormCollapsed = false
         }
     }
 

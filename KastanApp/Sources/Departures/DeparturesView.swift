@@ -6,13 +6,27 @@ struct DeparturesView: View {
     @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: DeparturesViewModel
     let client: any IDOSClienting
+    @State private var isSearchFormCollapsed = false
 
     var body: some View {
         GeometryReader { geometry in
             let layout = DetailLayout(availableWidth: geometry.size.width)
 
-            SearchWorkspace(layout: layout) {
-                searchPanel(stacked: layout.usesStackedSearchControls)
+            SearchWorkspace(
+                layout: layout,
+                searchVerticalPadding: isSearchFormCollapsed ? 10 : 18
+            ) {
+                if isSearchFormCollapsed {
+                    SearchSummaryBar(
+                        summary: searchSummary,
+                        systemImage: "list.bullet.rectangle",
+                        edit: editSearch
+                    )
+                    .transition(.opacity)
+                } else {
+                    searchPanel(stacked: layout.usesStackedSearchControls)
+                        .transition(.opacity)
+                }
             } resultsContent: {
                 resultsPanel
             }
@@ -21,6 +35,7 @@ struct DeparturesView: View {
                 height: geometry.size.height,
                 alignment: .topLeading
             )
+            .animation(.easeInOut(duration: 0.18), value: isSearchFormCollapsed)
         }
         .navigationTitle("Departures")
     }
@@ -71,7 +86,31 @@ struct DeparturesView: View {
             canSearch: model.canSearch,
             usesStackedLayout: stacked
         ) {
-            Task { await model.search() }
+            performSearch()
+        }
+    }
+
+    private var searchSummary: SearchSummaryPresentation {
+        .station(
+            name: model.station,
+            timetable: model.timetable.appDisplayName,
+            date: IDOSRequestFormatting.date(from: model.date),
+            time: IDOSRequestFormatting.time(from: model.time),
+            mode: AppLocalization.string(model.isArrival ? "Arrivals" : "Departures")
+        )
+    }
+
+    private func performSearch() {
+        guard model.canSearch else { return }
+        withAnimation(.easeInOut(duration: 0.18)) {
+            isSearchFormCollapsed = true
+        }
+        Task { await model.search() }
+    }
+
+    private func editSearch() {
+        withAnimation(.easeInOut(duration: 0.18)) {
+            isSearchFormCollapsed = false
         }
     }
 

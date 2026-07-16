@@ -97,15 +97,18 @@ struct DetailLayout {
 /// Keeps search controls visible while giving only the result area the remaining scrollable space.
 struct SearchWorkspace<SearchContent: View, ResultsContent: View>: View {
     let layout: DetailLayout
+    private let searchVerticalPadding: CGFloat
     private let searchContent: SearchContent
     private let resultsContent: ResultsContent
 
     init(
         layout: DetailLayout,
+        searchVerticalPadding: CGFloat = 18,
         @ViewBuilder searchContent: () -> SearchContent,
         @ViewBuilder resultsContent: () -> ResultsContent
     ) {
         self.layout = layout
+        self.searchVerticalPadding = searchVerticalPadding
         self.searchContent = searchContent()
         self.resultsContent = resultsContent()
     }
@@ -114,7 +117,7 @@ struct SearchWorkspace<SearchContent: View, ResultsContent: View>: View {
         VStack(spacing: 0) {
             searchContent
                 .padding(.horizontal, layout.horizontalPadding)
-                .padding(.vertical, 18)
+                .padding(.vertical, searchVerticalPadding)
                 .frame(width: layout.containerWidth, alignment: .topLeading)
                 .frame(width: layout.availableWidth, alignment: .topLeading)
                 .background(.bar)
