@@ -7,29 +7,11 @@ struct FavoriteTimetablesView: View {
 
     var body: some View {
         List {
-            Section {
-                if favorites.timetables.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Label("No favorite timetables", systemImage: "star")
-                            .font(.headline)
-                        Text("Use the stars to choose which timetables appear first in search menus.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 6)
-                } else {
-                    ForEach(favorites.timetables, id: \.slug) { timetable in
-                        timetableRow(timetable, isFavorite: true)
-                    }
-                }
-            }
-
             ForEach(AppTimetableGroup.allCases) { group in
-                let timetables = favorites.nonFavorites(in: group.timetables)
-                if !timetables.isEmpty {
+                if !group.timetables.isEmpty {
                     Section {
-                        ForEach(timetables, id: \.slug) { timetable in
-                            timetableRow(timetable, isFavorite: false)
+                        ForEach(group.timetables, id: \.slug) { timetable in
+                            timetableRow(timetable, isFavorite: favorites.contains(timetable))
                         }
                     } header: {
                         Text(group.title)

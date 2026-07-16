@@ -10,7 +10,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Connection searches with place suggestions, date, time, arrival mode, editable via places, and transfer
   limits.
 - Station departures and arrivals with station-only suggestions.
-- Sidebar navigation divided into Search and Favorites, including a dedicated timetable-favorites manager.
+- Sidebar navigation divided into Search and Favorites, including a timetable-favorites manager that keeps
+  every entry in its catalog group and marks the selected entries with filled stars.
 - Timetable menus grouped into general rail and bus choices, integrated transport systems, and city networks,
   with persistent favorites in their own first section.
 - Search forms fixed above independently scrollable result areas, then collapsed into low query summaries after

@@ -158,6 +158,17 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(Set(pickerTimetables.map(\.slug)), Set(IDOSTimetable.known.map(\.slug)))
     }
 
+    func testFavoriteManagerKeepsEveryTimetableInItsCatalogGroup() {
+        let favorites = TimetableFavorites(slugs: ["vlaky", "odis"])
+        let groupedTimetables = AppTimetableGroup.allCases.flatMap(\.timetables)
+
+        XCTAssertEqual(groupedTimetables.count, IDOSTimetable.known.count)
+        XCTAssertEqual(Set(groupedTimetables.map(\.slug)), Set(IDOSTimetable.known.map(\.slug)))
+        XCTAssertTrue(favorites.contains(groupedTimetables.first { $0.slug == "vlaky" }!))
+        XCTAssertTrue(favorites.contains(groupedTimetables.first { $0.slug == "odis" }!))
+        XCTAssertFalse(favorites.contains(groupedTimetables.first { $0.slug == "pid" }!))
+    }
+
     func testSuggestionPresentationLocalizesMetadataAndRemovesRepeatedRegion() {
         let station = PlaceSuggestionPresentation(
             suggestion: IDOSSuggestion(

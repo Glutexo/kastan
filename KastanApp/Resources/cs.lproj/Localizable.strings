@@ -57,7 +57,6 @@
 "municipality" = "obec";
 "No application could open the calendar event." = "Událost kalendáře se nepodařilo otevřít v žádné aplikaci.";
 "No connections yet" = "Zatím žádné spojení";
-"No favorite timetables" = "Zatím žádné oblíbené jízdní řády";
 "No station board yet" = "Zatím žádná odjezdová tabule";
 "Network request failed. Check your internet connection." = "Síťový požadavek selhal. Zkontrolujte připojení k internetu.";
 "Network request failed. Check your internet connection. %@" = "Síťový požadavek selhal. Zkontrolujte připojení k internetu. %@";
@@ -99,7 +98,6 @@
 "Prague + PID" = "Praha + PID";
 "Up to %lld transfers" = "Nejvýše %lld přestupů";
 "Urban public transport by city" = "MHD jednotlivých měst";
-"Use the stars to choose which timetables appear first in search menus." = "Hvězdičkami vyberte jízdní řády, které se mají zobrazovat jako první v nabídkách vyhledávání.";
 "Version %@" = "Verze %@";
 "Via" = "Přes";
 "Zone %@" = "zóna %@";
