@@ -39,6 +39,14 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(english.idosWebsite.absoluteString, "https://idos.cz/en/")
         XCTAssertEqual(english.idosTerms.absoluteString, "https://idos.cz/en/smluvni-podminky/")
         XCTAssertEqual(english.projectWebsite.absoluteString, "https://github.com/Glutexo/kastan")
+        XCTAssertEqual(
+            czech.destinations.map(\.id),
+            [.idosWebsite, .idosTerms, .projectWebsite]
+        )
+        XCTAssertEqual(
+            czech.destinations.map(\.url),
+            [czech.idosWebsite, czech.idosTerms, czech.projectWebsite]
+        )
     }
 
     func testPermanentIDOSLinksFollowTheAppLanguage() {

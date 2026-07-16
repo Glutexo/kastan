@@ -24,7 +24,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - IDOS calendar export opened in the user's calendar application.
 - English and Czech interface localization.
 - An app-information window describing the data source and linking to IDOS, its terms, and the Kaštan repository.
-- A Help menu that opens the maintained Kaštan project page instead of an unavailable system help book.
+- A Help menu that repeats the About window's maintained links to IDOS, its terms, and the Kaštan repository
+  instead of showing an unavailable system help book.
 
 ## Run from Xcode
 

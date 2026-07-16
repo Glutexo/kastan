@@ -22,6 +22,43 @@ struct AppInformationLinks: Equatable {
     static var localized: Self {
         Self(languageCode: Bundle.main.preferredLocalizations.first ?? "en")
     }
+
+    var destinations: [AppInformationDestination] {
+        [
+            AppInformationDestination(
+                id: .idosWebsite,
+                titleKey: "IDOS website",
+                systemImage: "safari",
+                url: idosWebsite
+            ),
+            AppInformationDestination(
+                id: .idosTerms,
+                titleKey: "IDOS Terms and Conditions",
+                systemImage: "doc.text",
+                url: idosTerms
+            ),
+            AppInformationDestination(
+                id: .projectWebsite,
+                titleKey: "Kaštan on GitHub",
+                systemImage: "chevron.left.forwardslash.chevron.right",
+                url: projectWebsite
+            )
+        ]
+    }
+}
+
+/// Keeps every external information link identical in the About window and Help menu.
+struct AppInformationDestination: Identifiable, Equatable {
+    enum ID: String {
+        case idosWebsite
+        case idosTerms
+        case projectWebsite
+    }
+
+    let id: ID
+    let titleKey: String
+    let systemImage: String
+    let url: URL
 }
 
 /// Presents the installed app artwork wherever Kaštan identifies itself inside the interface.
@@ -80,21 +117,9 @@ struct AppInformationView: View {
             }
 
             VStack(spacing: 8) {
-                InformationLink(
-                    title: "IDOS website",
-                    systemImage: "safari",
-                    destination: links.idosWebsite
-                )
-                InformationLink(
-                    title: "IDOS Terms and Conditions",
-                    systemImage: "doc.text",
-                    destination: links.idosTerms
-                )
-                InformationLink(
-                    title: "Kaštan on GitHub",
-                    systemImage: "chevron.left.forwardslash.chevron.right",
-                    destination: links.projectWebsite
-                )
+                ForEach(links.destinations) { destination in
+                    InformationLink(destination: destination)
+                }
             }
         }
         .padding(24)
@@ -114,16 +139,14 @@ struct AppInformationView: View {
 
 /// Renders one external information destination as a full-width macOS link row.
 private struct InformationLink: View {
-    let title: LocalizedStringKey
-    let systemImage: String
-    let destination: URL
+    let destination: AppInformationDestination
 
     var body: some View {
-        Link(destination: destination) {
+        Link(destination: destination.url) {
             HStack(spacing: 10) {
-                Image(systemName: systemImage)
+                Image(systemName: destination.systemImage)
                     .frame(width: 18)
-                Text(title)
+                Text(LocalizedStringKey(destination.titleKey))
                 Spacer()
                 Image(systemName: "arrow.up.right")
                     .font(.caption)

@@ -218,14 +218,19 @@ struct AppInformationCommands: Commands {
     }
 }
 
-/// Replaces the unavailable system help book with the maintained Kaštan project page.
+/// Exposes the same maintained external destinations as Kaštan's information window.
 struct AppHelpCommands: Commands {
     var body: some Commands {
         CommandGroup(replacing: .help) {
-            Button {
-                NSWorkspace.shared.open(AppInformationLinks.localized.projectWebsite)
-            } label: {
-                Label("Kaštan on GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
+            ForEach(AppInformationLinks.localized.destinations) { destination in
+                Button {
+                    NSWorkspace.shared.open(destination.url)
+                } label: {
+                    Label(
+                        LocalizedStringKey(destination.titleKey),
+                        systemImage: destination.systemImage
+                    )
+                }
             }
         }
     }
