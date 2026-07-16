@@ -16,6 +16,20 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testAppInformationCommandIsRemovedOnlyFromTheWindowMenu() {
+        let title = AppLocalization.string("About Kaštan")
+
+        XCTAssertTrue(
+            ApplicationMainMenu.isRedundantAppInformationItem(title: title, isWindowsMenu: true)
+        )
+        XCTAssertFalse(
+            ApplicationMainMenu.isRedundantAppInformationItem(title: title, isWindowsMenu: false)
+        )
+        XCTAssertFalse(
+            ApplicationMainMenu.isRedundantAppInformationItem(title: "Other window", isWindowsMenu: true)
+        )
+    }
+
     func testAppInformationLinksUseLocalizedOfficialIDOSPages() {
         let czech = AppInformationLinks(languageCode: "cs")
         let english = AppInformationLinks(languageCode: "en")

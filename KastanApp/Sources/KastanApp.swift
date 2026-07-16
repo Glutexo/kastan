@@ -126,6 +126,11 @@ final class ApplicationMainMenu: NSObject {
             cleanupScheduled = false
             for menu in NSApplication.shared.mainMenu?.items.compactMap(\.submenu) ?? [] {
                 removeGenericCloseCommands(from: menu)
+                removeRedundantAppInformationCommand(
+                    from: menu,
+                    isWindowsMenu: menu === NSApplication.shared.windowsMenu
+                )
+                removeRedundantSeparators(from: menu)
             }
         }
     }
@@ -142,6 +147,32 @@ final class ApplicationMainMenu: NSObject {
 
         for item in genericItems {
             menu.removeItem(item)
+        }
+    }
+
+    private func removeRedundantAppInformationCommand(from menu: NSMenu, isWindowsMenu: Bool) {
+        let redundantItems = menu.items.filter { item in
+            Self.isRedundantAppInformationItem(title: item.title, isWindowsMenu: isWindowsMenu)
+        }
+
+        for item in redundantItems {
+            menu.removeItem(item)
+        }
+    }
+
+    static func isRedundantAppInformationItem(title: String, isWindowsMenu: Bool) -> Bool {
+        isWindowsMenu && title == AppLocalization.string("About Kaštan")
+    }
+
+    private func removeRedundantSeparators(from menu: NSMenu) {
+        for index in menu.items.indices.reversed() {
+            guard menu.items[index].isSeparatorItem else { continue }
+
+            let isLeading = index == 0
+            let followsSeparator = index > 0 && menu.items[index - 1].isSeparatorItem
+            if isLeading || followsSeparator {
+                menu.removeItem(at: index)
+            }
         }
 
         while menu.items.last?.isSeparatorItem == true {
