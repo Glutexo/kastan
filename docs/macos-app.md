@@ -13,7 +13,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Sidebar navigation divided into Search and Favorites, including a timetable-favorites manager that keeps
   every entry in its catalog group and marks the selected entries with filled stars.
 - Timetable menus grouped into general rail and bus choices, integrated transport systems, and city networks,
-  with persistent favorites in their own first section.
+  with persistent favorites in their own first section and a favorite button kept next to the picker at every
+  window width.
 - Search forms fixed above independently scrollable result areas, then collapsed into low query summaries after
   submission with an explicit action for returning to the editable form.
 - Native tabs and windows, including independent resizable service-route windows.

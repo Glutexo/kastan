@@ -111,6 +111,7 @@ struct JourneySearchControls: View {
                 .accessibilityLabel(Text(favoriteButtonLabel))
                 .help(Text(favoriteButtonLabel))
             }
+            .fixedSize(horizontal: true, vertical: false)
         }
     }
 
