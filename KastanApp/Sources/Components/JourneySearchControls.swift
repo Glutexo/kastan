@@ -93,7 +93,7 @@ struct JourneySearchControls: View {
             Text("Timetable")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            HStack(spacing: 6) {
+            HStack(spacing: 2) {
                 Picker("Timetable", selection: timetableSlug) {
                     AppTimetablePickerOptions(favoriteSlugs: timetableFavorites.slugs)
                 }
