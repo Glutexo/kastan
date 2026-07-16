@@ -301,6 +301,9 @@ private struct ConnectionCard: View {
                         if let value = connection.shareURL,
                            let url = AppLanguagePreference.localizedIDOSURL(from: value)
                         {
+                            ShareLink(item: url) {
+                                Label("Share Link", systemImage: "square.and.arrow.up")
+                            }
                             Link(destination: url) {
                                 Label("Open in IDOS", systemImage: "arrow.up.right.square")
                             }
