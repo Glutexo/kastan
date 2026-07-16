@@ -179,101 +179,23 @@ struct ConnectionsView: View {
         .help("Swap departure and arrival")
     }
 
-    @ViewBuilder
     private func searchControls(stacked: Bool) -> some View {
-        if stacked {
-            VStack(alignment: .leading, spacing: 12) {
-                timetablePicker
-                    .frame(maxWidth: 360)
-
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .bottom, spacing: 12) {
-                        datePicker
-                        timePicker
-                        timeModePicker
-                            .fixedSize(horizontal: true, vertical: false)
-                        Spacer(minLength: 8)
-                        searchButton
-                    }
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(alignment: .bottom, spacing: 12) {
-                            datePicker
-                            timePicker
-                            Spacer(minLength: 0)
-                        }
-                        HStack(spacing: 12) {
-                            timeModePicker
-                                .fixedSize(horizontal: true, vertical: false)
-                            Spacer(minLength: 0)
-                            searchButton
-                        }
-                    }
-                }
-            }
-        } else {
-            HStack(alignment: .bottom, spacing: 12) {
-                timetablePicker
-                    .frame(width: 240)
-                datePicker
-                timePicker
-                timeModePicker
-                    .frame(width: 175)
-                Spacer(minLength: 0)
-                searchButton
-            }
-        }
-    }
-
-    private var datePicker: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Date")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            DatePicker("Date", selection: $model.date, displayedComponents: .date)
-                .labelsHidden()
-                .datePickerStyle(.field)
-        }
-    }
-
-    private var timePicker: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Time")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            DatePicker("Time", selection: $model.time, displayedComponents: .hourAndMinute)
-                .labelsHidden()
-        }
-    }
-
-    private var timeModePicker: some View {
-        Picker("Time means", selection: $model.isArrival) {
-            Text("Departure").tag(false)
-            Text("Arrival").tag(true)
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-    }
-
-    private var searchButton: some View {
-        Button {
+        JourneySearchControls(
+            timetable: $model.timetable,
+            date: $model.date,
+            time: $model.time,
+            isArrival: $model.isArrival,
+            modeLabel: "Time means",
+            departureLabel: "Departure",
+            arrivalLabel: "Arrival",
+            isSearching: model.isSearching,
+            canSearch: model.canSearch,
+            usesStackedLayout: stacked,
+            timetableCoordinateSpaceName: Self.scrollCoordinateSpace,
+            onTimetableBottomChange: updateNavigationTitle(timetablePickerBottom:)
+        ) {
             Task { await model.search() }
-        } label: {
-            Group {
-                if model.isSearching {
-                    ProgressView()
-                        .controlSize(.small)
-                } else {
-                    Label("Search", systemImage: "magnifyingglass")
-                }
-            }
-            .frame(width: 140)
-            .frame(minHeight: 26)
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
-        .keyboardShortcut(.defaultAction)
-        .disabled(!model.canSearch)
     }
 
     private var journeyOptions: some View {
@@ -344,37 +266,6 @@ struct ConnectionsView: View {
             value: $model.maximumTransfers,
             in: 0...10
         )
-    }
-
-    private var timetablePicker: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Timetable")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Picker("Timetable", selection: $model.timetable.slug) {
-                AppTimetablePickerOptions()
-            }
-            .labelsHidden()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .onChange(of: model.timetable.slug) { slug in
-                if let timetable = IDOSTimetable.known.first(where: { $0.slug == slug }) {
-                    model.timetable = timetable
-                }
-            }
-        }
-        .background {
-            GeometryReader { geometry in
-                let bottom = geometry.frame(in: .named(Self.scrollCoordinateSpace)).maxY
-
-                Color.clear
-                    .onAppear {
-                        updateNavigationTitle(timetablePickerBottom: bottom)
-                    }
-                    .onChange(of: bottom) { value in
-                        updateNavigationTitle(timetablePickerBottom: value)
-                    }
-            }
-        }
     }
 
     private func updateNavigationTitle(timetablePickerBottom: CGFloat) {

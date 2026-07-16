@@ -72,115 +72,21 @@ struct DeparturesView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    @ViewBuilder
     private func searchControls(stacked: Bool) -> some View {
-        if stacked {
-            VStack(alignment: .leading, spacing: 12) {
-                timetablePicker
-                    .frame(maxWidth: 360)
-
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .bottom, spacing: 12) {
-                        datePicker
-                        timePicker
-                        boardTypePicker
-                            .frame(width: 220)
-                        Spacer(minLength: 8)
-                        searchButton
-                    }
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(alignment: .bottom, spacing: 12) {
-                            datePicker
-                            timePicker
-                            Spacer(minLength: 0)
-                        }
-                        HStack(spacing: 12) {
-                            boardTypePicker
-                                .frame(width: 220)
-                            Spacer(minLength: 0)
-                            searchButton
-                        }
-                    }
-                }
-            }
-        } else {
-            HStack(alignment: .bottom, spacing: 12) {
-                timetablePicker
-                    .frame(width: 240)
-                datePicker
-                timePicker
-                boardTypePicker
-                    .frame(width: 175)
-                Spacer(minLength: 0)
-                searchButton
-            }
-        }
-    }
-
-    private var timetablePicker: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Timetable")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Picker("Timetable", selection: $model.timetable.slug) {
-                AppTimetablePickerOptions()
-            }
-            .labelsHidden()
-            .frame(maxWidth: .infinity)
-            .onChange(of: model.timetable.slug) { slug in
-                if let timetable = IDOSTimetable.known.first(where: { $0.slug == slug }) {
-                    model.timetable = timetable
-                }
-            }
-        }
-    }
-
-    private var datePicker: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Date")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            DatePicker("Date", selection: $model.date, displayedComponents: .date)
-                .labelsHidden()
-        }
-    }
-
-    private var timePicker: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Time")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            DatePicker("Time", selection: $model.time, displayedComponents: .hourAndMinute)
-                .labelsHidden()
-        }
-    }
-
-    private var boardTypePicker: some View {
-        Picker("Board type", selection: $model.isArrival) {
-            Text("Departures").tag(false)
-            Text("Arrivals").tag(true)
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-    }
-
-    private var searchButton: some View {
-        Button {
+        JourneySearchControls(
+            timetable: $model.timetable,
+            date: $model.date,
+            time: $model.time,
+            isArrival: $model.isArrival,
+            modeLabel: "Board type",
+            departureLabel: "Departures",
+            arrivalLabel: "Arrivals",
+            isSearching: model.isSearching,
+            canSearch: model.canSearch,
+            usesStackedLayout: stacked
+        ) {
             Task { await model.search() }
-        } label: {
-            if model.isSearching {
-                ProgressView()
-                    .controlSize(.small)
-                    .frame(width: 70)
-            } else {
-                Label("Search", systemImage: "magnifyingglass")
-                    .frame(width: 70)
-            }
         }
-        .buttonStyle(.borderedProminent)
-        .keyboardShortcut(.defaultAction)
-        .disabled(!model.canSearch)
     }
 
     @ViewBuilder

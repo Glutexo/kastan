@@ -19,6 +19,7 @@
 		A00000000000000000000219 /* AppFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000119 /* AppFormatting.swift */; };
 		A0000000000000000000021A /* CalendarImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000011A /* CalendarImporter.swift */; };
 		A0000000000000000000021B /* AppInformationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000011B /* AppInformationView.swift */; };
+		A0000000000000000000021C /* JourneySearchControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000011C /* JourneySearchControls.swift */; };
 		A00000000000000000000230 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000132 /* Localizable.strings */; };
 		A00000000000000000000231 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000133 /* Assets.xcassets */; };
 		A00000000000000000000241 /* Kastan in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000601 /* Kastan */; };
@@ -51,6 +52,7 @@
 		A00000000000000000000119 /* AppFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppFormatting.swift; sourceTree = "<group>"; };
 		A0000000000000000000011A /* CalendarImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarImporter.swift; sourceTree = "<group>"; };
 		A0000000000000000000011B /* AppInformationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppInformationView.swift; sourceTree = "<group>"; };
+		A0000000000000000000011C /* JourneySearchControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JourneySearchControls.swift; sourceTree = "<group>"; };
 		A00000000000000000000130 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A00000000000000000000131 /* cs */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = cs; path = cs.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A00000000000000000000133 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -131,6 +133,7 @@
 			isa = PBXGroup;
 			children = (
 				A0000000000000000000011B /* AppInformationView.swift */,
+				A0000000000000000000011C /* JourneySearchControls.swift */,
 				A00000000000000000000116 /* PlaceAutocompleteField.swift */,
 				A00000000000000000000117 /* ServiceDetailSheet.swift */,
 				A00000000000000000000118 /* EmptyStateView.swift */,
@@ -286,6 +289,7 @@
 				A00000000000000000000219 /* AppFormatting.swift in Sources */,
 				A0000000000000000000021A /* CalendarImporter.swift in Sources */,
 				A0000000000000000000021B /* AppInformationView.swift in Sources */,
+				A0000000000000000000021C /* JourneySearchControls.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

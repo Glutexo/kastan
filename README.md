@@ -318,7 +318,7 @@ The first app release supports:
 - connection searches with non-displacing, localized, transport-marked IDOS place suggestions, date, time, arrival mode, individually editable via-place rows, and one transfer limit that presents zero transfers as direct-only journeys;
 - station departures and arrivals with station-only suggestions;
 - timetable menus grouped into general rail and bus choices, integrated transport systems, and individual city networks listed by city name;
-- native search workspaces with flat macOS-style option rows that avoid repeated page headings, use the full detail width, and adapt to narrow windows;
+- connection and station-board workspaces built from the same native timetable, date, time, mode, and search controls so their layout stays aligned while adapting to narrow windows;
 - native File menu actions for opening a new tab and closing either the selected tab or its complete window;
 - connection results contained in separate native cards so every journey's route, legs, and metadata remain visually grouped;
 - line colors, transport symbols, platforms, tariff zones, carriers, and localized known delay states supplied by IDOS;
