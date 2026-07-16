@@ -8,7 +8,7 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 ## Features
 
 - Connection searches with place suggestions, date, time, arrival mode, editable via places, and transfer
-  limits.
+  limits with locale-aware plural wording.
 - Station departures and arrivals with station-only suggestions.
 - Sidebar navigation divided into Search and Favorites, including a timetable-favorites manager that keeps
   every entry in its catalog group and marks the selected entries with filled stars.

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Up to %lld transfers</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@transfers@</string>
+		<key>transfers</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>Nejvýše %lld přestup</string>
+			<key>few</key>
+			<string>Nejvýše %lld přestupy</string>
+			<key>other</key>
+			<string>Nejvýše %lld přestupů</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

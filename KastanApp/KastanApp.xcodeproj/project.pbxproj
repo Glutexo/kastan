@@ -23,6 +23,7 @@
 		A0000000000000000000021D /* FavoriteTimetablesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000011D /* FavoriteTimetablesView.swift */; };
 		A00000000000000000000230 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000132 /* Localizable.strings */; };
 		A00000000000000000000231 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000133 /* Assets.xcassets */; };
+		A00000000000000000000232 /* Localizable.stringsdict in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000136 /* Localizable.stringsdict */; };
 		A00000000000000000000241 /* Kastan in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000601 /* Kastan */; };
 		A00000000000000000000242 /* Kastan in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000602 /* Kastan */; };
 		A00000000000000000000250 /* KastanAppTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000150 /* KastanAppTests.swift */; };
@@ -58,6 +59,8 @@
 		A00000000000000000000130 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A00000000000000000000131 /* cs */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = cs; path = cs.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A00000000000000000000133 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A00000000000000000000134 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = en; path = en.lproj/Localizable.stringsdict; sourceTree = "<group>"; };
+		A00000000000000000000135 /* cs */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = cs; path = cs.lproj/Localizable.stringsdict; sourceTree = "<group>"; };
 		A00000000000000000000150 /* KastanAppTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KastanAppTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -158,6 +161,7 @@
 			children = (
 				A00000000000000000000133 /* Assets.xcassets */,
 				A00000000000000000000132 /* Localizable.strings */,
+				A00000000000000000000136 /* Localizable.stringsdict */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -263,6 +267,7 @@
 			files = (
 				A00000000000000000000231 /* Assets.xcassets in Resources */,
 				A00000000000000000000230 /* Localizable.strings in Resources */,
+				A00000000000000000000232 /* Localizable.stringsdict in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -323,6 +328,15 @@
 				A00000000000000000000131 /* cs */,
 			);
 			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000136 /* Localizable.stringsdict */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A00000000000000000000134 /* en */,
+				A00000000000000000000135 /* cs */,
+			);
+			name = Localizable.stringsdict;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */

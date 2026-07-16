@@ -50,7 +50,7 @@ final class ConnectionsViewModel: ObservableObject {
         if maximumTransfers == 0 {
             return AppLocalization.string("Direct only")
         }
-        return AppLocalization.string("Up to %lld transfers", maximumTransfers)
+        return AppLocalization.plural("Up to %lld transfers", count: maximumTransfers)
     }
 
     func swapEndpoints() {

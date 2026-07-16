@@ -308,6 +308,18 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(request?.maxTransfers, 0)
     }
 
+    func testTransferLimitUsesLocaleAwarePluralForms() throws {
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+
+        XCTAssertEqual(AppLocalization.plural("Up to %lld transfers", count: 1, bundle: czech), "Nejvýše 1 přestup")
+        XCTAssertEqual(AppLocalization.plural("Up to %lld transfers", count: 2, bundle: czech), "Nejvýše 2 přestupy")
+        XCTAssertEqual(AppLocalization.plural("Up to %lld transfers", count: 4, bundle: czech), "Nejvýše 4 přestupy")
+        XCTAssertEqual(AppLocalization.plural("Up to %lld transfers", count: 5, bundle: czech), "Nejvýše 5 přestupů")
+        XCTAssertEqual(AppLocalization.plural("Up to %lld transfers", count: 1, bundle: english), "Up to 1 transfer")
+        XCTAssertEqual(AppLocalization.plural("Up to %lld transfers", count: 2, bundle: english), "Up to 2 transfers")
+    }
+
     func testConnectionSearchRejectsMissingEndpointWithoutCallingIDOS() async {
         let client = MockIDOSClient()
         let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())
@@ -377,6 +389,13 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(message.contains("The connection was reset."))
         XCTAssertTrue(AppLocalization.string("Connection %lld", 3).contains("3"))
     }
+}
+
+private func localizationBundle(languageCode: String) -> Bundle? {
+    guard let url = Bundle.main.url(forResource: languageCode, withExtension: "lproj") else {
+        return nil
+    }
+    return Bundle(url: url)
 }
 
 @MainActor

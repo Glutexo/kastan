@@ -134,6 +134,12 @@ enum AppLocalization {
         let format = Bundle.main.localizedString(forKey: key, value: key, table: nil)
         return String(format: format, locale: .current, arguments: arguments)
     }
+
+    /// Resolves number-dependent wording through the locale's Unicode plural rules.
+    static func plural(_ key: String, count: Int, bundle: Bundle = .main) -> String {
+        let format = bundle.localizedString(forKey: key, value: key, table: nil)
+        return String.localizedStringWithFormat(format, Int64(count))
+    }
 }
 
 /// Converts library failures into app-localized, actionable messages without hiding platform detail.
