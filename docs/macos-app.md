@@ -10,6 +10,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Connection searches with place suggestions, date, time, arrival mode, editable via places, and transfer
   limits with locale-aware plural wording and a consistently aligned stepper.
 - Station departures and arrivals with station-only suggestions.
+- MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
+  route stops, tariff zones, lockout labels, explanatory notes, and links back to the matching IDOS result.
 - Sidebar navigation divided into Search and Favorites, including a timetable-favorites manager that keeps
   every entry in its catalog group and marks the selected entries with filled stars.
 - Timetable menus grouped into general rail and bus choices, integrated transport systems, and city networks,

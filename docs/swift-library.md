@@ -71,6 +71,20 @@ let service = try await client.serviceDetail(id: departures[0].id, language: .cz
 let serviceCalendar = try await client.serviceCalendar(for: service)
 let servicePDF = try await client.servicePDF(for: service, language: .czech)
 
+let pid = try IDOSTimetable.resolve("pid")
+let lines = try await client.searchStationTimetableLines(prefix: "154", timetable: pid)
+let stationTimetable = try await client.findStationTimetable(
+    request: IDOSStationTimetableRequest(
+        timetable: pid,
+        line: lines[0].text,
+        from: lines[0].from!,
+        to: lines[0].to!,
+        date: "17.7.2026",
+        wholeWeek: true
+    ),
+    language: .english
+)
+
 let aliasFile = StopAliasFile()
 var aliases = try aliasFile.load()
 try aliases.upsert(
@@ -88,9 +102,11 @@ try aliasFile.save(aliases)
 The main public types are:
 
 - Client and errors: `IDOSClient`, `IDOSClienting`, and `IDOSError`.
-- Requests and timetables: `IDOSConnectionRequest`, `IDOSDeparturesRequest`, and `IDOSTimetable`.
+- Requests and timetables: `IDOSConnectionRequest`, `IDOSDeparturesRequest`, `IDOSStationTimetableRequest`,
+  and `IDOSTimetable`.
 - Results: `IDOSSuggestion`, `IDOSConnection`, `IDOSConnectionLeg`, `IDOSDeparture`, `IDOSServiceDetail`,
-  `IDOSServiceStop`, and `IDOSTransportMode`.
+  `IDOSServiceStop`, `IDOSStationTimetable`, `IDOSStationTimetableStop`, `IDOSStationTimetableSchedule`,
+  `IDOSStationTimetableHour`, and `IDOSTransportMode`.
 - Personal aliases: `StopAlias`, `StopAliasDatabase`, `StopAliasFile`, and `StopAliasError`.
 
 Connection-result, service, and departure identifiers are opaque and must not be parsed by clients. Models
@@ -100,6 +116,11 @@ tariff zones, carriers, delay details, and localized service notes when availabl
 `connectionCalendar` returns IDOS iCalendar text for a search result. `serviceCalendar` and `servicePDF`
 resolve a dated service's permanent result link and return the corresponding native IDOS export.
 `connectionPDF` and `servicePDF` accept an explicit language for the document text.
+
+`searchStationTimetableLines` returns the terminal pair for every matching MHD line direction.
+`searchStationTimetableStops` limits suggestions to one selected line, and `findStationTimetable` returns the
+route, departures grouped by service day and hour, tariff zones, explanatory notes, lockout state, and matching
+IDOS URL.
 
 ## Data Source
 

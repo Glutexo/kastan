@@ -22,6 +22,8 @@
 		A0000000000000000000021C /* JourneySearchControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000011C /* JourneySearchControls.swift */; };
 		A0000000000000000000021D /* FavoriteTimetablesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000011D /* FavoriteTimetablesView.swift */; };
 		A0000000000000000000021E /* PDFExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000011E /* PDFExporter.swift */; };
+		A0000000000000000000021F /* StationTimetablesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000011F /* StationTimetablesView.swift */; };
+		A00000000000000000000220 /* StationTimetablesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000120 /* StationTimetablesViewModel.swift */; };
 		A00000000000000000000230 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000132 /* Localizable.strings */; };
 		A00000000000000000000231 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000133 /* Assets.xcassets */; };
 		A00000000000000000000232 /* Localizable.stringsdict in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000136 /* Localizable.stringsdict */; };
@@ -58,6 +60,8 @@
 		A0000000000000000000011C /* JourneySearchControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JourneySearchControls.swift; sourceTree = "<group>"; };
 		A0000000000000000000011D /* FavoriteTimetablesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoriteTimetablesView.swift; sourceTree = "<group>"; };
 		A0000000000000000000011E /* PDFExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFExporter.swift; sourceTree = "<group>"; };
+		A0000000000000000000011F /* StationTimetablesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationTimetablesView.swift; sourceTree = "<group>"; };
+		A00000000000000000000120 /* StationTimetablesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationTimetablesViewModel.swift; sourceTree = "<group>"; };
 		A00000000000000000000130 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A00000000000000000000131 /* cs */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = cs; path = cs.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A00000000000000000000133 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -113,6 +117,7 @@
 				A0000000000000000000011D /* FavoriteTimetablesView.swift */,
 				A00000000000000000000005 /* Connections */,
 				A00000000000000000000006 /* Departures */,
+				A0000000000000000000000B /* StationTimetables */,
 				A00000000000000000000007 /* Components */,
 				A00000000000000000000008 /* Support */,
 			);
@@ -135,6 +140,15 @@
 				A00000000000000000000115 /* DeparturesViewModel.swift */,
 			);
 			path = Departures;
+			sourceTree = "<group>";
+		};
+		A0000000000000000000000B /* StationTimetables */ = {
+			isa = PBXGroup;
+			children = (
+				A0000000000000000000011F /* StationTimetablesView.swift */,
+				A00000000000000000000120 /* StationTimetablesViewModel.swift */,
+			);
+			path = StationTimetables;
 			sourceTree = "<group>";
 		};
 		A00000000000000000000007 /* Components */ = {
@@ -303,6 +317,8 @@
 				A0000000000000000000021C /* JourneySearchControls.swift in Sources */,
 				A0000000000000000000021D /* FavoriteTimetablesView.swift in Sources */,
 				A0000000000000000000021E /* PDFExporter.swift in Sources */,
+				A0000000000000000000021F /* StationTimetablesView.swift in Sources */,
+				A00000000000000000000220 /* StationTimetablesViewModel.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

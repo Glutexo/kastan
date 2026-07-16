@@ -92,6 +92,7 @@ enum LocalizationKey: String, CaseIterable {
     case invalidServiceIdentifier = "error.invalidServiceIdentifier"
     case serviceDetailUnavailable = "error.serviceDetailUnavailable"
     case serviceDetailUnavailableWithDetail = "error.serviceDetailUnavailableWithDetail"
+    case stationTimetableUnavailable = "error.stationTimetableUnavailable"
     case aliasNotFound = "error.aliasNotFound"
     case invalidAliasName = "error.invalidAliasName"
     case invalidAliasStation = "error.invalidAliasStation"

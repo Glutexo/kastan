@@ -167,6 +167,10 @@ enum AppErrorPresentation {
             return AppLocalization.string("IDOS did not provide calendar export data for this connection.")
         case .pdfUnavailable:
             return AppLocalization.string("IDOS did not provide PDF export data for this connection.")
+        case .stationTimetableUnavailable:
+            return AppLocalization.string(
+                "IDOS could not generate a station timetable for this line, direction, and date."
+            )
         case .invalidServiceIdentifier(let value):
             return AppLocalization.string("Invalid service ID: %@.", value)
         case .serviceDetailUnavailable(let detail):
@@ -270,6 +274,11 @@ enum AppTimetableGroup: CaseIterable, Identifiable {
         }
     }
 
+    /// Limits station timetables to the integrated systems and individual MHD catalogs supported by IDOS.
+    static var stationTimetables: [IDOSTimetable] {
+        integratedSystems.timetables + cityTransport.timetables
+    }
+
     private func contains(_ timetable: IDOSTimetable) -> Bool {
         let isGeneral = Self.generalSlugs.contains(timetable.slug)
         let isCityTransport = timetable.displayName.hasPrefix(Self.cityTransportPrefix)
@@ -285,12 +294,17 @@ enum AppTimetableGroup: CaseIterable, Identifiable {
     }
 }
 
-/// Supplies the same sectioned timetable menu to connection and station-board pickers.
+/// Supplies one sectioned timetable menu to search pickers, optionally limited to a supported subset.
 struct AppTimetablePickerOptions: View {
     let favoriteSlugs: [String]
+    let allowedTimetables: [IDOSTimetable]
 
-    init(favoriteSlugs: [String] = []) {
+    init(
+        favoriteSlugs: [String] = [],
+        allowedTimetables: [IDOSTimetable] = IDOSTimetable.known
+    ) {
         self.favoriteSlugs = favoriteSlugs
+        self.allowedTimetables = allowedTimetables
     }
 
     var body: some View {
@@ -305,7 +319,7 @@ struct AppTimetablePickerOptions: View {
         }
 
         ForEach(AppTimetableGroup.allCases) { group in
-            let timetables = favorites.nonFavorites(in: group.timetables)
+            let timetables = favorites.nonFavorites(in: group.timetables.filter(isAllowed))
             if !timetables.isEmpty {
                 Section {
                     ForEach(timetables, id: \.slug) { timetable in
@@ -323,7 +337,11 @@ struct AppTimetablePickerOptions: View {
     }
 
     private var favoriteTimetables: [IDOSTimetable] {
-        favorites.timetables
+        favorites.timetables.filter(isAllowed)
+    }
+
+    private func isAllowed(_ timetable: IDOSTimetable) -> Bool {
+        allowedTimetables.contains(where: { $0.slug == timetable.slug })
     }
 }
 

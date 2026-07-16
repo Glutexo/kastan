@@ -246,6 +246,7 @@ struct AppSectionCommands: Commands {
 
             sectionToggle(.connections)
             sectionToggle(.departures)
+            sectionToggle(.stationTimetables)
 
             Divider()
 

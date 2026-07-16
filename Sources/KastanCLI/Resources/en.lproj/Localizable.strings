@@ -33,6 +33,7 @@
 "error.invalidServiceIdentifier" = "Invalid service ID: {0}. Copy the complete ID from verbose connection or departure output.";
 "error.serviceDetailUnavailable" = "IDOS could not load this service detail.";
 "error.serviceDetailUnavailableWithDetail" = "IDOS could not load this service detail. {0}";
+"error.stationTimetableUnavailable" = "IDOS could not generate a station timetable for this line, direction, and date.";
 "error.aliasNotFound" = "Stop alias not found: {0}.";
 "error.invalidAliasName" = "Stop alias name cannot be empty.";
 "error.invalidAliasStation" = "Stop alias station cannot be empty.";

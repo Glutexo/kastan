@@ -18,6 +18,21 @@ public enum IDOSLanguage: String, Codable, Equatable, Sendable {
 public protocol IDOSClienting: Sendable {
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion]
     func searchStations(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion]
+    func searchStationTimetableLines(
+        prefix: String,
+        limit: Int,
+        timetable: IDOSTimetable
+    ) async throws -> [IDOSSuggestion]
+    func searchStationTimetableStops(
+        prefix: String,
+        line: String,
+        limit: Int,
+        timetable: IDOSTimetable
+    ) async throws -> [IDOSSuggestion]
+    func findStationTimetable(
+        request: IDOSStationTimetableRequest,
+        language: IDOSLanguage
+    ) async throws -> IDOSStationTimetable
     func findConnections(request: IDOSConnectionRequest) async throws -> [IDOSConnection]
     func connectionCalendar(for connection: IDOSConnection, timetable: IDOSTimetable) async throws -> String
     /// Loads the IDOS calendar export represented by a dated service's permanent result link.
@@ -41,6 +56,33 @@ public protocol IDOSClienting: Sendable {
 }
 
 public extension IDOSClienting {
+    /// Preserves compatibility for custom clients that do not provide station-timetable searches yet.
+    func searchStationTimetableLines(
+        prefix: String,
+        limit: Int,
+        timetable: IDOSTimetable
+    ) async throws -> [IDOSSuggestion] {
+        throw IDOSError.stationTimetableUnavailable
+    }
+
+    /// Preserves compatibility for custom clients that do not provide station-timetable searches yet.
+    func searchStationTimetableStops(
+        prefix: String,
+        line: String,
+        limit: Int,
+        timetable: IDOSTimetable
+    ) async throws -> [IDOSSuggestion] {
+        throw IDOSError.stationTimetableUnavailable
+    }
+
+    /// Preserves compatibility for custom clients that do not provide station-timetable searches yet.
+    func findStationTimetable(
+        request: IDOSStationTimetableRequest,
+        language: IDOSLanguage
+    ) async throws -> IDOSStationTimetable {
+        throw IDOSError.stationTimetableUnavailable
+    }
+
     /// Preserves compatibility for custom clients that do not provide dated-service calendar exports yet.
     func serviceCalendar(for service: IDOSServiceDetail) async throws -> String {
         throw IDOSError.calendarUnavailable
@@ -95,6 +137,39 @@ public struct IDOSClient: IDOSClienting {
         try await searchTimetableObjects(prefix: prefix, limit: limit, timetable: timetable, onlyStation: true)
     }
 
+    /// Suggests MHD or integrated-transport lines and includes each available terminal pair.
+    public func searchStationTimetableLines(
+        prefix: String,
+        limit: Int = 8,
+        timetable: IDOSTimetable
+    ) async throws -> [IDOSSuggestion] {
+        try await searchStationTimetableObjects(
+            endpoint: "ZJRLines",
+            prefix: prefix,
+            line: nil,
+            limit: limit,
+            timetable: timetable,
+            onlyStation: false
+        )
+    }
+
+    /// Suggests stops served by one station-timetable line.
+    public func searchStationTimetableStops(
+        prefix: String,
+        line: String,
+        limit: Int = 8,
+        timetable: IDOSTimetable
+    ) async throws -> [IDOSSuggestion] {
+        try await searchStationTimetableObjects(
+            endpoint: "ZJRStationsOnLine",
+            prefix: prefix,
+            line: line,
+            limit: limit,
+            timetable: timetable,
+            onlyStation: true
+        )
+    }
+
     private func searchTimetableObjects(
         prefix: String,
         limit: Int,
@@ -117,6 +192,62 @@ public struct IDOSClient: IDOSClienting {
         let data = try await data(from: components.requiredURL)
         let json = try IDOSJSONP.decodePayload(from: data)
         return try JSONDecoder().decode([IDOSSuggestion].self, from: json)
+    }
+
+    private func searchStationTimetableObjects(
+        endpoint: String,
+        prefix: String,
+        line: String?,
+        limit: Int,
+        timetable: IDOSTimetable,
+        onlyStation: Bool
+    ) async throws -> [IDOSSuggestion] {
+        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        components.path = "/en/\(timetable.slug)/Ajax/\(endpoint)/"
+        var queryItems = [
+            URLQueryItem(name: "count", value: String(limit)),
+            URLQueryItem(name: "prefixText", value: prefix),
+            URLQueryItem(name: "positionAccuracy", value: "0"),
+            URLQueryItem(name: "searchByPosition", value: "false"),
+            URLQueryItem(name: "onlyStation", value: onlyStation ? "true" : "false"),
+            URLQueryItem(name: "format", value: "json"),
+            URLQueryItem(name: "bindTtIndex", value: "0"),
+            URLQueryItem(name: "callback", value: "idosCallback"),
+        ]
+        if let line, !line.isEmpty {
+            queryItems.append(URLQueryItem(name: "line", value: line))
+        }
+        components.queryItems = queryItems
+
+        let data = try await data(from: components.requiredURL)
+        let json = try IDOSJSONP.decodePayload(from: data)
+        return try JSONDecoder().decode([IDOSSuggestion].self, from: json)
+    }
+
+    /// Loads one IDOS station timetable for an MHD or integrated-transport line and direction.
+    public func findStationTimetable(
+        request: IDOSStationTimetableRequest,
+        language: IDOSLanguage = .english
+    ) async throws -> IDOSStationTimetable {
+        guard request.isComplete else {
+            throw IDOSError.stationTimetableUnavailable
+        }
+
+        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        components.path = language.path(timetable: request.timetable, endpoint: "zjr/")
+        components.queryItems = request.queryItems
+        let resultURL = try components.requiredURL
+        let data = try await data(from: resultURL)
+        guard let html = String(data: data, encoding: .utf8),
+              let result = IDOSStationTimetableParser.parse(
+                  html: html,
+                  request: request,
+                  shareURL: resultURL.absoluteString
+              )
+        else {
+            throw IDOSError.stationTimetableUnavailable
+        }
+        return result
     }
 
     public func findConnections(request: IDOSConnectionRequest) async throws -> [IDOSConnection] {
@@ -466,6 +597,143 @@ public struct IDOSDeparturesRequest: Codable, Equatable, Sendable {
 
         items.append(URLQueryItem(name: "submit", value: "true"))
         return items
+    }
+}
+
+/// A station-timetable query for one MHD or integrated-transport line and direction.
+public struct IDOSStationTimetableRequest: Codable, Equatable, Sendable {
+    public var timetable: IDOSTimetable
+    public var line: String
+    public var from: String
+    public var to: String
+    public var date: String?
+    public var wholeWeek: Bool
+
+    public init(
+        timetable: IDOSTimetable,
+        line: String,
+        from: String,
+        to: String,
+        date: String? = nil,
+        wholeWeek: Bool = false
+    ) {
+        self.timetable = timetable
+        self.line = line
+        self.from = from
+        self.to = to
+        self.date = date
+        self.wholeWeek = wholeWeek
+    }
+
+    var isComplete: Bool {
+        [line, from, to].allSatisfy {
+            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    var queryItems: [URLQueryItem] {
+        var items = [
+            URLQueryItem(name: "l", value: line.trimmingCharacters(in: .whitespacesAndNewlines)),
+            URLQueryItem(name: "f", value: from.trimmingCharacters(in: .whitespacesAndNewlines)),
+            URLQueryItem(name: "t", value: to.trimmingCharacters(in: .whitespacesAndNewlines)),
+        ]
+        if let date, !date.isEmpty {
+            items.insert(URLQueryItem(name: "date", value: date), at: 0)
+        }
+        if wholeWeek {
+            items.append(URLQueryItem(name: "wholeweek", value: "true"))
+        }
+        items.append(URLQueryItem(name: "submit", value: "true"))
+        return items
+    }
+}
+
+/// A complete IDOS station timetable with its route, hourly departures, and explanatory notes.
+public struct IDOSStationTimetable: Codable, Equatable, Sendable {
+    public var timetable: IDOSTimetable
+    public var lineName: String
+    public var transportMode: IDOSTransportMode?
+    public var fromStop: String
+    public var toStop: String
+    public var stops: [IDOSStationTimetableStop]
+    public var schedules: [IDOSStationTimetableSchedule]
+    public var notes: [String]
+    /// Identifies a temporary lockout timetable marked by IDOS.
+    public var isLockout: Bool
+    public var shareURL: String?
+
+    public init(
+        timetable: IDOSTimetable,
+        lineName: String,
+        transportMode: IDOSTransportMode? = nil,
+        fromStop: String,
+        toStop: String,
+        stops: [IDOSStationTimetableStop],
+        schedules: [IDOSStationTimetableSchedule],
+        notes: [String] = [],
+        isLockout: Bool = false,
+        shareURL: String? = nil
+    ) {
+        self.timetable = timetable
+        self.lineName = lineName
+        self.transportMode = transportMode
+        self.fromStop = fromStop
+        self.toStop = toStop
+        self.stops = stops
+        self.schedules = schedules
+        self.notes = notes
+        self.isLockout = isLockout
+        self.shareURL = shareURL
+    }
+
+    public var selectedStop: IDOSStationTimetableStop? {
+        stops.first(where: \.isSelected)
+    }
+}
+
+/// One stop on a station timetable's selected line and direction.
+public struct IDOSStationTimetableStop: Codable, Equatable, Sendable {
+    public var name: String
+    public var minuteOffset: Int?
+    /// Preserves the fare-zone label when the selected timetable publishes one.
+    public var tariffZone: String?
+    public var isSelected: Bool
+    public var notes: [String]
+
+    public init(
+        name: String,
+        minuteOffset: Int? = nil,
+        tariffZone: String? = nil,
+        isSelected: Bool = false,
+        notes: [String] = []
+    ) {
+        self.name = name
+        self.minuteOffset = minuteOffset
+        self.tariffZone = tariffZone
+        self.isSelected = isSelected
+        self.notes = notes
+    }
+}
+
+/// One date or service-day group in a station timetable.
+public struct IDOSStationTimetableSchedule: Codable, Equatable, Sendable {
+    public var label: String
+    public var hours: [IDOSStationTimetableHour]
+
+    public init(label: String, hours: [IDOSStationTimetableHour]) {
+        self.label = label
+        self.hours = hours
+    }
+}
+
+/// Every minute marker supplied by IDOS for one hour, including attached note symbols.
+public struct IDOSStationTimetableHour: Codable, Equatable, Sendable {
+    public var hour: String
+    public var departures: [String]
+
+    public init(hour: String, departures: [String]) {
+        self.hour = hour
+        self.departures = departures
     }
 }
 
@@ -833,6 +1101,10 @@ public struct IDOSSuggestion: Codable, Equatable, Sendable {
     public var iconId: Int?
     public var coorX: Double?
     public var coorY: Double?
+    /// First terminal supplied for a station-timetable line suggestion.
+    public var from: String?
+    /// Opposite terminal supplied for a station-timetable line suggestion.
+    public var to: String?
 
     public init(
         selectedText: String? = nil,
@@ -843,7 +1115,9 @@ public struct IDOSSuggestion: Codable, Equatable, Sendable {
         value2: String? = nil,
         iconId: Int? = nil,
         coorX: Double? = nil,
-        coorY: Double? = nil
+        coorY: Double? = nil,
+        from: String? = nil,
+        to: String? = nil
     ) {
         self.selectedText = selectedText
         self.text = text
@@ -854,6 +1128,8 @@ public struct IDOSSuggestion: Codable, Equatable, Sendable {
         self.iconId = iconId
         self.coorX = coorX
         self.coorY = coorY
+        self.from = from
+        self.to = to
     }
 }
 
@@ -1317,6 +1593,7 @@ public enum IDOSError: LocalizedError, Sendable {
     case networkUnavailable(String)
     case calendarUnavailable
     case pdfUnavailable
+    case stationTimetableUnavailable
     case invalidServiceIdentifier(String)
     case serviceDetailUnavailable(String)
 
@@ -1341,6 +1618,8 @@ public enum IDOSError: LocalizedError, Sendable {
             return "IDOS did not provide calendar export data for this connection."
         case .pdfUnavailable:
             return "IDOS did not provide PDF export data for this connection."
+        case .stationTimetableUnavailable:
+            return "IDOS could not generate a station timetable for this line, direction, and date."
         case .invalidServiceIdentifier(let value):
             return "Invalid service ID: \(value). Copy the complete ID from verbose connection or departure output."
         case .serviceDetailUnavailable(let detail):
@@ -1844,6 +2123,162 @@ enum IDOSConnectionParser {
     private static func nonEmpty(_ value: String) -> String? {
         let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return value.isEmpty ? nil : value
+    }
+}
+
+enum IDOSStationTimetableParser {
+    static func parse(
+        html: String,
+        request: IDOSStationTimetableRequest,
+        shareURL: String? = nil
+    ) -> IDOSStationTimetable? {
+        guard let routeHTML = RegexSupport.capture(
+            pattern: #"<div class="zjr-stations">(.*?</table>)\s*</div>"#,
+            in: html,
+            options: [.dotMatchesLineSeparators]
+        ) else {
+            return nil
+        }
+
+        let stops = stopRows(in: routeHTML)
+        let schedules = scheduleTables(in: html)
+        guard !stops.isEmpty, !schedules.isEmpty else {
+            return nil
+        }
+
+        let rawLineName = RegexSupport.capture(
+            pattern: #"departures__title.*?<span[^>]*>(.*?)</span>"#,
+            in: html,
+            options: [.dotMatchesLineSeparators]
+        ).map(HTMLText.clean) ?? request.line
+        let lineName = removingLineLabel(from: rawLineName)
+
+        return IDOSStationTimetable(
+            timetable: request.timetable,
+            lineName: lineName,
+            transportMode: IDOSTransportMode.infer(from: lineName),
+            fromStop: request.from.trimmingCharacters(in: .whitespacesAndNewlines),
+            toStop: request.to.trimmingCharacters(in: .whitespacesAndNewlines),
+            stops: stops,
+            schedules: schedules,
+            notes: timetableNotes(in: html),
+            isLockout: html.range(of: #"class="exception""#) != nil,
+            shareURL: shareURL
+        )
+    }
+
+    private static func stopRows(in html: String) -> [IDOSStationTimetableStop] {
+        RegexSupport.captures(
+            pattern: #"<tr\b[^>]*>(.*?)</tr>"#,
+            in: html,
+            options: [.dotMatchesLineSeparators]
+        ).compactMap { captures in
+            guard let row = captures.first else { return nil }
+            let selectedName = RegexSupport.capture(
+                pattern: #"<span class="bold">(.*?)</span>"#,
+                in: row,
+                options: [.dotMatchesLineSeparators]
+            )
+            let linkedName = RegexSupport.capture(
+                pattern: #"<a class="fromStation"[^>]*>(.*?)</a>"#,
+                in: row,
+                options: [.dotMatchesLineSeparators]
+            )
+            guard let name = (selectedName ?? linkedName).map(HTMLText.clean), !name.isEmpty else {
+                return nil
+            }
+
+            let minuteOffset = RegexSupport.capture(
+                pattern: #"zjr-table__time[^>]*>(.*?)</td>"#,
+                in: row,
+                options: [.dotMatchesLineSeparators]
+            ).map(HTMLText.clean).flatMap(Int.init)
+            let tariffZone = RegexSupport.capture(
+                pattern: #"<td\b[^>]*class="[^"]*\btarif\b[^"]*"[^>]*>(.*?)</td>"#,
+                in: row,
+                options: [.dotMatchesLineSeparators]
+            ).map(HTMLText.clean).flatMap { $0.isEmpty ? nil : $0 }
+            let notes = RegexSupport.captures(pattern: #"\btitle="([^"]+)""#, in: row)
+                .compactMap(\.first)
+                .map(HTMLText.decodeEntities)
+                .filter { value in
+                    let normalized = value.lowercased()
+                    return !normalized.contains("search from the station") &&
+                        !normalized.contains("vyhledat ze zastávky")
+                }
+
+            return IDOSStationTimetableStop(
+                name: name,
+                minuteOffset: minuteOffset,
+                tariffZone: tariffZone,
+                isSelected: selectedName != nil,
+                notes: unique(notes)
+            )
+        }
+    }
+
+    private static func scheduleTables(in html: String) -> [IDOSStationTimetableSchedule] {
+        RegexSupport.captures(
+            pattern: #"<div class="zjr-table-container[^"]*"[^>]*>(.*?</table>)\s*</div>"#,
+            in: html,
+            options: [.dotMatchesLineSeparators]
+        ).compactMap { captures in
+            guard let table = captures.first,
+                  let label = RegexSupport.capture(
+                      pattern: #"<thead>.*?<th[^>]*>\s*</th>\s*<th[^>]*>(.*?)</th>"#,
+                      in: table,
+                      options: [.dotMatchesLineSeparators]
+                  ).map(HTMLText.clean),
+                  !label.isEmpty
+            else {
+                return nil
+            }
+
+            let hours = RegexSupport.captures(
+                pattern: #"<tr\b[^>]*>\s*<td[^>]*zjr-table__date[^>]*>(.*?)</td>\s*<td[^>]*>(.*?)</td>\s*</tr>"#,
+                in: table,
+                options: [.dotMatchesLineSeparators]
+            ).compactMap { row -> IDOSStationTimetableHour? in
+                guard row.count == 2 else { return nil }
+                let hour = HTMLText.clean(row[0])
+                guard !hour.isEmpty else { return nil }
+                let departures = HTMLText.clean(row[1])
+                    .split(whereSeparator: \.isWhitespace)
+                    .map(String.init)
+                return IDOSStationTimetableHour(hour: hour, departures: departures)
+            }
+            return IDOSStationTimetableSchedule(label: label, hours: hours)
+        }
+    }
+
+    private static func timetableNotes(in html: String) -> [String] {
+        guard let list = RegexSupport.capture(
+            pattern: #"<ul class="remarks-list">(.*?)</ul>"#,
+            in: html,
+            options: [.dotMatchesLineSeparators]
+        ) else {
+            return []
+        }
+        return unique(
+            RegexSupport.captures(
+                pattern: #"<li\b[^>]*remarks-list__item[^>]*>(.*?)</li>"#,
+                in: list,
+                options: [.dotMatchesLineSeparators]
+            ).compactMap { $0.first.map(HTMLText.clean) }
+                .filter { !$0.isEmpty }
+        )
+    }
+
+    private static func removingLineLabel(from value: String) -> String {
+        for prefix in ["Line ", "Linka "] where value.hasPrefix(prefix) {
+            return String(value.dropFirst(prefix.count))
+        }
+        return value
+    }
+
+    private static func unique(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        return values.filter { seen.insert($0).inserted }
     }
 }
 

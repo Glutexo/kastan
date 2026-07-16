@@ -33,6 +33,7 @@
 "error.invalidServiceIdentifier" = "Neplatné ID spoje: {0}. Zkopírujte celé ID z podrobného výstupu spojení nebo odjezdů.";
 "error.serviceDetailUnavailable" = "IDOS nemohl načíst detail tohoto spoje.";
 "error.serviceDetailUnavailableWithDetail" = "IDOS nemohl načíst detail tohoto spoje. {0}";
+"error.stationTimetableUnavailable" = "IDOS nemohl pro tuto linku, směr a datum vytvořit zastávkový jízdní řád.";
 "error.aliasNotFound" = "Alias zastávky nebyl nalezen: {0}.";
 "error.invalidAliasName" = "Název aliasu zastávky nesmí být prázdný.";
 "error.invalidAliasStation" = "Zastávka aliasu nesmí být prázdná.";

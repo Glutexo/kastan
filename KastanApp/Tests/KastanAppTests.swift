@@ -129,7 +129,7 @@ final class KastanAppTests: XCTestCase {
     func testSidebarSeparatesSearchAndFavoriteAgendas() {
         XCTAssertEqual(
             AppSidebarGroup.allCases.map(\.sections),
-            [[.connections, .departures], [.favoriteTimetables]]
+            [[.connections, .departures, .stationTimetables], [.favoriteTimetables]]
         )
     }
 
@@ -153,6 +153,15 @@ final class KastanAppTests: XCTestCase {
         )
         let groupedSlugs = Set(AppTimetableGroup.allCases.flatMap { $0.timetables.map(\.slug) })
         XCTAssertEqual(groupedSlugs, Set(IDOSTimetable.known.map(\.slug)))
+        XCTAssertEqual(
+            AppTimetableGroup.stationTimetables.prefix(4).map(\.slug),
+            ["pid", "idsjmk", "odis", "idol"]
+        )
+        XCTAssertTrue(
+            AppTimetableGroup.stationTimetables.dropFirst(4).allSatisfy {
+                $0.displayName.hasPrefix("Urban Public Transport ")
+            }
+        )
     }
 
     func testFavoriteTimetablesPersistKnownUniqueSlugsInPickerOrder() {
@@ -460,6 +469,50 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(query?.timetableSlug, "pid")
     }
 
+    func testStationTimetableSearchUsesSelectedLineDirectionAndWeekMode() async {
+        let client = MockIDOSClient()
+        let model = StationTimetablesViewModel(client: client)
+        model.selectLineSuggestion(IDOSSuggestion(
+            text: "Bus 154",
+            from: "Strašnická",
+            to: "Sídliště Libuš"
+        ))
+        model.wholeWeek = true
+
+        await model.search()
+
+        let request = await client.lastStationTimetableRequest
+        let language = await client.lastStationTimetableLanguage
+        XCTAssertEqual(request?.timetable.slug, "pid")
+        XCTAssertEqual(request?.line, "Bus 154")
+        XCTAssertEqual(request?.from, "Strašnická")
+        XCTAssertEqual(request?.to, "Sídliště Libuš")
+        XCTAssertEqual(request?.wholeWeek, true)
+        XCTAssertEqual(request?.date, IDOSRequestFormatting.date(from: model.date))
+        XCTAssertEqual(language, AppLanguagePreference.idosLanguage)
+        XCTAssertEqual(model.result?.selectedStop?.name, "Strašnická")
+        XCTAssertNil(model.errorMessage)
+    }
+
+    func testStationTimetableStopSelectionStartsAtThatStop() async {
+        let client = MockIDOSClient()
+        let model = StationTimetablesViewModel(client: client)
+        model.selectLineSuggestion(IDOSSuggestion(
+            text: "Bus 154",
+            from: "Strašnická",
+            to: "Sídliště Libuš"
+        ))
+        await model.search()
+
+        await model.selectStop(at: 1)
+
+        let request = await client.lastStationTimetableRequest
+        XCTAssertEqual(model.from, "Na Hroudě")
+        XCTAssertEqual(request?.from, "Na Hroudě")
+        XCTAssertEqual(request?.to, "Sídliště Libuš")
+        XCTAssertEqual(model.result?.selectedStop?.name, "Na Hroudě")
+    }
+
     func testLocalizedErrorPresentationPreservesNetworkDetail() {
         let message = AppErrorPresentation.message(
             for: IDOSError.networkUnavailable("The connection was reset.")
@@ -505,6 +558,8 @@ private actor MockIDOSClient: IDOSClienting {
     var lastCalendarServiceID: String?
     var lastPDFServiceID: String?
     var lastServicePDFLanguage: IDOSLanguage?
+    var lastStationTimetableRequest: IDOSStationTimetableRequest?
+    var lastStationTimetableLanguage: IDOSLanguage?
 
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
         lastSuggestionQuery = SuggestionQuery(prefix: prefix, timetableSlug: timetable.slug)
@@ -513,6 +568,49 @@ private actor MockIDOSClient: IDOSClienting {
 
     func searchStations(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
         [IDOSSuggestion(text: "Ostrava-Svinov")]
+    }
+
+    func searchStationTimetableLines(
+        prefix: String,
+        limit: Int,
+        timetable: IDOSTimetable
+    ) async throws -> [IDOSSuggestion] {
+        [IDOSSuggestion(text: "Bus 154", from: "Strašnická", to: "Sídliště Libuš")]
+    }
+
+    func searchStationTimetableStops(
+        prefix: String,
+        line: String,
+        limit: Int,
+        timetable: IDOSTimetable
+    ) async throws -> [IDOSSuggestion] {
+        [IDOSSuggestion(text: "Strašnická")]
+    }
+
+    func findStationTimetable(
+        request: IDOSStationTimetableRequest,
+        language: IDOSLanguage
+    ) async throws -> IDOSStationTimetable {
+        lastStationTimetableRequest = request
+        lastStationTimetableLanguage = language
+        return IDOSStationTimetable(
+            timetable: request.timetable,
+            lineName: request.line,
+            transportMode: .bus,
+            fromStop: request.from,
+            toStop: request.to,
+            stops: [
+                IDOSStationTimetableStop(name: request.from, minuteOffset: 0, isSelected: true),
+                IDOSStationTimetableStop(name: "Na Hroudě", minuteOffset: 1),
+                IDOSStationTimetableStop(name: request.to, minuteOffset: 42),
+            ],
+            schedules: [
+                IDOSStationTimetableSchedule(
+                    label: "Friday",
+                    hours: [IDOSStationTimetableHour(hour: "5", departures: ["13", "35"])]
+                )
+            ]
+        )
     }
 
     func findConnections(request: IDOSConnectionRequest) async throws -> [IDOSConnection] {

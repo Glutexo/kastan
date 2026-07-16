@@ -12,7 +12,7 @@ data API.
 
 ## Components
 
-- [macOS app](docs/macos-app.md) — native SwiftUI connection and station-board searches.
+- [macOS app](docs/macos-app.md) — native SwiftUI connection, station-board, and MHD station-timetable searches.
 - [CLI](docs/cli.md) — cross-platform terminal access with text, Markdown, JSON, and iCalendar output.
 - [Swift library](docs/swift-library.md) — the shared `Kastan` product used by every interface.
 - **MCP server** — read-only Kaštan tools for local MCP clients.

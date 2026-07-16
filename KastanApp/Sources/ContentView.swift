@@ -5,6 +5,7 @@ import SwiftUI
 enum AppSection: String, CaseIterable, Hashable, Identifiable {
     case connections
     case departures
+    case stationTimetables
     case favoriteTimetables
 
     var id: Self { self }
@@ -15,6 +16,8 @@ enum AppSection: String, CaseIterable, Hashable, Identifiable {
             "Connections"
         case .departures:
             "Departures"
+        case .stationTimetables:
+            "Station timetables"
         case .favoriteTimetables:
             "Timetables"
         }
@@ -26,6 +29,8 @@ enum AppSection: String, CaseIterable, Hashable, Identifiable {
             "arrow.left.arrow.right"
         case .departures:
             "list.bullet.rectangle"
+        case .stationTimetables:
+            "calendar"
         case .favoriteTimetables:
             "star"
         }
@@ -51,7 +56,7 @@ enum AppSidebarGroup: CaseIterable, Identifiable {
     var sections: [AppSection] {
         switch self {
         case .searches:
-            [.connections, .departures]
+            [.connections, .departures, .stationTimetables]
         case .favorites:
             [.favoriteTimetables]
         }
@@ -142,12 +147,14 @@ struct ContentView: View {
     private let client: any IDOSClienting
     @StateObject private var connectionsModel: ConnectionsViewModel
     @StateObject private var departuresModel: DeparturesViewModel
+    @StateObject private var stationTimetablesModel: StationTimetablesViewModel
     @State private var selection = AppSection.connections
 
     init(client: any IDOSClienting) {
         self.client = client
         _connectionsModel = StateObject(wrappedValue: ConnectionsViewModel(client: client))
         _departuresModel = StateObject(wrappedValue: DeparturesViewModel(client: client))
+        _stationTimetablesModel = StateObject(wrappedValue: StationTimetablesViewModel(client: client))
     }
 
     var body: some View {
@@ -195,6 +202,8 @@ struct ContentView: View {
                 ConnectionsView(model: connectionsModel, client: client)
             case .departures:
                 DeparturesView(model: departuresModel, client: client)
+            case .stationTimetables:
+                StationTimetablesView(model: stationTimetablesModel, client: client)
             case .favoriteTimetables:
                 FavoriteTimetablesView()
             }

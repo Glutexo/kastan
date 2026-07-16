@@ -1195,6 +1195,37 @@ import Testing
     #expect(request.formItems.contains(URLQueryItem(name: "submit", value: "true")))
 }
 
+@Test func stationTimetableRequestUsesIDOSParameters() {
+    let request = IDOSStationTimetableRequest(
+        timetable: IDOSTimetable(slug: "pid", displayName: "Prague + PID"),
+        line: " Bus 154 ",
+        from: " Strašnická ",
+        to: " Sídliště Libuš ",
+        date: "17.7.2026",
+        wholeWeek: true
+    )
+    let values = Dictionary(uniqueKeysWithValues: request.queryItems.map { ($0.name, $0.value) })
+
+    #expect(request.isComplete)
+    #expect(values["date"] == "17.7.2026")
+    #expect(values["l"] == "Bus 154")
+    #expect(values["f"] == "Strašnická")
+    #expect(values["t"] == "Sídliště Libuš")
+    #expect(values["wholeweek"] == "true")
+    #expect(values["submit"] == "true")
+}
+
+@Test func stationTimetableLineSuggestionKeepsDirectionTerminals() throws {
+    let data = Data(
+        #"[{"text":"Bus 154","description":"Strašnická-Sídliště Libuš","from":"Strašnická","to":"Sídliště Libuš"}]"#.utf8
+    )
+    let suggestions = try JSONDecoder().decode([IDOSSuggestion].self, from: data)
+
+    #expect(suggestions.first?.text == "Bus 154")
+    #expect(suggestions.first?.from == "Strašnická")
+    #expect(suggestions.first?.to == "Sídliště Libuš")
+}
+
 @Test func jsonpParserDecodesCallbackPayload() throws {
     let data = Data(#"cb([{"text":"Praha"}]);"#.utf8)
     let payload = try IDOSJSONP.decodePayload(from: data)
@@ -1211,6 +1242,88 @@ import Testing
         coorX: nil,
         coorY: nil
     )])
+}
+
+@Test func stationTimetableParserReadsRouteSchedulesAndNotes() throws {
+    let html = """
+    <div class="connection-head relative zjr-panel">
+      <h2 class="reset departures__title">
+        <img src="/images/vyluka64.png" class="exception" title="Lockout timetable" />
+        <span>Line Bus 154</span>
+      </h2>
+    </div>
+    <div class="zjr-stations">
+      <table class="zjr-table">
+        <tbody>
+          <tr>
+            <td class="zjr-table__time right valign-top bold">0</td>
+            <td class="zjr-table__station_name">
+              <span class="bold">Strašnick&#225;</span>
+              <span title="request stop">(x)</span>
+            </td>
+            <td class="tarif">0</td>
+          </tr>
+          <tr>
+            <td class="zjr-table__time right valign-top bold">1</td>
+            <td class="zjr-table__station_name">
+              <a class="fromStation" href="javascript:;" title="search from the station">Na Hroudě</a>
+              <span title="wheelchair accessible stop">#</span>
+            </td>
+            <td class="tarif">B</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="zjr-table-container zjrBorderBottom ">
+      <table class="zjr-table times">
+        <thead>
+          <tr><th class="zjr-table__date right"></th><th>17.7.2026 Friday</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="zjr-table__date right bold valign-top">5</td><td>13 35A <span>55</span></td></tr>
+          <tr><td class="zjr-table__date right bold valign-top">6</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ul class="remarks-list">
+      <li class="remarks-list__item"><img title="Line description" /> valid from 1.7.2026</li>
+      <li class="remarks-list__item"><img title="Information note" /> A: runs only to stop Háje</li>
+    </ul>
+    """
+    let request = IDOSStationTimetableRequest(
+        timetable: IDOSTimetable(slug: "pid", displayName: "Prague + PID"),
+        line: "Bus 154",
+        from: "Strašnická",
+        to: "Sídliště Libuš"
+    )
+    let timetable = try #require(IDOSStationTimetableParser.parse(
+        html: html,
+        request: request,
+        shareURL: "https://idos.cz/en/pid/zjr/?l=154"
+    ))
+
+    #expect(timetable.lineName == "Bus 154")
+    #expect(timetable.transportMode == .bus)
+    #expect(timetable.fromStop == "Strašnická")
+    #expect(timetable.toStop == "Sídliště Libuš")
+    #expect(timetable.isLockout)
+    #expect(timetable.shareURL == "https://idos.cz/en/pid/zjr/?l=154")
+    #expect(timetable.stops.map(\.name) == ["Strašnická", "Na Hroudě"])
+    #expect(timetable.stops.map(\.minuteOffset) == [0, 1])
+    #expect(timetable.stops.map(\.tariffZone) == ["0", "B"])
+    #expect(timetable.selectedStop?.name == "Strašnická")
+    #expect(timetable.stops[0].notes == ["request stop"])
+    #expect(timetable.stops[1].notes == ["wheelchair accessible stop"])
+    #expect(timetable.schedules == [
+        IDOSStationTimetableSchedule(
+            label: "17.7.2026 Friday",
+            hours: [
+                IDOSStationTimetableHour(hour: "5", departures: ["13", "35A", "55"]),
+                IDOSStationTimetableHour(hour: "6", departures: []),
+            ]
+        )
+    ])
+    #expect(timetable.notes == ["valid from 1.7.2026", "A: runs only to stop Háje"])
 }
 
 @Test func connectionParserReadsBasicResultHtml() {

@@ -12,10 +12,12 @@ extension VerticalAlignment {
     static let placeInputCenter = VerticalAlignment(PlaceInputCenterAlignment.self)
 }
 
-/// Distinguishes general IDOS places from station-only station-board inputs.
+/// Routes each autocomplete field to the IDOS catalog matching its product input.
 enum PlaceSuggestionScope {
     case places
     case stations
+    case stationTimetableLines
+    case stationTimetableStops
 }
 
 /// Debounces IDOS suggestions so typing does not issue a request for every keystroke.
@@ -38,12 +40,13 @@ final class PlaceSuggestionsModel: ObservableObject {
         task?.cancel()
     }
 
-    func update(query: String, timetable: IDOSTimetable) {
+    func update(query: String, timetable: IDOSTimetable, line: String? = nil) {
         task?.cancel()
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         latestQuery = query
 
-        guard query.count >= 2 else {
+        let minimumLength = scope == .stationTimetableLines ? 1 : 2
+        guard query.count >= minimumLength else {
             suggestions = []
             isLoading = false
             return
@@ -56,11 +59,28 @@ final class PlaceSuggestionsModel: ObservableObject {
                 guard !Task.isCancelled, let self else {
                     return
                 }
-                let suggestions = switch self.scope {
+                let suggestions: [IDOSSuggestion] = switch self.scope {
                 case .places:
                     try await self.client.suggest(prefix: query, limit: 6, timetable: timetable)
                 case .stations:
                     try await self.client.searchStations(prefix: query, limit: 6, timetable: timetable)
+                case .stationTimetableLines:
+                    try await self.client.searchStationTimetableLines(
+                        prefix: query,
+                        limit: 6,
+                        timetable: timetable
+                    )
+                case .stationTimetableStops:
+                    if let line, !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        try await self.client.searchStationTimetableStops(
+                            prefix: query,
+                            line: line,
+                            limit: 6,
+                            timetable: timetable
+                        )
+                    } else {
+                        [IDOSSuggestion]()
+                    }
                 }
                 guard !Task.isCancelled, self.latestQuery == query else {
                     return
@@ -171,6 +191,8 @@ struct PlaceAutocompleteField: View {
     let prompt: LocalizedStringKey
     @Binding var text: String
     let timetable: IDOSTimetable
+    let stationTimetableLine: String?
+    let onSelection: ((IDOSSuggestion) -> Void)?
 
     @StateObject private var model: PlaceSuggestionsModel
     @FocusState private var isFocused: Bool
@@ -182,12 +204,16 @@ struct PlaceAutocompleteField: View {
         text: Binding<String>,
         timetable: IDOSTimetable,
         scope: PlaceSuggestionScope,
-        client: any IDOSClienting
+        stationTimetableLine: String? = nil,
+        client: any IDOSClienting,
+        onSelection: ((IDOSSuggestion) -> Void)? = nil
     ) {
         self.title = title
         self.prompt = prompt
         _text = text
         self.timetable = timetable
+        self.stationTimetableLine = stationTimetableLine
+        self.onSelection = onSelection
         _model = StateObject(wrappedValue: PlaceSuggestionsModel(client: client, scope: scope))
     }
 
@@ -201,10 +227,13 @@ struct PlaceAutocompleteField: View {
                 .textFieldStyle(.roundedBorder)
                 .focused($isFocused)
                 .onChange(of: text) { value in
-                    model.update(query: value, timetable: timetable)
+                    model.update(query: value, timetable: timetable, line: stationTimetableLine)
                 }
                 .onChange(of: timetable.slug) { _ in
-                    model.update(query: text, timetable: timetable)
+                    model.update(query: text, timetable: timetable, line: stationTimetableLine)
+                }
+                .onChange(of: stationTimetableLine ?? "") { _ in
+                    model.update(query: text, timetable: timetable, line: stationTimetableLine)
                 }
                 .overlay(alignment: .trailing) {
                     if model.isLoading {
@@ -258,6 +287,7 @@ struct PlaceAutocompleteField: View {
 
                 Button {
                     text = suggestion.text
+                    onSelection?(suggestion)
                     model.selectedSuggestion()
                     isFocused = false
                 } label: {
