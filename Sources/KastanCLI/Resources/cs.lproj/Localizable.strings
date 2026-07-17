@@ -101,6 +101,7 @@
 "label.destination" = "Cíl";
 "label.tariffZone" = "Tarifní zóna";
 "label.platform" = "Nástupiště";
+"label.stationTimetablePlatform" = "Stanoviště";
 "label.track" = "Kolej";
 "label.platformTrack" = "Nástupiště/kolej";
 "label.distance" = "Vzdálenost";
@@ -115,6 +116,7 @@
 "inline.via" = "přes {0}";
 "inline.tariffZone" = "tarifní zóna {0}";
 "inline.platform" = "nástupiště {0}";
+"inline.stationTimetablePlatform" = "stanoviště {0}";
 "inline.track" = "kolej {0}";
 "inline.platformTrack" = "nástupiště/kolej {0}";
 "inline.minutes" = "+{0} min";

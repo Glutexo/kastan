@@ -174,6 +174,7 @@ import Testing
     let timetable = result.structuredContent?.objectValue?["stationTimetable"]?.objectValue
     #expect(timetable?["lineName"] == "Bus 154")
     #expect(timetable?["stops"]?.arrayValue?.count == 2)
+    #expect(timetable?["stops"]?.arrayValue?.first?.objectValue?["platform"] == "1")
     #expect(timetable?["schedules"]?.arrayValue?.first?.objectValue?["hours"]?.arrayValue?.count == 1)
     let request = await mock.lastStationTimetableRequest
     #expect(request?.line == "Bus 154")
@@ -358,8 +359,8 @@ private actor MockIDOSClient: IDOSClienting {
             fromStop: request.from,
             toStop: request.to,
             stops: [
-                IDOSStationTimetableStop(name: request.from, minuteOffset: 0, isSelected: true),
-                IDOSStationTimetableStop(name: request.to, minuteOffset: 42),
+                IDOSStationTimetableStop(name: request.from, minuteOffset: 0, platform: "1", isSelected: true),
+                IDOSStationTimetableStop(name: request.to, minuteOffset: 42, platform: "2"),
             ],
             schedules: [
                 IDOSStationTimetableSchedule(

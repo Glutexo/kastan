@@ -95,6 +95,7 @@
 "Station" = "Station";
 "Station board" = "Station board";
 "Station timetables" = "Station timetables";
+"Station timetable platform %@" = "Platform %@";
 "Station or stop" = "Station or stop";
 "station" = "station";
 "stop" = "stop";

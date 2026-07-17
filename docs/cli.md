@@ -172,9 +172,10 @@ swift run kastan station-timetables -L "Bus 154" -f "Strašnická" -t "Sídlišt
 ```
 
 `--from` selects the stop whose departures are displayed, while `--to` selects the line direction. The result
-includes the complete route with minute offsets and tariff zones, departures grouped by service day and hour,
-lockout status, and explanatory notes. `station-timetable` is accepted as a singular command alias. Select an
-MHD or integrated-system catalog such as `pid`, `odis`, or `idsjmk` for unambiguous line results.
+includes the complete route with minute offsets, tariff zones, and platforms or stands, departures grouped by
+service day and hour, lockout status, and explanatory notes. Platform legends are attached directly to their
+route stops instead of being repeated as notes. `station-timetable` is accepted as a singular command alias.
+Select an MHD or integrated-system catalog such as `pid`, `odis`, or `idsjmk` for unambiguous line results.
 
 ### Service Details
 

@@ -299,11 +299,13 @@ struct StationTimetablesView: View {
 
             if !result.notes.isEmpty {
                 GroupBox("Notes") {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 10) {
                         ForEach(Array(result.notes.enumerated()), id: \.offset) { _, note in
-                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            HStack(alignment: .firstTextBaseline, spacing: 10) {
                                 Text("•")
+                                    .fontWeight(.semibold)
                                     .foregroundStyle(.secondary)
+                                    .frame(width: 8, alignment: .center)
                                     .accessibilityHidden(true)
                                 Text(note)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -311,6 +313,8 @@ struct StationTimetablesView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
                 }
             }
         }
@@ -382,8 +386,8 @@ struct StationTimetablesView: View {
                                 Text(stop.name)
                                     .fontWeight(stop.isSelected ? .semibold : .regular)
                                     .foregroundStyle(.primary)
-                                if let tariffZone = stop.tariffZone {
-                                    Text(AppLocalization.string("Zone %@", tariffZone))
+                                if let metadata = stopMetadata(stop) {
+                                    Text(metadata)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -450,5 +454,14 @@ struct StationTimetablesView: View {
     private func minuteOffsetText(_ value: Int?) -> String {
         guard let value else { return "–" }
         return String(value)
+    }
+
+    /// Keeps fare zones and the IDOS platform or stand number together with their route stop.
+    private func stopMetadata(_ stop: IDOSStationTimetableStop) -> String? {
+        let values = [
+            stop.tariffZone.map { AppLocalization.string("Zone %@", $0) },
+            stop.platform.map { AppLocalization.string("Station timetable platform %@", $0) },
+        ].compactMap(\.self)
+        return values.isEmpty ? nil : values.joined(separator: " · ")
     }
 }

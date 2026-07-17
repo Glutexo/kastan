@@ -101,6 +101,7 @@
 "label.destination" = "Destination";
 "label.tariffZone" = "Tariff Zone";
 "label.platform" = "Platform";
+"label.stationTimetablePlatform" = "Platform";
 "label.track" = "Track";
 "label.platformTrack" = "Platform/Track";
 "label.distance" = "Distance";
@@ -115,6 +116,7 @@
 "inline.via" = "via {0}";
 "inline.tariffZone" = "tariff zone {0}";
 "inline.platform" = "platform {0}";
+"inline.stationTimetablePlatform" = "platform {0}";
 "inline.track" = "track {0}";
 "inline.platformTrack" = "platform/track {0}";
 "inline.minutes" = "+{0} min";

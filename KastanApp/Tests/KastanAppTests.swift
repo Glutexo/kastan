@@ -600,9 +600,9 @@ private actor MockIDOSClient: IDOSClienting {
             fromStop: request.from,
             toStop: request.to,
             stops: [
-                IDOSStationTimetableStop(name: request.from, minuteOffset: 0, isSelected: true),
-                IDOSStationTimetableStop(name: "Na Hroudě", minuteOffset: 1),
-                IDOSStationTimetableStop(name: request.to, minuteOffset: 42),
+                IDOSStationTimetableStop(name: request.from, minuteOffset: 0, platform: "1", isSelected: true),
+                IDOSStationTimetableStop(name: "Na Hroudě", minuteOffset: 1, platform: "2"),
+                IDOSStationTimetableStop(name: request.to, minuteOffset: 42, platform: "4"),
             ],
             schedules: [
                 IDOSStationTimetableSchedule(

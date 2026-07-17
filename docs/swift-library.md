@@ -119,8 +119,9 @@ resolve a dated service's permanent result link and return the corresponding nat
 
 `searchStationTimetableLines` returns the terminal pair for every matching MHD line direction.
 `searchStationTimetableStops` limits suggestions to one selected line, and `findStationTimetable` returns the
-route, departures grouped by service day and hour, tariff zones, explanatory notes, lockout state, and matching
-IDOS URL.
+route, departures grouped by service day and hour, tariff zones, platforms or stands, explanatory notes,
+lockout state, and matching IDOS URL. Platform or stand numbers are exposed on their corresponding
+`IDOSStationTimetableStop` instead of being duplicated in the timetable-wide notes.
 
 ## Data Source
 

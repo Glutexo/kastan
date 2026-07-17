@@ -697,6 +697,8 @@ public struct IDOSStationTimetableStop: Codable, Equatable, Sendable {
     public var minuteOffset: Int?
     /// Preserves the fare-zone label when the selected timetable publishes one.
     public var tariffZone: String?
+    /// Preserves the platform or stand number printed beside this stop by IDOS.
+    public var platform: String?
     public var isSelected: Bool
     public var notes: [String]
 
@@ -704,12 +706,14 @@ public struct IDOSStationTimetableStop: Codable, Equatable, Sendable {
         name: String,
         minuteOffset: Int? = nil,
         tariffZone: String? = nil,
+        platform: String? = nil,
         isSelected: Bool = false,
         notes: [String] = []
     ) {
         self.name = name
         self.minuteOffset = minuteOffset
         self.tariffZone = tariffZone
+        self.platform = platform
         self.isSelected = isSelected
         self.notes = notes
     }
@@ -2198,19 +2202,35 @@ enum IDOSStationTimetableParser {
                 in: row,
                 options: [.dotMatchesLineSeparators]
             ).map(HTMLText.clean).flatMap { $0.isEmpty ? nil : $0 }
+            let platform = RegexSupport.capture(
+                pattern: #"<span\b[^>]*\btitle="(?:platform|stanoviště)"[^>]*>(.*?)</span>"#,
+                in: row,
+                options: [.caseInsensitive, .dotMatchesLineSeparators]
+            ).map(HTMLText.clean).map {
+                $0.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines
+                    .union(CharacterSet(charactersIn: "()")))
+            }.flatMap { $0.isEmpty ? nil : $0 }
             let notes = RegexSupport.captures(pattern: #"\btitle="([^"]+)""#, in: row)
                 .compactMap(\.first)
                 .map(HTMLText.decodeEntities)
                 .filter { value in
-                    let normalized = value.lowercased()
+                    let normalized = value
+                        .folding(
+                            options: [.diacriticInsensitive, .caseInsensitive],
+                            locale: Locale(identifier: "cs_CZ")
+                        )
+                        .lowercased()
                     return !normalized.contains("search from the station") &&
-                        !normalized.contains("vyhledat ze zastávky")
+                        !normalized.contains("vyhledat ze zastavky") &&
+                        normalized != "platform" &&
+                        normalized != "stanoviste"
                 }
 
             return IDOSStationTimetableStop(
                 name: name,
                 minuteOffset: minuteOffset,
                 tariffZone: tariffZone,
+                platform: platform,
                 isSelected: selectedName != nil,
                 notes: unique(notes)
             )
@@ -2265,8 +2285,33 @@ enum IDOSStationTimetableParser {
                 in: list,
                 options: [.dotMatchesLineSeparators]
             ).compactMap { $0.first.map(HTMLText.clean) }
+                .map(removingOrphanNoteSeparator)
                 .filter { !$0.isEmpty }
+                .filter { !isPlatformLegend($0) }
         )
+    }
+
+    /// Removes punctuation left behind when IDOS publishes a note without a visible marker.
+    private static func removingOrphanNoteSeparator(_ value: String) -> String {
+        value.replacingOccurrences(
+            of: #"^\s*:\s*"#,
+            with: "",
+            options: .regularExpression
+        )
+    }
+
+    /// Hides the duplicated platform legend after its number has been attached to every route stop.
+    private static func isPlatformLegend(_ value: String) -> Bool {
+        let normalized = value
+            .folding(
+                options: [.diacriticInsensitive, .caseInsensitive],
+                locale: Locale(identifier: "cs_CZ")
+            )
+            .lowercased()
+        return normalized.range(
+            of: #"^\s*[^:]+:\s*(?:platform|stanoviste)\s*$"#,
+            options: .regularExpression
+        ) != nil
     }
 
     private static func removingLineLabel(from value: String) -> String {

@@ -95,6 +95,7 @@
 "Station" = "Stanice";
 "Station board" = "Odjezdová tabule";
 "Station timetables" = "Zastávkové JŘ";
+"Station timetable platform %@" = "stanoviště %@";
 "Station or stop" = "Stanice nebo zastávka";
 "station" = "stanice";
 "stop" = "zastávka";

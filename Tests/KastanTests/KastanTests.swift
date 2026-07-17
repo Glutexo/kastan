@@ -715,8 +715,8 @@ import Testing
     #expect(output.contains("🗓️ Station Timetable 🚌 Bus 154 · Strašnická → Sídliště Libuš (Prague + PID)"))
     #expect(output.contains("🚧 Lockout timetable"))
     #expect(output.contains("🛤️ Route:"))
-    #expect(output.contains("1. 📍 Strašnická · +0 min · tariff zone 0 · Selected · request stop"))
-    #expect(output.contains("2. 🚏 Na Hroudě · +1 min · tariff zone B · wheelchair accessible stop"))
+    #expect(output.contains("1. 📍 Strašnická · +0 min · tariff zone 0 · platform 1 · Selected · request stop"))
+    #expect(output.contains("2. 🚏 Na Hroudě · +1 min · tariff zone B · platform 2 · wheelchair accessible stop"))
     #expect(output.contains("🕒 17.7.2026 Friday:"))
     #expect(output.contains("\u{001B}[1m5\u{001B}[0m: 13 35A 55"))
     #expect(output.contains("ℹ️ Notes:"))
@@ -733,8 +733,8 @@ import Testing
 
     #expect(output.contains("## 🗓️ Station Timetable"))
     #expect(output.contains("**Line:** 🚌 Bus 154"))
-    #expect(output.contains("| # | Station | Minutes | Tariff Zone | Selected | Notes |"))
-    #expect(output.contains("| 1 | Strašnická | 0 | 0 | Yes | request stop |"))
+    #expect(output.contains("| # | Station | Minutes | Tariff Zone | Platform | Selected | Notes |"))
+    #expect(output.contains("| 1 | Strašnická | 0 | 0 | 1 | Yes | request stop |"))
     #expect(output.contains("### 🕒 17.7.2026 Friday"))
     #expect(output.contains("| **5** | 13 35A 55 |"))
 }
@@ -755,6 +755,7 @@ import Testing
     #expect(request["wholeWeek"] as? Bool == true)
     #expect(result["lineName"] as? String == "Bus 154")
     #expect(stops.first?["isSelected"] as? Bool == true)
+    #expect(stops.first?["platform"] as? String == "1")
     #expect((result["schedules"] as? [[String: Any]])?.count == 1)
 }
 
@@ -771,7 +772,7 @@ import Testing
     #expect(output.contains("🗓️ Zastávkový jízdní řád"))
     #expect(output.contains("🚧 Výlukový jízdní řád"))
     #expect(output.contains("🛤️ Trasa:"))
-    #expect(output.contains("tarifní zóna 0 · Vybraná"))
+    #expect(output.contains("tarifní zóna 0 · stanoviště 1 · Vybraná"))
     #expect(output.contains("ℹ️ Poznámky:"))
 }
 
@@ -1347,6 +1348,7 @@ import Testing
             <td class="zjr-table__time right valign-top bold">0</td>
             <td class="zjr-table__station_name">
               <span class="bold">Strašnick&#225;</span>
+              <span title="platform">(1)</span>
               <span title="request stop">(x)</span>
             </td>
             <td class="tarif">0</td>
@@ -1355,6 +1357,7 @@ import Testing
             <td class="zjr-table__time right valign-top bold">1</td>
             <td class="zjr-table__station_name">
               <a class="fromStation" href="javascript:;" title="search from the station">Na Hroudě</a>
+              <span title="stanoviště">(2)</span>
               <span title="wheelchair accessible stop">#</span>
             </td>
             <td class="tarif">B</td>
@@ -1375,7 +1378,9 @@ import Testing
     </div>
     <ul class="remarks-list">
       <li class="remarks-list__item"><img title="Line description" /> valid from 1.7.2026</li>
+      <li class="remarks-list__item"><img title="Information note" /> 1: stanoviště</li>
       <li class="remarks-list__item"><img title="Information note" /> A: runs only to stop Háje</li>
+      <li class="remarks-list__item"><img title="Information note" /> : Board through the front door</li>
     </ul>
     """
     let request = IDOSStationTimetableRequest(
@@ -1399,6 +1404,7 @@ import Testing
     #expect(timetable.stops.map(\.name) == ["Strašnická", "Na Hroudě"])
     #expect(timetable.stops.map(\.minuteOffset) == [0, 1])
     #expect(timetable.stops.map(\.tariffZone) == ["0", "B"])
+    #expect(timetable.stops.map(\.platform) == ["1", "2"])
     #expect(timetable.selectedStop?.name == "Strašnická")
     #expect(timetable.stops[0].notes == ["request stop"])
     #expect(timetable.stops[1].notes == ["wheelchair accessible stop"])
@@ -1411,7 +1417,11 @@ import Testing
             ]
         )
     ])
-    #expect(timetable.notes == ["valid from 1.7.2026", "A: runs only to stop Háje"])
+    #expect(timetable.notes == [
+        "valid from 1.7.2026",
+        "A: runs only to stop Háje",
+        "Board through the front door",
+    ])
 }
 
 @Test func connectionParserReadsBasicResultHtml() {
@@ -1959,6 +1969,7 @@ private struct MockIDOSClient: IDOSClienting {
                     name: request.from,
                     minuteOffset: 0,
                     tariffZone: "0",
+                    platform: "1",
                     isSelected: true,
                     notes: ["request stop"]
                 ),
@@ -1966,6 +1977,7 @@ private struct MockIDOSClient: IDOSClienting {
                     name: "Na Hroudě",
                     minuteOffset: 1,
                     tariffZone: "B",
+                    platform: "2",
                     notes: ["wheelchair accessible stop"]
                 ),
             ],

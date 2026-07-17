@@ -425,6 +425,7 @@ enum MCPOutputSchemas {
             "name": stringSchema,
             "minuteOffset": integerSchema,
             "tariffZone": stringSchema,
+            "platform": stringSchema,
             "isSelected": booleanSchema,
             "notes": stringArraySchema,
         ],

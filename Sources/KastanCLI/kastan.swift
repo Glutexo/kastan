@@ -1162,6 +1162,9 @@ private enum OutputFormat: String {
                 if let tariffZone = stop.tariffZone, !tariffZone.isEmpty {
                     details.append(localization.text(.tariffZoneInline, tariffZone))
                 }
+                if let platform = stop.platform, !platform.isEmpty {
+                    details.append(localization.text(.stationTimetablePlatformInline, platform))
+                }
                 if stop.isSelected {
                     details.append(localization.text(.selected))
                 }
@@ -1196,7 +1199,7 @@ private enum OutputFormat: String {
         case .markdown:
             let routeRows = result.stops.enumerated().map { index, stop in
                 let notes = stop.notes.map(Markdown.escape).joined(separator: "<br>")
-                return "| \(index + 1) | \(Markdown.escape(stop.name)) | \(stop.minuteOffset.map(String.init) ?? "—") | \(Markdown.escape(stop.tariffZone ?? "")) | \(localization.text(stop.isSelected ? .yes : .no)) | \(notes) |"
+                return "| \(index + 1) | \(Markdown.escape(stop.name)) | \(stop.minuteOffset.map(String.init) ?? "—") | \(Markdown.escape(stop.tariffZone ?? "")) | \(Markdown.escape(stop.platform ?? "")) | \(localization.text(stop.isSelected ? .yes : .no)) | \(notes) |"
             }.joined(separator: "\n")
             let schedules = result.schedules.map { schedule in
                 let rows = schedule.hours.map { hour in
@@ -1231,8 +1234,8 @@ private enum OutputFormat: String {
 
             ### 🛤️ \(localization.text(.route))
 
-            | # | \(localization.text(.station)) | \(localization.text(.minutes)) | \(localization.text(.tariffZone)) | \(localization.text(.selected)) | \(localization.text(.notes)) |
-            | ---: | --- | ---: | --- | --- | --- |
+            | # | \(localization.text(.station)) | \(localization.text(.minutes)) | \(localization.text(.tariffZone)) | \(localization.text(.stationTimetablePlatform)) | \(localization.text(.selected)) | \(localization.text(.notes)) |
+            | ---: | --- | ---: | --- | --- | --- | --- |
             \(routeRows)
 
             \(schedules)\(notes)
