@@ -22,6 +22,7 @@ enum ApplicationArtwork {
 /// Stable identifiers for the app's secondary window scenes.
 enum AppWindow {
     static let information = "app-information"
+    static let favoriteTimetables = "favorite-timetables"
     static let serviceDetail = "service-detail"
 }
 
@@ -236,21 +237,17 @@ struct AppHelpCommands: Commands {
     }
 }
 
-/// Mirrors the active window's primary navigation in the standard View menu.
+/// Mirrors the active window's toolbar mode picker in the standard View menu.
 struct AppSectionCommands: Commands {
     @FocusedValue(\.appSectionSelection) private var selection: Binding<AppSection>?
 
     var body: some Commands {
-        CommandGroup(after: .sidebar) {
+        CommandGroup(after: .toolbar) {
             Divider()
 
             sectionToggle(.connections)
             sectionToggle(.departures)
             sectionToggle(.stationTimetables)
-
-            Divider()
-
-            sectionToggle(.favoriteTimetables)
 
             Divider()
         }
@@ -293,8 +290,20 @@ struct KastanApp: App {
         .defaultSize(width: 1080, height: 720)
         .commands {
             AppWindowCommands()
-            SidebarCommands()
             AppSectionCommands()
+            AppInformationCommands()
+            AppHelpCommands()
+        }
+
+        Window("Favorite timetables", id: AppWindow.favoriteTimetables) {
+            NavigationStack {
+                FavoriteTimetablesView()
+            }
+            .frame(minWidth: 480, minHeight: 520)
+        }
+        .defaultSize(width: 520, height: 620)
+        .defaultPosition(.center)
+        .commands {
             AppInformationCommands()
             AppHelpCommands()
         }

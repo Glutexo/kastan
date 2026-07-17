@@ -1,7 +1,7 @@
 import Kastan
 import SwiftUI
 
-/// Manages every timetable favorite from one native sidebar destination.
+/// Manages every timetable favorite in the secondary window opened from the main toolbar.
 struct FavoriteTimetablesView: View {
     @AppStorage(TimetableFavorites.storageKey) private var serializedTimetableFavorites = "[]"
 

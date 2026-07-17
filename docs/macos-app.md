@@ -13,14 +13,15 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, tariff zones, platforms or stands, lockout labels, explanatory notes, and links back to the
   matching IDOS result.
-- Sidebar navigation divided into Search and Favorites, including a timetable-favorites manager that keeps
-  every entry in its catalog group and marks the selected entries with filled stars.
+- A centered toolbar control switches directly between Connections, Departures, and Station Timetables while
+  preserving each search's state. Toolbar actions open the timetable-favorites manager and app information in
+  their own windows.
 - Timetable menus grouped into general rail and bus choices, integrated transport systems, and city networks,
   with persistent favorites in their own first section and a favorite button kept next to the picker at every
   window width.
 - Search forms fixed above independently scrollable result areas, then collapsed into low query summaries after
   submission with an explicit action for returning to the editable form.
-- Native tabs and windows, including independent resizable service-route windows.
+- Native tabs and windows, including independent favorite-timetable and resizable service-route windows.
 - Connection cards with line colors, transport symbols, platforms, tariff zones, carriers, and localized delay
   states supplied by IDOS.
 - Complete service routes with the search-relevant segment highlighted without implying live vehicle position.

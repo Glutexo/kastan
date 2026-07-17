@@ -1,12 +1,11 @@
 import Kastan
 import SwiftUI
 
-/// Top-level product areas available from the app's persistent sidebar.
+/// The three equivalent IDOS search modes available from the main window toolbar.
 enum AppSection: String, CaseIterable, Hashable, Identifiable {
     case connections
     case departures
     case stationTimetables
-    case favoriteTimetables
 
     var id: Self { self }
 
@@ -18,8 +17,6 @@ enum AppSection: String, CaseIterable, Hashable, Identifiable {
             "Departures"
         case .stationTimetables:
             "Station timetables"
-        case .favoriteTimetables:
-            "Timetables"
         }
     }
 
@@ -31,39 +28,11 @@ enum AppSection: String, CaseIterable, Hashable, Identifiable {
             "list.bullet.rectangle"
         case .stationTimetables:
             "calendar"
-        case .favoriteTimetables:
-            "star"
         }
     }
 }
 
-/// Groups top-level destinations into the two product areas shown in the sidebar.
-enum AppSidebarGroup: CaseIterable, Identifiable {
-    case searches
-    case favorites
-
-    var id: Self { self }
-
-    var title: LocalizedStringKey {
-        switch self {
-        case .searches:
-            "Searches"
-        case .favorites:
-            "Favorites"
-        }
-    }
-
-    var sections: [AppSection] {
-        switch self {
-        case .searches:
-            [.connections, .departures, .stationTimetables]
-        case .favorites:
-            [.favoriteTimetables]
-        }
-    }
-}
-
-/// Exposes the active window's sidebar selection to app-level menu commands.
+/// Exposes the active window's search mode to app-level menu commands.
 struct AppSectionSelectionKey: FocusedValueKey {
     typealias Value = Binding<AppSection>
 }
@@ -141,7 +110,7 @@ struct SearchWorkspace<SearchContent: View, ResultsContent: View>: View {
     }
 }
 
-/// Retains independent search state while the user switches between connections and station boards.
+/// Retains independent search state while the toolbar switches among all three IDOS search modes.
 struct ContentView: View {
     @Environment(\.openWindow) private var openWindow
     private let client: any IDOSClienting
@@ -158,56 +127,53 @@ struct ContentView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
-            List(selection: $selection) {
-                ForEach(AppSidebarGroup.allCases) { group in
-                    Section {
-                        ForEach(group.sections) { section in
-                            Label(section.title, systemImage: section.systemImage)
-                                .tag(section)
-                        }
-                    } header: {
-                        Text(group.title)
+        NavigationStack {
+            selectedContent
+        }
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Picker("Search mode", selection: $selection) {
+                    ForEach(AppSection.allCases) { section in
+                        Text(section.title)
+                            .tag(section)
                     }
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 420)
+                .accessibilityLabel("Search mode")
             }
-            .navigationTitle("Kaštan")
-            .safeAreaInset(edge: .bottom) {
+
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    openWindow(id: AppWindow.favoriteTimetables)
+                } label: {
+                    Label("Favorite timetables", systemImage: "star")
+                        .labelStyle(.iconOnly)
+                }
+                .help("Favorite timetables")
+
                 Button {
                     openWindow(id: AppWindow.information)
                 } label: {
-                    HStack(spacing: 8) {
-                        ApplicationIcon(size: 28)
-                        Text("Powered by public IDOS web data")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(3)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Spacer(minLength: 4)
-                        Image(systemName: "info.circle")
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
+                    Label("Show app and data source information", systemImage: "info.circle")
+                        .labelStyle(.iconOnly)
                 }
-                .buttonStyle(.plain)
-                .background(.bar)
                 .help("Show app and data source information")
-            }
-            .navigationSplitViewColumnWidth(min: 170, ideal: 210)
-        } detail: {
-            switch selection {
-            case .connections:
-                ConnectionsView(model: connectionsModel, client: client)
-            case .departures:
-                DeparturesView(model: departuresModel, client: client)
-            case .stationTimetables:
-                StationTimetablesView(model: stationTimetablesModel, client: client)
-            case .favoriteTimetables:
-                FavoriteTimetablesView()
             }
         }
         .focusedSceneValue(\.appSectionSelection, $selection)
+    }
+
+    @ViewBuilder
+    private var selectedContent: some View {
+        switch selection {
+        case .connections:
+            ConnectionsView(model: connectionsModel, client: client)
+        case .departures:
+            DeparturesView(model: departuresModel, client: client)
+        case .stationTimetables:
+            StationTimetablesView(model: stationTimetablesModel, client: client)
+        }
     }
 }

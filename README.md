@@ -5,8 +5,6 @@
 Kaštan provides occasional personal [IDOS](https://idos.cz/en/) queries as a native macOS app, a Swift CLI,
 an importable Swift library, and a local MCP server.
 
-![Kaštan for macOS showing train connections from Prague to Brno](docs/images/kastan-macos-connections.png)
-
 It uses publicly reachable IDOS web endpoints and parses returned HTML, so it is not a stable or guaranteed
 data API.
 

@@ -126,11 +126,9 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(departures.detailText, "ODIS · 16.7.2026 15:00 · Odjezdy")
     }
 
-    func testSidebarSeparatesSearchAndFavoriteAgendas() {
-        XCTAssertEqual(
-            AppSidebarGroup.allCases.map(\.sections),
-            [[.connections, .departures, .stationTimetables], [.favoriteTimetables]]
-        )
+    func testToolbarOffersExactlyTheThreeIDOSSearchModes() {
+        XCTAssertEqual(AppSection.allCases, [.connections, .departures, .stationTimetables])
+        XCTAssertEqual(AppWindow.favoriteTimetables, "favorite-timetables")
     }
 
     func testTimetableCatalogIsSplitIntoGeneralIntegratedAndCityGroups() {
