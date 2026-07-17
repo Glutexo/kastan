@@ -83,7 +83,3 @@ xcodebuild test -project KastanApp/KastanApp.xcodeproj -scheme KastanApp -destin
 ```
 
 GitHub Actions runs all three test suites for changes to `main` and for pull requests.
-
-## License
-
-Kaštan is dedicated to the public domain under [CC0 1.0 Universal](LICENSE).
