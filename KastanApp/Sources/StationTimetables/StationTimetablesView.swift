@@ -299,10 +299,16 @@ struct StationTimetablesView: View {
 
             if !result.notes.isEmpty {
                 GroupBox("Notes") {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 8) {
                         ForEach(Array(result.notes.enumerated()), id: \.offset) { _, note in
-                            Text(note)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text("•")
+                                    .foregroundStyle(.secondary)
+                                    .accessibilityHidden(true)
+                                Text(note)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
                 }
