@@ -299,22 +299,7 @@ struct StationTimetablesView: View {
 
             if !result.notes.isEmpty {
                 GroupBox("Notes") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(Array(result.notes.enumerated()), id: \.offset) { _, note in
-                            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                                Text("•")
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(.secondary)
-                                    .frame(width: 8, alignment: .center)
-                                    .accessibilityHidden(true)
-                                Text(note)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
+                    BulletedTextList(items: result.notes)
                 }
             }
         }

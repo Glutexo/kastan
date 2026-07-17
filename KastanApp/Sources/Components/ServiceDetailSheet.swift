@@ -286,13 +286,7 @@ struct ServiceDetailView: View {
 
                 if !service.information.isEmpty {
                     GroupBox("Service information") {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(service.information, id: \.self) { information in
-                                Text(information)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                        }
-                        .padding(.top, 4)
+                        BulletedTextList(items: service.information)
                     }
                 }
             }
