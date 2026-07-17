@@ -112,6 +112,9 @@ struct SearchWorkspace<SearchContent: View, ResultsContent: View>: View {
 
 /// Retains independent search state while the toolbar switches among all three IDOS search modes.
 struct ContentView: View {
+    /// Leaves room for both trailing actions at the main window's 720-point minimum width.
+    private static let modePickerWidth: CGFloat = 320
+
     @Environment(\.openWindow) private var openWindow
     private let client: any IDOSClienting
     @StateObject private var connectionsModel: ConnectionsViewModel
@@ -129,38 +132,39 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             selectedContent
-        }
-        .toolbar {
-            ToolbarItem(placement: .principal) {
-                Picker("Search mode", selection: $selection) {
-                    ForEach(AppSection.allCases) { section in
-                        Text(section.title)
-                            .tag(section)
+                .navigationTitle("")
+                .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        Picker("Search mode", selection: $selection) {
+                            ForEach(AppSection.allCases) { section in
+                                Text(section.title)
+                                    .tag(section)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .frame(width: Self.modePickerWidth)
+                        .accessibilityLabel("Search mode")
+                    }
+
+                    ToolbarItemGroup(placement: .primaryAction) {
+                        Button {
+                            openWindow(id: AppWindow.favoriteTimetables)
+                        } label: {
+                            Label("Favorite timetables", systemImage: "star")
+                                .labelStyle(.iconOnly)
+                        }
+                        .help("Favorite timetables")
+
+                        Button {
+                            openWindow(id: AppWindow.information)
+                        } label: {
+                            Label("Show app and data source information", systemImage: "info.circle")
+                                .labelStyle(.iconOnly)
+                        }
+                        .help("Show app and data source information")
                     }
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(width: 420)
-                .accessibilityLabel("Search mode")
-            }
-
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button {
-                    openWindow(id: AppWindow.favoriteTimetables)
-                } label: {
-                    Label("Favorite timetables", systemImage: "star")
-                        .labelStyle(.iconOnly)
-                }
-                .help("Favorite timetables")
-
-                Button {
-                    openWindow(id: AppWindow.information)
-                } label: {
-                    Label("Show app and data source information", systemImage: "info.circle")
-                        .labelStyle(.iconOnly)
-                }
-                .help("Show app and data source information")
-            }
         }
         .focusedSceneValue(\.appSectionSelection, $selection)
     }
