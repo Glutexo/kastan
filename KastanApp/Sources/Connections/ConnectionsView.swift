@@ -38,7 +38,6 @@ struct ConnectionsView: View {
             )
             .animation(.easeInOut(duration: 0.18), value: isSearchFormCollapsed)
         }
-        .navigationTitle("Connections")
     }
 
     private var resultsPanel: some View {

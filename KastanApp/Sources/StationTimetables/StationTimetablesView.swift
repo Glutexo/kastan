@@ -37,7 +37,6 @@ struct StationTimetablesView: View {
             )
             .animation(.easeInOut(duration: 0.18), value: isSearchFormCollapsed)
         }
-        .navigationTitle("Station timetables")
     }
 
     private var resultsPanel: some View {

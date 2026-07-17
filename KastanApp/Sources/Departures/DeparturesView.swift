@@ -37,7 +37,6 @@ struct DeparturesView: View {
             )
             .animation(.easeInOut(duration: 0.18), value: isSearchFormCollapsed)
         }
-        .navigationTitle("Departures")
     }
 
     private var resultsPanel: some View {
