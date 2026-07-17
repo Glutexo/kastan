@@ -13,7 +13,8 @@ data API.
 ## Components
 
 - [macOS app](docs/macos-app.md) — native SwiftUI connection, station-board, and MHD station-timetable searches.
-- [CLI](docs/cli.md) — cross-platform terminal access with text, Markdown, JSON, and iCalendar output.
+- [CLI](docs/cli.md) — cross-platform connection, station-board, and MHD station-timetable access with text,
+  Markdown, JSON, and iCalendar output.
 - [Swift library](docs/swift-library.md) — the shared `Kastan` product used by every interface.
 - **MCP server** — read-only Kaštan tools for local MCP clients.
 
@@ -65,11 +66,12 @@ Clients that use a JSON server map commonly accept an entry shaped like this:
 }
 ```
 
-The server advertises `suggest_places`, `search_stations`, `find_connections`, `find_departures`,
+The server advertises `suggest_places`, `search_stations`, `search_station_timetable_lines`,
+`search_station_timetable_stops`, `find_connections`, `find_departures`, `find_station_timetable`,
 `get_service_detail`, and `list_timetables`. Query tools accept timetable aliases, English catalog names, or
-IDOS URL slugs; service details also accept English or Czech output. Results include readable JSON, structured
-MCP content, and matching output schemas. Limits default to 8 for suggestions, stations, and departures, and 5
-for connections; callers can request up to 20 results.
+IDOS URL slugs; service details and station timetables also accept English or Czech output. Results include
+readable JSON, structured MCP content, and matching output schemas. Limits default to 8 for suggestions,
+stations, line directions, stops, and departures, and 5 for connections; callers can request up to 20 results.
 
 ## Development
 

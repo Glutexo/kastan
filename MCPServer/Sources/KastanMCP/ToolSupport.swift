@@ -171,6 +171,21 @@ struct StationsOutput: Encodable {
     let stations: [IDOSSuggestion]
 }
 
+/// Returns Station Timetable line directions together with their search catalog and query.
+struct StationTimetableLinesOutput: Encodable {
+    let query: String
+    let timetable: IDOSTimetable
+    let lines: [IDOSSuggestion]
+}
+
+/// Returns the stops available to one Station Timetable line search.
+struct StationTimetableStopsOutput: Encodable {
+    let query: String
+    let line: String
+    let timetable: IDOSTimetable
+    let stops: [IDOSSuggestion]
+}
+
 struct ConnectionsOutput: Encodable {
     let request: IDOSConnectionRequest
     let connections: [IDOSConnection]
@@ -179,6 +194,12 @@ struct ConnectionsOutput: Encodable {
 struct DeparturesOutput: Encodable {
     let request: IDOSDeparturesRequest
     let departures: [IDOSDeparture]
+}
+
+/// Keeps the validated Station Timetable request beside the IDOS result for MCP clients.
+struct StationTimetableOutput: Encodable {
+    let request: IDOSStationTimetableRequest
+    let stationTimetable: IDOSStationTimetable
 }
 
 struct ServiceDetailOutput: Encodable {
@@ -209,6 +230,25 @@ enum MCPOutputSchemas {
         required: ["query", "timetable", "stations"]
     )
 
+    static let stationTimetableLines = objectSchema(
+        properties: [
+            "query": stringSchema,
+            "timetable": timetableSchema,
+            "lines": arraySchema(items: suggestionSchema),
+        ],
+        required: ["query", "timetable", "lines"]
+    )
+
+    static let stationTimetableStops = objectSchema(
+        properties: [
+            "query": stringSchema,
+            "line": stringSchema,
+            "timetable": timetableSchema,
+            "stops": arraySchema(items: suggestionSchema),
+        ],
+        required: ["query", "line", "timetable", "stops"]
+    )
+
     static let connections = objectSchema(
         properties: [
             "request": connectionRequestSchema,
@@ -223,6 +263,14 @@ enum MCPOutputSchemas {
             "departures": arraySchema(items: departureSchema),
         ],
         required: ["request", "departures"]
+    )
+
+    static let stationTimetable = objectSchema(
+        properties: [
+            "request": stationTimetableRequestSchema,
+            "stationTimetable": stationTimetableSchema,
+        ],
+        required: ["request", "stationTimetable"]
     )
 
     static let serviceDetail = objectSchema(
@@ -254,6 +302,8 @@ enum MCPOutputSchemas {
             "iconId": integerSchema,
             "coorX": numberSchema,
             "coorY": numberSchema,
+            "from": stringSchema,
+            "to": stringSchema,
         ],
         required: ["text"]
     )
@@ -338,6 +388,63 @@ enum MCPOutputSchemas {
             "delay": stringSchema,
         ],
         required: ["id", "time", "lineName", "destination"]
+    )
+
+    private static let stationTimetableRequestSchema = objectSchema(
+        properties: [
+            "timetable": timetableSchema,
+            "line": stringSchema,
+            "from": stringSchema,
+            "to": stringSchema,
+            "date": stringSchema,
+            "wholeWeek": booleanSchema,
+        ],
+        required: ["timetable", "line", "from", "to", "wholeWeek"]
+    )
+
+    private static let stationTimetableSchema = objectSchema(
+        properties: [
+            "timetable": timetableSchema,
+            "lineName": stringSchema,
+            "transportMode": transportModeSchema,
+            "fromStop": stringSchema,
+            "toStop": stringSchema,
+            "stops": arraySchema(items: stationTimetableStopSchema),
+            "schedules": arraySchema(items: stationTimetableScheduleSchema),
+            "notes": stringArraySchema,
+            "isLockout": booleanSchema,
+            "shareURL": stringSchema,
+        ],
+        required: [
+            "timetable", "lineName", "fromStop", "toStop", "stops", "schedules", "notes", "isLockout",
+        ]
+    )
+
+    private static let stationTimetableStopSchema = objectSchema(
+        properties: [
+            "name": stringSchema,
+            "minuteOffset": integerSchema,
+            "tariffZone": stringSchema,
+            "isSelected": booleanSchema,
+            "notes": stringArraySchema,
+        ],
+        required: ["name", "isSelected", "notes"]
+    )
+
+    private static let stationTimetableScheduleSchema = objectSchema(
+        properties: [
+            "label": stringSchema,
+            "hours": arraySchema(items: stationTimetableHourSchema),
+        ],
+        required: ["label", "hours"]
+    )
+
+    private static let stationTimetableHourSchema = objectSchema(
+        properties: [
+            "hour": stringSchema,
+            "departures": stringArraySchema,
+        ],
+        required: ["hour", "departures"]
     )
 
     private static let serviceDetailSchema = objectSchema(

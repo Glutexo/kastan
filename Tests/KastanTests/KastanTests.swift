@@ -7,7 +7,7 @@ import Testing
     let output = await englishCommandRunner(client: MockIDOSClient()).output(for: [])
 
     #expect(output.contains("🌰 Kaštan"))
-    #expect(output.contains("Search IDOS connections, departures, stations, service routes"))
+    #expect(output.contains("Search IDOS connections, departures, station timetables, stations, service routes"))
 }
 
 @Test func helpOutputShowsUsage() async {
@@ -16,6 +16,7 @@ import Testing
     #expect(output.contains("🌰 Usage:"))
     #expect(output.contains("connections"))
     #expect(output.contains("departures"))
+    #expect(output.contains("station-timetables"))
     #expect(output.contains("timetables"))
     #expect(output.contains("aliases"))
     #expect(output.contains("stations"))
@@ -23,6 +24,8 @@ import Testing
     #expect(output.contains("--station"))
     #expect(output.contains("--arrival"))
     #expect(output.contains("--departure"))
+    #expect(output.contains("--whole-week"))
+    #expect(output.contains("--line"))
     #expect(output.contains("--via"))
     #expect(output.contains("--direct"))
     #expect(output.contains("--add-to-calendar"))
@@ -699,6 +702,91 @@ import Testing
     #expect(output.contains("ID: odis:1-4286-18.06.2026 16:03:00"))
     #expect(output.contains("Transdev Slezsko a.s."))
     #expect(output.contains("Currently no delay"))
+}
+
+@Test func stationTimetablesCommandPrintsCompleteMHDStationTimetable() async {
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+        for: [
+            "station-timetables", "--line", "Bus 154", "--from", "Strašnická",
+            "--to", "Sídliště Libuš", "--timetable", "pid", "--date", "17.7.2026", "--whole-week",
+        ]
+    )
+
+    #expect(output.contains("🗓️ Station Timetable 🚌 Bus 154 · Strašnická → Sídliště Libuš (Prague + PID)"))
+    #expect(output.contains("🚧 Lockout timetable"))
+    #expect(output.contains("🛤️ Route:"))
+    #expect(output.contains("1. 📍 Strašnická · +0 min · tariff zone 0 · Selected · request stop"))
+    #expect(output.contains("2. 🚏 Na Hroudě · +1 min · tariff zone B · wheelchair accessible stop"))
+    #expect(output.contains("🕒 17.7.2026 Friday:"))
+    #expect(output.contains("\u{001B}[1m5\u{001B}[0m: 13 35A 55"))
+    #expect(output.contains("ℹ️ Notes:"))
+    #expect(output.contains("A: runs only to stop Háje"))
+}
+
+@Test func stationTimetablesCommandAcceptsShortOptionsAndPrintsMarkdown() async {
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+        for: [
+            "station-timetables", "-wL", "Bus 154", "-f", "Strašnická", "-t", "Sídliště Libuš",
+            "-T", "pid", "-d", "17.7.2026", "-o", "markdown",
+        ]
+    )
+
+    #expect(output.contains("## 🗓️ Station Timetable"))
+    #expect(output.contains("**Line:** 🚌 Bus 154"))
+    #expect(output.contains("| # | Station | Minutes | Tariff Zone | Selected | Notes |"))
+    #expect(output.contains("| 1 | Strašnická | 0 | 0 | Yes | request stop |"))
+    #expect(output.contains("### 🕒 17.7.2026 Friday"))
+    #expect(output.contains("| **5** | 13 35A 55 |"))
+}
+
+@Test func stationTimetablesCommandPrintsStableJSON() async throws {
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+        for: [
+            "station-timetable", "-L", "Bus 154", "-f", "Strašnická", "-t", "Sídliště Libuš",
+            "-T", "pid", "-d", "17.7.2026", "-w", "-o", "json",
+        ]
+    )
+    let json = try jsonDictionary(output)
+    let request = try #require(json["request"] as? [String: Any])
+    let result = try #require(json["stationTimetable"] as? [String: Any])
+    let stops = try #require(result["stops"] as? [[String: Any]])
+
+    #expect(request["line"] as? String == "Bus 154")
+    #expect(request["wholeWeek"] as? Bool == true)
+    #expect(result["lineName"] as? String == "Bus 154")
+    #expect(stops.first?["isSelected"] as? Bool == true)
+    #expect((result["schedules"] as? [[String: Any]])?.count == 1)
+}
+
+@Test func stationTimetablesCommandLocalizesCzechOutputAndIDOSRequest() async {
+    let output = await englishCommandRunner(
+        client: MockIDOSClient(expectedStationTimetableLanguage: .czech)
+    ).output(
+        for: [
+            "station-timetables", "-L", "Bus 154", "-f", "Strašnická", "-t", "Sídliště Libuš",
+            "-T", "pid", "-d", "17.7.2026", "-w", "--language", "cs",
+        ]
+    )
+
+    #expect(output.contains("🗓️ Zastávkový jízdní řád"))
+    #expect(output.contains("🚧 Výlukový jízdní řád"))
+    #expect(output.contains("🛤️ Trasa:"))
+    #expect(output.contains("tarifní zóna 0 · Vybraná"))
+    #expect(output.contains("ℹ️ Poznámky:"))
+}
+
+@Test func stationTimetablesCommandRequiresLineAndDirectionAndRejectsUnknownOptions() async {
+    let runner = englishCommandRunner(client: MockIDOSClient())
+    let missing = await runner.output(for: ["station-timetables", "--line", "Bus 154"])
+    let unknown = await runner.output(
+        for: [
+            "station-timetables", "-L", "Bus 154", "-f", "Strašnická", "-t", "Sídliště Libuš",
+            "--unknown",
+        ]
+    )
+
+    #expect(missing.contains("Usage: kastan station-timetables"))
+    #expect(unknown.contains("❌ Error: Unknown option: --unknown."))
 }
 
 @Test func serviceCommandPrintsCompleteRoute() async {
@@ -1723,6 +1811,7 @@ private struct MockIDOSClient: IDOSClienting {
     var suggestionResultsByPrefix: [String: [IDOSSuggestion]] = [:]
     var stationResultsByPrefix: [String: [IDOSSuggestion]] = [:]
     var expectedServiceLanguage: IDOSLanguage = .english
+    var expectedStationTimetableLanguage: IDOSLanguage = .english
 
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
         if let suggestions = suggestionResultsByPrefix[prefix] {
@@ -1845,6 +1934,54 @@ private struct MockIDOSClient: IDOSClienting {
                 delay: "Currently no delay"
             )
         ]
+    }
+
+    func findStationTimetable(
+        request: IDOSStationTimetableRequest,
+        language: IDOSLanguage
+    ) async throws -> IDOSStationTimetable {
+        #expect(request.timetable.slug == "pid")
+        #expect(request.line == "Bus 154")
+        #expect(request.from == "Strašnická")
+        #expect(request.to == "Sídliště Libuš")
+        #expect(request.date == "17.7.2026")
+        #expect(request.wholeWeek)
+        #expect(language == expectedStationTimetableLanguage)
+
+        return IDOSStationTimetable(
+            timetable: request.timetable,
+            lineName: request.line,
+            transportMode: .bus,
+            fromStop: request.from,
+            toStop: request.to,
+            stops: [
+                IDOSStationTimetableStop(
+                    name: request.from,
+                    minuteOffset: 0,
+                    tariffZone: "0",
+                    isSelected: true,
+                    notes: ["request stop"]
+                ),
+                IDOSStationTimetableStop(
+                    name: "Na Hroudě",
+                    minuteOffset: 1,
+                    tariffZone: "B",
+                    notes: ["wheelchair accessible stop"]
+                ),
+            ],
+            schedules: [
+                IDOSStationTimetableSchedule(
+                    label: "17.7.2026 Friday",
+                    hours: [
+                        IDOSStationTimetableHour(hour: "5", departures: ["13", "35A", "55"]),
+                        IDOSStationTimetableHour(hour: "6", departures: []),
+                    ]
+                ),
+            ],
+            notes: ["valid from 1.7.2026", "A: runs only to stop Háje"],
+            isLockout: true,
+            shareURL: "https://idos.cz/en/pid/zjr/?l=154"
+        )
     }
 
     func serviceDetail(id: String, timetable: IDOSTimetable) async throws -> IDOSServiceDetail {

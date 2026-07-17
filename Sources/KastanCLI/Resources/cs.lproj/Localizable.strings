@@ -1,4 +1,4 @@
-"app.description" = "Vyhledávání spojení, odjezdů, stanic, tras spojů nebo navrhovaných míst v IDOSu.";
+"app.description" = "Vyhledávání spojení, odjezdů, zastávkových jízdních řádů, stanic, tras spojů nebo navrhovaných míst v IDOSu.";
 "app.helpHint" = "Nápovědu zobrazíte příkazem kastan --help.";
 "command.unknown" = "Neznámý příkaz: {0}";
 "error.fallback" = "Operace selhala, ale nebyly poskytnuty žádné podrobnosti.";
@@ -17,6 +17,7 @@
 "usage.stations" = "Použití: kastan stations <name> [-T alias] [-o text|markdown|json] [-l count]";
 "usage.connections" = "Použití: kastan connections route|from to|-f place -t place [-V place] [-T alias] [-d d.m.yyyy] [-m h:mm] [-a|-p] [-x] [-X count] [-M minutes] [-c] [-v] [-o text|markdown|json|ics] [-l count]";
 "usage.departures" = "Použití: kastan departures station|-f place|-s place [-T alias] [-d d.m.yyyy] [-m h:mm] [-a|-p] [-v] [-o text|markdown|json] [-l count]";
+"usage.stationTimetables" = "Použití: kastan station-timetables -L line -f stop -t direction [-T alias] [-d d.m.yyyy] [-w] [-o text|markdown|json]";
 "usage.service" = "Použití: kastan service <service-id> [-o text|markdown|json]";
 "usage.aliases" = "Použití: kastan aliases list|add|remove|path";
 "usage.aliasesAdd" = "Použití: kastan aliases add name [place|--station place] --timetable alias [--format text|markdown|json]";
@@ -45,6 +46,8 @@
 "output.noConnections" = "Nebyla nalezena žádná spojení.";
 "output.arrivals" = "Příjezdy";
 "output.departures" = "Odjezdy";
+"output.stationTimetable" = "Zastávkový jízdní řád";
+"output.lockoutTimetable" = "Výlukový jízdní řád";
 "output.service" = "Spoj";
 "output.route" = "Trasa";
 "output.information" = "Informace";
@@ -67,6 +70,8 @@
 "output.added" = "přidán";
 "output.updated" = "aktualizován";
 "output.removed" = "odebrán";
+"output.yes" = "Ano";
+"output.no" = "Ne";
 "error.ambiguousStation" = "Nejednoznačný název stanice: {0} ({1}).";
 "error.ambiguousPlace" = "Nejednoznačný název místa: {0} ({1}).";
 "error.chooseOne" = "Vyberte jednu z možností:";
@@ -80,6 +85,9 @@
 "label.via" = "Přes";
 "label.duration" = "Doba jízdy";
 "label.line" = "Linka";
+"label.hour" = "Hodina";
+"label.minutes" = "Minuty";
+"label.selected" = "Vybraná";
 "label.fromTariffZone" = "Výchozí tarifní zóna";
 "label.fromPlatform" = "Výchozí nástupiště";
 "label.departure" = "Odjezd";
@@ -109,6 +117,7 @@
 "inline.platform" = "nástupiště {0}";
 "inline.track" = "kolej {0}";
 "inline.platformTrack" = "nástupiště/kolej {0}";
+"inline.minutes" = "+{0} min";
 "timetable.all" = "Všechny jízdní řády";
 "timetable.trainsBusesMHD" = "Vlaky + autobusy + MHD";
 "timetable.trains" = "Vlaky";
@@ -116,4 +125,4 @@
 "timetable.trainsBuses" = "Vlaky + autobusy";
 "timetable.praguePID" = "Praha + PID";
 "timetable.mhd" = "MHD {0}";
-"help" = "🌰 Použití:\n  kastan route|from to\n  kastan station\n  kastan suggest <text> [-T alias] [-o text|markdown|json] [-l count]\n  kastan stations <name> [-T alias] [-o text|markdown|json] [-l count]\n  kastan connections route|from to|-f place -t place [-V place] [-T alias] [-d d.m.yyyy] [-m h:mm] [-a|-p] [-x] [-X count] [-M minutes] [-c] [-v] [-o text|markdown|json|ics] [-l count]\n  kastan departures station|-f place|-s place [-T alias] [-d d.m.yyyy] [-m h:mm] [-a|-p] [-v] [-o text|markdown|json] [-l count]\n  kastan service <service-id> [-o text|markdown|json]\n  kastan aliases list|add|remove|path [-o text|markdown|json]\n  kastan timetables [-o text|markdown|json]\n\n⚙️ Možnosti:\n  -h, --help              Zobrazí nápovědu\n  --version               Zobrazí verzi aplikace\n  --language, --lang      Jazyk výstupu: en nebo cs (výchozí podle systému)\n  -f, --from              Výchozí místo nebo stanice\n  -t, --to                Cílové místo\n  -s, --station           Stanice pro odjezdy nebo příjezdy\n  -T, --timetable         Alias jízdního řádu nebo URL slug IDOSu\n  -d, --date              Datum hledání\n  -m, --time              Čas hledání\n  -a, --arrival           Hledá podle času příjezdu místo odjezdu\n  -p, --departure         Hledá podle času odjezdu\n  -V, --via               Místo na trase; pro více míst volbu opakujte\n  -x, --direct            Jen přímá spojení\n  -c, --add-to-calendar   Otevře první nalezené spojení jako import iCalendar\n  -v, --verbose           Zobrazí ID výsledků a spojů, tarifní zóny, nástupiště, dopravce a zpoždění\n  -X, --max-transfers     Nejvyšší povolený počet přestupů včetně 0\n  -M, --min-transfer-time Nejkratší doba na přestup v minutách včetně 0\n  -o, --format            Formát výstupu: text, markdown, json nebo ics pro spojení\n  -l, --limit             Nejvyšší počet vypsaných výsledků\n\nVýchozí jízdní řád je vlakyautobusymhdvse.\nAliasy zastávek jsou uloženy v ~/.config/kastan/aliases.json, pokud není nastavena proměnná KASTAN_ALIAS_DATABASE.";
+"help" = "🌰 Použití:\n  kastan route|from to\n  kastan station\n  kastan suggest <text> [-T alias] [-o text|markdown|json] [-l count]\n  kastan stations <name> [-T alias] [-o text|markdown|json] [-l count]\n  kastan connections route|from to|-f place -t place [-V place] [-T alias] [-d d.m.yyyy] [-m h:mm] [-a|-p] [-x] [-X count] [-M minutes] [-c] [-v] [-o text|markdown|json|ics] [-l count]\n  kastan departures station|-f place|-s place [-T alias] [-d d.m.yyyy] [-m h:mm] [-a|-p] [-v] [-o text|markdown|json] [-l count]\n  kastan station-timetables -L line -f stop -t direction [-T alias] [-d d.m.yyyy] [-w] [-o text|markdown|json]\n  kastan service <service-id> [-o text|markdown|json]\n  kastan aliases list|add|remove|path [-o text|markdown|json]\n  kastan timetables [-o text|markdown|json]\n\n⚙️ Možnosti:\n  -h, --help              Zobrazí nápovědu\n  --version               Zobrazí verzi aplikace\n  --language, --lang      Jazyk výstupu: en nebo cs (výchozí podle systému)\n  -f, --from              Výchozí místo nebo stanice\n  -t, --to                Cílové místo nebo směrová zastávka\n  -s, --station           Stanice pro odjezdy nebo příjezdy\n  -L, --line              Linka MHD pro zastávkové jízdní řády\n  -T, --timetable         Alias jízdního řádu nebo URL slug IDOSu\n  -d, --date              Datum hledání\n  -m, --time              Čas hledání\n  -w, --whole-week        Zobrazí zastávkový jízdní řád na celý týden\n  -a, --arrival           Hledá podle času příjezdu místo odjezdu\n  -p, --departure         Hledá podle času odjezdu\n  -V, --via               Místo na trase; pro více míst volbu opakujte\n  -x, --direct            Jen přímá spojení\n  -c, --add-to-calendar   Otevře první nalezené spojení jako import iCalendar\n  -v, --verbose           Zobrazí ID výsledků a spojů, tarifní zóny, nástupiště, dopravce a zpoždění\n  -X, --max-transfers     Nejvyšší povolený počet přestupů včetně 0\n  -M, --min-transfer-time Nejkratší doba na přestup v minutách včetně 0\n  -o, --format            Formát výstupu: text, markdown, json nebo ics pro spojení\n  -l, --limit             Nejvyšší počet vypsaných výsledků\n\nVýchozí jízdní řád je vlakyautobusymhdvse.\nAliasy zastávek jsou uloženy v ~/.config/kastan/aliases.json, pokud není nastavena proměnná KASTAN_ALIAS_DATABASE.";

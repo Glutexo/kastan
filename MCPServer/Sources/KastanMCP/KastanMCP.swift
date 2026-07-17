@@ -79,6 +79,37 @@ struct KastanMCPTools: Sendable {
             outputSchema: MCPOutputSchemas.stations
         ),
         Tool(
+            name: "search_station_timetable_lines",
+            title: "Search IDOS Station Timetable lines",
+            description: "Suggest MHD or integrated-transport lines and their terminal pairs for IDOS Station Timetables.",
+            inputSchema: objectSchema(
+                properties: [
+                    "prefix": stringSchema("Line number or name prefix to search for."),
+                    "timetable": timetableSchema,
+                    "limit": integerSchema("Maximum number of line directions to return. Defaults to 8.", minimum: 1, maximum: 20),
+                ],
+                required: ["prefix"]
+            ),
+            annotations: readOnlyAnnotations(title: "Search IDOS Station Timetable lines"),
+            outputSchema: MCPOutputSchemas.stationTimetableLines
+        ),
+        Tool(
+            name: "search_station_timetable_stops",
+            title: "Search IDOS Station Timetable stops",
+            description: "Suggest stops served by one MHD or integrated-transport line for IDOS Station Timetables.",
+            inputSchema: objectSchema(
+                properties: [
+                    "prefix": stringSchema("Stop name prefix to search for."),
+                    "line": stringSchema("Line name returned by search_station_timetable_lines."),
+                    "timetable": timetableSchema,
+                    "limit": integerSchema("Maximum number of stops to return. Defaults to 8.", minimum: 1, maximum: 20),
+                ],
+                required: ["prefix", "line"]
+            ),
+            annotations: readOnlyAnnotations(title: "Search IDOS Station Timetable stops"),
+            outputSchema: MCPOutputSchemas.stationTimetableStops
+        ),
+        Tool(
             name: "find_connections",
             title: "Find IDOS connections",
             description: "Find public transport connections between two places through the Czech IDOS journey planner.",
@@ -120,6 +151,25 @@ struct KastanMCPTools: Sendable {
             outputSchema: MCPOutputSchemas.departures
         ),
         Tool(
+            name: "find_station_timetable",
+            title: "Find an IDOS Station Timetable",
+            description: "Load an MHD or integrated-transport Station Timetable for one line, direction, date, and selected stop.",
+            inputSchema: objectSchema(
+                properties: [
+                    "line": stringSchema("Line name returned by search_station_timetable_lines."),
+                    "from": stringSchema("Stop at which the displayed timetable starts."),
+                    "to": stringSchema("Direction stop for the selected line."),
+                    "timetable": timetableSchema,
+                    "date": stringSchema("Search date in the IDOS format d.M.yyyy. Omit to let IDOS use the current date."),
+                    "wholeWeek": booleanSchema("When true, return schedules for the whole week instead of one date."),
+                    "language": languageSchema,
+                ],
+                required: ["line", "from", "to"]
+            ),
+            annotations: readOnlyAnnotations(title: "Find an IDOS Station Timetable"),
+            outputSchema: MCPOutputSchemas.stationTimetable
+        ),
+        Tool(
             name: "get_service_detail",
             title: "Get an IDOS service detail",
             description: "Load the complete route, stop times, and information for a service ID returned by a connection leg or departure.",
@@ -157,10 +207,16 @@ struct KastanMCPTools: Sendable {
                 try await suggestPlaces(arguments)
             case "search_stations":
                 try await searchStations(arguments)
+            case "search_station_timetable_lines":
+                try await searchStationTimetableLines(arguments)
+            case "search_station_timetable_stops":
+                try await searchStationTimetableStops(arguments)
             case "find_connections":
                 try await findConnections(arguments)
             case "find_departures":
                 try await findDepartures(arguments)
+            case "find_station_timetable":
+                try await findStationTimetable(arguments)
             case "get_service_detail":
                 try await getServiceDetail(arguments)
             case "list_timetables":
@@ -194,6 +250,38 @@ struct KastanMCPTools: Sendable {
         let limit = try arguments.integer("limit", default: 8, range: 1...20)
         let stations = try await client.searchStations(prefix: prefix, limit: limit, timetable: timetable)
         return StationsOutput(query: prefix, timetable: timetable, stations: stations)
+    }
+
+    private func searchStationTimetableLines(
+        _ values: [String: Value]
+    ) async throws -> StationTimetableLinesOutput {
+        let arguments = try ToolArguments(values, allowed: ["prefix", "timetable", "limit"])
+        let prefix = try arguments.requiredString("prefix")
+        let timetable = try IDOSTimetable.resolve(arguments.optionalString("timetable"))
+        let limit = try arguments.integer("limit", default: 8, range: 1...20)
+        let lines = try await client.searchStationTimetableLines(
+            prefix: prefix,
+            limit: limit,
+            timetable: timetable
+        )
+        return StationTimetableLinesOutput(query: prefix, timetable: timetable, lines: lines)
+    }
+
+    private func searchStationTimetableStops(
+        _ values: [String: Value]
+    ) async throws -> StationTimetableStopsOutput {
+        let arguments = try ToolArguments(values, allowed: ["prefix", "line", "timetable", "limit"])
+        let prefix = try arguments.requiredString("prefix")
+        let line = try arguments.requiredString("line")
+        let timetable = try IDOSTimetable.resolve(arguments.optionalString("timetable"))
+        let limit = try arguments.integer("limit", default: 8, range: 1...20)
+        let stops = try await client.searchStationTimetableStops(
+            prefix: prefix,
+            line: line,
+            limit: limit,
+            timetable: timetable
+        )
+        return StationTimetableStopsOutput(query: prefix, line: line, timetable: timetable, stops: stops)
     }
 
     private func findConnections(_ values: [String: Value]) async throws -> ConnectionsOutput {
@@ -235,6 +323,26 @@ struct KastanMCPTools: Sendable {
         let limit = try arguments.integer("limit", default: 8, range: 1...20)
         let departures = try await client.findDepartures(request: request)
         return DeparturesOutput(request: request, departures: Array(departures.prefix(limit)))
+    }
+
+    private func findStationTimetable(_ values: [String: Value]) async throws -> StationTimetableOutput {
+        let arguments = try ToolArguments(
+            values,
+            allowed: ["line", "from", "to", "timetable", "date", "wholeWeek", "language"]
+        )
+        let request = IDOSStationTimetableRequest(
+            timetable: try IDOSTimetable.resolve(arguments.optionalString("timetable")),
+            line: try arguments.requiredString("line"),
+            from: try arguments.requiredString("from"),
+            to: try arguments.requiredString("to"),
+            date: try arguments.optionalString("date"),
+            wholeWeek: try arguments.boolean("wholeWeek", default: false)
+        )
+        let stationTimetable = try await client.findStationTimetable(
+            request: request,
+            language: try arguments.idosLanguage("language", default: .english)
+        )
+        return StationTimetableOutput(request: request, stationTimetable: stationTimetable)
     }
 
     private func getServiceDetail(_ values: [String: Value]) async throws -> ServiceDetailOutput {

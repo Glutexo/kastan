@@ -74,6 +74,8 @@ struct CommandRunner {
                 return try await connectionsOutput(for: Array(arguments.dropFirst()), localization: localization)
             case "departures":
                 return try await departuresOutput(for: Array(arguments.dropFirst()), localization: localization)
+            case "station-timetables", "station-timetable":
+                return try await stationTimetablesOutput(for: Array(arguments.dropFirst()), localization: localization)
             case "service":
                 return try await serviceOutput(for: Array(arguments.dropFirst()), localization: localization)
             case "aliases":
@@ -355,6 +357,58 @@ struct CommandRunner {
                 departures: Array(departures.prefix(max(1, limit))),
                 verbose: options.contains("--verbose", short: "-v")
             ),
+            localization: localization
+        )
+    }
+
+    /// Searches the third IDOS mode using the selected MHD line, route direction, and service date.
+    private func stationTimetablesOutput(
+        for arguments: [String],
+        localization: Localization
+    ) async throws -> String {
+        let options = CommandOptions(arguments)
+        try options.rejectUnknownOptions(
+            allowedFlags: ["--whole-week", "-w"],
+            allowedValueOptions: [
+                "--line", "-L", "--from", "-f", "--to", "-t", "--timetable", "-T",
+                "--date", "-d", "--format", "-o",
+            ]
+        )
+        let format = try options.outputFormat()
+        let aliasDatabase = try aliasFile.load()
+        guard let line = options.value(for: "--line", short: "-L")?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+            !line.isEmpty,
+            let from = options.value(for: "--from", short: "-f")?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+            !from.isEmpty,
+            let to = options.value(for: "--to", short: "-t")?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+            !to.isEmpty
+        else {
+            throw CommandError.usage(.usageStationTimetables)
+        }
+
+        let fromPlace = resolvePlace(from, in: aliasDatabase)
+        let toPlace = resolvePlace(to, in: aliasDatabase)
+        let timetable = try resolveTimetable(
+            explicitValue: options.value(for: "--timetable", short: "-T"),
+            aliases: [fromPlace.alias, toPlace.alias].compactMap(\.self)
+        )
+        let request = IDOSStationTimetableRequest(
+            timetable: timetable,
+            line: line,
+            from: fromPlace.station,
+            to: toPlace.station,
+            date: options.value(for: "--date", short: "-d"),
+            wholeWeek: options.contains("--whole-week", short: "-w")
+        )
+        let stationTimetable = try await client.findStationTimetable(
+            request: request,
+            language: localization.language.idosLanguage
+        )
+        return try format.renderStationTimetable(
+            StationTimetableOutput(request: request, stationTimetable: stationTimetable),
             localization: localization
         )
     }
@@ -1087,6 +1141,109 @@ private enum OutputFormat: String {
         }
     }
 
+    /// Renders the complete route and every hourly departure marker returned by IDOS Station Timetables.
+    func renderStationTimetable(
+        _ output: StationTimetableOutput,
+        localization: Localization
+    ) throws -> String {
+        let result = output.stationTimetable
+        let lineName = [result.transportMode?.emoji, result.lineName]
+            .compactMap(\.self)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+
+        switch self {
+        case .text:
+            let routeRows = result.stops.enumerated().map { index, stop in
+                var details: [String] = []
+                if let minuteOffset = stop.minuteOffset {
+                    details.append(localization.text(.minutesInline, String(minuteOffset)))
+                }
+                if let tariffZone = stop.tariffZone, !tariffZone.isEmpty {
+                    details.append(localization.text(.tariffZoneInline, tariffZone))
+                }
+                if stop.isSelected {
+                    details.append(localization.text(.selected))
+                }
+                details.append(contentsOf: stop.notes)
+                let suffix = details.isEmpty ? "" : " · \(details.joined(separator: " · "))"
+                return "\(index + 1). \(stop.isSelected ? "📍" : "🚏") \(stop.name)\(suffix)"
+            }.joined(separator: "\n")
+            let schedules = result.schedules.map { schedule in
+                let hours = schedule.hours.map { hour in
+                    let departures = hour.departures.isEmpty ? "—" : hour.departures.joined(separator: " ")
+                    return "   \(Terminal.bold(hour.hour)): \(departures)"
+                }.joined(separator: "\n")
+                return "🕒 \(schedule.label):\n\(hours)"
+            }.joined(separator: "\n\n")
+            let lockout = result.isLockout
+                ? "\n🚧 \(localization.text(.lockoutTimetable))"
+                : ""
+            let notes = result.notes.isEmpty ? "" : """
+
+
+            ℹ️ \(localization.text(.notes)):
+            \(result.notes.map { "   • \($0)" }.joined(separator: "\n"))
+            """
+
+            return """
+            🗓️ \(localization.text(.stationTimetable)) \(lineName) · \(result.fromStop) → \(result.toStop) (\(localization.timetableName(result.timetable))):\(lockout)
+            🛤️ \(localization.text(.route)):
+            \(routeRows)
+
+            \(schedules)\(notes)
+            """
+        case .markdown:
+            let routeRows = result.stops.enumerated().map { index, stop in
+                let notes = stop.notes.map(Markdown.escape).joined(separator: "<br>")
+                return "| \(index + 1) | \(Markdown.escape(stop.name)) | \(stop.minuteOffset.map(String.init) ?? "—") | \(Markdown.escape(stop.tariffZone ?? "")) | \(localization.text(stop.isSelected ? .yes : .no)) | \(notes) |"
+            }.joined(separator: "\n")
+            let schedules = result.schedules.map { schedule in
+                let rows = schedule.hours.map { hour in
+                    "| \(Markdown.bold(hour.hour)) | \(Markdown.escape(hour.departures.isEmpty ? "—" : hour.departures.joined(separator: " "))) |"
+                }.joined(separator: "\n")
+                return """
+                ### 🕒 \(Markdown.escape(schedule.label))
+
+                | \(localization.text(.hour)) | \(localization.text(.departures)) |
+                | ---: | --- |
+                \(rows)
+                """
+            }.joined(separator: "\n\n")
+            let lockout = result.isLockout
+                ? "\n\n> 🚧 **\(localization.text(.lockoutTimetable))**"
+                : ""
+            let notes = result.notes.isEmpty ? "" : """
+
+
+            ### ℹ️ \(localization.text(.notes))
+
+            \(result.notes.map { "- \(Markdown.escape($0))" }.joined(separator: "\n"))
+            """
+
+            return """
+            ## 🗓️ \(localization.text(.stationTimetable))
+
+            **\(localization.text(.line)):** \(Markdown.escape(lineName))
+            **\(localization.text(.from)):** \(Markdown.escape(result.fromStop))
+            **\(localization.text(.to)):** \(Markdown.escape(result.toStop))
+            **\(localization.text(.timetable)):** \(Markdown.escape(localization.timetableName(result.timetable)))\(lockout)
+
+            ### 🛤️ \(localization.text(.route))
+
+            | # | \(localization.text(.station)) | \(localization.text(.minutes)) | \(localization.text(.tariffZone)) | \(localization.text(.selected)) | \(localization.text(.notes)) |
+            | ---: | --- | ---: | --- | --- | --- |
+            \(routeRows)
+
+            \(schedules)\(notes)
+            """
+        case .json:
+            return try JSON.write(output)
+        case .ics:
+            throw CommandError.unsupportedOutputFormat(format: "iCal", command: "station-timetables")
+        }
+    }
+
     func renderTimetables(_ output: TimetablesOutput, localization: Localization) throws -> String {
         let title = localization.text(.timetables)
         switch self {
@@ -1540,6 +1697,12 @@ private struct DeparturesOutput: Codable {
     }
 }
 
+/// Keeps the user's query beside the complete Station Timetable in encoded CLI output.
+private struct StationTimetableOutput: Codable {
+    var request: IDOSStationTimetableRequest
+    var stationTimetable: IDOSStationTimetable
+}
+
 private struct ServiceDetailOutput: Codable {
     var service: IDOSServiceDetail
 }
@@ -1756,8 +1919,8 @@ private enum Markdown {
 }
 
 private struct CommandOptions {
-    private static let shortFlags: Set<Character> = ["h", "a", "p", "x", "c", "v"]
-    private static let shortValueOptions: Set<Character> = ["f", "t", "s", "T", "V", "d", "m", "X", "M", "o", "l"]
+    private static let shortFlags: Set<Character> = ["h", "a", "p", "x", "c", "v", "w"]
+    private static let shortValueOptions: Set<Character> = ["f", "t", "s", "T", "V", "L", "d", "m", "X", "M", "o", "l"]
 
     let arguments: [String]
 

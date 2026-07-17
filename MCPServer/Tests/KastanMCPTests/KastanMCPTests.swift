@@ -17,8 +17,11 @@ import Testing
     #expect(names == [
         "suggest_places",
         "search_stations",
+        "search_station_timetable_lines",
+        "search_station_timetable_stops",
         "find_connections",
         "find_departures",
+        "find_station_timetable",
         "get_service_detail",
         "list_timetables",
     ])
@@ -26,6 +29,14 @@ import Testing
     #expect(tools.allSatisfy { $0.outputSchema?.objectValue?["type"] == "object" })
     #expect(tools.first { $0.name == "find_connections" }?.inputSchema.objectValue?["required"] == ["from", "to"])
     #expect(tools.first { $0.name == "find_connections" }?.outputSchema?.objectValue?["required"] == ["request", "connections"])
+    #expect(
+        tools.first { $0.name == "find_station_timetable" }?
+            .inputSchema.objectValue?["required"] == ["line", "from", "to"]
+    )
+    #expect(
+        tools.first { $0.name == "find_station_timetable" }?
+            .outputSchema?.objectValue?["required"] == ["request", "stationTimetable"]
+    )
     #expect(
         tools.first { $0.name == "get_service_detail" }?
             .inputSchema.objectValue?["properties"]?.objectValue?["language"]?.objectValue?["enum"] == ["en", "cs"]
@@ -96,6 +107,32 @@ import Testing
     #expect(await mock.lastStationQuery == QueryCall(prefix: "Praha", limit: 8, timetableSlug: "vlakyautobusymhdvse"))
 }
 
+@Test func stationTimetableSuggestionToolsKeepLineDirectionContext() async {
+    let mock = MockIDOSClient()
+    let tools = KastanMCPTools(client: mock)
+    let lines = await tools.call(
+        name: "search_station_timetable_lines",
+        arguments: ["prefix": "154", "timetable": "pid", "limit": 3]
+    )
+    let stops = await tools.call(
+        name: "search_station_timetable_stops",
+        arguments: ["prefix": "Straš", "line": "Bus 154", "timetable": "pid"]
+    )
+
+    let line = lines.structuredContent?.objectValue?["lines"]?.arrayValue?.first?.objectValue
+    #expect(line?["text"]?.stringValue == "Bus 154")
+    #expect(line?["from"]?.stringValue == "Strašnická")
+    #expect(line?["to"]?.stringValue == "Sídliště Libuš")
+    #expect(stops.structuredContent?.objectValue?["stops"]?.arrayValue?.first?.objectValue?["text"] == "Strašnická")
+    #expect(await mock.lastStationTimetableLineQuery == QueryCall(prefix: "154", limit: 3, timetableSlug: "pid"))
+    #expect(await mock.lastStationTimetableStopQuery == StationTimetableStopQuery(
+        prefix: "Straš",
+        line: "Bus 154",
+        limit: 8,
+        timetableSlug: "pid"
+    ))
+}
+
 @Test func departureToolLimitsReturnedRowsWithoutChangingIDOSRequest() async {
     let mock = MockIDOSClient()
     let tools = KastanMCPTools(client: mock)
@@ -115,6 +152,37 @@ import Testing
     #expect(request?.station == "Ostrava-Svinov")
     #expect(request?.time == "16:00")
     #expect(request?.isArrival == true)
+}
+
+@Test func stationTimetableToolPassesCompleteRequestAndLanguageToKastan() async {
+    let mock = MockIDOSClient()
+    let tools = KastanMCPTools(client: mock)
+    let result = await tools.call(
+        name: "find_station_timetable",
+        arguments: [
+            "line": " Bus 154 ",
+            "from": " Strašnická ",
+            "to": "Sídliště Libuš",
+            "timetable": "pid",
+            "date": "17.7.2026",
+            "wholeWeek": true,
+            "language": "cs",
+        ]
+    )
+
+    #expect(result.isError == false)
+    let timetable = result.structuredContent?.objectValue?["stationTimetable"]?.objectValue
+    #expect(timetable?["lineName"] == "Bus 154")
+    #expect(timetable?["stops"]?.arrayValue?.count == 2)
+    #expect(timetable?["schedules"]?.arrayValue?.first?.objectValue?["hours"]?.arrayValue?.count == 1)
+    let request = await mock.lastStationTimetableRequest
+    #expect(request?.line == "Bus 154")
+    #expect(request?.from == "Strašnická")
+    #expect(request?.to == "Sídliště Libuš")
+    #expect(request?.timetable.slug == "pid")
+    #expect(request?.date == "17.7.2026")
+    #expect(request?.wholeWeek == true)
+    #expect(await mock.lastStationTimetableLanguage == .czech)
 }
 
 @Test func serviceDetailToolLoadsCompleteRouteByOpaqueID() async {
@@ -191,11 +259,22 @@ private struct QueryCall: Equatable, Sendable {
     let timetableSlug: String
 }
 
+private struct StationTimetableStopQuery: Equatable, Sendable {
+    let prefix: String
+    let line: String
+    let limit: Int
+    let timetableSlug: String
+}
+
 private actor MockIDOSClient: IDOSClienting {
     var lastSuggestionQuery: QueryCall?
     var lastStationQuery: QueryCall?
+    var lastStationTimetableLineQuery: QueryCall?
+    var lastStationTimetableStopQuery: StationTimetableStopQuery?
     var lastConnectionRequest: IDOSConnectionRequest?
     var lastDeparturesRequest: IDOSDeparturesRequest?
+    var lastStationTimetableRequest: IDOSStationTimetableRequest?
+    var lastStationTimetableLanguage: IDOSLanguage?
     var lastServiceID: String?
     var lastServiceTimetable: String?
     var lastServiceLanguage: IDOSLanguage?
@@ -208,6 +287,35 @@ private actor MockIDOSClient: IDOSClienting {
     func searchStations(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
         lastStationQuery = QueryCall(prefix: prefix, limit: limit, timetableSlug: timetable.slug)
         return [IDOSSuggestion(text: "Praha hl.n.")]
+    }
+
+    func searchStationTimetableLines(
+        prefix: String,
+        limit: Int,
+        timetable: IDOSTimetable
+    ) async throws -> [IDOSSuggestion] {
+        lastStationTimetableLineQuery = QueryCall(prefix: prefix, limit: limit, timetableSlug: timetable.slug)
+        return [IDOSSuggestion(
+            text: "Bus 154",
+            description: "Strašnická-Sídliště Libuš",
+            from: "Strašnická",
+            to: "Sídliště Libuš"
+        )]
+    }
+
+    func searchStationTimetableStops(
+        prefix: String,
+        line: String,
+        limit: Int,
+        timetable: IDOSTimetable
+    ) async throws -> [IDOSSuggestion] {
+        lastStationTimetableStopQuery = StationTimetableStopQuery(
+            prefix: prefix,
+            line: line,
+            limit: limit,
+            timetableSlug: timetable.slug
+        )
+        return [IDOSSuggestion(text: "Strašnická", description: "Station")]
     }
 
     func findConnections(request: IDOSConnectionRequest) async throws -> [IDOSConnection] {
@@ -235,6 +343,33 @@ private actor MockIDOSClient: IDOSClienting {
             IDOSDeparture(id: "departure-1", time: "16:01", lineName: "S2", destination: "Opava"),
             IDOSDeparture(id: "departure-2", time: "16:05", lineName: "S4", destination: "Bohumín"),
         ]
+    }
+
+    func findStationTimetable(
+        request: IDOSStationTimetableRequest,
+        language: IDOSLanguage
+    ) async throws -> IDOSStationTimetable {
+        lastStationTimetableRequest = request
+        lastStationTimetableLanguage = language
+        return IDOSStationTimetable(
+            timetable: request.timetable,
+            lineName: request.line,
+            transportMode: .bus,
+            fromStop: request.from,
+            toStop: request.to,
+            stops: [
+                IDOSStationTimetableStop(name: request.from, minuteOffset: 0, isSelected: true),
+                IDOSStationTimetableStop(name: request.to, minuteOffset: 42),
+            ],
+            schedules: [
+                IDOSStationTimetableSchedule(
+                    label: "17.7.2026 Friday",
+                    hours: [IDOSStationTimetableHour(hour: "5", departures: ["13", "35"])]
+                ),
+            ],
+            notes: ["valid from 1.7.2026"],
+            shareURL: "https://idos.cz/en/pid/zjr/"
+        )
     }
 
     func serviceDetail(id: String, timetable: IDOSTimetable) async throws -> IDOSServiceDetail {

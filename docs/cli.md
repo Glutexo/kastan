@@ -151,7 +151,7 @@ swift run kastan connections Praha Brno --limit 3
 
 Kaštan asks IDOS for later connections until the requested limit is reached or no more results are available.
 
-### Departures and Service Details
+### Departures
 
 Search a station board by departures or arrivals:
 
@@ -160,6 +160,23 @@ swift run kastan departures --station "Ostrava,Hrabůvka,Benzina" --timetable od
 swift run kastan departures --station "Ostrava,Hrabůvka,Benzina" --timetable odis --arrival
 swift run kastan "Ostrava,Hrabůvka,Benzina" --timetable odis --time 16:00
 ```
+
+### Station Timetables
+
+Search the third IDOS mode, **Station Timetables**, for an MHD or integrated-transport line and direction:
+
+```sh
+swift run kastan station-timetables --line 154 --from "Strašnická" --to "Sídliště Libuš" --timetable pid
+swift run kastan station-timetables -L "Bus 154" -f "Strašnická" -t "Sídliště Libuš" -T pid -d 17.7.2026
+swift run kastan station-timetables -L "Bus 154" -f "Strašnická" -t "Sídliště Libuš" -T pid --whole-week
+```
+
+`--from` selects the stop whose departures are displayed, while `--to` selects the line direction. The result
+includes the complete route with minute offsets and tariff zones, departures grouped by service day and hour,
+lockout status, and explanatory notes. `station-timetable` is accepted as a singular command alias. Select an
+MHD or integrated-system catalog such as `pid`, `odis`, or `idsjmk` for unambiguous line results.
+
+### Service Details
 
 Load a complete route from an opaque service ID shown by verbose connection or departure output:
 
@@ -187,6 +204,7 @@ swift run kastan connections Praha Brno --verbose
 swift run kastan connections Praha Brno --format ics > connection.ics
 swift run kastan connections Praha Brno --add-to-calendar
 swift run kastan departures --station Praha --format json
+swift run kastan station-timetables -L 154 -f "Strašnická" -t "Sídliště Libuš" -T pid --format markdown
 swift run kastan timetables --format json
 ```
 
@@ -200,8 +218,9 @@ Ambiguous place names are reported together with the possible IDOS choices.
 
 ## Common Options
 
-Common short switches are `-f` (`--from`), `-t` (`--to`), `-s` (`--station`), `-T` (`--timetable`), `-d`
-(`--date`), `-m` (`--time`), `-a` (`--arrival`), `-p` (`--departure`), `-V` (`--via`), `-x` (`--direct`),
+Common short switches are `-f` (`--from`), `-t` (`--to`), `-s` (`--station`), `-L` (`--line`), `-T`
+(`--timetable`), `-d` (`--date`), `-m` (`--time`), `-w` (`--whole-week`), `-a` (`--arrival`), `-p`
+(`--departure`), `-V` (`--via`), `-x` (`--direct`),
 `-c` (`--add-to-calendar`), `-v` (`--verbose`), `-X` (`--max-transfers`), `-M`
 (`--min-transfer-time`), `-o` (`--format`), and `-l` (`--limit`).
 
