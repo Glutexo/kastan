@@ -1,7 +1,18 @@
+import AppKit
 import Foundation
 @testable import KastanApp
 import Kastan
 import XCTest
+
+private final class FlippedScrollDocumentView: NSView {
+    override var isFlipped: Bool { true }
+}
+
+private final class ElasticTestClipView: NSClipView {
+    override func constrainBoundsRect(_ proposedBounds: NSRect) -> NSRect {
+        proposedBounds
+    }
+}
 
 @MainActor
 final class KastanAppTests: XCTestCase {
@@ -119,14 +130,26 @@ final class KastanAppTests: XCTestCase {
 
     func testResultPullTriggerLoadsEachScrollableEdgeOncePerGesture() {
         var trigger = SearchResultPullTrigger()
-        let topPull = CGRect(x: 0, y: 48, width: 700, height: 1_000)
-        let resting = CGRect(x: 0, y: 0, width: 700, height: 1_000)
-        let bottomPull = CGRect(x: 0, y: -548, width: 700, height: 1_000)
+        let documentFrame = CGRect(x: 0, y: 0, width: 700, height: 1_000)
+        let topPull = SearchResultScrollMetrics(
+            visibleBounds: CGRect(x: 0, y: -48, width: 700, height: 500),
+            documentFrame: documentFrame,
+            documentIsFlipped: true
+        )
+        let resting = SearchResultScrollMetrics(
+            visibleBounds: CGRect(x: 0, y: 0, width: 700, height: 500),
+            documentFrame: documentFrame,
+            documentIsFlipped: true
+        )
+        let bottomPull = SearchResultScrollMetrics(
+            visibleBounds: CGRect(x: 0, y: 548, width: 700, height: 500),
+            documentFrame: documentFrame,
+            documentIsFlipped: true
+        )
 
         XCTAssertEqual(
             trigger.edgeToLoad(
-                contentFrame: topPull,
-                viewportHeight: 500,
+                metrics: topPull,
                 canLoadEarlier: true,
                 canLoadLater: true,
                 isLoadingEarlier: false,
@@ -136,8 +159,7 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertNil(
             trigger.edgeToLoad(
-                contentFrame: topPull,
-                viewportHeight: 500,
+                metrics: topPull,
                 canLoadEarlier: true,
                 canLoadLater: true,
                 isLoadingEarlier: false,
@@ -146,8 +168,7 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertNil(
             trigger.edgeToLoad(
-                contentFrame: resting,
-                viewportHeight: 500,
+                metrics: resting,
                 canLoadEarlier: true,
                 canLoadLater: true,
                 isLoadingEarlier: false,
@@ -156,8 +177,7 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             trigger.edgeToLoad(
-                contentFrame: bottomPull,
-                viewportHeight: 500,
+                metrics: bottomPull,
                 canLoadEarlier: true,
                 canLoadLater: true,
                 isLoadingEarlier: false,
@@ -167,14 +187,54 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertNil(
             trigger.edgeToLoad(
-                contentFrame: CGRect(x: 0, y: 48, width: 700, height: 300),
-                viewportHeight: 500,
+                metrics: SearchResultScrollMetrics(
+                    visibleBounds: CGRect(x: 0, y: -48, width: 700, height: 500),
+                    documentFrame: CGRect(x: 0, y: 0, width: 700, height: 300),
+                    documentIsFlipped: true
+                ),
                 canLoadEarlier: true,
                 canLoadLater: true,
                 isLoadingEarlier: false,
                 isLoadingLater: false
             )
         )
+    }
+
+    func testNativePullMonitorObservesElasticScrollBoundsAtBothEdges() {
+        let scrollView = NSScrollView(frame: CGRect(x: 0, y: 0, width: 700, height: 500))
+        scrollView.contentView = ElasticTestClipView(
+            frame: CGRect(x: 0, y: 0, width: 700, height: 500)
+        )
+        scrollView.documentView = FlippedScrollDocumentView(
+            frame: CGRect(x: 0, y: 0, width: 700, height: 1_000)
+        )
+        var loadedEdges: [SearchResultPagingEdge] = []
+        let monitor = SearchResultPullMonitor(
+            canLoadEarlier: true,
+            canLoadLater: true,
+            isLoadingEarlier: false,
+            isLoadingLater: false,
+            load: { loadedEdges.append($0) }
+        )
+        let coordinator = monitor.makeCoordinator()
+        coordinator.attach(to: scrollView)
+
+        scrollView.contentView.bounds.origin.y = -SearchResultPullTrigger.activationDistance
+        NotificationCenter.default.post(
+            name: NSView.boundsDidChangeNotification,
+            object: scrollView.contentView
+        )
+        scrollView.contentView.bounds.origin.y = 0
+        coordinator.evaluateCurrentPosition()
+        scrollView.contentView.bounds.origin.y = 548
+        NotificationCenter.default.post(
+            name: NSView.boundsDidChangeNotification,
+            object: scrollView.contentView
+        )
+
+        XCTAssertEqual(loadedEdges, [.earlier, .later])
+        XCTAssertEqual(scrollView.verticalScrollElasticity, .allowed)
+        coordinator.detach()
     }
 
     func testResultPagingProgressLabelsAreLocalized() throws {

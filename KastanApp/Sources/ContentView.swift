@@ -68,70 +68,6 @@ struct DetailLayout {
     }
 }
 
-/// Identifies the result-list edge crossed far enough to request another chronological page.
-enum SearchResultPagingEdge: Equatable {
-    case earlier
-    case later
-}
-
-/// Converts elastic scroll distance into one load per pull-and-release gesture.
-struct SearchResultPullTrigger {
-    static let activationDistance: CGFloat = 48
-    private static let releaseDistance: CGFloat = 4
-
-    private var didTriggerEarlier = false
-    private var didTriggerLater = false
-
-    mutating func edgeToLoad(
-        contentFrame: CGRect,
-        viewportHeight: CGFloat,
-        canLoadEarlier: Bool,
-        canLoadLater: Bool,
-        isLoadingEarlier: Bool,
-        isLoadingLater: Bool
-    ) -> SearchResultPagingEdge? {
-        guard !contentFrame.isNull, viewportHeight > 0 else { return nil }
-
-        let earlierDistance = max(contentFrame.minY, 0)
-        let laterDistance = max(viewportHeight - contentFrame.maxY, 0)
-
-        if earlierDistance <= Self.releaseDistance, !isLoadingEarlier {
-            didTriggerEarlier = false
-        }
-        if laterDistance <= Self.releaseDistance, !isLoadingLater {
-            didTriggerLater = false
-        }
-
-        guard contentFrame.height > viewportHeight + 1 else { return nil }
-
-        if canLoadEarlier,
-           !isLoadingEarlier,
-           !didTriggerEarlier,
-           earlierDistance >= Self.activationDistance
-        {
-            didTriggerEarlier = true
-            return .earlier
-        }
-        if canLoadLater,
-           !isLoadingLater,
-           !didTriggerLater,
-           laterDistance >= Self.activationDistance
-        {
-            didTriggerLater = true
-            return .later
-        }
-        return nil
-    }
-}
-
-private struct SearchResultContentFramePreferenceKey: PreferenceKey {
-    static let defaultValue = CGRect.null
-
-    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
-        value = nextValue()
-    }
-}
-
 private struct SearchResultViewportHeightPreferenceKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
 
@@ -152,10 +88,7 @@ struct SearchWorkspace<SearchContent: View, ResultsContent: View>: View {
     private let loadLater: (@MainActor () async -> Void)?
     private let searchContent: SearchContent
     private let resultsContent: ResultsContent
-    @Namespace private var scrollCoordinateSpace
-    @State private var contentFrame = CGRect.null
     @State private var viewportHeight: CGFloat = 0
-    @State private var pullTrigger = SearchResultPullTrigger()
 
     init(
         layout: DetailLayout,
@@ -218,15 +151,15 @@ struct SearchWorkspace<SearchContent: View, ResultsContent: View>: View {
                     alignment: .top
                 )
                 .background {
-                    GeometryReader { geometry in
-                        Color.clear.preference(
-                            key: SearchResultContentFramePreferenceKey.self,
-                            value: geometry.frame(in: .named(scrollCoordinateSpace))
-                        )
-                    }
+                    SearchResultPullMonitor(
+                        canLoadEarlier: canLoadEarlier,
+                        canLoadLater: canLoadLater,
+                        isLoadingEarlier: isLoadingEarlier,
+                        isLoadingLater: isLoadingLater,
+                        load: requestPage
+                    )
                 }
             }
-            .coordinateSpace(name: scrollCoordinateSpace)
             .background {
                 GeometryReader { geometry in
                     Color.clear.preference(
@@ -235,30 +168,14 @@ struct SearchWorkspace<SearchContent: View, ResultsContent: View>: View {
                     )
                 }
             }
-            .onPreferenceChange(SearchResultContentFramePreferenceKey.self) { frame in
-                contentFrame = frame
-                evaluatePagingPull()
-            }
             .onPreferenceChange(SearchResultViewportHeightPreferenceKey.self) { height in
                 viewportHeight = height
-                evaluatePagingPull()
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 
-    private func evaluatePagingPull() {
-        var trigger = pullTrigger
-        let edge = trigger.edgeToLoad(
-            contentFrame: contentFrame,
-            viewportHeight: viewportHeight,
-            canLoadEarlier: canLoadEarlier,
-            canLoadLater: canLoadLater,
-            isLoadingEarlier: isLoadingEarlier,
-            isLoadingLater: isLoadingLater
-        )
-        pullTrigger = trigger
-
+    private func requestPage(_ edge: SearchResultPagingEdge) {
         switch edge {
         case .earlier:
             guard let loadEarlier else { return }
@@ -266,8 +183,6 @@ struct SearchWorkspace<SearchContent: View, ResultsContent: View>: View {
         case .later:
             guard let loadLater else { return }
             Task { @MainActor in await loadLater() }
-        case nil:
-            break
         }
     }
 }
