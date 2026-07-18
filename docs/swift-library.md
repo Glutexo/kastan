@@ -103,7 +103,7 @@ The main public types are:
 
 - Client and errors: `IDOSClient`, `IDOSClienting`, and `IDOSError`.
 - Requests and timetables: `IDOSConnectionRequest`, `IDOSDeparturesRequest`, `IDOSStationTimetableRequest`,
-  and `IDOSTimetable`.
+  `IDOSPlaceSelection`, and `IDOSTimetable`.
 - Results: `IDOSSuggestion`, `IDOSConnection`, `IDOSConnectionLeg`, `IDOSDeparture`, `IDOSServiceDetail`,
   `IDOSServiceStop`, `IDOSStationTimetable`, `IDOSStationTimetableStop`, `IDOSStationTimetableSchedule`,
   `IDOSStationTimetableHour`, and `IDOSTransportMode`.
@@ -112,6 +112,11 @@ The main public types are:
 Connection-result, service, and departure identifiers are opaque and must not be parsed by clients. Models
 preserve the semantic information received from IDOS, including line colors, transport modes, platforms,
 tariff zones, carriers, delay details, and localized service notes when available.
+
+Create an `IDOSPlaceSelection` from a chosen `IDOSSuggestion` and pass it as `fromSelection`, `toSelection`, or
+`stationSelection` when the query must target that exact IDOS object. This distinguishes, for example, a railway
+station from a municipality with the same visible name. Leave the selection unset for the same free-text
+interpretation as typing into the IDOS form without choosing a suggestion.
 
 `connectionCalendar` returns IDOS iCalendar text for a search result. `serviceCalendar` and `servicePDF`
 resolve a dated service's permanent result link and return the corresponding native IDOS export.

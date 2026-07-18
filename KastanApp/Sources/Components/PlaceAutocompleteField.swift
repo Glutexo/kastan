@@ -197,6 +197,7 @@ struct PlaceAutocompleteField: View {
     let title: LocalizedStringKey
     let prompt: LocalizedStringKey
     @Binding var text: String
+    let selection: Binding<IDOSPlaceSelection?>?
     let timetable: IDOSTimetable
     let stationTimetableLine: String?
     let onSelection: ((IDOSSuggestion) -> Void)?
@@ -209,6 +210,7 @@ struct PlaceAutocompleteField: View {
         title: LocalizedStringKey,
         prompt: LocalizedStringKey,
         text: Binding<String>,
+        selection: Binding<IDOSPlaceSelection?>? = nil,
         timetable: IDOSTimetable,
         scope: PlaceSuggestionScope,
         stationTimetableLine: String? = nil,
@@ -218,6 +220,7 @@ struct PlaceAutocompleteField: View {
         self.title = title
         self.prompt = prompt
         _text = text
+        self.selection = selection
         self.timetable = timetable
         self.stationTimetableLine = stationTimetableLine
         self.onSelection = onSelection
@@ -234,9 +237,14 @@ struct PlaceAutocompleteField: View {
                 .textFieldStyle(.roundedBorder)
                 .focused($isFocused)
                 .onChange(of: text) { value in
+                    if let selectedPlace = selection?.wrappedValue,
+                       selectedPlace.text != value {
+                        selection?.wrappedValue = nil
+                    }
                     model.update(query: value, timetable: timetable, line: stationTimetableLine)
                 }
                 .onChange(of: timetable.slug) { _ in
+                    selection?.wrappedValue = nil
                     model.update(query: text, timetable: timetable, line: stationTimetableLine)
                 }
                 .onChange(of: stationTimetableLine ?? "") { _ in
@@ -293,7 +301,9 @@ struct PlaceAutocompleteField: View {
                 let presentation = PlaceSuggestionPresentation(suggestion: suggestion)
 
                 Button {
-                    text = suggestion.text
+                    let selectedText = suggestion.selectedText ?? suggestion.text
+                    selection?.wrappedValue = IDOSPlaceSelection(suggestion: suggestion)
+                    text = selectedText
                     onSelection?(suggestion)
                     model.selectedSuggestion()
                     isFocused = false

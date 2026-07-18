@@ -15,10 +15,31 @@ struct ViaPlaceEntry: Identifiable, Equatable {
 /// Owns one connection search and exposes only UI-ready state to the SwiftUI view.
 @MainActor
 final class ConnectionsViewModel: ObservableObject {
-    @Published var from = ""
-    @Published var to = ""
+    @Published var from = "" {
+        didSet {
+            if let fromSelection, fromSelection.text != from {
+                self.fromSelection = nil
+            }
+        }
+    }
+    @Published var to = "" {
+        didSet {
+            if let toSelection, toSelection.text != to {
+                self.toSelection = nil
+            }
+        }
+    }
+    /// Exact IDOS choices retained only while their corresponding visible text is unchanged.
+    @Published var fromSelection: IDOSPlaceSelection?
+    @Published var toSelection: IDOSPlaceSelection?
     @Published var viaPlaces = [ViaPlaceEntry()]
-    @Published var timetable = IDOSTimetable.defaultTimetable
+    @Published var timetable = IDOSTimetable.defaultTimetable {
+        didSet {
+            guard timetable.slug != oldValue.slug else { return }
+            fromSelection = nil
+            toSelection = nil
+        }
+    }
     @Published var date = Date()
     @Published var time = Date()
     @Published var isArrival = false
@@ -69,7 +90,12 @@ final class ConnectionsViewModel: ObservableObject {
     }
 
     func swapEndpoints() {
-        (from, to) = (to, from)
+        let previousFrom = from
+        let previousFromSelection = fromSelection
+        from = to
+        fromSelection = toSelection
+        to = previousFrom
+        toSelection = previousFromSelection
     }
 
     /// Inserts another intermediate-place row directly after the selected row.
@@ -108,6 +134,8 @@ final class ConnectionsViewModel: ObservableObject {
             timetable: timetable,
             from: departure,
             to: arrival,
+            fromSelection: fromSelection?.text == departure ? fromSelection : nil,
+            toSelection: toSelection?.text == arrival ? toSelection : nil,
             date: IDOSRequestFormatting.date(from: date),
             time: IDOSRequestFormatting.time(from: time),
             isArrival: isArrival,

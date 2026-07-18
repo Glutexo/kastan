@@ -4,8 +4,21 @@ import Kastan
 /// Owns a station-board query for either departures or arrivals.
 @MainActor
 final class DeparturesViewModel: ObservableObject {
-    @Published var station = ""
-    @Published var timetable = IDOSTimetable.defaultTimetable
+    @Published var station = "" {
+        didSet {
+            if let stationSelection, stationSelection.text != station {
+                self.stationSelection = nil
+            }
+        }
+    }
+    /// The selected IDOS station or stop, retained only while its visible text is unchanged.
+    @Published var stationSelection: IDOSPlaceSelection?
+    @Published var timetable = IDOSTimetable.defaultTimetable {
+        didSet {
+            guard timetable.slug != oldValue.slug else { return }
+            stationSelection = nil
+        }
+    }
     @Published var date = Date()
     @Published var time = Date()
     @Published var isArrival = false
@@ -50,6 +63,7 @@ final class DeparturesViewModel: ObservableObject {
         let request = IDOSDeparturesRequest(
             timetable: timetable,
             station: station,
+            stationSelection: stationSelection?.text == station ? stationSelection : nil,
             date: IDOSRequestFormatting.date(from: date),
             time: IDOSRequestFormatting.time(from: time),
             isArrival: isArrival

@@ -438,8 +438,9 @@ final class KastanAppTests: XCTestCase {
     func testConnectionSearchBuildsCompleteIDOSRequest() async {
         let client = MockIDOSClient()
         let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())
-        model.from = " Praha "
+        model.from = "Praha"
         model.to = " Brno "
+        model.fromSelection = IDOSPlaceSelection(text: "Praha", listID: "100003", itemID: "5457076")
         model.viaPlaces = [
             ViaPlaceEntry(name: " Pardubice "),
             ViaPlaceEntry(name: ""),
@@ -454,6 +455,8 @@ final class KastanAppTests: XCTestCase {
         let request = await client.lastConnectionRequest
         XCTAssertEqual(request?.from, "Praha")
         XCTAssertEqual(request?.to, "Brno")
+        XCTAssertEqual(request?.fromSelection, model.fromSelection)
+        XCTAssertNil(request?.toSelection)
         XCTAssertEqual(request?.via, ["Pardubice", "Olomouc"])
         XCTAssertEqual(request?.timetable.slug, "vlaky")
         XCTAssertEqual(request?.isArrival, true)
@@ -461,6 +464,32 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(request?.resultLimit, 10)
         XCTAssertEqual(model.connections.first?.id, "connection-1")
         XCTAssertNil(model.errorMessage)
+    }
+
+    func testConnectionPlaceSelectionsFollowSwapAndClearAfterEditing() {
+        let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
+        let station = IDOSPlaceSelection(text: "Frýdek-Místek", listID: "100003", itemID: "10357")
+        let municipality = IDOSPlaceSelection(text: "Ostrava", listID: "1", itemID: "10278")
+        model.from = station.text
+        model.fromSelection = station
+        model.to = municipality.text
+        model.toSelection = municipality
+
+        model.swapEndpoints()
+
+        XCTAssertEqual(model.from, municipality.text)
+        XCTAssertEqual(model.fromSelection, municipality)
+        XCTAssertEqual(model.to, station.text)
+        XCTAssertEqual(model.toSelection, station)
+
+        model.to = "Frýdek-Místek,Frýdek,aut.nádr."
+
+        XCTAssertNil(model.toSelection)
+
+        model.fromSelection = municipality
+        model.timetable = IDOSTimetable(slug: "vlaky", displayName: "Trains")
+
+        XCTAssertNil(model.fromSelection)
     }
 
     func testConnectionViaRowsCanBeAddedAndRemovedWithoutDroppingTheLastField() {
@@ -522,13 +551,19 @@ final class KastanAppTests: XCTestCase {
     func testDepartureSearchBuildsStationBoardRequestAndLimitsResults() async {
         let client = MockIDOSClient()
         let model = DeparturesViewModel(client: client)
-        model.station = " Ostrava-Svinov "
+        model.station = "Ostrava-Svinov"
+        model.stationSelection = IDOSPlaceSelection(
+            text: "Ostrava-Svinov",
+            listID: "100003",
+            itemID: "10288"
+        )
         model.isArrival = true
 
         await model.search()
 
         let request = await client.lastDeparturesRequest
         XCTAssertEqual(request?.station, "Ostrava-Svinov")
+        XCTAssertEqual(request?.stationSelection, model.stationSelection)
         XCTAssertEqual(request?.isArrival, true)
         XCTAssertEqual(model.departures.count, 20)
     }

@@ -88,6 +88,7 @@ struct ConnectionsView: View {
             title: "From",
             prompt: "Departure place",
             text: $model.from,
+            selection: $model.fromSelection,
             timetable: model.timetable,
             scope: .places,
             client: client
@@ -99,6 +100,7 @@ struct ConnectionsView: View {
             title: "To",
             prompt: "Arrival place",
             text: $model.to,
+            selection: $model.toSelection,
             timetable: model.timetable,
             scope: .places,
             client: client

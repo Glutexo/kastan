@@ -769,9 +769,48 @@ public struct IDOSClient: IDOSClienting {
     }
 }
 
+/// The exact IDOS object selected from place suggestions, including its catalog identity.
+///
+/// Supplying this value with a request distinguishes a station or stop from a municipality
+/// with the same visible name. Omitting it keeps the corresponding request field as free text.
+public struct IDOSPlaceSelection: Codable, Equatable, Sendable {
+    /// The text IDOS places into the visible search field after selection.
+    public var text: String
+    /// The IDOS catalog containing the selected municipality, station, or stop.
+    public var listID: String
+    /// The selected object's identifier inside its IDOS catalog.
+    public var itemID: String
+
+    public init(text: String, listID: String, itemID: String) {
+        self.text = text
+        self.listID = listID
+        self.itemID = itemID
+    }
+
+    public init?(suggestion: IDOSSuggestion) {
+        guard let listID = suggestion.value,
+              let itemID = suggestion.value2
+        else {
+            return nil
+        }
+
+        self.init(
+            text: suggestion.selectedText ?? suggestion.text,
+            listID: listID,
+            itemID: itemID
+        )
+    }
+
+    fileprivate var formValue: String {
+        "\(text)%\(listID)%\(itemID)"
+    }
+}
+
 public struct IDOSDeparturesRequest: Codable, Equatable, Sendable {
     public var timetable: IDOSTimetable
     public var station: String
+    /// An exact autocomplete choice, or `nil` when `station` should be interpreted as free text.
+    public var stationSelection: IDOSPlaceSelection?
     public var date: String?
     public var time: String?
     public var isArrival: Bool
@@ -779,12 +818,14 @@ public struct IDOSDeparturesRequest: Codable, Equatable, Sendable {
     public init(
         timetable: IDOSTimetable = .defaultTimetable,
         station: String,
+        stationSelection: IDOSPlaceSelection? = nil,
         date: String? = nil,
         time: String? = nil,
         isArrival: Bool = false
     ) {
         self.timetable = timetable
         self.station = station
+        self.stationSelection = stationSelection
         self.date = date
         self.time = time
         self.isArrival = isArrival
@@ -793,6 +834,7 @@ public struct IDOSDeparturesRequest: Codable, Equatable, Sendable {
     var formItems: [URLQueryItem] {
         var items = [
             URLQueryItem(name: "From", value: station),
+            URLQueryItem(name: "FromHidden", value: stationSelection?.formValue ?? "%0"),
             URLQueryItem(name: "IsArr", value: isArrival ? "True" : "False"),
         ]
 
@@ -965,6 +1007,10 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
     public var timetable: IDOSTimetable
     public var from: String
     public var to: String
+    /// An exact autocomplete choice, or `nil` when `from` should be interpreted as free text.
+    public var fromSelection: IDOSPlaceSelection?
+    /// An exact autocomplete choice, or `nil` when `to` should be interpreted as free text.
+    public var toSelection: IDOSPlaceSelection?
     public var date: String?
     public var time: String?
     public var isArrival: Bool
@@ -978,6 +1024,8 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
         timetable: IDOSTimetable = .defaultTimetable,
         from: String,
         to: String,
+        fromSelection: IDOSPlaceSelection? = nil,
+        toSelection: IDOSPlaceSelection? = nil,
         date: String? = nil,
         time: String? = nil,
         isArrival: Bool = false,
@@ -990,6 +1038,8 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
         self.timetable = timetable
         self.from = from
         self.to = to
+        self.fromSelection = fromSelection
+        self.toSelection = toSelection
         self.date = date
         self.time = time
         self.isArrival = isArrival
@@ -1003,7 +1053,9 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
     var formItems: [URLQueryItem] {
         var items = [
             URLQueryItem(name: "From", value: from),
+            URLQueryItem(name: "FromHidden", value: fromSelection?.formValue ?? "%0"),
             URLQueryItem(name: "To", value: to),
+            URLQueryItem(name: "ToHidden", value: toSelection?.formValue ?? "%0"),
             URLQueryItem(name: "IsArr", value: isArrival ? "True" : "False"),
         ]
 

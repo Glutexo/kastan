@@ -1227,6 +1227,37 @@ import Testing
     #expect(departureRequest.formItems.contains(URLQueryItem(name: "IsArr", value: "False")))
 }
 
+@Test func connectionRequestDistinguishesSelectedStationFromFreeText() throws {
+    let suggestion = IDOSSuggestion(
+        selectedText: "Frýdek-Místek",
+        text: "Frýdek-Místek",
+        description: "station, district Frýdek-Místek, trains",
+        value: "100003",
+        value2: "10357"
+    )
+    let selection = try #require(IDOSPlaceSelection(suggestion: suggestion))
+    let destination = IDOSPlaceSelection(text: "Ostrava", listID: "1", itemID: "10278")
+    let selectedRequest = IDOSConnectionRequest(
+        from: "Frýdek-Místek",
+        to: "Ostrava",
+        fromSelection: selection,
+        toSelection: destination
+    )
+    let freeTextRequest = IDOSConnectionRequest(from: "Frýdek-Místek", to: "Ostrava")
+
+    #expect(selection.text == "Frýdek-Místek")
+    #expect(selectedRequest.formItems.contains(URLQueryItem(
+        name: "FromHidden",
+        value: "Frýdek-Místek%100003%10357"
+    )))
+    #expect(selectedRequest.formItems.contains(URLQueryItem(
+        name: "ToHidden",
+        value: "Ostrava%1%10278"
+    )))
+    #expect(freeTextRequest.formItems.contains(URLQueryItem(name: "FromHidden", value: "%0")))
+    #expect(freeTextRequest.formItems.contains(URLQueryItem(name: "ToHidden", value: "%0")))
+}
+
 @Test func connectionRequestUsesIDOSMaximumTransfersParameter() {
     let limitedRequest = IDOSConnectionRequest(from: "Praha", to: "Brno", maxTransfers: 0)
     let normalRequest = IDOSConnectionRequest(from: "Praha", to: "Brno")
@@ -1275,9 +1306,24 @@ import Testing
 }
 
 @Test func departuresRequestUsesIDOSParameters() {
-    let request = IDOSDeparturesRequest(station: "Ostrava,Hrabůvka,Benzina", date: "18.6.2026", time: "16:00", isArrival: true)
+    let selection = IDOSPlaceSelection(
+        text: "Ostrava,Hrabůvka,Benzina",
+        listID: "200003",
+        itemID: "85812"
+    )
+    let request = IDOSDeparturesRequest(
+        station: "Ostrava,Hrabůvka,Benzina",
+        stationSelection: selection,
+        date: "18.6.2026",
+        time: "16:00",
+        isArrival: true
+    )
 
     #expect(request.formItems.contains(URLQueryItem(name: "From", value: "Ostrava,Hrabůvka,Benzina")))
+    #expect(request.formItems.contains(URLQueryItem(
+        name: "FromHidden",
+        value: "Ostrava,Hrabůvka,Benzina%200003%85812"
+    )))
     #expect(request.formItems.contains(URLQueryItem(name: "Date", value: "18.6.2026")))
     #expect(request.formItems.contains(URLQueryItem(name: "Time", value: "16:00")))
     #expect(request.formItems.contains(URLQueryItem(name: "IsArr", value: "True")))

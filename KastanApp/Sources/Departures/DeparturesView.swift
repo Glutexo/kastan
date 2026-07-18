@@ -65,6 +65,7 @@ struct DeparturesView: View {
                 title: "Station",
                 prompt: "Station or stop",
                 text: $model.station,
+                selection: $model.stationSelection,
                 timetable: model.timetable,
                 scope: .stations,
                 client: client
