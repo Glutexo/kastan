@@ -189,7 +189,7 @@ struct SearchWorkspace<SearchContent: View, ResultsContent: View>: View {
 
 /// Retains independent search state while the toolbar switches among all three IDOS search modes.
 struct ContentView: View {
-    /// Reserves the compact toolbar for the search-mode picker so it never collapses into overflow.
+    /// Keeps the search-mode picker visible while moving secondary actions into a compact menu.
     struct ToolbarLayout {
         static let compactBreakpoint: CGFloat = 720
 
@@ -200,7 +200,16 @@ struct ContentView: View {
         }
 
         var modePickerWidth: CGFloat {
-            isCompact ? 260 : 320
+            isCompact ? 220 : 320
+        }
+
+        /// Compensates for the traffic-light region that macOS includes when positioning a compact principal item.
+        var modePickerHorizontalOffset: CGFloat {
+            isCompact ? -80 : 0
+        }
+
+        var usesSecondaryActionsMenu: Bool {
+            isCompact
         }
     }
 
@@ -226,11 +235,20 @@ struct ContentView: View {
                 selectedContent
                     .navigationTitle("")
                     .toolbar {
-                        ToolbarItem(placement: .principal) {
-                            modePicker(width: toolbarLayout.modePickerWidth)
-                        }
+                        if toolbarLayout.usesSecondaryActionsMenu {
+                            ToolbarItem(placement: .principal) {
+                                modePicker(width: toolbarLayout.modePickerWidth)
+                                    .offset(x: toolbarLayout.modePickerHorizontalOffset)
+                            }
 
-                        if !toolbarLayout.isCompact {
+                            ToolbarItem(placement: .primaryAction) {
+                                secondaryActionsMenu
+                            }
+                        } else {
+                            ToolbarItem(placement: .principal) {
+                                modePicker(width: toolbarLayout.modePickerWidth)
+                            }
+
                             ToolbarItemGroup(placement: .primaryAction) {
                                 favoriteTimetablesButton
                                 appInformationButton
@@ -273,6 +291,26 @@ struct ContentView: View {
                 .labelStyle(.iconOnly)
         }
         .help("Show app and data source information")
+    }
+
+    private var secondaryActionsMenu: some View {
+        Menu {
+            Button {
+                openWindow(id: AppWindow.favoriteTimetables)
+            } label: {
+                Label("Favorite timetables", systemImage: "star")
+            }
+
+            Button {
+                openWindow(id: AppWindow.information)
+            } label: {
+                Label("Show app and data source information", systemImage: "info.circle")
+            }
+        } label: {
+            Label("More", systemImage: "ellipsis.circle")
+                .labelStyle(.iconOnly)
+        }
+        .help("More")
     }
 
     @ViewBuilder

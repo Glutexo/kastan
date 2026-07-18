@@ -17,8 +17,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   route stops, tariff zones, platforms or stands, lockout labels, explanatory notes, and links back to the
   matching IDOS result.
 - A toolbar control switches directly between Connections, Departures, and Station Timetables while preserving
-  each search's state. It stays centered and fully visible at compact widths; secondary actions remain directly
-  visible at regular widths and available from the app menus at every width. These actions open the
+  each search's state. It stays centered and fully visible at compact widths, where a visible More menu keeps
+  secondary actions available; those actions remain directly visible at regular widths and in the app menus at
+  every width. These actions open the
   timetable-favorites manager and app information in their own windows.
 - Timetable menus grouped into general rail and bus choices, integrated transport systems, and city networks,
   with persistent favorites repeated in their own first section without disappearing from the catalog, and a

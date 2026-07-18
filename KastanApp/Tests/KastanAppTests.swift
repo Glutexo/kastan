@@ -290,9 +290,13 @@ final class KastanAppTests: XCTestCase {
         let regular = ContentView.ToolbarLayout(availableWidth: 720)
 
         XCTAssertTrue(compact.isCompact)
-        XCTAssertEqual(compact.modePickerWidth, 260)
+        XCTAssertEqual(compact.modePickerWidth, 220)
+        XCTAssertEqual(compact.modePickerHorizontalOffset, -80)
+        XCTAssertTrue(compact.usesSecondaryActionsMenu)
         XCTAssertFalse(regular.isCompact)
         XCTAssertEqual(regular.modePickerWidth, 320)
+        XCTAssertEqual(regular.modePickerHorizontalOffset, 0)
+        XCTAssertFalse(regular.usesSecondaryActionsMenu)
     }
 
     func testTimetableCatalogIsSplitIntoGeneralIntegratedAndCityGroups() {
