@@ -67,14 +67,23 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testServiceActionLabelsAreLocalized() throws {
+    func testServiceDetailToolbarOffersFourSeparateLocalizedActions() throws {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
 
-        XCTAssertEqual(czech.localizedString(forKey: "Share Link", value: nil, table: nil), "Sdílet odkaz")
-        XCTAssertEqual(english.localizedString(forKey: "Share Link", value: nil, table: nil), "Share Link")
-        XCTAssertEqual(czech.localizedString(forKey: "Service actions", value: nil, table: nil), "Akce spoje")
-        XCTAssertEqual(english.localizedString(forKey: "Service actions", value: nil, table: nil), "Service actions")
+        XCTAssertEqual(
+            ServiceDetailToolbarAction.allCases,
+            [.addToCalendar, .saveAsPDF, .shareLink, .openInIDOS]
+        )
+        let keys = ["Add to Calendar", "Save as PDF", "Share Link", "Open in IDOS"]
+        XCTAssertEqual(
+            keys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
+            ["Přidat do Kalendáře", "Uložit jako PDF", "Sdílet odkaz", "Otevřít v IDOSu"]
+        )
+        XCTAssertEqual(
+            keys.map { english.localizedString(forKey: $0, value: nil, table: nil) },
+            keys
+        )
     }
 
     func testDetailLayoutStacksControlsAtCompactWidths() {

@@ -156,6 +156,42 @@ struct ServiceSelection: Codable, Hashable, Identifiable {
     }
 }
 
+/// Defines the four service actions that remain directly visible in the detail window toolbar.
+enum ServiceDetailToolbarAction: CaseIterable, Hashable, Identifiable {
+    case addToCalendar
+    case saveAsPDF
+    case shareLink
+    case openInIDOS
+
+    var id: Self { self }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .addToCalendar:
+            "Add to Calendar"
+        case .saveAsPDF:
+            "Save as PDF"
+        case .shareLink:
+            "Share Link"
+        case .openInIDOS:
+            "Open in IDOS"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .addToCalendar:
+            "calendar.badge.plus"
+        case .saveAsPDF:
+            "arrow.down.doc"
+        case .shareLink:
+            "square.and.arrow.up"
+        case .openInIDOS:
+            "arrow.up.right.square"
+        }
+    }
+}
+
 /// Shows every stop and piece of service information supplied by IDOS in its own window.
 struct ServiceDetailView: View {
     @StateObject private var model: ServiceDetailViewModel
@@ -193,8 +229,10 @@ struct ServiceDetailView: View {
         .navigationTitle(windowTitle)
         .toolbar {
             if let serviceActionURL {
-                ToolbarItem(placement: .primaryAction) {
-                    serviceActions(url: serviceActionURL)
+                ToolbarItemGroup(placement: .primaryAction) {
+                    ForEach(ServiceDetailToolbarAction.allCases) { action in
+                        serviceActionControl(action, url: serviceActionURL)
+                    }
                 }
             }
         }
@@ -216,36 +254,59 @@ struct ServiceDetailView: View {
         model.service?.shareURL.flatMap(AppLanguagePreference.localizedIDOSURL)
     }
 
-    /// Keeps every service export and external destination in one compact native toolbar menu.
-    private func serviceActions(url: URL) -> some View {
-        Menu {
+    /// Renders each service action as an independent native toolbar control.
+    @ViewBuilder
+    private func serviceActionControl(_ action: ServiceDetailToolbarAction, url: URL) -> some View {
+        switch action {
+        case .addToCalendar:
             Button {
                 Task { await model.addToCalendar() }
             } label: {
-                Label("Add to Calendar", systemImage: "calendar.badge.plus")
+                exportActionLabel(action, isPerforming: model.isAddingToCalendar)
             }
+            .disabled(model.isPerformingExport)
+            .accessibilityLabel(action.title)
+            .help(action.title)
+        case .saveAsPDF:
             Button {
                 Task { await model.saveAsPDF() }
             } label: {
-                Label("Save as PDF", systemImage: "arrow.down.doc")
+                exportActionLabel(action, isPerforming: model.isSavingPDF)
             }
+            .disabled(model.isPerformingExport)
+            .accessibilityLabel(action.title)
+            .help(action.title)
+        case .shareLink:
             ShareLink(item: url) {
-                Label("Share Link", systemImage: "square.and.arrow.up")
+                serviceActionLabel(action)
             }
+            .disabled(model.isPerformingExport)
+            .help(action.title)
+        case .openInIDOS:
             Link(destination: url) {
-                Label("Open in IDOS", systemImage: "arrow.up.right.square")
+                serviceActionLabel(action)
             }
-        } label: {
-            if model.isPerformingExport {
-                ProgressView()
-                    .controlSize(.small)
-            } else {
-                Label("Service actions", systemImage: "ellipsis.circle")
-                    .labelStyle(.iconOnly)
-            }
+            .disabled(model.isPerformingExport)
+            .help(action.title)
         }
-        .disabled(model.isPerformingExport)
-        .help("Service actions")
+    }
+
+    @ViewBuilder
+    private func exportActionLabel(
+        _ action: ServiceDetailToolbarAction,
+        isPerforming: Bool
+    ) -> some View {
+        if isPerforming {
+            ProgressView()
+                .controlSize(.small)
+        } else {
+            serviceActionLabel(action)
+        }
+    }
+
+    private func serviceActionLabel(_ action: ServiceDetailToolbarAction) -> some View {
+        Label(action.title, systemImage: action.systemImage)
+            .labelStyle(.iconOnly)
     }
 
     private func serviceContent(_ service: IDOSServiceDetail) -> some View {
