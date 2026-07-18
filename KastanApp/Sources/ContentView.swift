@@ -193,21 +193,6 @@ struct SearchWorkspace<SearchContent: View, ResultsContent: View>: View {
 
 /// Retains independent search state while the native toolbar switches among all three IDOS search modes.
 struct ContentView: View {
-    /// Supplies the native toolbar with a localized width that still fits compact windows.
-    struct ToolbarLayout {
-        static let compactBreakpoint: CGFloat = 720
-
-        let availableWidth: CGFloat
-
-        var isCompact: Bool {
-            availableWidth < Self.compactBreakpoint
-        }
-
-        var modePickerWidth: CGFloat {
-            isCompact ? 260 : 320
-        }
-    }
-
     @Environment(\.openWindow) private var openWindow
     private let client: any IDOSClienting
     @StateObject private var connectionsModel: ConnectionsViewModel

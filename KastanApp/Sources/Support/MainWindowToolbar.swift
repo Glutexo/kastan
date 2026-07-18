@@ -62,8 +62,7 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
         private var openFavoriteTimetables: () -> Void
         private var openAppInformation: () -> Void
         private weak var window: NSWindow?
-        private var modePickerView: NSHostingView<MainToolbarModePicker>?
-        private var modePickerWidthConstraint: NSLayoutConstraint?
+        private weak var modeControl: NSSegmentedControl?
 
         lazy var toolbar: NSToolbar = {
             let toolbar = NSToolbar(identifier: .kastanMainWindow)
@@ -94,14 +93,13 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
             self.selection = selection
             self.openFavoriteTimetables = openFavoriteTimetables
             self.openAppInformation = openAppInformation
-            modePickerView?.rootView = MainToolbarModePicker(selection: selection)
+            updateModeControlState()
             updateModeMenuState()
         }
 
         func install(on window: NSWindow?) {
             guard let window else { return }
             if self.window === window, window.toolbar === toolbar {
-                updateModePickerWidth(for: window)
                 return
             }
 
@@ -110,27 +108,14 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
             window.titleVisibility = .hidden
             window.toolbarStyle = .unified
             window.toolbar = toolbar
-            NotificationCenter.default.addObserver(
-                self,
-                selector: #selector(windowDidResize(_:)),
-                name: NSWindow.didResizeNotification,
-                object: window
-            )
-            updateModePickerWidth(for: window)
         }
 
         func uninstall() {
-            NotificationCenter.default.removeObserver(
-                self,
-                name: NSWindow.didResizeNotification,
-                object: window
-            )
             if window?.toolbar === toolbar {
                 window?.toolbar = nil
             }
             window = nil
-            modePickerView = nil
-            modePickerWidthConstraint = nil
+            modeControl = nil
         }
 
         func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -171,24 +156,25 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
         private func makeModeToolbarItem(retainView: Bool) -> NSToolbarItem {
             let item = NSToolbarItem(itemIdentifier: .searchMode)
             let label = AppLocalization.string("Search mode")
-            let hostingView = NSHostingView(rootView: MainToolbarModePicker(selection: selection))
-            hostingView.translatesAutoresizingMaskIntoConstraints = false
-            let widthConstraint = hostingView.widthAnchor.constraint(equalToConstant: 320)
-            widthConstraint.isActive = true
+            let control = NSSegmentedControl(
+                labels: AppSection.allCases.map { AppLocalization.string($0.localizationKey) },
+                trackingMode: .selectOne,
+                target: self,
+                action: #selector(selectModeSegment(_:))
+            )
+            control.selectedSegment = AppSection.allCases.firstIndex(of: selection.wrappedValue) ?? 0
+            control.setAccessibilityLabel(label)
+            control.sizeToFit()
 
             item.label = label
             item.paletteLabel = label
             item.toolTip = label
-            item.view = hostingView
+            item.view = control
             item.visibilityPriority = .user
             item.menuFormRepresentation = makeModeMenuRepresentation(title: label)
 
             if retainView {
-                modePickerView = hostingView
-                modePickerWidthConstraint = widthConstraint
-                if let window {
-                    updateModePickerWidth(for: window)
-                }
+                modeControl = control
             }
             return item
         }
@@ -256,19 +242,20 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
             }
         }
 
-        private func updateModePickerWidth(for window: NSWindow) {
-            let layout = ContentView.ToolbarLayout(availableWidth: window.frame.width)
-            modePickerWidthConstraint?.constant = layout.modePickerWidth
-        }
-
-        @objc private func windowDidResize(_ notification: Notification) {
-            guard let window = notification.object as? NSWindow else { return }
-            updateModePickerWidth(for: window)
+        private func updateModeControlState() {
+            modeControl?.selectedSegment = AppSection.allCases.firstIndex(of: selection.wrappedValue) ?? 0
         }
 
         @objc private func selectMode(_ sender: NSMenuItem) {
             guard AppSection.allCases.indices.contains(sender.tag) else { return }
             selection.wrappedValue = AppSection.allCases[sender.tag]
+            updateModeControlState()
+            updateModeMenuState()
+        }
+
+        @objc private func selectModeSegment(_ sender: NSSegmentedControl) {
+            guard AppSection.allCases.indices.contains(sender.selectedSegment) else { return }
+            selection.wrappedValue = AppSection.allCases[sender.selectedSegment]
             updateModeMenuState()
         }
 
@@ -279,22 +266,5 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
         @objc private func showAppInformation(_ sender: Any?) {
             openAppInformation()
         }
-    }
-}
-
-/// The centered native toolbar item keeps its semantic labels while AppKit owns its placement.
-private struct MainToolbarModePicker: View {
-    @Binding var selection: AppSection
-
-    var body: some View {
-        Picker("Search mode", selection: $selection) {
-            ForEach(AppSection.allCases) { section in
-                Text(section.title)
-                    .tag(section)
-            }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .accessibilityLabel("Search mode")
     }
 }

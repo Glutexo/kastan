@@ -286,19 +286,13 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(AppWindow.favoriteTimetables, "favorite-timetables")
     }
 
-    func testToolbarKeepsTheSearchModePickerCompactInNarrowWindows() {
-        let compact = ContentView.ToolbarLayout(availableWidth: KastanApp.minimumMainWindowWidth)
-        let regular = ContentView.ToolbarLayout(availableWidth: 720)
-
-        XCTAssertTrue(compact.isCompact)
-        XCTAssertEqual(compact.modePickerWidth, 260)
-        XCTAssertFalse(regular.isCompact)
-        XCTAssertEqual(regular.modePickerWidth, 320)
-    }
-
     func testNativeToolbarKeepsTheModePickerAheadOfOverflowActions() throws {
+        var selection = AppSection.connections
         let coordinator = MainWindowToolbarInstaller.Coordinator(
-            selection: .constant(.connections),
+            selection: Binding(
+                get: { selection },
+                set: { selection = $0 }
+            ),
             openFavoriteTimetables: {},
             openAppInformation: {}
         )
@@ -314,7 +308,7 @@ final class KastanAppTests: XCTestCase {
             coordinator.toolbar(
                 coordinator.toolbar,
                 itemForItemIdentifier: .searchMode,
-                willBeInsertedIntoToolbar: false
+                willBeInsertedIntoToolbar: true
             )
         )
         let favoriteItem = try XCTUnwrap(
@@ -328,6 +322,14 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(modeItem.visibilityPriority, .user)
         XCTAssertEqual(favoriteItem.visibilityPriority, .standard)
         XCTAssertNotNil(favoriteItem.menuFormRepresentation)
+
+        let modeControl = try XCTUnwrap(modeItem.view as? NSSegmentedControl)
+        XCTAssertEqual(modeControl.segmentCount, AppSection.allCases.count)
+        XCTAssertEqual(modeControl.frame.width, modeControl.fittingSize.width, accuracy: 0.5)
+
+        modeControl.selectedSegment = 1
+        modeControl.sendAction(modeControl.action, to: modeControl.target)
+        XCTAssertEqual(selection, .departures)
     }
 
     func testTimetableCatalogIsSplitIntoGeneralIntegratedAndCityGroups() {
