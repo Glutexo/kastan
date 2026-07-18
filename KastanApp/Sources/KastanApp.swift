@@ -275,6 +275,9 @@ struct AppSectionCommands: Commands {
 /// Launches the native Kaštan experience while sharing all IDOS behavior with the CLI and MCP server.
 @main
 struct KastanApp: App {
+    /// Retains usable compact search forms and toolbar actions at the narrowest supported main-window size.
+    static let minimumMainWindowWidth: CGFloat = 560
+
     private let client = IDOSClient()
 
     init() {
@@ -285,7 +288,7 @@ struct KastanApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView(client: client)
-                .frame(minWidth: 720, minHeight: 520)
+                .frame(minWidth: Self.minimumMainWindowWidth, minHeight: 520)
         }
         .defaultSize(width: 1080, height: 720)
         .commands {

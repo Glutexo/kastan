@@ -274,7 +274,7 @@ struct SearchWorkspace<SearchContent: View, ResultsContent: View>: View {
 
 /// Retains independent search state while the toolbar switches among all three IDOS search modes.
 struct ContentView: View {
-    /// Leaves room for both trailing actions at the main window's 720-point minimum width.
+    /// Leaves room for both trailing actions at the main window's compact minimum width.
     private static let modePickerWidth: CGFloat = 320
 
     @Environment(\.openWindow) private var openWindow
