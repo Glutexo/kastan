@@ -26,7 +26,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   states supplied by IDOS.
 - Complete service routes with the search-relevant segment highlighted without implying live vehicle position.
 - Permanent connection and service-detail links using the IDOS language that matches the app, available from
-  their action menus for opening in IDOS or sharing through the standard macOS share sheet.
+  their action menus for opening in IDOS or sharing through the standard macOS share sheet. The service-detail
+  action menu lives in that window's native toolbar.
 - IDOS calendar and localized PDF exports for connection results and dated service details, opened in the
   user's calendar application or saved through the native macOS save panel.
 - English and Czech interface localization.

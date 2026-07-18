@@ -191,6 +191,13 @@ struct ServiceDetailView: View {
         }
         .frame(minWidth: 680, minHeight: 520)
         .navigationTitle(windowTitle)
+        .toolbar {
+            if let serviceActionURL {
+                ToolbarItem(placement: .primaryAction) {
+                    serviceActions(url: serviceActionURL)
+                }
+            }
+        }
         .task {
             await model.load()
         }
@@ -205,49 +212,51 @@ struct ServiceDetailView: View {
         return AppLocalization.string("Service route")
     }
 
+    private var serviceActionURL: URL? {
+        model.service?.shareURL.flatMap(AppLanguagePreference.localizedIDOSURL)
+    }
+
+    /// Keeps every service export and external destination in one compact native toolbar menu.
+    private func serviceActions(url: URL) -> some View {
+        Menu {
+            Button {
+                Task { await model.addToCalendar() }
+            } label: {
+                Label("Add to Calendar", systemImage: "calendar.badge.plus")
+            }
+            Button {
+                Task { await model.saveAsPDF() }
+            } label: {
+                Label("Save as PDF", systemImage: "arrow.down.doc")
+            }
+            ShareLink(item: url) {
+                Label("Share Link", systemImage: "square.and.arrow.up")
+            }
+            Link(destination: url) {
+                Label("Open in IDOS", systemImage: "arrow.up.right.square")
+            }
+        } label: {
+            if model.isPerformingExport {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Label("Service actions", systemImage: "ellipsis.circle")
+                    .labelStyle(.iconOnly)
+            }
+        }
+        .disabled(model.isPerformingExport)
+        .help("Service actions")
+    }
+
     private func serviceContent(_ service: IDOSServiceDetail) -> some View {
         let highlightedRange = routeHighlight?.range(in: service.stops)
         let highlightedColor = Color(idosHTMLColor: service.color) ?? .accentColor
 
         return ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                HStack(alignment: .firstTextBaseline) {
-                    if let date = service.date {
-                        Text(date)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    if let value = service.shareURL,
-                       let url = AppLanguagePreference.localizedIDOSURL(from: value)
-                    {
-                        Menu {
-                            Button {
-                                Task { await model.addToCalendar() }
-                            } label: {
-                                Label("Add to Calendar", systemImage: "calendar.badge.plus")
-                            }
-                            Button {
-                                Task { await model.saveAsPDF() }
-                            } label: {
-                                Label("Save as PDF", systemImage: "arrow.down.doc")
-                            }
-                            ShareLink(item: url) {
-                                Label("Share Link", systemImage: "square.and.arrow.up")
-                            }
-                            Link(destination: url) {
-                                Label("Open in IDOS", systemImage: "arrow.up.right.square")
-                            }
-                        } label: {
-                            if model.isPerformingExport {
-                                ProgressView()
-                                    .controlSize(.small)
-                            } else {
-                                Image(systemName: "ellipsis.circle")
-                            }
-                        }
-                        .menuStyle(.borderlessButton)
-                        .disabled(model.isPerformingExport)
-                    }
+                if let date = service.date {
+                    Text(date)
+                        .foregroundStyle(.secondary)
                 }
 
                 if let actionErrorMessage = model.actionErrorMessage {

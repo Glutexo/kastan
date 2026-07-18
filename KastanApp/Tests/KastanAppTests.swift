@@ -67,12 +67,14 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testShareLinkLabelIsLocalized() throws {
+    func testServiceActionLabelsAreLocalized() throws {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
 
         XCTAssertEqual(czech.localizedString(forKey: "Share Link", value: nil, table: nil), "Sdílet odkaz")
         XCTAssertEqual(english.localizedString(forKey: "Share Link", value: nil, table: nil), "Share Link")
+        XCTAssertEqual(czech.localizedString(forKey: "Service actions", value: nil, table: nil), "Akce spoje")
+        XCTAssertEqual(english.localizedString(forKey: "Service actions", value: nil, table: nil), "Service actions")
     }
 
     func testDetailLayoutStacksControlsAtCompactWidths() {
