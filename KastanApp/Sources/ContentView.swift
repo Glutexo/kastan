@@ -1,4 +1,3 @@
-import AppKit
 import Kastan
 import SwiftUI
 
@@ -10,7 +9,7 @@ enum AppSection: String, CaseIterable, Hashable, Identifiable {
 
     var id: Self { self }
 
-    var title: LocalizedStringKey {
+    var localizationKey: String {
         switch self {
         case .connections:
             "Connections"
@@ -19,6 +18,10 @@ enum AppSection: String, CaseIterable, Hashable, Identifiable {
         case .stationTimetables:
             "Station timetables"
         }
+    }
+
+    var title: LocalizedStringKey {
+        LocalizedStringKey(localizationKey)
     }
 
     var systemImage: String {
@@ -188,9 +191,9 @@ struct SearchWorkspace<SearchContent: View, ResultsContent: View>: View {
     }
 }
 
-/// Retains independent search state while the titlebar switches among all three IDOS search modes.
+/// Retains independent search state while the native toolbar switches among all three IDOS search modes.
 struct ContentView: View {
-    /// Keeps the search-mode picker centered while moving secondary actions into a compact menu.
+    /// Supplies the native toolbar with a localized width that still fits compact windows.
     struct ToolbarLayout {
         static let compactBreakpoint: CGFloat = 720
 
@@ -202,10 +205,6 @@ struct ContentView: View {
 
         var modePickerWidth: CGFloat {
             isCompact ? 260 : 320
-        }
-
-        var usesSecondaryActionsMenu: Bool {
-            isCompact
         }
     }
 
@@ -224,101 +223,15 @@ struct ContentView: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            let toolbarLayout = ToolbarLayout(availableWidth: geometry.size.width)
-
-            VStack(spacing: 0) {
-                titlebar(layout: toolbarLayout)
-                Divider()
-                selectedContent
+        selectedContent
+            .background {
+                MainWindowToolbarInstaller(
+                    selection: $selection,
+                    openFavoriteTimetables: { openWindow(id: AppWindow.favoriteTimetables) },
+                    openAppInformation: { openWindow(id: AppWindow.information) }
+                )
             }
-        }
-        .ignoresSafeArea(.container, edges: .top)
-        .focusedSceneValue(\.appSectionSelection, $selection)
-    }
-
-    private func titlebar(layout: ToolbarLayout) -> some View {
-        ZStack {
-            modePicker(width: layout.modePickerWidth)
-
-            HStack(spacing: 8) {
-                Spacer(minLength: 0)
-                if layout.usesSecondaryActionsMenu {
-                    secondaryActionsMenu
-                } else {
-                    favoriteTimetablesButton
-                    appInformationButton
-                }
-            }
-            .padding(.trailing, 12)
-        }
-        .frame(maxWidth: .infinity)
-        .frame(height: 52)
-        .background(.bar)
-        .background {
-            WindowDragArea()
-        }
-    }
-
-    private func modePicker(width: CGFloat) -> some View {
-        Picker("Search mode", selection: $selection) {
-            ForEach(AppSection.allCases) { section in
-                Text(section.title)
-                    .tag(section)
-            }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
-        .tint(.gray)
-        .frame(width: width)
-        .accessibilityLabel("Search mode")
-    }
-
-    private var favoriteTimetablesButton: some View {
-        Button {
-            openWindow(id: AppWindow.favoriteTimetables)
-        } label: {
-            Label("Favorite timetables", systemImage: "star")
-                .labelStyle(.iconOnly)
-        }
-        .help("Favorite timetables")
-        .buttonStyle(.borderless)
-        .controlSize(.large)
-    }
-
-    private var appInformationButton: some View {
-        Button {
-            openWindow(id: AppWindow.information)
-        } label: {
-            Label("Show app and data source information", systemImage: "info.circle")
-                .labelStyle(.iconOnly)
-        }
-        .help("Show app and data source information")
-        .buttonStyle(.borderless)
-        .controlSize(.large)
-    }
-
-    private var secondaryActionsMenu: some View {
-        Menu {
-            Button {
-                openWindow(id: AppWindow.favoriteTimetables)
-            } label: {
-                Label("Favorite timetables", systemImage: "star")
-            }
-
-            Button {
-                openWindow(id: AppWindow.information)
-            } label: {
-                Label("Show app and data source information", systemImage: "info.circle")
-            }
-        } label: {
-            Label("More", systemImage: "ellipsis.circle")
-                .labelStyle(.iconOnly)
-        }
-        .help("More")
-        .menuStyle(.borderlessButton)
-        .controlSize(.large)
-        .fixedSize()
+            .focusedSceneValue(\.appSectionSelection, $selection)
     }
 
     @ViewBuilder
@@ -330,22 +243,6 @@ struct ContentView: View {
             DeparturesView(model: departuresModel, client: client)
         case .stationTimetables:
             StationTimetablesView(model: stationTimetablesModel, client: client)
-        }
-    }
-}
-
-/// Preserves native window dragging behind the custom titlebar's interactive controls.
-struct WindowDragArea: NSViewRepresentable {
-    func makeNSView(context: Context) -> DragView {
-        DragView()
-    }
-
-    func updateNSView(_ nsView: DragView, context: Context) {}
-
-    @MainActor
-    final class DragView: NSView {
-        override var mouseDownCanMoveWindow: Bool {
-            true
         }
     }
 }

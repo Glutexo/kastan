@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 @testable import KastanApp
 import Kastan
+import SwiftUI
 import XCTest
 
 private final class FlippedScrollDocumentView: NSView {
@@ -285,20 +286,48 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(AppWindow.favoriteTimetables, "favorite-timetables")
     }
 
-    func testTitlebarKeepsACompactSearchModePickerAndSecondaryActionsInNarrowWindows() {
+    func testToolbarKeepsTheSearchModePickerCompactInNarrowWindows() {
         let compact = ContentView.ToolbarLayout(availableWidth: KastanApp.minimumMainWindowWidth)
         let regular = ContentView.ToolbarLayout(availableWidth: 720)
 
         XCTAssertTrue(compact.isCompact)
         XCTAssertEqual(compact.modePickerWidth, 260)
-        XCTAssertTrue(compact.usesSecondaryActionsMenu)
         XCTAssertFalse(regular.isCompact)
         XCTAssertEqual(regular.modePickerWidth, 320)
-        XCTAssertFalse(regular.usesSecondaryActionsMenu)
     }
 
-    func testCustomTitlebarPreservesNativeWindowDragging() {
-        XCTAssertTrue(WindowDragArea.DragView().mouseDownCanMoveWindow)
+    func testNativeToolbarKeepsTheModePickerAheadOfOverflowActions() throws {
+        let coordinator = MainWindowToolbarInstaller.Coordinator(
+            selection: .constant(.connections),
+            openFavoriteTimetables: {},
+            openAppInformation: {}
+        )
+
+        XCTAssertEqual(coordinator.toolbar.identifier, .kastanMainWindow)
+        XCTAssertEqual(coordinator.toolbar.centeredItemIdentifiers, [.searchMode])
+        XCTAssertEqual(
+            coordinator.toolbarDefaultItemIdentifiers(coordinator.toolbar),
+            [.flexibleSpace, .searchMode, .flexibleSpace, .favoriteTimetables, .appInformation]
+        )
+
+        let modeItem = try XCTUnwrap(
+            coordinator.toolbar(
+                coordinator.toolbar,
+                itemForItemIdentifier: .searchMode,
+                willBeInsertedIntoToolbar: false
+            )
+        )
+        let favoriteItem = try XCTUnwrap(
+            coordinator.toolbar(
+                coordinator.toolbar,
+                itemForItemIdentifier: .favoriteTimetables,
+                willBeInsertedIntoToolbar: false
+            )
+        )
+
+        XCTAssertEqual(modeItem.visibilityPriority, .user)
+        XCTAssertEqual(favoriteItem.visibilityPriority, .standard)
+        XCTAssertNotNil(favoriteItem.menuFormRepresentation)
     }
 
     func testTimetableCatalogIsSplitIntoGeneralIntegratedAndCityGroups() {

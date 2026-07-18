@@ -16,11 +16,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, tariff zones, platforms or stands, lockout labels, explanatory notes, and links back to the
   matching IDOS result.
-- A centered titlebar control switches directly between Connections, Departures, and Station Timetables while
-  preserving each search's state. It is laid out independently of macOS toolbar overflow, while a visible More
-  menu keeps secondary actions available in compact windows without clipping or shifting the segments. Separate
-  secondary actions remain visible at regular widths, with the same actions also available from the app menus.
-  These actions open the
+- A genuine AppKit toolbar centers a complete mode control for switching between Connections, Departures, and
+  Station Timetables while preserving each search's state. Stable toolbar identifiers and visibility priorities
+  keep that control intact; macOS moves secondary actions into its native overflow menu when a compact window
+  cannot show them directly. The same actions remain available from the app menus. These actions open the
   timetable-favorites manager and app information in their own windows.
 - Timetable menus grouped into general rail and bus choices, integrated transport systems, and city networks,
   with persistent favorites repeated in their own first section without disappearing from the catalog, and a
