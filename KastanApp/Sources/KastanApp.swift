@@ -237,12 +237,19 @@ struct AppHelpCommands: Commands {
     }
 }
 
-/// Mirrors the active window's toolbar mode picker in the standard View menu.
+/// Keeps search-mode and favorite-timetable navigation available from the standard View menu.
 struct AppSectionCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
     @FocusedValue(\.appSectionSelection) private var selection: Binding<AppSection>?
 
     var body: some Commands {
         CommandGroup(after: .toolbar) {
+            Button {
+                openWindow(id: AppWindow.favoriteTimetables)
+            } label: {
+                Label("Favorite timetables", systemImage: "star")
+            }
+
             Divider()
 
             sectionToggle(.connections)

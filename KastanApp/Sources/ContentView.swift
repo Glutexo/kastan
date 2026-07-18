@@ -274,8 +274,20 @@ struct SearchWorkspace<SearchContent: View, ResultsContent: View>: View {
 
 /// Retains independent search state while the toolbar switches among all three IDOS search modes.
 struct ContentView: View {
-    /// Leaves room for both trailing actions at the main window's compact minimum width.
-    private static let modePickerWidth: CGFloat = 320
+    /// Reserves the compact toolbar for the search-mode picker so it never collapses into overflow.
+    struct ToolbarLayout {
+        static let compactBreakpoint: CGFloat = 720
+
+        let availableWidth: CGFloat
+
+        var isCompact: Bool {
+            availableWidth < Self.compactBreakpoint
+        }
+
+        var modePickerWidth: CGFloat {
+            isCompact ? 260 : 320
+        }
+    }
 
     @Environment(\.openWindow) private var openWindow
     private let client: any IDOSClienting
@@ -292,43 +304,60 @@ struct ContentView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            selectedContent
-                .navigationTitle("")
-                .toolbar {
-                    ToolbarItem(placement: .principal) {
-                        Picker("Search mode", selection: $selection) {
-                            ForEach(AppSection.allCases) { section in
-                                Text(section.title)
-                                    .tag(section)
+        GeometryReader { geometry in
+            let toolbarLayout = ToolbarLayout(availableWidth: geometry.size.width)
+
+            NavigationStack {
+                selectedContent
+                    .navigationTitle("")
+                    .toolbar {
+                        ToolbarItem(placement: .principal) {
+                            modePicker(width: toolbarLayout.modePickerWidth)
+                        }
+
+                        if !toolbarLayout.isCompact {
+                            ToolbarItemGroup(placement: .primaryAction) {
+                                favoriteTimetablesButton
+                                appInformationButton
                             }
                         }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .frame(width: Self.modePickerWidth)
-                        .accessibilityLabel("Search mode")
                     }
-
-                    ToolbarItemGroup(placement: .primaryAction) {
-                        Button {
-                            openWindow(id: AppWindow.favoriteTimetables)
-                        } label: {
-                            Label("Favorite timetables", systemImage: "star")
-                                .labelStyle(.iconOnly)
-                        }
-                        .help("Favorite timetables")
-
-                        Button {
-                            openWindow(id: AppWindow.information)
-                        } label: {
-                            Label("Show app and data source information", systemImage: "info.circle")
-                                .labelStyle(.iconOnly)
-                        }
-                        .help("Show app and data source information")
-                    }
-                }
+            }
         }
         .focusedSceneValue(\.appSectionSelection, $selection)
+    }
+
+    private func modePicker(width: CGFloat) -> some View {
+        Picker("Search mode", selection: $selection) {
+            ForEach(AppSection.allCases) { section in
+                Text(section.title)
+                    .tag(section)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .frame(width: width)
+        .accessibilityLabel("Search mode")
+    }
+
+    private var favoriteTimetablesButton: some View {
+        Button {
+            openWindow(id: AppWindow.favoriteTimetables)
+        } label: {
+            Label("Favorite timetables", systemImage: "star")
+                .labelStyle(.iconOnly)
+        }
+        .help("Favorite timetables")
+    }
+
+    private var appInformationButton: some View {
+        Button {
+            openWindow(id: AppWindow.information)
+        } label: {
+            Label("Show app and data source information", systemImage: "info.circle")
+                .labelStyle(.iconOnly)
+        }
+        .help("Show app and data source information")
     }
 
     @ViewBuilder

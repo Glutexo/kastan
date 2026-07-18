@@ -225,6 +225,16 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(AppWindow.favoriteTimetables, "favorite-timetables")
     }
 
+    func testToolbarPrioritizesACompactSearchModePickerInNarrowWindows() {
+        let compact = ContentView.ToolbarLayout(availableWidth: KastanApp.minimumMainWindowWidth)
+        let regular = ContentView.ToolbarLayout(availableWidth: 720)
+
+        XCTAssertTrue(compact.isCompact)
+        XCTAssertEqual(compact.modePickerWidth, 260)
+        XCTAssertFalse(regular.isCompact)
+        XCTAssertEqual(regular.modePickerWidth, 320)
+    }
+
     func testTimetableCatalogIsSplitIntoGeneralIntegratedAndCityGroups() {
         XCTAssertEqual(
             AppTimetableGroup.general.timetables.map(\.slug),
