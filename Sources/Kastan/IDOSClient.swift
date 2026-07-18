@@ -15,6 +15,64 @@ public enum IDOSLanguage: String, Codable, Equatable, Sendable {
     }
 }
 
+/// Selects the chronological edge extended by an IDOS result-page request.
+public enum IDOSPageDirection: String, Codable, Equatable, Hashable, Sendable {
+    case earlier
+    case later
+}
+
+/// Carries one connection batch together with the opaque IDOS continuation state for both edges.
+public struct IDOSConnectionPage: Sendable {
+    public let connections: [IDOSConnection]
+    public let canLoadEarlier: Bool
+    public let canLoadLater: Bool
+    let pagingContext: IDOSConnectionPagingContext?
+
+    public init(
+        connections: [IDOSConnection],
+        canLoadEarlier: Bool = false,
+        canLoadLater: Bool = false
+    ) {
+        self.connections = connections
+        self.canLoadEarlier = canLoadEarlier
+        self.canLoadLater = canLoadLater
+        pagingContext = nil
+    }
+
+    init(connections: [IDOSConnection], pagingContext: IDOSConnectionPagingContext?) {
+        self.connections = connections
+        canLoadEarlier = pagingContext?.allowPrevious ?? false
+        canLoadLater = pagingContext?.allowNext ?? false
+        self.pagingContext = pagingContext
+    }
+}
+
+/// Carries one station-board batch together with the search window used to extend either edge.
+public struct IDOSDeparturePage: Sendable {
+    public let departures: [IDOSDeparture]
+    public let canLoadEarlier: Bool
+    public let canLoadLater: Bool
+    let pagingContext: IDOSDeparturePagingContext?
+
+    public init(
+        departures: [IDOSDeparture],
+        canLoadEarlier: Bool = false,
+        canLoadLater: Bool = false
+    ) {
+        self.departures = departures
+        self.canLoadEarlier = canLoadEarlier
+        self.canLoadLater = canLoadLater
+        pagingContext = nil
+    }
+
+    init(departures: [IDOSDeparture], pagingContext: IDOSDeparturePagingContext?) {
+        self.departures = departures
+        canLoadEarlier = pagingContext != nil
+        canLoadLater = pagingContext != nil
+        self.pagingContext = pagingContext
+    }
+}
+
 public protocol IDOSClienting: Sendable {
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion]
     func searchStations(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion]
@@ -34,6 +92,13 @@ public protocol IDOSClienting: Sendable {
         language: IDOSLanguage
     ) async throws -> IDOSStationTimetable
     func findConnections(request: IDOSConnectionRequest) async throws -> [IDOSConnection]
+    /// Starts a connection search while retaining IDOS's continuation state for both chronological edges.
+    func findConnectionsPage(request: IDOSConnectionRequest) async throws -> IDOSConnectionPage
+    /// Extends an existing connection search through IDOS's native earlier/later paging endpoint.
+    func findConnectionsPage(
+        from page: IDOSConnectionPage,
+        direction: IDOSPageDirection
+    ) async throws -> IDOSConnectionPage
     func connectionCalendar(for connection: IDOSConnection, timetable: IDOSTimetable) async throws -> String
     /// Loads the IDOS calendar export represented by a dated service's permanent result link.
     func serviceCalendar(for service: IDOSServiceDetail) async throws -> String
@@ -46,6 +111,13 @@ public protocol IDOSClienting: Sendable {
         language: IDOSLanguage
     ) async throws -> Data
     func findDepartures(request: IDOSDeparturesRequest) async throws -> [IDOSDeparture]
+    /// Starts a station-board search while retaining its chronological search window.
+    func findDeparturesPage(request: IDOSDeparturesRequest) async throws -> IDOSDeparturePage
+    /// Extends a station board with an adjacent IDOS time window.
+    func findDeparturesPage(
+        from page: IDOSDeparturePage,
+        direction: IDOSPageDirection
+    ) async throws -> IDOSDeparturePage
     func serviceDetail(id: String, timetable: IDOSTimetable) async throws -> IDOSServiceDetail
     /// Loads a complete route with platform-supplied text in the selected language.
     func serviceDetail(
@@ -56,6 +128,33 @@ public protocol IDOSClienting: Sendable {
 }
 
 public extension IDOSClienting {
+    /// Adapts clients without paging support to a single non-extendable connection page.
+    func findConnectionsPage(request: IDOSConnectionRequest) async throws -> IDOSConnectionPage {
+        IDOSConnectionPage(connections: try await findConnections(request: request))
+    }
+
+    /// Returns no continuation for clients that only implement one-shot connection searches.
+    func findConnectionsPage(
+        from page: IDOSConnectionPage,
+        direction: IDOSPageDirection
+    ) async throws -> IDOSConnectionPage {
+        IDOSConnectionPage(connections: [])
+    }
+
+    /// Adapts clients without paging support to the first twenty station-board entries.
+    func findDeparturesPage(request: IDOSDeparturesRequest) async throws -> IDOSDeparturePage {
+        let departures = try await findDepartures(request: request)
+        return IDOSDeparturePage(departures: Array(departures.prefix(20)))
+    }
+
+    /// Returns no continuation for clients that only implement one-shot station-board searches.
+    func findDeparturesPage(
+        from page: IDOSDeparturePage,
+        direction: IDOSPageDirection
+    ) async throws -> IDOSDeparturePage {
+        IDOSDeparturePage(departures: [])
+    }
+
     /// Preserves compatibility for custom clients that do not provide station-timetable searches yet.
     func searchStationTimetableLines(
         prefix: String,
@@ -251,6 +350,10 @@ public struct IDOSClient: IDOSClienting {
     }
 
     public func findConnections(request: IDOSConnectionRequest) async throws -> [IDOSConnection] {
+        try await findConnectionsPage(request: request).connections
+    }
+
+    public func findConnectionsPage(request: IDOSConnectionRequest) async throws -> IDOSConnectionPage {
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         components.path = "/en/\(request.timetable.slug)/spojeni/"
 
@@ -266,61 +369,69 @@ public struct IDOSClient: IDOSClienting {
         }
 
         var connections = IDOSConnectionParser.parse(html: html, timetable: request.timetable)
-        guard let limit = request.resultLimit, connections.count < limit,
-              var paging = IDOSConnectionParser.pagingContext(html: html)
-        else {
-            return connections
+        guard var paging = IDOSConnectionParser.pagingContext(html: html) else {
+            return IDOSConnectionPage(connections: connections)
         }
+        paging.timetable = request.timetable
+        paging.listedIDs = connections.compactMap { Int($0.id) }
 
-        while connections.count < limit, paging.allowNext {
-            let page = try await nextConnectionsPage(
-                request: request,
-                paging: paging,
-                listedIDs: connections.compactMap { Int($0.id) }
-            )
+        if let limit = request.resultLimit {
+            while connections.count < limit, paging.allowNext {
+                let page = try await connectionPage(paging: paging, direction: .later)
 
-            guard !page.connections.isEmpty else {
-                break
+                guard !page.connections.isEmpty, let nextPaging = page.pagingContext else {
+                    break
+                }
+
+                connections.append(contentsOf: page.connections)
+                paging = nextPaging
             }
 
-            let knownIDs = Set(connections.map(\.id))
-            let newConnections = page.connections.filter { !knownIDs.contains($0.id) }
-            guard !newConnections.isEmpty else {
-                break
-            }
-
-            connections.append(contentsOf: newConnections)
-            paging.allowNext = page.allowNext
+            connections = Array(connections.prefix(limit))
+            paging.listedIDs = connections.compactMap { Int($0.id) }
         }
 
-        return Array(connections.prefix(limit))
+        return IDOSConnectionPage(connections: connections, pagingContext: paging)
     }
 
-    private func nextConnectionsPage(
-        request: IDOSConnectionRequest,
+    public func findConnectionsPage(
+        from page: IDOSConnectionPage,
+        direction: IDOSPageDirection
+    ) async throws -> IDOSConnectionPage {
+        guard let paging = page.pagingContext else {
+            return IDOSConnectionPage(connections: [])
+        }
+        return try await connectionPage(paging: paging, direction: direction)
+    }
+
+    private func connectionPage(
         paging: IDOSConnectionPagingContext,
-        listedIDs: [Int]
-    ) async throws -> (connections: [IDOSConnection], allowNext: Bool) {
-        guard let lastID = listedIDs.last else {
-            return ([], false)
+        direction: IDOSPageDirection
+    ) async throws -> IDOSConnectionPage {
+        let isPrevious = direction == .earlier
+        guard let connectionID = isPrevious ? paging.listedIDs.first : paging.listedIDs.last else {
+            return IDOSConnectionPage(connections: [])
         }
 
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
-        components.path = "/en/\(request.timetable.slug)/Ajax/ConnPaging"
+        components.path = "/en/\(paging.timetable.slug)/Ajax/ConnPaging"
         components.queryItems = [URLQueryItem(name: "callback", value: "idosCallback")]
 
         var urlRequest = URLRequest(url: try components.requiredURL)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/x-www-form-urlencoded; charset=UTF-8", forHTTPHeaderField: "Content-Type")
         urlRequest.setValue("XMLHttpRequest", forHTTPHeaderField: "X-Requested-With")
-        urlRequest.setValue("\(baseURL.absoluteString)/en/\(request.timetable.slug)/spojeni/", forHTTPHeaderField: "Referer")
+        urlRequest.setValue(
+            "\(baseURL.absoluteString)/en/\(paging.timetable.slug)/spojeni/",
+            forHTTPHeaderField: "Referer"
+        )
 
-        var items = listedIDs.map { URLQueryItem(name: "listedIds[]", value: String($0)) }
+        var items = paging.listedIDs.map { URLQueryItem(name: "listedIds[]", value: String($0)) }
         items.append(contentsOf: [
-            URLQueryItem(name: "isPrev", value: "false"),
+            URLQueryItem(name: "isPrev", value: isPrevious ? "true" : "false"),
             URLQueryItem(name: "handle", value: String(paging.handle)),
             URLQueryItem(name: "searchDate", value: paging.searchDate),
-            URLQueryItem(name: "connId", value: String(lastID)),
+            URLQueryItem(name: "connId", value: String(connectionID)),
             URLQueryItem(name: "arrivalThere", value: paging.arrivalThere),
             URLQueryItem(name: "from", value: paging.from),
             URLQueryItem(name: "to", value: paging.to),
@@ -338,13 +449,33 @@ public struct IDOSClient: IDOSClienting {
         }
 
         let html = (object["newConnections"] as? [String] ?? []).joined(separator: "\n")
+        guard let searchItem = try JSONSerialization.jsonObject(with: paging.searchItem) as? [String: Any] else {
+            throw IDOSError.invalidResponse
+        }
         let result: [String: Any] = [
             "handle": paging.handle,
             "connData": object["connData"] as? [[String: Any]] ?? [],
-            "searchItem": paging.searchItem,
+            "searchItem": searchItem,
         ]
-        let allowNext = object["allowNext"] as? Bool ?? false
-        return (IDOSConnectionParser.parse(html: html, result: result, timetable: request.timetable), allowNext)
+        let parsed = IDOSConnectionParser.parse(html: html, result: result, timetable: paging.timetable)
+        let knownIDs = Set(paging.listedIDs.map(String.init))
+        let connections = parsed.filter { !knownIDs.contains($0.id) }
+
+        var updatedPaging = paging
+        updatedPaging.allowPrevious = object["allowPrev"] as? Bool ?? paging.allowPrevious
+        updatedPaging.allowNext = object["allowNext"] as? Bool ?? paging.allowNext
+        let newIDs = connections.compactMap { Int($0.id) }
+        let combinedIDs = isPrevious
+            ? newIDs + paging.listedIDs
+            : paging.listedIDs + newIDs
+        var uniqueIDs = Set<Int>()
+        updatedPaging.listedIDs = combinedIDs.filter { uniqueIDs.insert($0).inserted }
+        if updatedPaging.listedIDs.count >= 50 {
+            updatedPaging.allowPrevious = false
+            updatedPaging.allowNext = false
+        }
+
+        return IDOSConnectionPage(connections: connections, pagingContext: updatedPaging)
     }
 
     public func connectionCalendar(for connection: IDOSConnection, timetable: IDOSTimetable = .defaultTimetable) async throws -> String {
@@ -422,6 +553,62 @@ public struct IDOSClient: IDOSClienting {
     }
 
     public func findDepartures(request: IDOSDeparturesRequest) async throws -> [IDOSDeparture] {
+        try await departureResults(request: request)
+    }
+
+    public func findDeparturesPage(request: IDOSDeparturesRequest) async throws -> IDOSDeparturePage {
+        let departures = Array(try await departureResults(request: request).prefix(20))
+        let dates = departures.compactMap { IDOSDepartureParser.scheduledDate(for: $0) }
+        guard let earliest = dates.min(), let latest = dates.max() else {
+            return IDOSDeparturePage(departures: departures)
+        }
+
+        let paging = IDOSDeparturePagingContext(
+            request: request,
+            earliestCursor: earliest,
+            latestCursor: latest,
+            listedIDs: Set(departures.map(\.id))
+        )
+        return IDOSDeparturePage(departures: departures, pagingContext: paging)
+    }
+
+    public func findDeparturesPage(
+        from page: IDOSDeparturePage,
+        direction: IDOSPageDirection
+    ) async throws -> IDOSDeparturePage {
+        guard var paging = page.pagingContext else {
+            return IDOSDeparturePage(departures: [])
+        }
+
+        let pageDuration: TimeInterval = 60 * 60
+        let boundary = direction == .earlier ? paging.earliestCursor : paging.latestCursor
+        let queryDate = direction == .earlier
+            ? boundary.addingTimeInterval(-pageDuration)
+            : boundary.addingTimeInterval(60)
+        let request = Self.departureRequest(paging.request, at: queryDate)
+        let fetched = try await departureResults(request: request)
+        let knownIDs = paging.listedIDs
+        let departures = fetched.filter { departure in
+            guard !knownIDs.contains(departure.id),
+                  let date = IDOSDepartureParser.scheduledDate(for: departure)
+            else {
+                return false
+            }
+            return direction == .earlier ? date < boundary : date > boundary
+        }
+
+        let loadedDates = departures.compactMap { IDOSDepartureParser.scheduledDate(for: $0) }
+        if direction == .earlier {
+            paging.earliestCursor = loadedDates.min() ?? queryDate
+        } else {
+            paging.latestCursor = loadedDates.max() ?? queryDate.addingTimeInterval(pageDuration)
+        }
+        paging.listedIDs.formUnion(departures.map(\.id))
+
+        return IDOSDeparturePage(departures: departures, pagingContext: paging)
+    }
+
+    private func departureResults(request: IDOSDeparturesRequest) async throws -> [IDOSDeparture] {
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         components.path = "/en/\(request.timetable.slug)/odjezdy/"
 
@@ -437,6 +624,28 @@ public struct IDOSClient: IDOSClienting {
         }
 
         return IDOSDepartureParser.parse(html: html, timetable: request.timetable)
+    }
+
+    private static func departureRequest(
+        _ original: IDOSDeparturesRequest,
+        at date: Date
+    ) -> IDOSDeparturesRequest {
+        var request = original
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/Prague")!
+        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        request.date = String(
+            format: "%02d.%02d.%04d",
+            components.day ?? 1,
+            components.month ?? 1,
+            components.year ?? 1
+        )
+        request.time = String(
+            format: "%02d:%02d",
+            components.hour ?? 0,
+            components.minute ?? 0
+        )
+        return request
     }
 
     /// Loads a complete route; `timetable` is used only when a legacy ID lacks embedded context.
@@ -1663,14 +1872,24 @@ enum IDOSJSONP {
     }
 }
 
-struct IDOSConnectionPagingContext {
+struct IDOSConnectionPagingContext: Sendable {
     var handle: Int
     var searchDate: String
     var arrivalThere: String
     var from: String?
     var to: String?
-    var searchItem: [String: Any]
+    var searchItem: Data
+    var allowPrevious: Bool
     var allowNext: Bool
+    var timetable: IDOSTimetable
+    var listedIDs: [Int]
+}
+
+struct IDOSDeparturePagingContext: Sendable {
+    var request: IDOSDeparturesRequest
+    var earliestCursor: Date
+    var latestCursor: Date
+    var listedIDs: Set<String>
 }
 
 enum IDOSConnectionParser {
@@ -1714,7 +1933,9 @@ enum IDOSConnectionParser {
               let searchItem = result["searchItem"] as? [String: Any],
               let connection = searchItem["oConn"] as? [String: Any],
               let input = connection["oUserInput"] as? [String: Any],
-              let searchDate = input["dtSearchDate"] as? String
+              let searchDate = input["dtSearchDate"] as? String,
+              JSONSerialization.isValidJSONObject(searchItem),
+              let searchItemData = try? JSONSerialization.data(withJSONObject: searchItem)
         else {
             return nil
         }
@@ -1729,8 +1950,11 @@ enum IDOSConnectionParser {
             arrivalThere: arrivalThere,
             from: from,
             to: to,
-            searchItem: searchItem,
-            allowNext: result["allowNext"] as? Bool ?? true
+            searchItem: searchItemData,
+            allowPrevious: result["allowPrev"] as? Bool ?? true,
+            allowNext: result["allowNext"] as? Bool ?? true,
+            timetable: .defaultTimetable,
+            listedIDs: []
         )
     }
 
@@ -2328,6 +2552,37 @@ enum IDOSStationTimetableParser {
 }
 
 enum IDOSDepartureParser {
+    /// Recovers the full scheduled timestamp retained in every parsed departure identifier.
+    static func scheduledDate(for departure: IDOSDeparture) -> Date? {
+        guard let parts = RegexSupport.captures(
+            pattern: #"-(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2}):(\d{2})$"#,
+            in: departure.id
+        ).first,
+              parts.count == 6,
+              let day = Int(parts[0]),
+              let month = Int(parts[1]),
+              let year = Int(parts[2]),
+              let hour = Int(parts[3]),
+              let minute = Int(parts[4]),
+              let second = Int(parts[5])
+        else {
+            return nil
+        }
+
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/Prague")!
+        return calendar.date(
+            from: DateComponents(
+                year: year,
+                month: month,
+                day: day,
+                hour: hour,
+                minute: minute,
+                second: second
+            )
+        )
+    }
+
     static func parse(
         html: String,
         timetable: IDOSTimetable = .defaultTimetable

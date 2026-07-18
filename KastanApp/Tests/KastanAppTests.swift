@@ -109,6 +109,81 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(layout.contentWidth, 1352)
     }
 
+    func testResultPullTriggerLoadsEachScrollableEdgeOncePerGesture() {
+        var trigger = SearchResultPullTrigger()
+        let topPull = CGRect(x: 0, y: 48, width: 700, height: 1_000)
+        let resting = CGRect(x: 0, y: 0, width: 700, height: 1_000)
+        let bottomPull = CGRect(x: 0, y: -548, width: 700, height: 1_000)
+
+        XCTAssertEqual(
+            trigger.edgeToLoad(
+                contentFrame: topPull,
+                viewportHeight: 500,
+                canLoadEarlier: true,
+                canLoadLater: true,
+                isLoadingEarlier: false,
+                isLoadingLater: false
+            ),
+            .earlier
+        )
+        XCTAssertNil(
+            trigger.edgeToLoad(
+                contentFrame: topPull,
+                viewportHeight: 500,
+                canLoadEarlier: true,
+                canLoadLater: true,
+                isLoadingEarlier: false,
+                isLoadingLater: false
+            )
+        )
+        XCTAssertNil(
+            trigger.edgeToLoad(
+                contentFrame: resting,
+                viewportHeight: 500,
+                canLoadEarlier: true,
+                canLoadLater: true,
+                isLoadingEarlier: false,
+                isLoadingLater: false
+            )
+        )
+        XCTAssertEqual(
+            trigger.edgeToLoad(
+                contentFrame: bottomPull,
+                viewportHeight: 500,
+                canLoadEarlier: true,
+                canLoadLater: true,
+                isLoadingEarlier: false,
+                isLoadingLater: false
+            ),
+            .later
+        )
+        XCTAssertNil(
+            trigger.edgeToLoad(
+                contentFrame: CGRect(x: 0, y: 48, width: 700, height: 300),
+                viewportHeight: 500,
+                canLoadEarlier: true,
+                canLoadLater: true,
+                isLoadingEarlier: false,
+                isLoadingLater: false
+            )
+        )
+    }
+
+    func testResultPagingProgressLabelsAreLocalized() throws {
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        let keys = ["Loading earlier results…", "Loading later results…"]
+
+        XCTAssertEqual(
+            keys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
+            ["Načítání dřívějších výsledků…", "Načítání následujících výsledků…"]
+        )
+        XCTAssertEqual(
+            keys.map { english.localizedString(forKey: $0, value: nil, table: nil) },
+            keys
+        )
+    }
+
     func testCollapsedSearchSummariesPreserveSubmittedQueryContext() {
         let connection = SearchSummaryPresentation.connection(
             from: " Praha ",
@@ -373,6 +448,45 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(model.departures.count, 20)
     }
 
+    func testConnectionPagingPrependsAndAppendsUniqueResults() async {
+        let client = MockIDOSClient()
+        await client.configureConnectionPages(
+            earlier: [connection(id: "connection-0"), connection(id: "connection-1")],
+            later: [connection(id: "connection-1"), connection(id: "connection-2")]
+        )
+        let model = ConnectionsViewModel(client: client)
+        model.from = "Praha"
+        model.to = "Brno"
+
+        await model.search()
+        await model.loadMore(.earlier)
+        await model.loadMore(.later)
+
+        XCTAssertEqual(model.connections.map(\.id), ["connection-0", "connection-1", "connection-2"])
+        let directions = await client.connectionPageDirections
+        XCTAssertEqual(directions, [.earlier, .later])
+    }
+
+    func testDeparturePagingPrependsAndAppendsUniqueResults() async {
+        let client = MockIDOSClient()
+        await client.configureDeparturePages(
+            earlier: [departure(id: "departure-0"), departure(id: "departure-1")],
+            later: [departure(id: "departure-20"), departure(id: "departure-21")]
+        )
+        let model = DeparturesViewModel(client: client)
+        model.station = "Ostrava-Svinov"
+
+        await model.search()
+        await model.loadMore(.earlier)
+        await model.loadMore(.later)
+
+        XCTAssertEqual(model.departures.first?.id, "departure-0")
+        XCTAssertEqual(model.departures.last?.id, "departure-21")
+        XCTAssertEqual(Set(model.departures.map(\.id)).count, model.departures.count)
+        let directions = await client.departurePageDirections
+        XCTAssertEqual(directions, [.earlier, .later])
+    }
+
     func testCalendarImportUsesCalendarReturnedByIDOS() async {
         let client = MockIDOSClient()
         let importer = RecordingCalendarImporter()
@@ -533,6 +647,27 @@ final class KastanAppTests: XCTestCase {
     }
 }
 
+private func connection(id: String) -> IDOSConnection {
+    IDOSConnection(
+        id: id,
+        departureTime: "12:00",
+        departureStation: "Praha hl.n.",
+        arrivalTime: "14:30",
+        arrivalStation: "Brno hl.n.",
+        duration: "2 h 30 min",
+        legs: []
+    )
+}
+
+private func departure(id: String) -> IDOSDeparture {
+    IDOSDeparture(
+        id: id,
+        time: "16:00",
+        lineName: "S2",
+        destination: "Opava"
+    )
+}
+
 private func localizationBundle(languageCode: String) -> Bundle? {
     guard let url = Bundle.main.url(forResource: languageCode, withExtension: "lproj") else {
         return nil
@@ -570,6 +705,24 @@ private actor MockIDOSClient: IDOSClienting {
     var lastServicePDFLanguage: IDOSLanguage?
     var lastStationTimetableRequest: IDOSStationTimetableRequest?
     var lastStationTimetableLanguage: IDOSLanguage?
+    var connectionPageDirections: [IDOSPageDirection] = []
+    var departurePageDirections: [IDOSPageDirection] = []
+    private var connectionPages: [IDOSPageDirection: [IDOSConnection]] = [:]
+    private var departurePages: [IDOSPageDirection: [IDOSDeparture]] = [:]
+
+    func configureConnectionPages(
+        earlier: [IDOSConnection],
+        later: [IDOSConnection]
+    ) {
+        connectionPages = [.earlier: earlier, .later: later]
+    }
+
+    func configureDeparturePages(
+        earlier: [IDOSDeparture],
+        later: [IDOSDeparture]
+    ) {
+        departurePages = [.earlier: earlier, .later: later]
+    }
 
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
         lastSuggestionQuery = SuggestionQuery(prefix: prefix, timetableSlug: timetable.slug)
@@ -638,6 +791,26 @@ private actor MockIDOSClient: IDOSClienting {
         ]
     }
 
+    func findConnectionsPage(request: IDOSConnectionRequest) async throws -> IDOSConnectionPage {
+        IDOSConnectionPage(
+            connections: try await findConnections(request: request),
+            canLoadEarlier: connectionPages[.earlier] != nil,
+            canLoadLater: connectionPages[.later] != nil
+        )
+    }
+
+    func findConnectionsPage(
+        from page: IDOSConnectionPage,
+        direction: IDOSPageDirection
+    ) async throws -> IDOSConnectionPage {
+        connectionPageDirections.append(direction)
+        return IDOSConnectionPage(
+            connections: connectionPages[direction] ?? [],
+            canLoadEarlier: connectionPages[.earlier] != nil,
+            canLoadLater: connectionPages[.later] != nil
+        )
+    }
+
     func connectionCalendar(for connection: IDOSConnection, timetable: IDOSTimetable) async throws -> String {
         "BEGIN:VCALENDAR\nEND:VCALENDAR"
     }
@@ -672,6 +845,26 @@ private actor MockIDOSClient: IDOSClienting {
                 destination: "Opava"
             )
         }
+    }
+
+    func findDeparturesPage(request: IDOSDeparturesRequest) async throws -> IDOSDeparturePage {
+        IDOSDeparturePage(
+            departures: Array(try await findDepartures(request: request).prefix(20)),
+            canLoadEarlier: departurePages[.earlier] != nil,
+            canLoadLater: departurePages[.later] != nil
+        )
+    }
+
+    func findDeparturesPage(
+        from page: IDOSDeparturePage,
+        direction: IDOSPageDirection
+    ) async throws -> IDOSDeparturePage {
+        departurePageDirections.append(direction)
+        return IDOSDeparturePage(
+            departures: departurePages[direction] ?? [],
+            canLoadEarlier: departurePages[.earlier] != nil,
+            canLoadLater: departurePages[.later] != nil
+        )
     }
 
     func serviceDetail(id: String, timetable: IDOSTimetable) async throws -> IDOSServiceDetail {

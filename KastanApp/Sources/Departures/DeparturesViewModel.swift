@@ -11,16 +11,28 @@ final class DeparturesViewModel: ObservableObject {
     @Published var isArrival = false
     @Published private(set) var departures: [IDOSDeparture] = []
     @Published private(set) var isSearching = false
+    @Published private(set) var isLoadingEarlier = false
+    @Published private(set) var isLoadingLater = false
     @Published var errorMessage: String?
 
     let client: any IDOSClienting
+    private var resultPage: IDOSDeparturePage?
 
     init(client: any IDOSClienting) {
         self.client = client
     }
 
     var canSearch: Bool {
-        !station.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSearching
+        !station.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            !isSearching && !isLoadingEarlier && !isLoadingLater
+    }
+
+    var canLoadEarlier: Bool {
+        !departures.isEmpty && resultPage?.canLoadEarlier == true && !isSearching && !isLoadingLater
+    }
+
+    var canLoadLater: Bool {
+        !departures.isEmpty && resultPage?.canLoadLater == true && !isSearching && !isLoadingEarlier
     }
 
     func search() async {
@@ -32,6 +44,7 @@ final class DeparturesViewModel: ObservableObject {
 
         isSearching = true
         errorMessage = nil
+        resultPage = nil
         defer { isSearching = false }
 
         let request = IDOSDeparturesRequest(
@@ -43,10 +56,50 @@ final class DeparturesViewModel: ObservableObject {
         )
 
         do {
-            departures = Array(try await client.findDepartures(request: request).prefix(20))
+            let page = try await client.findDeparturesPage(request: request)
+            departures = page.departures
+            resultPage = page
         } catch {
             departures = []
             errorMessage = AppErrorPresentation.message(for: error)
+        }
+    }
+
+    /// Extends the submitted station board at the selected chronological edge without replacing rows.
+    func loadMore(_ direction: IDOSPageDirection) async {
+        guard let resultPage,
+              (direction == .earlier ? canLoadEarlier : canLoadLater)
+        else {
+            return
+        }
+
+        if direction == .earlier {
+            isLoadingEarlier = true
+        } else {
+            isLoadingLater = true
+        }
+        errorMessage = nil
+        defer {
+            isLoadingEarlier = false
+            isLoadingLater = false
+        }
+
+        do {
+            let page = try await client.findDeparturesPage(from: resultPage, direction: direction)
+            self.resultPage = page
+            merge(page.departures, direction: direction)
+        } catch {
+            errorMessage = AppErrorPresentation.message(for: error)
+        }
+    }
+
+    private func merge(_ additionalDepartures: [IDOSDeparture], direction: IDOSPageDirection) {
+        let knownIDs = Set(departures.map(\.id))
+        let uniqueDepartures = additionalDepartures.filter { !knownIDs.contains($0.id) }
+        if direction == .earlier {
+            departures.insert(contentsOf: uniqueDepartures, at: 0)
+        } else {
+            departures.append(contentsOf: uniqueDepartures)
         }
     }
 }

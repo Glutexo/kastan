@@ -25,6 +25,8 @@ final class ConnectionsViewModel: ObservableObject {
     @Published var maximumTransfers = 4
     @Published private(set) var connections: [IDOSConnection] = []
     @Published private(set) var isSearching = false
+    @Published private(set) var isLoadingEarlier = false
+    @Published private(set) var isLoadingLater = false
     @Published private(set) var importingConnectionID: String?
     @Published private(set) var exportingPDFConnectionID: String?
     @Published var errorMessage: String?
@@ -32,6 +34,7 @@ final class ConnectionsViewModel: ObservableObject {
     let client: any IDOSClienting
     private let calendarImporter: any CalendarImporting
     private let pdfExporter: any PDFExporting
+    private var resultPage: IDOSConnectionPage?
 
     init(
         client: any IDOSClienting,
@@ -46,7 +49,15 @@ final class ConnectionsViewModel: ObservableObject {
     var canSearch: Bool {
         !from.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
             !to.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-            !isSearching
+            !isSearching && !isLoadingEarlier && !isLoadingLater
+    }
+
+    var canLoadEarlier: Bool {
+        !connections.isEmpty && resultPage?.canLoadEarlier == true && !isSearching && !isLoadingLater
+    }
+
+    var canLoadLater: Bool {
+        !connections.isEmpty && resultPage?.canLoadLater == true && !isSearching && !isLoadingEarlier
     }
 
     /// Presents zero transfers as the equivalent, clearer direct-only journey constraint.
@@ -87,6 +98,7 @@ final class ConnectionsViewModel: ObservableObject {
 
         isSearching = true
         errorMessage = nil
+        resultPage = nil
         defer { isSearching = false }
 
         let requestedViaPlaces = viaPlaces
@@ -106,10 +118,50 @@ final class ConnectionsViewModel: ObservableObject {
         )
 
         do {
-            connections = try await client.findConnections(request: request)
+            let page = try await client.findConnectionsPage(request: request)
+            connections = page.connections
+            resultPage = page
         } catch {
             connections = []
             errorMessage = AppErrorPresentation.message(for: error)
+        }
+    }
+
+    /// Extends the submitted connection search at the selected chronological edge without replacing results.
+    func loadMore(_ direction: IDOSPageDirection) async {
+        guard let resultPage,
+              (direction == .earlier ? canLoadEarlier : canLoadLater)
+        else {
+            return
+        }
+
+        if direction == .earlier {
+            isLoadingEarlier = true
+        } else {
+            isLoadingLater = true
+        }
+        errorMessage = nil
+        defer {
+            isLoadingEarlier = false
+            isLoadingLater = false
+        }
+
+        do {
+            let page = try await client.findConnectionsPage(from: resultPage, direction: direction)
+            self.resultPage = page
+            merge(page.connections, direction: direction)
+        } catch {
+            errorMessage = AppErrorPresentation.message(for: error)
+        }
+    }
+
+    private func merge(_ additionalConnections: [IDOSConnection], direction: IDOSPageDirection) {
+        let knownIDs = Set(connections.map(\.id))
+        let uniqueConnections = additionalConnections.filter { !knownIDs.contains($0.id) }
+        if direction == .earlier {
+            connections.insert(contentsOf: uniqueConnections, at: 0)
+        } else {
+            connections.append(contentsOf: uniqueConnections)
         }
     }
 

@@ -15,7 +15,13 @@ struct ConnectionsView: View {
 
             SearchWorkspace(
                 layout: layout,
-                searchVerticalPadding: isSearchFormCollapsed ? 10 : 18
+                searchVerticalPadding: isSearchFormCollapsed ? 10 : 18,
+                canLoadEarlier: model.canLoadEarlier,
+                canLoadLater: model.canLoadLater,
+                isLoadingEarlier: model.isLoadingEarlier,
+                isLoadingLater: model.isLoadingLater,
+                loadEarlier: { await model.loadMore(.earlier) },
+                loadLater: { await model.loadMore(.later) }
             ) {
                 if isSearchFormCollapsed {
                     SearchSummaryBar(

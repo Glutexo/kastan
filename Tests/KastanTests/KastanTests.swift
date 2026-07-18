@@ -1518,6 +1518,7 @@ import Testing
     #expect(context.arrivalThere == "0001-01-01T00:00:00")
     #expect(context.from == "Praha")
     #expect(context.to == "Brno")
+    #expect(context.allowPrevious == true)
     #expect(context.allowNext == true)
 }
 
@@ -1610,7 +1611,7 @@ import Testing
     #expect(connection?.summaryLine(number: 1).contains("🚆") == true)
 }
 
-@Test func departureParserReadsDeparturesTableRows() {
+@Test func departureParserReadsDeparturesTableRows() throws {
     let html = """
     <h2 class="depTitlePage">Departures from Fr&#253;dek,Sportovn&#237; hala Pol&#225;rka</h2>
     <tr class="dep-row dep-row-first" data-ttindex="1" data-train="4286" data-datetime="18.06.2026 16:03:00" data-stationname="Rožnov p.Radh.,,aut.st.">
@@ -1648,6 +1649,15 @@ import Testing
     #expect(departure?.delay == "Currently no delay")
     #expect(departure?.summaryLine(number: 1).contains("🚌") == true)
     #expect(departure?.summaryLine(number: 1).contains("tariff zone 70 · platform 1") == true)
+    let scheduledDate = try #require(departure.flatMap { IDOSDepartureParser.scheduledDate(for: $0) })
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "Europe/Prague")!
+    let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: scheduledDate)
+    #expect(components.year == 2026)
+    #expect(components.month == 6)
+    #expect(components.day == 18)
+    #expect(components.hour == 16)
+    #expect(components.minute == 3)
 }
 
 @Test func serviceDetailParserReadsCompleteRouteAndInformation() throws {

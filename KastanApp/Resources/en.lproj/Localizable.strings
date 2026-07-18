@@ -59,6 +59,8 @@
 "Kaštan retrieves journey information from publicly accessible IDOS web pages. It is not an official IDOS or CHAPS application." = "Kaštan retrieves journey information from publicly accessible IDOS web pages. It is not an official IDOS or CHAPS application.";
 "Independent macOS client for occasional personal IDOS searches." = "Independent macOS client for occasional personal IDOS searches.";
 "Integrated transport systems" = "Integrated transport systems";
+"Loading earlier results…" = "Loading earlier results…";
+"Loading later results…" = "Loading later results…";
 "Loading service route…" = "Loading service route…";
 "Loading suggestions" = "Loading suggestions";
 "Loading station board…" = "Loading station board…";
