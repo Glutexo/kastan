@@ -135,6 +135,13 @@ struct PlaceSuggestionPresentation: Equatable {
     }
 
     private static func emoji(for description: String) -> String {
+        let metadata = description
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        if metadata.contains("municipality") || metadata.contains("city") {
+            return "🏘️"
+        }
+
         let value = description.lowercased()
         if value.contains("trains") || value.contains("railway") {
             return "🚆"

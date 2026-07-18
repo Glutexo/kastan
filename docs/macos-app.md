@@ -7,8 +7,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 
 ## Features
 
-- Connection searches with place suggestions, date, time, arrival mode, editable via places, and transfer
-  limits with locale-aware plural wording and a consistently aligned stepper.
+- Connection searches with place suggestions whose icons distinguish municipalities from stations and stops,
+  date, time, arrival mode, editable via places, and transfer limits with locale-aware plural wording and a
+  consistently aligned stepper.
 - Station departures and arrivals with station-only suggestions.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, tariff zones, platforms or stands, lockout labels, explanatory notes, and links back to the

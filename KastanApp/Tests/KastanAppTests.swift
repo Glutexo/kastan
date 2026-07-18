@@ -358,6 +358,12 @@ final class KastanAppTests: XCTestCase {
     }
 
     func testSuggestionPresentationLocalizesMetadataAndRemovesRepeatedRegion() {
+        let municipality = PlaceSuggestionPresentation(
+            suggestion: IDOSSuggestion(
+                text: "Frýdek-Místek",
+                description: "municipality, district Frýdek-Místek, trains, buses, urban public transport"
+            )
+        )
         let station = PlaceSuggestionPresentation(
             suggestion: IDOSSuggestion(
                 text: "Frýdek-Místek",
@@ -373,6 +379,7 @@ final class KastanAppTests: XCTestCase {
             )
         )
 
+        XCTAssertEqual(municipality.emoji, "🏘️")
         XCTAssertEqual(station.emoji, "🚆")
         XCTAssertEqual(station.detail?.components(separatedBy: " · ").count, 3)
         XCTAssertEqual(
