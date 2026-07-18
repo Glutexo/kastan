@@ -194,6 +194,7 @@ enum ServiceDetailToolbarAction: CaseIterable, Hashable, Identifiable {
 
 /// Shows every stop and piece of service information supplied by IDOS in its own window.
 struct ServiceDetailView: View {
+    @Environment(\.openURL) private var openURL
     @StateObject private var model: ServiceDetailViewModel
     private let routeHighlight: ServiceRouteHighlight?
 
@@ -283,10 +284,13 @@ struct ServiceDetailView: View {
             .disabled(model.isPerformingExport)
             .help(action.title)
         case .openInIDOS:
-            Link(destination: url) {
+            Button {
+                openURL(url)
+            } label: {
                 serviceActionLabel(action)
             }
             .disabled(model.isPerformingExport)
+            .accessibilityLabel(action.title)
             .help(action.title)
         }
     }
