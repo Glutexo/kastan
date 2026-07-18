@@ -1,3 +1,4 @@
+import AppKit
 import Kastan
 import SwiftUI
 
@@ -187,9 +188,9 @@ struct SearchWorkspace<SearchContent: View, ResultsContent: View>: View {
     }
 }
 
-/// Retains independent search state while the toolbar switches among all three IDOS search modes.
+/// Retains independent search state while the titlebar switches among all three IDOS search modes.
 struct ContentView: View {
-    /// Keeps the search-mode picker visible while moving secondary actions into a compact menu.
+    /// Keeps the search-mode picker centered while moving secondary actions into a compact menu.
     struct ToolbarLayout {
         static let compactBreakpoint: CGFloat = 720
 
@@ -200,12 +201,7 @@ struct ContentView: View {
         }
 
         var modePickerWidth: CGFloat {
-            isCompact ? 220 : 320
-        }
-
-        /// Compensates for the traffic-light region that macOS includes when positioning a compact principal item.
-        var modePickerHorizontalOffset: CGFloat {
-            isCompact ? -80 : 0
+            isCompact ? 260 : 320
         }
 
         var usesSecondaryActionsMenu: Bool {
@@ -231,33 +227,37 @@ struct ContentView: View {
         GeometryReader { geometry in
             let toolbarLayout = ToolbarLayout(availableWidth: geometry.size.width)
 
-            NavigationStack {
+            VStack(spacing: 0) {
+                titlebar(layout: toolbarLayout)
+                Divider()
                 selectedContent
-                    .navigationTitle("")
-                    .toolbar {
-                        if toolbarLayout.usesSecondaryActionsMenu {
-                            ToolbarItem(placement: .principal) {
-                                modePicker(width: toolbarLayout.modePickerWidth)
-                                    .offset(x: toolbarLayout.modePickerHorizontalOffset)
-                            }
-
-                            ToolbarItem(placement: .primaryAction) {
-                                secondaryActionsMenu
-                            }
-                        } else {
-                            ToolbarItem(placement: .principal) {
-                                modePicker(width: toolbarLayout.modePickerWidth)
-                            }
-
-                            ToolbarItemGroup(placement: .primaryAction) {
-                                favoriteTimetablesButton
-                                appInformationButton
-                            }
-                        }
-                    }
             }
         }
+        .ignoresSafeArea(.container, edges: .top)
         .focusedSceneValue(\.appSectionSelection, $selection)
+    }
+
+    private func titlebar(layout: ToolbarLayout) -> some View {
+        ZStack {
+            modePicker(width: layout.modePickerWidth)
+
+            HStack(spacing: 8) {
+                Spacer(minLength: 0)
+                if layout.usesSecondaryActionsMenu {
+                    secondaryActionsMenu
+                } else {
+                    favoriteTimetablesButton
+                    appInformationButton
+                }
+            }
+            .padding(.trailing, 12)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 52)
+        .background(.bar)
+        .background {
+            WindowDragArea()
+        }
     }
 
     private func modePicker(width: CGFloat) -> some View {
@@ -269,6 +269,7 @@ struct ContentView: View {
         }
         .pickerStyle(.segmented)
         .labelsHidden()
+        .tint(.gray)
         .frame(width: width)
         .accessibilityLabel("Search mode")
     }
@@ -281,6 +282,8 @@ struct ContentView: View {
                 .labelStyle(.iconOnly)
         }
         .help("Favorite timetables")
+        .buttonStyle(.borderless)
+        .controlSize(.large)
     }
 
     private var appInformationButton: some View {
@@ -291,6 +294,8 @@ struct ContentView: View {
                 .labelStyle(.iconOnly)
         }
         .help("Show app and data source information")
+        .buttonStyle(.borderless)
+        .controlSize(.large)
     }
 
     private var secondaryActionsMenu: some View {
@@ -311,6 +316,9 @@ struct ContentView: View {
                 .labelStyle(.iconOnly)
         }
         .help("More")
+        .menuStyle(.borderlessButton)
+        .controlSize(.large)
+        .fixedSize()
     }
 
     @ViewBuilder
@@ -322,6 +330,22 @@ struct ContentView: View {
             DeparturesView(model: departuresModel, client: client)
         case .stationTimetables:
             StationTimetablesView(model: stationTimetablesModel, client: client)
+        }
+    }
+}
+
+/// Preserves native window dragging behind the custom titlebar's interactive controls.
+struct WindowDragArea: NSViewRepresentable {
+    func makeNSView(context: Context) -> DragView {
+        DragView()
+    }
+
+    func updateNSView(_ nsView: DragView, context: Context) {}
+
+    @MainActor
+    final class DragView: NSView {
+        override var mouseDownCanMoveWindow: Bool {
+            true
         }
     }
 }

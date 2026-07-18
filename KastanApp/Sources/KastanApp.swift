@@ -297,6 +297,7 @@ struct KastanApp: App {
             ContentView(client: client)
                 .frame(minWidth: Self.minimumMainWindowWidth, minHeight: 520)
         }
+        .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1080, height: 720)
         .commands {
             AppWindowCommands()
