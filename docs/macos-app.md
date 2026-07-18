@@ -17,8 +17,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   preserving each search's state. Toolbar actions open the timetable-favorites manager and app information in
   their own windows.
 - Timetable menus grouped into general rail and bus choices, integrated transport systems, and city networks,
-  with persistent favorites in their own first section and a favorite button kept next to the picker at every
-  window width.
+  with persistent favorites repeated in their own first section without disappearing from the catalog, and a
+  favorite button kept next to the picker at every window width.
 - Search forms fixed above independently scrollable result areas, then collapsed into low query summaries after
   submission with an explicit action for returning to the editable form.
 - Native tabs and windows, including independent favorite-timetable and resizable service-route windows.

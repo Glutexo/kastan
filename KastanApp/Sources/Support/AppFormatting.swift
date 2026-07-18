@@ -225,10 +225,6 @@ struct TimetableFavorites: Equatable {
         slugs.contains(timetable.slug)
     }
 
-    func nonFavorites(in timetables: [IDOSTimetable]) -> [IDOSTimetable] {
-        timetables.filter { !slugs.contains($0.slug) }
-    }
-
     mutating func toggle(_ timetable: IDOSTimetable) {
         if let index = slugs.firstIndex(of: timetable.slug) {
             slugs.remove(at: index)
@@ -319,7 +315,7 @@ struct AppTimetablePickerOptions: View {
         }
 
         ForEach(AppTimetableGroup.allCases) { group in
-            let timetables = favorites.nonFavorites(in: group.timetables.filter(isAllowed))
+            let timetables = catalogTimetables(in: group)
             if !timetables.isEmpty {
                 Section {
                     ForEach(timetables, id: \.slug) { timetable in
@@ -338,6 +334,12 @@ struct AppTimetablePickerOptions: View {
 
     private var favoriteTimetables: [IDOSTimetable] {
         favorites.timetables.filter(isAllowed)
+    }
+
+    /// Keeps every allowed timetable in its catalog section, even when favorites also expose it
+    /// for quick access.
+    func catalogTimetables(in group: AppTimetableGroup) -> [IDOSTimetable] {
+        group.timetables.filter(isAllowed)
     }
 
     private func isAllowed(_ timetable: IDOSTimetable) -> Bool {

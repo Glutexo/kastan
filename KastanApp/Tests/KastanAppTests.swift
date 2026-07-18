@@ -164,7 +164,7 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testFavoriteTimetablesPersistKnownUniqueSlugsInPickerOrder() {
+    func testFavoriteTimetablesPersistKnownUniqueSlugsInOrder() {
         var favorites = TimetableFavorites(slugs: ["vlaky", "unknown", "vlaky", "odis"])
 
         XCTAssertEqual(favorites.slugs, ["vlaky", "odis"])
@@ -175,12 +175,13 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertEqual(favorites.slugs, ["odis", "pid"])
         XCTAssertEqual(TimetableFavorites(serialized: favorites.serialized), favorites)
+    }
 
-        let pickerTimetables = favorites.timetables + AppTimetableGroup.allCases.flatMap {
-            favorites.nonFavorites(in: $0.timetables)
-        }
-        XCTAssertEqual(pickerTimetables.count, IDOSTimetable.known.count)
-        XCTAssertEqual(Set(pickerTimetables.map(\.slug)), Set(IDOSTimetable.known.map(\.slug)))
+    func testFavoriteTimetablesRemainInTheirCatalogSections() {
+        let options = AppTimetablePickerOptions(favoriteSlugs: ["vlaky", "odis"])
+
+        XCTAssertTrue(options.catalogTimetables(in: .general).contains { $0.slug == "vlaky" })
+        XCTAssertTrue(options.catalogTimetables(in: .integratedSystems).contains { $0.slug == "odis" })
     }
 
     func testFavoriteManagerKeepsEveryTimetableInItsCatalogGroup() {
