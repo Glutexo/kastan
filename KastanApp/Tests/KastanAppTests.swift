@@ -131,6 +131,27 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 21)), .runs)
     }
 
+    func testServiceCalendarInitiallyShowsCurrentOrNearestValidityMonth() throws {
+        let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(
+            note: "nejede 24.XII.",
+            validityStart: serviceDate(2025, 12, 14),
+            validityEnd: serviceDate(2026, 12, 12)
+        ))
+
+        XCTAssertEqual(
+            serviceCalendar.initialVisibleMonth(on: serviceDate(2026, 7, 19)),
+            serviceDate(2026, 7, 1)
+        )
+        XCTAssertEqual(
+            serviceCalendar.initialVisibleMonth(on: serviceDate(2025, 11, 30)),
+            serviceDate(2025, 12, 1)
+        )
+        XCTAssertEqual(
+            serviceCalendar.initialVisibleMonth(on: serviceDate(2027, 1, 1)),
+            serviceDate(2026, 12, 1)
+        )
+    }
+
     func testNonDatedAndOutOfValidityNotesDoNotOfferServiceCalendars() {
         XCTAssertNil(StationTimetableServiceCalendar(
             note: "A: jede jen do zastávky Háje",

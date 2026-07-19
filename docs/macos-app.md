@@ -50,6 +50,7 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Selectable service-information text that supports the standard macOS copy command while retaining clickable
   phone-number links. Dated operating exceptions, including abbreviated ranges such as `17. to 20.VIII.`, open
   the same running/non-running calendar using the exact validity interval published by the current IDOS
+  timetable. When opened, the calendar scrolls to the current month or to the nearest month covered by that
   timetable.
 - Permanent connection and service-detail links using the IDOS language that matches the app, available for
   opening in IDOS or sharing through the standard macOS share sheet. Every service-detail action is an

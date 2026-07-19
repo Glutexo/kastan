@@ -64,6 +64,22 @@ struct StationTimetableServiceCalendar: Equatable {
         }
     }
 
+    /// Selects the current civil month when it is visible, or the nearest validity boundary otherwise.
+    func initialVisibleMonth(on date: Date) -> Date {
+        let calendar = Self.serviceCalendar
+        guard let requestedMonth = calendar.date(
+            from: calendar.dateComponents([.year, .month], from: date)
+        ), let firstMonth = calendar.date(
+            from: calendar.dateComponents([.year, .month], from: validityStart)
+        ), let lastMonth = calendar.date(
+            from: calendar.dateComponents([.year, .month], from: validityEnd)
+        ) else {
+            return validityStart
+        }
+
+        return min(max(requestedMonth, firstMonth), lastMonth)
+    }
+
     /// Uses the transport network's civil timezone so service dates do not move when the Mac is elsewhere.
     static var serviceCalendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
@@ -382,14 +398,20 @@ private struct StationTimetableServiceCalendarView: View {
 
             Divider()
 
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 20) {
-                    ForEach(monthStarts, id: \.self) { month in
-                        monthView(month)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 20) {
+                        ForEach(monthStarts, id: \.self) { month in
+                            monthView(month)
+                                .id(month)
+                        }
                     }
                 }
+                .frame(maxHeight: 460)
+                .onAppear {
+                    proxy.scrollTo(serviceCalendar.initialVisibleMonth(on: Date()), anchor: .top)
+                }
             }
-            .frame(maxHeight: 460)
 
             Divider()
             legend
