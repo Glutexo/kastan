@@ -10,9 +10,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Connection searches with full-row selectable place suggestions whose icons distinguish municipalities from
   stations and stops. Suggestion metadata, including foreign country names, follows the app language.
   Choosing a suggestion also preserves its exact IDOS identity, so a station is not broadened to a same-named
-  municipality; editing the field returns it to a free-text search. Searches also support date, time, arrival
-  mode, editable via places, and transfer limits with locale-aware plural wording and a consistently aligned
-  stepper.
+  municipality. The selected field marks that identity with a subdued localized type such as municipality,
+  train, or bus; editing the field removes the marker and returns it to a free-text search. Searches also support
+  date, time, arrival mode, editable via places, and transfer limits with locale-aware plural wording and a
+  consistently aligned stepper.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, tariff zones, platforms or stands, lockout labels, explanatory notes, and links back to the

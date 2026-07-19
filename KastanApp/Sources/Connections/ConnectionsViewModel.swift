@@ -30,8 +30,8 @@ final class ConnectionsViewModel: ObservableObject {
         }
     }
     /// Exact IDOS choices retained only while their corresponding visible text is unchanged.
-    @Published var fromSelection: IDOSPlaceSelection?
-    @Published var toSelection: IDOSPlaceSelection?
+    @Published var fromSelection: PlaceFieldSelection?
+    @Published var toSelection: PlaceFieldSelection?
     @Published var viaPlaces = [ViaPlaceEntry()]
     @Published var timetable = IDOSTimetable.defaultTimetable {
         didSet {
@@ -134,8 +134,8 @@ final class ConnectionsViewModel: ObservableObject {
             timetable: timetable,
             from: departure,
             to: arrival,
-            fromSelection: fromSelection?.text == departure ? fromSelection : nil,
-            toSelection: toSelection?.text == arrival ? toSelection : nil,
+            fromSelection: fromSelection?.text == departure ? fromSelection?.idosSelection : nil,
+            toSelection: toSelection?.text == arrival ? toSelection?.idosSelection : nil,
             date: IDOSRequestFormatting.date(from: date),
             time: IDOSRequestFormatting.time(from: time),
             isArrival: isArrival,

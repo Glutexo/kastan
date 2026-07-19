@@ -12,7 +12,7 @@ final class DeparturesViewModel: ObservableObject {
         }
     }
     /// The selected IDOS station or stop, retained only while its visible text is unchanged.
-    @Published var stationSelection: IDOSPlaceSelection?
+    @Published var stationSelection: PlaceFieldSelection?
     @Published var timetable = IDOSTimetable.defaultTimetable {
         didSet {
             guard timetable.slug != oldValue.slug else { return }
@@ -63,7 +63,7 @@ final class DeparturesViewModel: ObservableObject {
         let request = IDOSDeparturesRequest(
             timetable: timetable,
             station: station,
-            stationSelection: stationSelection?.text == station ? stationSelection : nil,
+            stationSelection: stationSelection?.text == station ? stationSelection?.idosSelection : nil,
             date: IDOSRequestFormatting.date(from: date),
             time: IDOSRequestFormatting.time(from: time),
             isArrival: isArrival

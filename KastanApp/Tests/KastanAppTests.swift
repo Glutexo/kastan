@@ -450,7 +450,10 @@ final class KastanAppTests: XCTestCase {
         )
 
         XCTAssertEqual(municipality.emoji, "🏘️")
+        XCTAssertEqual(municipality.kind, .municipality)
         XCTAssertEqual(station.emoji, "🚆")
+        XCTAssertEqual(station.kind, .train)
+        XCTAssertEqual(busStop.kind, .bus)
         XCTAssertEqual(station.detail?.components(separatedBy: " · ").count, 3)
         XCTAssertEqual(
             station.detail?.components(separatedBy: " · ").filter { $0.contains("Frýdek-Místek") }.count,
@@ -459,6 +462,30 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(busStop.emoji, "🚌")
         XCTAssertEqual(busStop.detail?.components(separatedBy: " · ").count, 4)
         XCTAssertEqual(romanianMunicipality.detail, "Rumunsko")
+    }
+
+    func testExactSuggestionSelectionCarriesALocalizedVisibleType() throws {
+        let selection = try XCTUnwrap(PlaceFieldSelection(suggestion: IDOSSuggestion(
+            selectedText: "Frýdek-Místek",
+            text: "Frýdek-Místek",
+            description: "station, district Frýdek-Místek, trains",
+            value: "100003",
+            value2: "10357"
+        )))
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+
+        XCTAssertEqual(selection.idosSelection.text, "Frýdek-Místek")
+        XCTAssertEqual(selection.kind, .train)
+        let keys = ["municipality", "train", "bus"]
+        XCTAssertEqual(
+            keys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
+            ["obec", "vlak", "autobus"]
+        )
+        XCTAssertEqual(
+            keys.map { english.localizedString(forKey: $0, value: nil, table: nil) },
+            ["municipality", "train", "bus"]
+        )
     }
 
     func testSuggestionButtonAcceptsClicksAcrossTheFullRow() {
@@ -556,13 +583,17 @@ final class KastanAppTests: XCTestCase {
         let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())
         model.from = "Praha"
         model.to = " Brno "
-        model.fromSelection = IDOSPlaceSelection(text: "Praha", listID: "100003", itemID: "5457076")
+        model.timetable = IDOSTimetable(slug: "vlaky", displayName: "Trains")
+        let fromSelection = PlaceFieldSelection(
+            idosSelection: IDOSPlaceSelection(text: "Praha", listID: "100003", itemID: "5457076"),
+            kind: .train
+        )
+        model.fromSelection = fromSelection
         model.viaPlaces = [
             ViaPlaceEntry(name: " Pardubice "),
             ViaPlaceEntry(name: ""),
             ViaPlaceEntry(name: "Olomouc")
         ]
-        model.timetable = IDOSTimetable(slug: "vlaky", displayName: "Trains")
         model.isArrival = true
         model.maximumTransfers = 2
 
@@ -571,7 +602,7 @@ final class KastanAppTests: XCTestCase {
         let request = await client.lastConnectionRequest
         XCTAssertEqual(request?.from, "Praha")
         XCTAssertEqual(request?.to, "Brno")
-        XCTAssertEqual(request?.fromSelection, model.fromSelection)
+        XCTAssertEqual(request?.fromSelection, fromSelection.idosSelection)
         XCTAssertNil(request?.toSelection)
         XCTAssertEqual(request?.via, ["Pardubice", "Olomouc"])
         XCTAssertEqual(request?.timetable.slug, "vlaky")
@@ -584,8 +615,14 @@ final class KastanAppTests: XCTestCase {
 
     func testConnectionPlaceSelectionsFollowSwapAndClearAfterEditing() {
         let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
-        let station = IDOSPlaceSelection(text: "Frýdek-Místek", listID: "100003", itemID: "10357")
-        let municipality = IDOSPlaceSelection(text: "Ostrava", listID: "1", itemID: "10278")
+        let station = PlaceFieldSelection(
+            idosSelection: IDOSPlaceSelection(text: "Frýdek-Místek", listID: "100003", itemID: "10357"),
+            kind: .train
+        )
+        let municipality = PlaceFieldSelection(
+            idosSelection: IDOSPlaceSelection(text: "Ostrava", listID: "1", itemID: "10278"),
+            kind: .municipality
+        )
         model.from = station.text
         model.fromSelection = station
         model.to = municipality.text
@@ -595,8 +632,10 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertEqual(model.from, municipality.text)
         XCTAssertEqual(model.fromSelection, municipality)
+        XCTAssertEqual(model.fromSelection?.kind, .municipality)
         XCTAssertEqual(model.to, station.text)
         XCTAssertEqual(model.toSelection, station)
+        XCTAssertEqual(model.toSelection?.kind, .train)
 
         model.to = "Frýdek-Místek,Frýdek,aut.nádr."
 
@@ -668,18 +707,22 @@ final class KastanAppTests: XCTestCase {
         let client = MockIDOSClient()
         let model = DeparturesViewModel(client: client)
         model.station = "Ostrava-Svinov"
-        model.stationSelection = IDOSPlaceSelection(
-            text: "Ostrava-Svinov",
-            listID: "100003",
-            itemID: "10288"
+        let stationSelection = PlaceFieldSelection(
+            idosSelection: IDOSPlaceSelection(
+                text: "Ostrava-Svinov",
+                listID: "100003",
+                itemID: "10288"
+            ),
+            kind: .train
         )
+        model.stationSelection = stationSelection
         model.isArrival = true
 
         await model.search()
 
         let request = await client.lastDeparturesRequest
         XCTAssertEqual(request?.station, "Ostrava-Svinov")
-        XCTAssertEqual(request?.stationSelection, model.stationSelection)
+        XCTAssertEqual(request?.stationSelection, stationSelection.idosSelection)
         XCTAssertEqual(request?.isArrival, true)
         XCTAssertEqual(model.departures.count, 20)
     }

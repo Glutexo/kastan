@@ -106,8 +106,117 @@ final class PlaceSuggestionsModel: ObservableObject {
     }
 }
 
+/// Classifies an exact autocomplete choice for a concise visible identity marker.
+enum PlaceSuggestionKind: Equatable {
+    case municipality
+    case train
+    case bus
+    case publicTransport
+    case stop
+    case address
+    case station
+    case place
+
+    init(description: String?) {
+        let description = description ?? ""
+        let metadata = description
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+
+        if metadata.contains("municipality") || metadata.contains("city") {
+            self = .municipality
+        } else if metadata.contains("trains") || description.localizedCaseInsensitiveContains("railway") {
+            self = .train
+        } else if metadata.contains("buses") || metadata.contains("bus") {
+            self = .bus
+        } else if metadata.contains("pt") || metadata.contains("urban public transport") {
+            self = .publicTransport
+        } else if metadata.contains("stop") || metadata.contains(where: { $0.hasPrefix("stop (") }) {
+            self = .stop
+        } else if metadata.contains("address") {
+            self = .address
+        } else if metadata.contains("station") || metadata.contains(where: { $0.hasPrefix("station (") }) {
+            self = .station
+        } else {
+            self = .place
+        }
+    }
+
+    var localizedName: String {
+        AppLocalization.string(localizationKey)
+    }
+
+    var localizedSuffix: String {
+        "(\(localizedName))"
+    }
+
+    var emoji: String {
+        switch self {
+        case .municipality:
+            "🏘️"
+        case .train:
+            "🚆"
+        case .bus:
+            "🚌"
+        case .publicTransport:
+            "🚋"
+        case .stop:
+            "🚏"
+        case .address, .station, .place:
+            "📍"
+        }
+    }
+
+    private var localizationKey: String {
+        switch self {
+        case .municipality:
+            "municipality"
+        case .train:
+            "train"
+        case .bus:
+            "bus"
+        case .publicTransport:
+            "public transport"
+        case .stop:
+            "stop"
+        case .address:
+            "address"
+        case .station:
+            "station"
+        case .place:
+            "place"
+        }
+    }
+}
+
+/// Keeps the exact IDOS object and its user-facing type together while the field remains unchanged.
+struct PlaceFieldSelection: Equatable {
+    let idosSelection: IDOSPlaceSelection
+    let kind: PlaceSuggestionKind
+
+    init(idosSelection: IDOSPlaceSelection, kind: PlaceSuggestionKind) {
+        self.idosSelection = idosSelection
+        self.kind = kind
+    }
+
+    init?(suggestion: IDOSSuggestion) {
+        guard let idosSelection = IDOSPlaceSelection(suggestion: suggestion) else {
+            return nil
+        }
+        self.init(
+            idosSelection: idosSelection,
+            kind: PlaceSuggestionKind(description: suggestion.description)
+        )
+    }
+
+    var text: String {
+        idosSelection.text
+    }
+}
+
 /// Converts raw IDOS suggestion metadata into a localized, deduplicated app row.
 struct PlaceSuggestionPresentation: Equatable {
+    let kind: PlaceSuggestionKind
     let emoji: String
     let detail: String?
 
@@ -116,7 +225,8 @@ struct PlaceSuggestionPresentation: Equatable {
         countryLanguage: IDOSLanguage = AppLanguagePreference.idosLanguage
     ) {
         let rawDescription = suggestion.description ?? ""
-        emoji = Self.emoji(for: rawDescription)
+        kind = PlaceSuggestionKind(description: rawDescription)
+        emoji = kind.emoji
 
         var components = rawDescription
             .split(separator: ",")
@@ -135,30 +245,6 @@ struct PlaceSuggestionPresentation: Equatable {
         }
 
         detail = uniqueComponents.isEmpty ? nil : uniqueComponents.joined(separator: " · ")
-    }
-
-    private static func emoji(for description: String) -> String {
-        let metadata = description
-            .split(separator: ",")
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-        if metadata.contains("municipality") || metadata.contains("city") {
-            return "🏘️"
-        }
-
-        let value = description.lowercased()
-        if value.contains("trains") || value.contains("railway") {
-            return "🚆"
-        }
-        if value.contains("buses") || value.contains("bus") {
-            return "🚌"
-        }
-        if value.contains("urban public transport") || value.contains(", pt") {
-            return "🚋"
-        }
-        if value.contains("stop") {
-            return "🚏"
-        }
-        return "📍"
     }
 
     private static func localizedComponent(
@@ -245,7 +331,7 @@ struct PlaceAutocompleteField: View {
     let title: LocalizedStringKey
     let prompt: LocalizedStringKey
     @Binding var text: String
-    let selection: Binding<IDOSPlaceSelection?>?
+    let selection: Binding<PlaceFieldSelection?>?
     let timetable: IDOSTimetable
     let stationTimetableLine: String?
     let onSelection: ((IDOSSuggestion) -> Void)?
@@ -258,7 +344,7 @@ struct PlaceAutocompleteField: View {
         title: LocalizedStringKey,
         prompt: LocalizedStringKey,
         text: Binding<String>,
-        selection: Binding<IDOSPlaceSelection?>? = nil,
+        selection: Binding<PlaceFieldSelection?>? = nil,
         timetable: IDOSTimetable,
         scope: PlaceSuggestionScope,
         stationTimetableLine: String? = nil,
@@ -307,6 +393,12 @@ struct PlaceAutocompleteField: View {
                             .accessibilityLabel("Loading suggestions")
                     }
                 }
+                .overlay(alignment: .leading) {
+                    if let selectedPlace = selection?.wrappedValue,
+                       selectedPlace.text == text {
+                        selectedTypeMarker(selectedPlace.kind)
+                    }
+                }
                 .alignmentGuide(.placeInputCenter) { dimensions in
                     dimensions[VerticalAlignment.center]
                 }
@@ -348,7 +440,7 @@ struct PlaceAutocompleteField: View {
             ForEach(Array(model.suggestions.enumerated()), id: \.offset) { _, suggestion in
                 PlaceSuggestionButton(suggestion: suggestion) {
                     let selectedText = suggestion.selectedText ?? suggestion.text
-                    selection?.wrappedValue = IDOSPlaceSelection(suggestion: suggestion)
+                    selection?.wrappedValue = PlaceFieldSelection(suggestion: suggestion)
                     text = selectedText
                     onSelection?(suggestion)
                     model.selectedSuggestion()
@@ -361,5 +453,24 @@ struct PlaceAutocompleteField: View {
             }
         }
         .background(.background)
+    }
+
+    private func selectedTypeMarker(_ kind: PlaceSuggestionKind) -> some View {
+        HStack(spacing: 4) {
+            Text(text)
+                .fixedSize(horizontal: true, vertical: false)
+                .hidden()
+            Text(kind.localizedSuffix)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: true, vertical: false)
+            Spacer(minLength: 0)
+        }
+        .font(.body)
+        .lineLimit(1)
+        .padding(.horizontal, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .clipped()
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }

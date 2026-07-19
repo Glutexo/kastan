@@ -9,6 +9,7 @@
 "Arrival place" = "Arrival place";
 "Arrivals" = "Arrivals";
 "Board type" = "Board type";
+"bus" = "bus";
 "Buses" = "Buses";
 "buses" = "buses";
 "Check a station board and open complete service routes." = "Check a station board and open complete service routes.";
@@ -79,6 +80,7 @@
 "IDOS website" = "IDOS website";
 "Opens in the default web browser" = "Opens in the default web browser";
 "Platform %@" = "Platform %@";
+"place" = "place";
 "Powered by public IDOS web data" = "Powered by public IDOS web data";
 "public transport" = "public transport";
 "Results" = "Results";
@@ -112,6 +114,7 @@
 "Timetables" = "Timetables";
 "To" = "To";
 "Track %@" = "Track %@";
+"train" = "train";
 "Trains" = "Trains";
 "trains" = "trains";
 "Trains, buses, and all" = "Trains, buses, and all";
