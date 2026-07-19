@@ -198,7 +198,7 @@ struct ConnectionsView: View {
             }
             .labelsHidden()
             .pickerStyle(.menu)
-            .frame(width: 220, alignment: .leading)
+            .fixedSize(horizontal: true, vertical: false)
 
             journeyOptionValue(option: option)
 
@@ -228,6 +228,7 @@ struct ConnectionsView: View {
             .fixedSize()
             .help("Add journey option")
         }
+        .frame(height: 28)
     }
 
     @ViewBuilder
