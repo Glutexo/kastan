@@ -112,6 +112,25 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testConnectionDetailToolbarOffersEveryAvailableActionSeparately() {
+        XCTAssertEqual(
+            ConnectionDetailToolbarAction.allCases,
+            [.addToCalendar, .saveAsPDF, .shareLink, .openInIDOS]
+        )
+        XCTAssertEqual(
+            ConnectionDetailToolbarAction.allCases.map(\.systemImage),
+            ["calendar.badge.plus", "arrow.down.doc", "square.and.arrow.up", "arrow.up.right.square"]
+        )
+        XCTAssertEqual(
+            ConnectionDetailToolbarAction.availableActions(hasPermanentLink: true),
+            ConnectionDetailToolbarAction.allCases
+        )
+        XCTAssertEqual(
+            ConnectionDetailToolbarAction.availableActions(hasPermanentLink: false),
+            [.addToCalendar, .saveAsPDF]
+        )
+    }
+
     func testDetailLayoutStacksControlsAtCompactWidths() {
         let layout = DetailLayout(availableWidth: 510)
 

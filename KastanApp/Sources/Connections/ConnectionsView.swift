@@ -256,6 +256,7 @@ struct ConnectionsView: View {
                         connection: connection,
                         isPerformingExport: model.importingConnectionID == connection.id ||
                             model.exportingPDFConnectionID == connection.id,
+                        showsActionMenu: true,
                         openConnection: {
                             openWindow(
                                 id: AppWindow.connectionDetail,
@@ -298,6 +299,7 @@ private struct ConnectionCard: View {
     let number: Int?
     let connection: IDOSConnection
     let isPerformingExport: Bool
+    let showsActionMenu: Bool
     let openConnection: (() -> Void)?
     let openService: (ServiceSelection) -> Void
     let addToCalendar: () -> Void
@@ -332,37 +334,39 @@ private struct ConnectionCard: View {
                         .buttonStyle(.borderless)
                         .help("Open connection in new window")
                     }
-                    Menu {
-                        Button {
-                            addToCalendar()
-                        } label: {
-                            Label("Add to Calendar", systemImage: "calendar.badge.plus")
-                        }
-                        Button {
-                            saveAsPDF()
-                        } label: {
-                            Label("Save as PDF", systemImage: "arrow.down.doc")
-                        }
-                        if let value = connection.shareURL,
-                           let url = AppLanguagePreference.localizedIDOSURL(from: value)
-                        {
-                            ShareLink(item: url) {
-                                Label("Share Link", systemImage: "square.and.arrow.up")
+                    if showsActionMenu {
+                        Menu {
+                            Button {
+                                addToCalendar()
+                            } label: {
+                                Label("Add to Calendar", systemImage: "calendar.badge.plus")
                             }
-                            Link(destination: url) {
-                                Label("Open in IDOS", systemImage: "arrow.up.right.square")
+                            Button {
+                                saveAsPDF()
+                            } label: {
+                                Label("Save as PDF", systemImage: "arrow.down.doc")
+                            }
+                            if let value = connection.shareURL,
+                               let url = AppLanguagePreference.localizedIDOSURL(from: value)
+                            {
+                                ShareLink(item: url) {
+                                    Label("Share Link", systemImage: "square.and.arrow.up")
+                                }
+                                Link(destination: url) {
+                                    Label("Open in IDOS", systemImage: "arrow.up.right.square")
+                                }
+                            }
+                        } label: {
+                            if isPerformingExport {
+                                ProgressView()
+                                    .controlSize(.small)
+                            } else {
+                                Image(systemName: "ellipsis.circle")
                             }
                         }
-                    } label: {
-                        if isPerformingExport {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Image(systemName: "ellipsis.circle")
-                        }
+                        .menuStyle(.borderlessButton)
+                        .disabled(isPerformingExport)
                     }
-                    .menuStyle(.borderlessButton)
-                    .disabled(isPerformingExport)
                 }
 
                 ViewThatFits(in: .horizontal) {
@@ -406,9 +410,50 @@ private struct ConnectionCard: View {
     }
 }
 
-/// Shows one complete connection in its own window while retaining all result actions.
+/// Defines the actions shown as individual controls in an independent connection window's toolbar.
+enum ConnectionDetailToolbarAction: CaseIterable, Hashable, Identifiable {
+    case addToCalendar
+    case saveAsPDF
+    case shareLink
+    case openInIDOS
+
+    var id: Self { self }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .addToCalendar:
+            "Add to Calendar"
+        case .saveAsPDF:
+            "Save as PDF"
+        case .shareLink:
+            "Share Link"
+        case .openInIDOS:
+            "Open in IDOS"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .addToCalendar:
+            "calendar.badge.plus"
+        case .saveAsPDF:
+            "arrow.down.doc"
+        case .shareLink:
+            "square.and.arrow.up"
+        case .openInIDOS:
+            "arrow.up.right.square"
+        }
+    }
+
+    static func availableActions(hasPermanentLink: Bool) -> [Self] {
+        hasPermanentLink ? allCases : [.addToCalendar, .saveAsPDF]
+    }
+}
+
+/// Shows one complete connection in its own window with result actions in the native toolbar.
 struct ConnectionDetailView: View {
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openURL) private var openURL
     @StateObject private var actionsModel: ConnectionsViewModel
     private let selection: ConnectionSelection
 
@@ -435,6 +480,7 @@ struct ConnectionDetailView: View {
                     connection: selection.connection,
                     isPerformingExport: actionsModel.importingConnectionID == selection.connection.id ||
                         actionsModel.exportingPDFConnectionID == selection.connection.id,
+                    showsActionMenu: false,
                     openConnection: nil,
                     openService: { openWindow(id: AppWindow.serviceDetail, value: $0) },
                     addToCalendar: {
@@ -449,6 +495,97 @@ struct ConnectionDetailView: View {
         }
         .frame(minWidth: 620, minHeight: 420)
         .navigationTitle("\(selection.connection.departureStation) → \(selection.connection.arrivalStation)")
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                ForEach(
+                    ConnectionDetailToolbarAction.availableActions(
+                        hasPermanentLink: connectionActionURL != nil
+                    )
+                ) { action in
+                    connectionActionControl(action, url: connectionActionURL)
+                }
+            }
+        }
+    }
+
+    private var connectionActionURL: URL? {
+        selection.connection.shareURL.flatMap(AppLanguagePreference.localizedIDOSURL)
+    }
+
+    private var isPerformingExport: Bool {
+        actionsModel.importingConnectionID == selection.connection.id ||
+            actionsModel.exportingPDFConnectionID == selection.connection.id
+    }
+
+    /// Renders each connection action as an independent native toolbar control.
+    @ViewBuilder
+    private func connectionActionControl(
+        _ action: ConnectionDetailToolbarAction,
+        url: URL?
+    ) -> some View {
+        switch action {
+        case .addToCalendar:
+            Button {
+                Task { await actionsModel.addToCalendar(selection.connection) }
+            } label: {
+                exportActionLabel(
+                    action,
+                    isPerforming: actionsModel.importingConnectionID == selection.connection.id
+                )
+            }
+            .disabled(isPerformingExport)
+            .accessibilityLabel(action.title)
+            .help(action.title)
+        case .saveAsPDF:
+            Button {
+                Task { await actionsModel.saveAsPDF(selection.connection) }
+            } label: {
+                exportActionLabel(
+                    action,
+                    isPerforming: actionsModel.exportingPDFConnectionID == selection.connection.id
+                )
+            }
+            .disabled(isPerformingExport)
+            .accessibilityLabel(action.title)
+            .help(action.title)
+        case .shareLink:
+            if let url {
+                ShareLink(item: url) {
+                    connectionActionLabel(action)
+                }
+                .disabled(isPerformingExport)
+                .help(action.title)
+            }
+        case .openInIDOS:
+            if let url {
+                Button {
+                    openURL(url)
+                } label: {
+                    connectionActionLabel(action)
+                }
+                .disabled(isPerformingExport)
+                .accessibilityLabel(action.title)
+                .help(action.title)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func exportActionLabel(
+        _ action: ConnectionDetailToolbarAction,
+        isPerforming: Bool
+    ) -> some View {
+        if isPerforming {
+            ProgressView()
+                .controlSize(.small)
+        } else {
+            connectionActionLabel(action)
+        }
+    }
+
+    private func connectionActionLabel(_ action: ConnectionDetailToolbarAction) -> some View {
+        Label(action.title, systemImage: action.systemImage)
+            .labelStyle(.iconOnly)
     }
 }
 

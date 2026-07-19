@@ -35,8 +35,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Connection and station-board results extend chronologically without replacement: pulling past the top loads
   earlier results, while pulling past the bottom loads the following results and removes duplicate rows.
 - Native tabs and windows, including independent favorite-timetable, complete-connection, and resizable
-  service-route windows. A connection opened in its own window retains its export and sharing actions, and each
-  of its services can still open a separate complete route.
+  service-route windows. A connection opened in its own window presents its export and sharing actions as
+  individually visible controls in the native toolbar instead of repeating the result-card action menu, and
+  each of its services can still open a separate complete route.
 - Connection cards with line colors, transport symbols, platforms, tariff zones, carriers, and localized delay
   states supplied by IDOS.
 - Complete service routes with the search-relevant segment highlighted without implying live vehicle position.
