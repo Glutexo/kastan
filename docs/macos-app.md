@@ -53,7 +53,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   phone-number links. Dated operating exceptions, including abbreviated ranges such as `17. to 20.VIII.` and
   same-month lists such as `18.,19.IX.`, open the same running/non-running calendar using the exact validity
   interval published by the current IDOS timetable. When opened, the calendar scrolls to the current month or
-  to the nearest month covered by that timetable.
+  to the nearest month covered by that timetable. Option-clicking a calendar note also lists the operating rule
+  and every individual date or range recognized from it.
 - Permanent connection and service-detail links using the IDOS language that matches the app, available for
   opening in IDOS or sharing through the standard macOS share sheet. Every service-detail action is an
   individually visible control in that window's native toolbar.

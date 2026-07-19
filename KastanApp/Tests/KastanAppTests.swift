@@ -125,6 +125,10 @@ final class KastanAppTests: XCTestCase {
             serviceCalendar.listedDates,
             (17...20).map { serviceDate(2026, 8, $0) }
         )
+        XCTAssertEqual(
+            serviceCalendar.recognizedDateRanges,
+            [serviceDate(2026, 8, 17)...serviceDate(2026, 8, 20)]
+        )
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 16)), .runs)
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 17)), .doesNotRun)
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 20)), .doesNotRun)
@@ -146,6 +150,13 @@ final class KastanAppTests: XCTestCase {
             serviceDate(2026, 9, 19),
             serviceDate(2026, 11, 26),
             serviceDate(2026, 12, 10),
+        ])
+        XCTAssertEqual(serviceCalendar.recognizedDateRanges, [
+            serviceDate(2026, 7, 23)...serviceDate(2026, 7, 23),
+            serviceDate(2026, 9, 18)...serviceDate(2026, 9, 18),
+            serviceDate(2026, 9, 19)...serviceDate(2026, 9, 19),
+            serviceDate(2026, 11, 26)...serviceDate(2026, 11, 26),
+            serviceDate(2026, 12, 10)...serviceDate(2026, 12, 10),
         ])
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 17)), .runs)
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 18)), .doesNotRun)
@@ -194,12 +205,20 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertEqual(runsUntil.listedDates.first, validityStart)
         XCTAssertEqual(runsUntil.listedDates.last, serviceDate(2026, 12, 3))
+        XCTAssertEqual(
+            runsUntil.recognizedDateRanges,
+            [validityStart...serviceDate(2026, 12, 3)]
+        )
         XCTAssertEqual(runsUntil.status(on: serviceDate(2026, 12, 2)), .runs)
         XCTAssertEqual(runsUntil.status(on: serviceDate(2026, 12, 3)), .runs)
         XCTAssertEqual(runsUntil.status(on: serviceDate(2026, 12, 4)), .doesNotRun)
 
         XCTAssertEqual(doesNotRunFrom.listedDates.first, serviceDate(2026, 12, 3))
         XCTAssertEqual(doesNotRunFrom.listedDates.last, validityEnd)
+        XCTAssertEqual(
+            doesNotRunFrom.recognizedDateRanges,
+            [serviceDate(2026, 12, 3)...validityEnd]
+        )
         XCTAssertEqual(doesNotRunFrom.status(on: serviceDate(2026, 12, 2)), .runs)
         XCTAssertEqual(doesNotRunFrom.status(on: serviceDate(2026, 12, 3)), .doesNotRun)
         XCTAssertEqual(doesNotRunFrom.status(on: serviceDate(2026, 12, 4)), .doesNotRun)
@@ -242,6 +261,13 @@ final class KastanAppTests: XCTestCase {
             serviceCalendar.initialVisibleMonth(on: serviceDate(2027, 1, 1)),
             serviceDate(2026, 12, 1)
         )
+    }
+
+    func testOptionClickRequestsRecognizedCalendarConditions() {
+        XCTAssertTrue(ServiceCalendarOpeningOptions.showsRecognizedConditions(for: [.option]))
+        XCTAssertTrue(ServiceCalendarOpeningOptions.showsRecognizedConditions(for: [.option, .shift]))
+        XCTAssertFalse(ServiceCalendarOpeningOptions.showsRecognizedConditions(for: []))
+        XCTAssertFalse(ServiceCalendarOpeningOptions.showsRecognizedConditions(for: [.command]))
     }
 
     func testNonDatedAndOutOfValidityNotesDoNotOfferServiceCalendars() {

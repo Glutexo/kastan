@@ -1,3 +1,4 @@
+import AppKit
 import Kastan
 import SwiftUI
 
@@ -20,6 +21,7 @@ struct StationTimetableServiceCalendar: Equatable {
     let validityStart: Date
     let validityEnd: Date
     let listedDates: [Date]
+    let recognizedDateRanges: [ClosedRange<Date>]
     let rule: Rule
 
     /// Builds a calendar only when IDOS supplied a complete validity interval and concrete service dates.
@@ -35,17 +37,18 @@ struct StationTimetableServiceCalendar: Equatable {
         let validityEnd = calendar.startOfDay(for: validityEnd)
         guard validityStart <= validityEnd, let rule = Self.rule(in: note) else { return nil }
 
-        let dates = Self.listedDates(
+        let dateInterpretation = Self.dateInterpretation(
             in: note,
             validityStart: validityStart,
             validityEnd: validityEnd
         )
-        guard !dates.isEmpty else { return nil }
+        guard !dateInterpretation.dates.isEmpty else { return nil }
 
         self.note = note
         self.validityStart = validityStart
         self.validityEnd = validityEnd
-        listedDates = dates
+        listedDates = dateInterpretation.dates
+        recognizedDateRanges = dateInterpretation.ranges
         self.rule = rule
     }
 
@@ -103,6 +106,12 @@ struct StationTimetableServiceCalendar: Equatable {
         let day: Int
         let month: Int
         let year: Int?
+    }
+
+    /// Keeps both effective dates and the individual dates or ranges recognized in the IDOS note.
+    private struct DateInterpretation {
+        let dates: [Date]
+        let ranges: [ClosedRange<Date>]
     }
 
     /// Describes a one-sided service range whose other boundary is the timetable validity interval.
@@ -245,14 +254,14 @@ struct StationTimetableServiceCalendar: Equatable {
         )).map(calendar.startOfDay(for:))
     }
 
-    private static func listedDates(
+    private static func dateInterpretation(
         in note: String,
         validityStart: Date,
         validityEnd: Date
-    ) -> [Date] {
+    ) -> DateInterpretation {
         let calendar = serviceCalendar
         let tokens = serviceDateTokens(in: note)
-        guard !tokens.isEmpty else { return [] }
+        guard !tokens.isEmpty else { return DateInterpretation(dates: [], ranges: []) }
 
         if tokens.count == 1,
            let range = validityRelativeRange(before: tokens[0], in: note),
@@ -265,13 +274,20 @@ struct StationTimetableServiceCalendar: Equatable {
         {
             switch range {
             case .fromValidityStart:
-                return dates(from: validityStart, through: boundaryDate, calendar: calendar)
+                return DateInterpretation(
+                    dates: dates(from: validityStart, through: boundaryDate, calendar: calendar),
+                    ranges: [validityStart...boundaryDate]
+                )
             case .throughValidityEnd:
-                return dates(from: boundaryDate, through: validityEnd, calendar: calendar)
+                return DateInterpretation(
+                    dates: dates(from: boundaryDate, through: validityEnd, calendar: calendar),
+                    ranges: [boundaryDate...validityEnd]
+                )
             }
         }
 
         var dates = Set<Date>()
+        var ranges: [ClosedRange<Date>] = []
         var index = 0
         while index < tokens.count {
             let token = tokens[index]
@@ -294,14 +310,16 @@ struct StationTimetableServiceCalendar: Equatable {
                start <= end
             {
                 dates.formUnion(Self.dates(from: start, through: end, calendar: calendar))
+                ranges.append(start...end)
                 index += 2
             } else {
                 dates.formUnion(tokenDates)
+                ranges.append(contentsOf: tokenDates.map { $0...$0 })
                 index += 1
             }
         }
 
-        return dates.sorted()
+        return DateInterpretation(dates: dates.sorted(), ranges: ranges)
     }
 
     /// Recognizes a boundary word immediately before the only concrete date in a service note.
@@ -526,13 +544,24 @@ struct ServiceNotesView: View {
     }
 }
 
+/// Enables the calendar's interpretation details only for an intentional Option-click.
+enum ServiceCalendarOpeningOptions {
+    static func showsRecognizedConditions(for modifierFlags: NSEvent.ModifierFlags) -> Bool {
+        modifierFlags.contains(.option)
+    }
+}
+
 /// Preserves the IDOS note as the button label and reveals its date interpretation in a popover.
 struct StationTimetableServiceCalendarButton: View {
     let serviceCalendar: StationTimetableServiceCalendar
     @State private var isPresented = false
+    @State private var showsRecognizedConditions = false
 
     var body: some View {
         Button {
+            showsRecognizedConditions = ServiceCalendarOpeningOptions.showsRecognizedConditions(
+                for: NSEvent.modifierFlags
+            )
             isPresented = true
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -548,9 +577,12 @@ struct StationTimetableServiceCalendarButton: View {
         .accessibilityLabel(
             Text("Show service calendar") + Text(": ") + Text(serviceCalendar.note)
         )
-        .help("Show service calendar")
+        .help("Show service calendar; hold Option for recognized conditions")
         .popover(isPresented: $isPresented, arrowEdge: .trailing) {
-            StationTimetableServiceCalendarView(serviceCalendar: serviceCalendar)
+            StationTimetableServiceCalendarView(
+                serviceCalendar: serviceCalendar,
+                showsRecognizedConditions: showsRecognizedConditions
+            )
         }
     }
 }
@@ -558,6 +590,7 @@ struct StationTimetableServiceCalendarButton: View {
 /// Shows every month touched by the current timetable and distinguishes operating, non-operating, and invalid days.
 private struct StationTimetableServiceCalendarView: View {
     let serviceCalendar: StationTimetableServiceCalendar
+    let showsRecognizedConditions: Bool
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
 
@@ -570,6 +603,10 @@ private struct StationTimetableServiceCalendarView: View {
             Text(validityDescription)
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+            if showsRecognizedConditions {
+                recognizedConditionsView
+            }
 
             Divider()
 
@@ -593,6 +630,40 @@ private struct StationTimetableServiceCalendarView: View {
         }
         .padding(18)
         .frame(width: 360)
+    }
+
+    private var recognizedConditionsView: some View {
+        GroupBox("Recognized conditions") {
+            VStack(alignment: .leading, spacing: 7) {
+                Label(recognizedRuleDescription, systemImage: "checkmark.circle")
+                ForEach(Array(serviceCalendar.recognizedDateRanges.enumerated()), id: \.offset) { _, range in
+                    Label(recognizedRangeDescription(range), systemImage: "calendar")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .font(.caption)
+        .textSelection(.enabled)
+    }
+
+    private var recognizedRuleDescription: String {
+        switch serviceCalendar.rule {
+        case .runsOnlyOnListedDates:
+            return AppLocalization.string("Runs only on the listed dates")
+        case .doesNotRunOnListedDates:
+            return AppLocalization.string("Does not run on the listed dates")
+        case .runsOnWorkingDaysExceptListedDates:
+            return AppLocalization.string("Runs on working days except the listed dates")
+        case let .runsOnListedDatesMatchingWeekdays(weekdays):
+            let values = weekdays.sorted().map(String.init).joined(separator: ", ")
+            return AppLocalization.string("Runs on days %@ within the listed date range", values)
+        }
+    }
+
+    private func recognizedRangeDescription(_ range: ClosedRange<Date>) -> String {
+        let start = dateFormatter.string(from: range.lowerBound)
+        guard range.lowerBound != range.upperBound else { return start }
+        return "\(start) – \(dateFormatter.string(from: range.upperBound))"
     }
 
     private var legend: some View {
