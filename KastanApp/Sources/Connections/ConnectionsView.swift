@@ -232,7 +232,7 @@ struct ConnectionsView: View {
     private func journeyOptionValue(option: Binding<JourneyOptionEntry>) -> some View {
         switch option.wrappedValue.kind {
         case .via:
-            TextField("Via", text: option.viaPlace)
+            TextField("Via place", text: option.viaPlace)
                 .textFieldStyle(.roundedBorder)
                 .frame(minWidth: 160, maxWidth: 520)
                 .layoutPriority(1)

@@ -1052,6 +1052,14 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(model.availableJourneyOptionKinds(for: secondID), [.via, .maximumTransfers])
     }
 
+    func testJourneyOptionValuePlaceholderDiffersFromViaConditionName() throws {
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+
+        XCTAssertEqual(czech.localizedString(forKey: "Via place", value: nil, table: nil), "Místo přes")
+        XCTAssertEqual(english.localizedString(forKey: "Via place", value: nil, table: nil), "Via place")
+    }
+
     func testZeroTransferLimitRequestsAndLabelsDirectConnections() async {
         let client = MockIDOSClient()
         let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())
