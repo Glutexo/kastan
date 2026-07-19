@@ -274,7 +274,7 @@ struct StationTimetableNotesView: View {
                     if let serviceCalendar = StationTimetableServiceCalendar(note: note, allNotes: notes) {
                         StationTimetableServiceCalendarButton(serviceCalendar: serviceCalendar)
                     } else {
-                        Text(note)
+                        NoteText(note)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }

@@ -477,7 +477,7 @@ private struct ServiceStopRow: View {
                 }
 
                 ForEach(stop.notes, id: \.self) { note in
-                    Text(note)
+                    NoteText(note)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

@@ -434,6 +434,65 @@ enum ResultMetadata {
     }
 }
 
+/// Preserves note text while turning system-recognized telephone numbers into `tel:` links.
+struct NoteText: View {
+    let value: String
+
+    init(_ value: String) {
+        self.value = value
+    }
+
+    var body: some View {
+        Text(Self.linkedContent(value))
+    }
+
+    /// Builds testable attributed content without interpreting timetable dates as phone numbers.
+    static func linkedContent(_ value: String) -> AttributedString {
+        guard let detector = try? NSDataDetector(
+            types: NSTextCheckingResult.CheckingType.phoneNumber.rawValue
+        ) else {
+            return AttributedString(value)
+        }
+
+        let matches = detector.matches(
+            in: value,
+            range: NSRange(value.startIndex..., in: value)
+        )
+        guard !matches.isEmpty else { return AttributedString(value) }
+
+        var result = AttributedString()
+        var currentIndex = value.startIndex
+        for match in matches {
+            guard let phoneNumber = match.phoneNumber,
+                  let range = Range(match.range, in: value),
+                  range.lowerBound >= currentIndex,
+                  let url = telephoneURL(for: phoneNumber)
+            else {
+                continue
+            }
+
+            result += AttributedString(value[currentIndex..<range.lowerBound])
+            var linkedNumber = AttributedString(value[range])
+            linkedNumber.link = url
+            result += linkedNumber
+            currentIndex = range.upperBound
+        }
+        result += AttributedString(value[currentIndex...])
+        return result
+    }
+
+    private static func telephoneURL(for phoneNumber: String) -> URL? {
+        let normalized = phoneNumber.enumerated().compactMap { index, character -> Character? in
+            if character.isNumber || (character == "+" && index == 0) {
+                return character
+            }
+            return nil
+        }
+        guard !normalized.isEmpty else { return nil }
+        return URL(string: "tel:\(String(normalized))")
+    }
+}
+
 /// Presents IDOS notes and service information with consistent list indentation and readable wrapping.
 struct BulletedTextList: View {
     let items: [String]
@@ -447,7 +506,7 @@ struct BulletedTextList: View {
                         .foregroundStyle(.secondary)
                         .frame(width: 8, alignment: .center)
                         .accessibilityHidden(true)
-                    Text(item)
+                    NoteText(item)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

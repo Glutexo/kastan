@@ -127,6 +127,25 @@ final class KastanAppTests: XCTestCase {
         ))
     }
 
+    func testNoteTextTurnsPhoneNumbersIntoTelLinksWithoutChangingTheNote() {
+        let value = "Informace: +420 123 456 789 nebo 800 123 456."
+        let content = NoteText.linkedContent(value)
+
+        XCTAssertEqual(String(content.characters), value)
+        XCTAssertEqual(
+            content.runs.compactMap { $0.link?.absoluteString },
+            ["tel:+420123456789", "tel:800123456"]
+        )
+    }
+
+    func testNoteTextDoesNotInterpretTimetableDatesAsPhoneNumbers() {
+        let value = "platí od 1.7.2026 do 26.7.2026 · jede 19.VII."
+        let content = NoteText.linkedContent(value)
+
+        XCTAssertEqual(String(content.characters), value)
+        XCTAssertTrue(content.runs.compactMap { $0.link }.isEmpty)
+    }
+
     func testEnglishCountryNamesFollowTheAppLanguage() {
         XCTAssertEqual(
             AppLanguagePreference.localizedCountryName(fromEnglishName: "Romania", language: .czech),

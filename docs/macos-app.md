@@ -19,7 +19,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   route stops, tariff zones, platforms or stands, lockout labels, explanatory notes, and links back to the
   matching IDOS result. Dated service notes such as a connection that runs or does not run on listed dates open
   an operating calendar. The calendar marks running and non-running days only within the validity interval
-  printed by IDOS for the current timetable; days outside that interval remain visibly out of scope.
+  printed by IDOS for the current timetable; days outside that interval remain visibly out of scope. Phone
+  numbers in timetable notes, service information, and route-stop notes open as `tel:` links.
 - A genuine AppKit toolbar centers a complete mode control for switching between Connections, Departures, and
   Station Timetables while preserving each search's state. Stable toolbar identifiers and visibility priorities
   keep that control intact, and its natural width follows the localized labels without stretching the final

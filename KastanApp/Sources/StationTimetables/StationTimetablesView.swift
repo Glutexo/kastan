@@ -354,46 +354,54 @@ struct StationTimetablesView: View {
         GroupBox("Stops") {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(result.stops.enumerated()), id: \.offset) { index, stop in
-                    Button {
-                        Task { await model.selectStop(at: index) }
-                    } label: {
-                        HStack(alignment: .top, spacing: 10) {
-                            Text(minuteOffsetText(stop.minuteOffset))
-                                .font(.callout.bold().monospacedDigit())
-                                .foregroundStyle(stop.isSelected ? Color.accentColor : Color.secondary)
-                                .frame(width: 28, alignment: .trailing)
-                            Circle()
-                                .fill(stop.isSelected ? Color.accentColor : Color.secondary.opacity(0.55))
-                                .frame(width: 8, height: 8)
-                                .padding(.top, 5)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(stop.name)
-                                    .fontWeight(stop.isSelected ? .semibold : .regular)
-                                    .foregroundStyle(.primary)
-                                if let metadata = stopMetadata(stop) {
-                                    Text(metadata)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Button {
+                            Task { await model.selectStop(at: index) }
+                        } label: {
+                            HStack(alignment: .top, spacing: 10) {
+                                Text(minuteOffsetText(stop.minuteOffset))
+                                    .font(.callout.bold().monospacedDigit())
+                                    .foregroundStyle(stop.isSelected ? Color.accentColor : Color.secondary)
+                                    .frame(width: 28, alignment: .trailing)
+                                Circle()
+                                    .fill(stop.isSelected ? Color.accentColor : Color.secondary.opacity(0.55))
+                                    .frame(width: 8, height: 8)
+                                    .padding(.top, 5)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(stop.name)
+                                        .fontWeight(stop.isSelected ? .semibold : .regular)
+                                        .foregroundStyle(.primary)
+                                    if let metadata = stopMetadata(stop) {
+                                        Text(metadata)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
                                 }
-                                if !stop.notes.isEmpty {
-                                    Text(stop.notes.joined(separator: " · "))
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
+                                Spacer(minLength: 0)
                             }
-                            Spacer(minLength: 0)
+                            .padding(.horizontal, 8)
+                            .padding(.top, 6)
+                            .padding(.bottom, stop.notes.isEmpty ? 6 : 2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 6)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(
-                            stop.isSelected ? Color.accentColor.opacity(0.1) : Color.clear,
-                            in: RoundedRectangle(cornerRadius: 6)
-                        )
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
+                        .disabled(stop.isSelected || model.isSearching)
+
+                        if !stop.notes.isEmpty {
+                            NoteText(stop.notes.joined(separator: " · "))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.leading, 64)
+                                .padding(.trailing, 8)
+                                .padding(.bottom, 6)
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .disabled(stop.isSelected || model.isSearching)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        stop.isSelected ? Color.accentColor.opacity(0.1) : Color.clear,
+                        in: RoundedRectangle(cornerRadius: 6)
+                    )
                 }
             }
         }
