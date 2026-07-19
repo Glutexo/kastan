@@ -79,6 +79,54 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testCzechRunsOnlyNoteIsScopedToCurrentTimetableValidity() throws {
+        let note = "jede 19.VII."
+        let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(
+            note: note,
+            allNotes: ["platí od 1.7.2026 do 26.7.2026", note]
+        ))
+
+        XCTAssertEqual(serviceCalendar.rule, .runsOnlyOnListedDates)
+        XCTAssertEqual(serviceCalendar.validityStart, serviceDate(2026, 7, 1))
+        XCTAssertEqual(serviceCalendar.validityEnd, serviceDate(2026, 7, 26))
+        XCTAssertEqual(serviceCalendar.listedDates, [serviceDate(2026, 7, 19)])
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 18)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 19)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 6, 30)), .outsideTimetableValidity)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 27)), .outsideTimetableValidity)
+    }
+
+    func testEnglishDoesNotRunRangeExpandsOnlyInsideCurrentTimetable() throws {
+        let note = "A: does not run 19.VII.–21.VII."
+        let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(
+            note: note,
+            allNotes: ["valid from 1.7.2026 to 31.7.2026", note]
+        ))
+
+        XCTAssertEqual(serviceCalendar.rule, .doesNotRunOnListedDates)
+        XCTAssertEqual(
+            serviceCalendar.listedDates,
+            [serviceDate(2026, 7, 19), serviceDate(2026, 7, 20), serviceDate(2026, 7, 21)]
+        )
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 18)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 20)), .doesNotRun)
+    }
+
+    func testNonDatedAndOutOfValidityNotesDoNotOfferServiceCalendars() {
+        XCTAssertNil(StationTimetableServiceCalendar(
+            note: "A: jede jen do zastávky Háje",
+            allNotes: ["platí od 1.7.2026 do 26.7.2026", "A: jede jen do zastávky Háje"]
+        ))
+        XCTAssertNil(StationTimetableServiceCalendar(
+            note: "jede 19.VIII.",
+            allNotes: ["platí od 1.7.2026 do 26.7.2026", "jede 19.VIII."]
+        ))
+        XCTAssertNil(StationTimetableServiceCalendar(
+            note: "jede 19.VII.",
+            allNotes: ["jede 19.VII."]
+        ))
+    }
+
     func testEnglishCountryNamesFollowTheAppLanguage() {
         XCTAssertEqual(
             AppLanguagePreference.localizedCountryName(fromEnglishName: "Romania", language: .czech),
@@ -91,6 +139,15 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(
             AppLanguagePreference.localizedCountryName(fromEnglishName: "okres Vsetín", language: .czech)
         )
+    }
+
+    private func serviceDate(_ year: Int, _ month: Int, _ day: Int) -> Date {
+        StationTimetableServiceCalendar.serviceCalendar.date(from: DateComponents(
+            timeZone: StationTimetableServiceCalendar.serviceCalendar.timeZone,
+            year: year,
+            month: month,
+            day: day
+        ))!
     }
 
     func testServiceDetailToolbarOffersFourSeparateLocalizedActions() throws {

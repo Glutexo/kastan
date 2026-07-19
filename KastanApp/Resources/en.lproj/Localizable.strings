@@ -30,6 +30,7 @@
 "Departures and arrivals" = "Departures and arrivals";
 "Direct" = "Direct";
 "Direct only" = "Direct only";
+"Does not run" = "Does not run";
 "Direction from" = "Direction from";
 "Direction to" = "Direction to";
 "district %@" = "district %@";
@@ -81,6 +82,7 @@
 "Open connection in new window" = "Open connection in new window";
 "IDOS website" = "IDOS website";
 "Opens in the default web browser" = "Opens in the default web browser";
+"Outside timetable validity" = "Outside timetable validity";
 "Platform %@" = "Platform %@";
 "place" = "place";
 "Powered by public IDOS web data" = "Powered by public IDOS web data";
@@ -89,12 +91,15 @@
 "Remove via place" = "Remove via place";
 "Remove timetable from favorites" = "Remove timetable from favorites";
 "Reverse direction" = "Reverse direction";
+"Runs" = "Runs";
 "Search" = "Search";
 "Search mode" = "Search mode";
 "Save as PDF" = "Save as PDF";
 "Searches" = "Search";
 "Searching connections…" = "Searching connections…";
 "Share Link" = "Share Link";
+"Show service calendar" = "Show service calendar";
+"Service calendar" = "Service calendar";
 "Service information" = "Service information";
 "Service route" = "Service route";
 "Service route unavailable" = "Service route unavailable";
@@ -113,6 +118,7 @@
 "Time" = "Time";
 "Time means" = "Time means";
 "Timetable" = "Timetable";
+"Timetable valid %@ – %@" = "Timetable valid %@ – %@";
 "Timetables" = "Timetables";
 "To" = "To";
 "Track %@" = "Track %@";

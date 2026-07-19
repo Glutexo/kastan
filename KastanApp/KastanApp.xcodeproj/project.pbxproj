@@ -26,6 +26,7 @@
 		A00000000000000000000220 /* StationTimetablesViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000120 /* StationTimetablesViewModel.swift */; };
 		A00000000000000000000221 /* SearchResultPullMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000121 /* SearchResultPullMonitor.swift */; };
 		A00000000000000000000222 /* MainWindowToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000122 /* MainWindowToolbar.swift */; };
+		A00000000000000000000223 /* StationTimetableServiceCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000123 /* StationTimetableServiceCalendar.swift */; };
 		A00000000000000000000230 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000132 /* Localizable.strings */; };
 		A00000000000000000000231 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000133 /* Assets.xcassets */; };
 		A00000000000000000000232 /* Localizable.stringsdict in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000136 /* Localizable.stringsdict */; };
@@ -66,6 +67,7 @@
 		A00000000000000000000120 /* StationTimetablesViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationTimetablesViewModel.swift; sourceTree = "<group>"; };
 		A00000000000000000000121 /* SearchResultPullMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchResultPullMonitor.swift; sourceTree = "<group>"; };
 		A00000000000000000000122 /* MainWindowToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowToolbar.swift; sourceTree = "<group>"; };
+		A00000000000000000000123 /* StationTimetableServiceCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationTimetableServiceCalendar.swift; sourceTree = "<group>"; };
 		A00000000000000000000130 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A00000000000000000000131 /* cs */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = cs; path = cs.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A00000000000000000000133 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -149,6 +151,7 @@
 		A0000000000000000000000B /* StationTimetables */ = {
 			isa = PBXGroup;
 			children = (
+				A00000000000000000000123 /* StationTimetableServiceCalendar.swift */,
 				A0000000000000000000011F /* StationTimetablesView.swift */,
 				A00000000000000000000120 /* StationTimetablesViewModel.swift */,
 			);
@@ -327,6 +330,7 @@
 				A00000000000000000000220 /* StationTimetablesViewModel.swift in Sources */,
 				A00000000000000000000221 /* SearchResultPullMonitor.swift in Sources */,
 				A00000000000000000000222 /* MainWindowToolbar.swift in Sources */,
+				A00000000000000000000223 /* StationTimetableServiceCalendar.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
