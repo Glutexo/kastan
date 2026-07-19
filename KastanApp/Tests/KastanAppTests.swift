@@ -79,6 +79,20 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testEnglishCountryNamesFollowTheAppLanguage() {
+        XCTAssertEqual(
+            AppLanguagePreference.localizedCountryName(fromEnglishName: "Romania", language: .czech),
+            "Rumunsko"
+        )
+        XCTAssertEqual(
+            AppLanguagePreference.localizedCountryName(fromEnglishName: "Romania", language: .english),
+            "Romania"
+        )
+        XCTAssertNil(
+            AppLanguagePreference.localizedCountryName(fromEnglishName: "okres Vsetín", language: .czech)
+        )
+    }
+
     func testServiceDetailToolbarOffersFourSeparateLocalizedActions() throws {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
@@ -415,6 +429,10 @@ final class KastanAppTests: XCTestCase {
                 region: "district Frýdek-Místek"
             )
         )
+        let romanianMunicipality = PlaceSuggestionPresentation(
+            suggestion: IDOSSuggestion(text: "Roznov", description: "Romania"),
+            countryLanguage: .czech
+        )
 
         XCTAssertEqual(municipality.emoji, "🏘️")
         XCTAssertEqual(station.emoji, "🚆")
@@ -425,6 +443,7 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(busStop.emoji, "🚌")
         XCTAssertEqual(busStop.detail?.components(separatedBy: " · ").count, 4)
+        XCTAssertEqual(romanianMunicipality.detail, "Rumunsko")
     }
 
     func testSuggestionButtonAcceptsClicksAcrossTheFullRow() {

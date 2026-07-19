@@ -89,8 +89,33 @@ struct SearchSummaryPresentation: Equatable {
 
 /// Selects the IDOS text variant that matches the app's current system language.
 enum AppLanguagePreference {
+    private static let countryCodeByEnglishName: [String: String] = {
+        let english = Locale(identifier: "en_US")
+        var result: [String: String] = [:]
+        for region in Locale.Region.isoRegions {
+            if let name = english.localizedString(forRegionCode: region.identifier) {
+                result[normalizedCountryName(name)] = region.identifier
+            }
+        }
+        return result
+    }()
+
     static var idosLanguage: IDOSLanguage {
         Bundle.main.preferredLocalizations.first == "cs" ? .czech : .english
+    }
+
+    /// Localizes an English country name returned in IDOS metadata through its ISO region code.
+    static func localizedCountryName(fromEnglishName name: String, language: IDOSLanguage) -> String? {
+        guard let regionCode = countryCodeByEnglishName[normalizedCountryName(name)] else {
+            return nil
+        }
+        let locale = switch language {
+        case .czech:
+            Locale(identifier: "cs_CZ")
+        case .english:
+            Locale(identifier: "en_US")
+        }
+        return locale.localizedString(forRegionCode: regionCode)
     }
 
     /// Converts a permanent IDOS result link to the website variant matching the app language.
@@ -125,6 +150,13 @@ enum AppLanguagePreference {
         }
         components.percentEncodedPath = path
         return components.url
+    }
+
+    private static func normalizedCountryName(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US"))
+            .lowercased()
     }
 }
 

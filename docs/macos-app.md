@@ -8,7 +8,7 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 ## Features
 
 - Connection searches with full-row selectable place suggestions whose icons distinguish municipalities from
-  stations and stops.
+  stations and stops. Suggestion metadata, including foreign country names, follows the app language.
   Choosing a suggestion also preserves its exact IDOS identity, so a station is not broadened to a same-named
   municipality; editing the field returns it to a free-text search. Searches also support date, time, arrival
   mode, editable via places, and transfer limits with locale-aware plural wording and a consistently aligned

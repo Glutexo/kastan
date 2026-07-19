@@ -111,17 +111,20 @@ struct PlaceSuggestionPresentation: Equatable {
     let emoji: String
     let detail: String?
 
-    init(suggestion: IDOSSuggestion) {
+    init(
+        suggestion: IDOSSuggestion,
+        countryLanguage: IDOSLanguage = AppLanguagePreference.idosLanguage
+    ) {
         let rawDescription = suggestion.description ?? ""
         emoji = Self.emoji(for: rawDescription)
 
         var components = rawDescription
             .split(separator: ",")
-            .map { Self.localizedComponent(String($0)) }
+            .map { Self.localizedComponent(String($0), countryLanguage: countryLanguage) }
             .filter { !$0.isEmpty }
 
         if let region = suggestion.region?.trimmingCharacters(in: .whitespacesAndNewlines), !region.isEmpty {
-            components.append(Self.localizedComponent(region))
+            components.append(Self.localizedComponent(region, countryLanguage: countryLanguage))
         }
 
         var uniqueComponents: [String] = []
@@ -158,7 +161,10 @@ struct PlaceSuggestionPresentation: Equatable {
         return "📍"
     }
 
-    private static func localizedComponent(_ component: String) -> String {
+    private static func localizedComponent(
+        _ component: String,
+        countryLanguage: IDOSLanguage
+    ) -> String {
         let trimmed = component.trimmingCharacters(in: .whitespacesAndNewlines)
         let value = trimmed.lowercased()
 
@@ -186,6 +192,12 @@ struct PlaceSuggestionPresentation: Equatable {
             }
             if value.hasPrefix("station (") {
                 return "\(AppLocalization.string("station"))\(trimmed.dropFirst("station".count))"
+            }
+            if let country = AppLanguagePreference.localizedCountryName(
+                fromEnglishName: trimmed,
+                language: countryLanguage
+            ) {
+                return country
             }
             return trimmed
         }
