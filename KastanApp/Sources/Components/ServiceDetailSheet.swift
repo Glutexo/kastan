@@ -108,10 +108,16 @@ struct ServiceRouteHighlight: Codable, Hashable {
         self.toStop = toStop
     }
 
+    /// Finds the stop where the searched journey boards this service.
+    func departureIndex(in stops: [IDOSServiceStop]) -> Int? {
+        guard let fromStop, !stops.isEmpty else { return nil }
+        return stopIndex(matching: fromStop, in: stops.indices, stops: stops)
+    }
+
     func range(in stops: [IDOSServiceStop]) -> ClosedRange<Int>? {
         guard !stops.isEmpty else { return nil }
 
-        let startIndex = fromStop.flatMap { stopIndex(matching: $0, in: stops.indices, stops: stops) }
+        let startIndex = departureIndex(in: stops)
         let endSearchIndices = (startIndex ?? stops.startIndex)..<stops.endIndex
         let endIndex = toStop.flatMap { stopIndex(matching: $0, in: endSearchIndices, stops: stops) }
 
@@ -235,6 +241,7 @@ struct ServiceDetailView: View {
     @Environment(\.openURL) private var openURL
     @StateObject private var model: ServiceDetailViewModel
     @State private var dateIsUnderTitle = false
+    @State private var hasAppliedInitialRoutePosition = false
     private let routeHighlight: ServiceRouteHighlight?
 
     init(selection: ServiceSelection, client: any IDOSClienting) {
@@ -352,78 +359,87 @@ struct ServiceDetailView: View {
 
     private func serviceContent(_ service: IDOSServiceDetail) -> some View {
         let highlightedRange = routeHighlight?.range(in: service.stops)
+        let departureIndex = routeHighlight?.departureIndex(in: service.stops)
         let highlightedColor = Color(idosHTMLColor: service.color) ?? .accentColor
 
-        return ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                if let date = service.date {
-                    Text(date)
-                        .foregroundStyle(.secondary)
-                        .background {
-                            GeometryReader { geometry in
-                                Color.clear.preference(
-                                    key: ServiceDateFramePreferenceKey.self,
-                                    value: geometry.frame(in: .named(Self.scrollCoordinateSpace))
+        return ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    if let date = service.date {
+                        Text(date)
+                            .foregroundStyle(.secondary)
+                            .background {
+                                GeometryReader { geometry in
+                                    Color.clear.preference(
+                                        key: ServiceDateFramePreferenceKey.self,
+                                        value: geometry.frame(in: .named(Self.scrollCoordinateSpace))
+                                    )
+                                }
+                            }
+                    }
+
+                    if let actionErrorMessage = model.actionErrorMessage {
+                        Label(actionErrorMessage, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(12)
+                            .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Stops", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                            .font(.headline)
+
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(Array(service.stops.enumerated()), id: \.offset) { index, stop in
+                                ServiceStopRow(
+                                    stop: stop,
+                                    isFirst: index == 0,
+                                    isLast: index == service.stops.count - 1,
+                                    hasHighlight: highlightedRange != nil,
+                                    isHighlighted: highlightedRange?.contains(index) == true,
+                                    isHighlightBoundary: index == highlightedRange?.lowerBound ||
+                                        index == highlightedRange?.upperBound,
+                                    topIsHighlighted: highlightedRange.map {
+                                        index > $0.lowerBound && index <= $0.upperBound
+                                    } ?? false,
+                                    bottomIsHighlighted: highlightedRange.map {
+                                        index >= $0.lowerBound && index < $0.upperBound
+                                    } ?? false,
+                                    highlightedColor: highlightedColor
                                 )
+                                .id(index)
                             }
                         }
-                }
+                    }
 
-                if let actionErrorMessage = model.actionErrorMessage {
-                    Label(actionErrorMessage, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(12)
-                        .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Label("Stops", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
-                        .font(.headline)
-
-                    VStack(alignment: .leading, spacing: 0) {
-                        ForEach(Array(service.stops.enumerated()), id: \.offset) { index, stop in
-                            ServiceStopRow(
-                                stop: stop,
-                                isFirst: index == 0,
-                                isLast: index == service.stops.count - 1,
-                                hasHighlight: highlightedRange != nil,
-                                isHighlighted: highlightedRange?.contains(index) == true,
-                                isHighlightBoundary: index == highlightedRange?.lowerBound ||
-                                    index == highlightedRange?.upperBound,
-                                topIsHighlighted: highlightedRange.map {
-                                    index > $0.lowerBound && index <= $0.upperBound
-                                } ?? false,
-                                bottomIsHighlighted: highlightedRange.map {
-                                    index >= $0.lowerBound && index < $0.upperBound
-                                } ?? false,
-                                highlightedColor: highlightedColor
+                    if !service.information.isEmpty {
+                        GroupBox("Service information") {
+                            ServiceNotesView(
+                                notes: service.information,
+                                timetableValidity: model.timetableValidity
                             )
+                                .textSelection(.enabled)
                         }
                     }
                 }
-
-                if !service.information.isEmpty {
-                    GroupBox("Service information") {
-                        ServiceNotesView(
-                            notes: service.information,
-                            timetableValidity: model.timetableValidity
-                        )
-                            .textSelection(.enabled)
-                    }
+                .padding(24)
+            }
+            .coordinateSpace(name: Self.scrollCoordinateSpace)
+            .onPreferenceChange(ServiceDateFramePreferenceKey.self) { frame in
+                let newValue = ServiceWindowTitlePresentation.dateIsUnderTitle(frame: frame)
+                if dateIsUnderTitle != newValue {
+                    dateIsUnderTitle = newValue
                 }
             }
-            .padding(24)
-        }
-        .coordinateSpace(name: Self.scrollCoordinateSpace)
-        .onPreferenceChange(ServiceDateFramePreferenceKey.self) { frame in
-            let newValue = ServiceWindowTitlePresentation.dateIsUnderTitle(frame: frame)
-            if dateIsUnderTitle != newValue {
-                dateIsUnderTitle = newValue
+            .onAppear {
+                dateIsUnderTitle = false
+                guard !hasAppliedInitialRoutePosition else { return }
+                hasAppliedInitialRoutePosition = true
+                if let departureIndex {
+                    proxy.scrollTo(departureIndex, anchor: .top)
+                }
             }
-        }
-        .onAppear {
-            dateIsUnderTitle = false
         }
     }
 }

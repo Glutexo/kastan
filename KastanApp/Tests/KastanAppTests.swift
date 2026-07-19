@@ -765,6 +765,11 @@ final class KastanAppTests: XCTestCase {
             ServiceRouteHighlight(toStop: "Frýdek,T.G.Masaryka").range(in: stops),
             0...1
         )
+        XCTAssertEqual(
+            ServiceRouteHighlight(fromStop: "Frýdek-Místek,Frýdek,magistrát").departureIndex(in: stops),
+            2
+        )
+        XCTAssertNil(ServiceRouteHighlight(toStop: "Frýdek,T.G.Masaryka").departureIndex(in: stops))
     }
 
     func testServiceSelectionRoundTripsThroughWindowState() throws {
