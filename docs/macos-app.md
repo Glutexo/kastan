@@ -40,6 +40,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Connection cards with line colors, transport symbols, platforms, tariff zones, carriers, and localized delay
   states supplied by IDOS.
 - Complete service routes with the search-relevant segment highlighted without implying live vehicle position.
+  When scrolling hides a service date, the date moves into the window title until its content label is visible
+  again.
 - Permanent connection and service-detail links using the IDOS language that matches the app, available for
   opening in IDOS or sharing through the standard macOS share sheet. Every service-detail action is an
   individually visible control in that window's native toolbar.

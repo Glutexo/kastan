@@ -579,6 +579,35 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(ServiceSelection.self, from: data), selection)
     }
 
+    func testServiceDateMovesIntoWindowTitleOnlyAfterScrollingOutOfView() {
+        let service = IDOSServiceDetail(
+            id: "tram-4",
+            name: "Tram 4",
+            transportMode: .tram,
+            date: "19.7.2026",
+            stops: []
+        )
+
+        XCTAssertEqual(
+            ServiceWindowTitlePresentation.title(for: service, dateIsUnderTitle: false),
+            "🚋 Tram 4"
+        )
+        XCTAssertEqual(
+            ServiceWindowTitlePresentation.title(for: service, dateIsUnderTitle: true),
+            "🚋 Tram 4 · 19.7.2026"
+        )
+        XCTAssertFalse(
+            ServiceWindowTitlePresentation.dateIsUnderTitle(
+                frame: CGRect(x: 0, y: -18, width: 80, height: 19)
+            )
+        )
+        XCTAssertTrue(
+            ServiceWindowTitlePresentation.dateIsUnderTitle(
+                frame: CGRect(x: 0, y: -19, width: 80, height: 19)
+            )
+        )
+    }
+
     func testCompleteConnectionRoundTripsThroughWindowState() throws {
         let selection = ConnectionSelection(
             connection: connection(id: "connection-window"),

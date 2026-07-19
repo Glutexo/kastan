@@ -156,6 +156,35 @@ struct ServiceSelection: Codable, Hashable, Identifiable {
     }
 }
 
+/// Moves a service date into the window title exactly when its content label has scrolled away.
+enum ServiceWindowTitlePresentation {
+    static func title(for service: IDOSServiceDetail?, dateIsUnderTitle: Bool) -> String {
+        guard let service else {
+            return AppLocalization.string("Service route")
+        }
+
+        var components = [[service.transportMode?.emoji, service.name]
+            .compactMap { $0 }
+            .joined(separator: " ")]
+        if dateIsUnderTitle, let date = service.date, !date.isEmpty {
+            components.append(date)
+        }
+        return components.joined(separator: " · ")
+    }
+
+    static func dateIsUnderTitle(frame: CGRect?) -> Bool {
+        (frame?.maxY ?? 1) <= 0
+    }
+}
+
+private struct ServiceDateFramePreferenceKey: PreferenceKey {
+    static let defaultValue: CGRect? = nil
+
+    static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) {
+        value = nextValue() ?? value
+    }
+}
+
 /// Defines the four service actions that remain directly visible in the detail window toolbar.
 enum ServiceDetailToolbarAction: CaseIterable, Hashable, Identifiable {
     case addToCalendar
@@ -194,8 +223,11 @@ enum ServiceDetailToolbarAction: CaseIterable, Hashable, Identifiable {
 
 /// Shows every stop and piece of service information supplied by IDOS in its own window.
 struct ServiceDetailView: View {
+    private static let scrollCoordinateSpace = "service-detail-scroll"
+
     @Environment(\.openURL) private var openURL
     @StateObject private var model: ServiceDetailViewModel
+    @State private var dateIsUnderTitle = false
     private let routeHighlight: ServiceRouteHighlight?
 
     init(selection: ServiceSelection, client: any IDOSClienting) {
@@ -243,12 +275,10 @@ struct ServiceDetailView: View {
     }
 
     private var windowTitle: String {
-        if let service = model.service {
-            return [service.transportMode?.emoji, service.name]
-                .compactMap { $0 }
-                .joined(separator: " ")
-        }
-        return AppLocalization.string("Service route")
+        ServiceWindowTitlePresentation.title(
+            for: model.service,
+            dateIsUnderTitle: dateIsUnderTitle
+        )
     }
 
     private var serviceActionURL: URL? {
@@ -322,6 +352,14 @@ struct ServiceDetailView: View {
                 if let date = service.date {
                     Text(date)
                         .foregroundStyle(.secondary)
+                        .background {
+                            GeometryReader { geometry in
+                                Color.clear.preference(
+                                    key: ServiceDateFramePreferenceKey.self,
+                                    value: geometry.frame(in: .named(Self.scrollCoordinateSpace))
+                                )
+                            }
+                        }
                 }
 
                 if let actionErrorMessage = model.actionErrorMessage {
@@ -365,6 +403,16 @@ struct ServiceDetailView: View {
                 }
             }
             .padding(24)
+        }
+        .coordinateSpace(name: Self.scrollCoordinateSpace)
+        .onPreferenceChange(ServiceDateFramePreferenceKey.self) { frame in
+            let newValue = ServiceWindowTitlePresentation.dateIsUnderTitle(frame: frame)
+            if dateIsUnderTitle != newValue {
+                dateIsUnderTitle = newValue
+            }
+        }
+        .onAppear {
+            dateIsUnderTitle = false
         }
     }
 }
