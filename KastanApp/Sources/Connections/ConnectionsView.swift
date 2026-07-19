@@ -256,6 +256,15 @@ struct ConnectionsView: View {
                         connection: connection,
                         isPerformingExport: model.importingConnectionID == connection.id ||
                             model.exportingPDFConnectionID == connection.id,
+                        openConnection: {
+                            openWindow(
+                                id: AppWindow.connectionDetail,
+                                value: ConnectionSelection(
+                                    connection: connection,
+                                    timetable: model.timetable
+                                )
+                            )
+                        },
                         openService: { openWindow(id: AppWindow.serviceDetail, value: $0) },
                         addToCalendar: { Task { await model.addToCalendar(connection) } },
                         saveAsPDF: { Task { await model.saveAsPDF(connection) } }
@@ -266,11 +275,30 @@ struct ConnectionsView: View {
     }
 }
 
+/// Carries a complete connection and its timetable into an independent restorable window.
+struct ConnectionSelection: Codable, Hashable, Identifiable {
+    let connection: IDOSConnection
+    let timetable: IDOSTimetable
+
+    var id: String {
+        "\(timetable.slug):\(connection.id)"
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.connection == rhs.connection && lhs.timetable == rhs.timetable
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
+
 /// Contains one complete journey and all of its legs in a distinct native result card.
 private struct ConnectionCard: View {
-    let number: Int
+    let number: Int?
     let connection: IDOSConnection
     let isPerformingExport: Bool
+    let openConnection: (() -> Void)?
     let openService: (ServiceSelection) -> Void
     let addToCalendar: () -> Void
     let saveAsPDF: () -> Void
@@ -279,9 +307,11 @@ private struct ConnectionCard: View {
         GroupBox {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    Text(AppLocalization.string("Connection %lld", number))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    if let number {
+                        Text(AppLocalization.string("Connection %lld", number))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     Text("\(connection.departureTime) → \(connection.arrivalTime)")
                         .font(.title2.bold().monospacedDigit())
                     Text(connection.duration)
@@ -294,6 +324,14 @@ private struct ConnectionCard: View {
                             .background(.green.opacity(0.14), in: Capsule())
                     }
                     Spacer()
+                    if let openConnection {
+                        Button(action: openConnection) {
+                            Label("Open connection in new window", systemImage: "macwindow")
+                                .labelStyle(.iconOnly)
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Open connection in new window")
+                    }
                     Menu {
                         Button {
                             addToCalendar()
@@ -365,6 +403,52 @@ private struct ConnectionCard: View {
             .padding(4)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+}
+
+/// Shows one complete connection in its own window while retaining all result actions.
+struct ConnectionDetailView: View {
+    @Environment(\.openWindow) private var openWindow
+    @StateObject private var actionsModel: ConnectionsViewModel
+    private let selection: ConnectionSelection
+
+    init(selection: ConnectionSelection, client: any IDOSClienting) {
+        self.selection = selection
+        let actionsModel = ConnectionsViewModel(client: client)
+        actionsModel.timetable = selection.timetable
+        _actionsModel = StateObject(wrappedValue: actionsModel)
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if let errorMessage = actionsModel.errorMessage {
+                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                }
+
+                ConnectionCard(
+                    number: nil,
+                    connection: selection.connection,
+                    isPerformingExport: actionsModel.importingConnectionID == selection.connection.id ||
+                        actionsModel.exportingPDFConnectionID == selection.connection.id,
+                    openConnection: nil,
+                    openService: { openWindow(id: AppWindow.serviceDetail, value: $0) },
+                    addToCalendar: {
+                        Task { await actionsModel.addToCalendar(selection.connection) }
+                    },
+                    saveAsPDF: {
+                        Task { await actionsModel.saveAsPDF(selection.connection) }
+                    }
+                )
+            }
+            .padding(24)
+        }
+        .frame(minWidth: 620, minHeight: 420)
+        .navigationTitle("\(selection.connection.departureStation) → \(selection.connection.arrivalStation)")
     }
 }
 

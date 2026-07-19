@@ -301,6 +301,7 @@ final class KastanAppTests: XCTestCase {
     func testToolbarOffersExactlyTheThreeIDOSSearchModes() {
         XCTAssertEqual(AppSection.allCases, [.connections, .departures, .stationTimetables])
         XCTAssertEqual(AppWindow.favoriteTimetables, "favorite-timetables")
+        XCTAssertEqual(AppWindow.connectionDetail, "connection-detail")
     }
 
     func testNativeToolbarKeepsTheModePickerAheadOfOverflowActions() throws {
@@ -576,6 +577,55 @@ final class KastanAppTests: XCTestCase {
         let data = try JSONEncoder().encode(selection)
 
         XCTAssertEqual(try JSONDecoder().decode(ServiceSelection.self, from: data), selection)
+    }
+
+    func testCompleteConnectionRoundTripsThroughWindowState() throws {
+        let selection = ConnectionSelection(
+            connection: connection(id: "connection-window"),
+            timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains")
+        )
+
+        let data = try JSONEncoder().encode(selection)
+        let decoded = try JSONDecoder().decode(ConnectionSelection.self, from: data)
+
+        XCTAssertEqual(decoded, selection)
+        XCTAssertEqual(decoded.id, "vlaky:connection-window")
+        XCTAssertEqual(Set([decoded, selection]).count, 1)
+
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        XCTAssertEqual(
+            czech.localizedString(
+                forKey: "Open connection in new window",
+                value: nil,
+                table: nil
+            ),
+            "Otevřít spojení v novém okně"
+        )
+    }
+
+    func testCompleteConnectionDetailRendersInAnIndependentWindow() {
+        let selection = ConnectionSelection(
+            connection: connection(id: "connection-detail"),
+            timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains")
+        )
+        let hostingView = NSHostingView(
+            rootView: ConnectionDetailView(selection: selection, client: MockIDOSClient())
+                .frame(width: 700, height: 500)
+        )
+        hostingView.frame = NSRect(x: 0, y: 0, width: 700, height: 500)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .titled,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        XCTAssertEqual(hostingView.frame.size, NSSize(width: 700, height: 500))
+        XCTAssertGreaterThan(hostingView.fittingSize.height, 0)
     }
 
     func testConnectionSearchBuildsCompleteIDOSRequest() async {

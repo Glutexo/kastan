@@ -21,6 +21,7 @@
 "Currently no delay" = "Aktuálně bez zpoždění";
 "Connection %lld" = "Spojení %lld";
 "Connection %@ – %@" = "Spojení %@ – %@";
+"Connection detail" = "Detail spojení";
 "Connections" = "Spojení";
 "Date" = "Datum";
 "Departure" = "Odjezd";
@@ -77,6 +78,7 @@
 "Network request failed. Check your internet connection." = "Síťový požadavek selhal. Zkontrolujte připojení k internetu.";
 "Network request failed. Check your internet connection. %@" = "Síťový požadavek selhal. Zkontrolujte připojení k internetu. %@";
 "Open in IDOS" = "Otevřít v IDOSu";
+"Open connection in new window" = "Otevřít spojení v novém okně";
 "IDOS website" = "Web IDOSu";
 "Opens in the default web browser" = "Otevře se ve výchozím webovém prohlížeči";
 "Platform %@" = "nástupiště %@";

@@ -23,6 +23,7 @@ enum ApplicationArtwork {
 enum AppWindow {
     static let information = "app-information"
     static let favoriteTimetables = "favorite-timetables"
+    static let connectionDetail = "connection-detail"
     static let serviceDetail = "service-detail"
 }
 
@@ -331,6 +332,17 @@ struct KastanApp: App {
         WindowGroup("Service route", id: AppWindow.serviceDetail, for: ServiceSelection.self) { selection in
             if let selection = selection.wrappedValue {
                 ServiceDetailView(selection: selection, client: client)
+            }
+        }
+        .defaultSize(width: 760, height: 640)
+        .commands {
+            AppInformationCommands()
+            AppHelpCommands()
+        }
+
+        WindowGroup("Connection detail", id: AppWindow.connectionDetail, for: ConnectionSelection.self) { selection in
+            if let selection = selection.wrappedValue {
+                ConnectionDetailView(selection: selection, client: client)
             }
         }
         .defaultSize(width: 760, height: 640)

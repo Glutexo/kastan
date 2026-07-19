@@ -21,6 +21,7 @@
 "Currently no delay" = "Currently no delay";
 "Connection %lld" = "Connection %lld";
 "Connection %@ – %@" = "Connection %@ – %@";
+"Connection detail" = "Connection detail";
 "Connections" = "Connections";
 "Date" = "Date";
 "Departure" = "Departure";
@@ -77,6 +78,7 @@
 "Network request failed. Check your internet connection." = "Network request failed. Check your internet connection.";
 "Network request failed. Check your internet connection. %@" = "Network request failed. Check your internet connection. %@";
 "Open in IDOS" = "Open in IDOS";
+"Open connection in new window" = "Open connection in new window";
 "IDOS website" = "IDOS website";
 "Opens in the default web browser" = "Opens in the default web browser";
 "Platform %@" = "Platform %@";
