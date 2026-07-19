@@ -283,7 +283,7 @@ struct AppSectionCommands: Commands {
 @main
 struct KastanApp: App {
     /// Retains usable compact search forms and toolbar actions at the narrowest supported main-window size.
-    static let minimumMainWindowWidth: CGFloat = 520
+    static let minimumMainWindowWidth: CGFloat = 522
 
     private let client = IDOSClient()
 

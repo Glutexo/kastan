@@ -109,8 +109,8 @@ final class KastanAppTests: XCTestCase {
     func testMainWindowSupportsCompactSearchWorkspaceWidth() {
         let layout = DetailLayout(availableWidth: KastanApp.minimumMainWindowWidth)
 
-        XCTAssertEqual(KastanApp.minimumMainWindowWidth, 520)
-        XCTAssertEqual(layout.contentWidth, 488)
+        XCTAssertEqual(KastanApp.minimumMainWindowWidth, 522)
+        XCTAssertEqual(layout.contentWidth, 490)
         XCTAssertTrue(layout.usesStackedSearchControls)
     }
 

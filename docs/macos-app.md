@@ -28,7 +28,7 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   favorite button kept next to the picker at every window width.
 - Search forms fixed above independently scrollable result areas, then collapsed into low query summaries after
   submission with an explicit action for returning to the editable form. The main window remains usable down to
-  a compact 520-point width by stacking controls where needed.
+  a compact 522-point width without moving the connection time mode below the date and time controls.
 - Connection and station-board results extend chronologically without replacement: pulling past the top loads
   earlier results, while pulling past the bottom loads the following results and removes duplicate rows.
 - Native tabs and windows, including independent favorite-timetable and resizable service-route windows.
