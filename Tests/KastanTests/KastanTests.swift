@@ -406,6 +406,7 @@ import Testing
     )
 
     #expect(output.contains("🧭 Connections Praha → Brno (Trains)"))
+    #expect(!output.contains("->"))
     #expect(output.contains("R9"))
 }
 
@@ -1359,6 +1360,28 @@ import Testing
     #expect(suggestions.first?.text == "Bus 154")
     #expect(suggestions.first?.from == "Strašnická")
     #expect(suggestions.first?.to == "Sídliště Libuš")
+}
+
+@Test func presentationTextUsesUnicodeArrowsInHumanReadableIDOSValues() {
+    let suggestion = IDOSSuggestion(
+        selectedText: "Praha->Brno",
+        text: "Praha -> Brno",
+        description: "Praha hl.n. -> Brno hl.n.",
+        region: "Praha -> Jihomoravský kraj",
+        value: "opaque->identifier",
+        from: "Praha->",
+        to: "->Brno"
+    )
+    let normalized = IDOSPresentationText.normalize(suggestion)
+
+    #expect(IDOSPresentationText.normalize("Praha -> Brno") == "Praha → Brno")
+    #expect(normalized.selectedText == "Praha→Brno")
+    #expect(normalized.text == "Praha → Brno")
+    #expect(normalized.description == "Praha hl.n. → Brno hl.n.")
+    #expect(normalized.region == "Praha → Jihomoravský kraj")
+    #expect(normalized.from == "Praha→")
+    #expect(normalized.to == "→Brno")
+    #expect(normalized.value == "opaque->identifier")
 }
 
 @Test func jsonpParserDecodesCallbackPayload() throws {

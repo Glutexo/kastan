@@ -302,8 +302,7 @@ public struct IDOSClient: IDOSClienting {
         ]
 
         let data = try await data(from: components.requiredURL)
-        let json = try IDOSJSONP.decodePayload(from: data)
-        return try JSONDecoder().decode([IDOSSuggestion].self, from: json)
+        return try decodedSuggestions(from: data)
     }
 
     private func searchStationTimetableObjects(
@@ -332,8 +331,14 @@ public struct IDOSClient: IDOSClienting {
         components.queryItems = queryItems
 
         let data = try await data(from: components.requiredURL)
+        return try decodedSuggestions(from: data)
+    }
+
+    /// Decodes IDOS suggestions while applying the same readable symbols used by every other result.
+    private func decodedSuggestions(from data: Data) throws -> [IDOSSuggestion] {
         let json = try IDOSJSONP.decodePayload(from: data)
         return try JSONDecoder().decode([IDOSSuggestion].self, from: json)
+            .map(IDOSPresentationText.normalize)
     }
 
     /// Loads one IDOS station timetable for an MHD or integrated-transport line and direction.
@@ -3203,9 +3208,28 @@ private enum TerminalStyle {
     }
 }
 
+/// Normalizes typographic symbols in human-readable IDOS text without altering identifiers or URLs.
+enum IDOSPresentationText {
+    static func normalize(_ value: String) -> String {
+        value.replacingOccurrences(of: "->", with: "→")
+    }
+
+    /// Normalizes only the labels and descriptions that can be presented from an IDOS suggestion.
+    static func normalize(_ suggestion: IDOSSuggestion) -> IDOSSuggestion {
+        var suggestion = suggestion
+        suggestion.selectedText = suggestion.selectedText.map(normalize)
+        suggestion.text = normalize(suggestion.text)
+        suggestion.description = suggestion.description.map(normalize)
+        suggestion.region = suggestion.region.map(normalize)
+        suggestion.from = suggestion.from.map(normalize)
+        suggestion.to = suggestion.to.map(normalize)
+        return suggestion
+    }
+}
+
 private enum HTMLText {
     static func clean(_ value: String) -> String {
-        normalizeWhitespace(stripTags(decodeEntities(value)))
+        IDOSPresentationText.normalize(normalizeWhitespace(stripTags(decodeEntities(value))))
     }
 
     static func decodeEntities(_ value: String) -> String {
