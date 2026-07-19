@@ -192,6 +192,42 @@ struct PlaceSuggestionPresentation: Equatable {
     }
 }
 
+/// Makes the complete visual suggestion row select the represented IDOS place.
+struct PlaceSuggestionButton: View {
+    let suggestion: IDOSSuggestion
+    let action: () -> Void
+
+    var body: some View {
+        let presentation = PlaceSuggestionPresentation(suggestion: suggestion)
+
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Text(presentation.emoji)
+                    .font(.title3)
+                    .frame(width: 24)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(suggestion.text)
+                        .foregroundStyle(.primary)
+                    if let detail = presentation.detail {
+                        Text(detail)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 /// Presents a native text field with IDOS suggestions directly below the current input.
 struct PlaceAutocompleteField: View {
     let title: LocalizedStringKey
@@ -298,39 +334,14 @@ struct PlaceAutocompleteField: View {
     private var suggestionsList: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(model.suggestions.enumerated()), id: \.offset) { _, suggestion in
-                let presentation = PlaceSuggestionPresentation(suggestion: suggestion)
-
-                Button {
+                PlaceSuggestionButton(suggestion: suggestion) {
                     let selectedText = suggestion.selectedText ?? suggestion.text
                     selection?.wrappedValue = IDOSPlaceSelection(suggestion: suggestion)
                     text = selectedText
                     onSelection?(suggestion)
                     model.selectedSuggestion()
                     isFocused = false
-                } label: {
-                    HStack(spacing: 10) {
-                        Text(presentation.emoji)
-                            .font(.title3)
-                            .frame(width: 24)
-                            .accessibilityHidden(true)
-
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(suggestion.text)
-                                .foregroundStyle(.primary)
-                            if let detail = presentation.detail {
-                                Text(detail)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-
-                        Spacer(minLength: 0)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
                 }
-                .buttonStyle(.plain)
 
                 if suggestion.text != model.suggestions.last?.text {
                     Divider()

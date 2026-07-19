@@ -427,6 +427,51 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(busStop.detail?.components(separatedBy: " · ").count, 4)
     }
 
+    func testSuggestionButtonAcceptsClicksAcrossTheFullRow() {
+        var didSelect = false
+        let row = PlaceSuggestionButton(
+            suggestion: IDOSSuggestion(
+                text: "Rožnov pod Radhoštěm",
+                description: "municipality, district Vsetín"
+            ),
+            action: { didSelect = true }
+        )
+        .frame(width: 320)
+        let hostingView = NSHostingView(rootView: row)
+        hostingView.frame = NSRect(x: 0, y: 0, width: 320, height: 56)
+
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        let location = NSPoint(x: 300, y: hostingView.bounds.midY)
+        for eventType in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            let event = NSEvent.mouseEvent(
+                with: eventType,
+                location: location,
+                modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                clickCount: 1,
+                pressure: eventType == .leftMouseDown ? 1 : 0
+            )
+            if let event {
+                window.sendEvent(event)
+            }
+        }
+
+        XCTAssertTrue(didSelect)
+    }
+
     func testDelayPresentationLocalizesKnownStateAndPreservesCarrierDetail() {
         XCTAssertEqual(
             ResultMetadata.delay(" Currently no delay "),
