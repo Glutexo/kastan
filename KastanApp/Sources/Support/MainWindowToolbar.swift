@@ -144,7 +144,7 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
             case .appInformation:
                 makeActionToolbarItem(
                     identifier: itemIdentifier,
-                    title: AppLocalization.string("Show app and data source information"),
+                    title: AppLocalization.string("App and data source information"),
                     systemImage: "info.circle",
                     action: #selector(showAppInformation(_:))
                 )

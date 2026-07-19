@@ -346,6 +346,18 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(selection, .departures)
     }
 
+    func testAppInformationToolbarTitleNamesItsContentWithoutAnActionVerb() throws {
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        let key = "App and data source information"
+
+        XCTAssertEqual(
+            czech.localizedString(forKey: key, value: nil, table: nil),
+            "Informace o aplikaci a zdroji dat"
+        )
+        XCTAssertEqual(english.localizedString(forKey: key, value: nil, table: nil), key)
+    }
+
     func testTimetableCatalogIsSplitIntoGeneralIntegratedAndCityGroups() {
         XCTAssertEqual(
             AppTimetableGroup.general.timetables.map(\.slug),
