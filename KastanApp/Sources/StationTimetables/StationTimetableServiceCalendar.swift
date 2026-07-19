@@ -6,6 +6,7 @@ struct StationTimetableServiceCalendar: Equatable {
     enum Rule: Equatable {
         case runsOnlyOnListedDates
         case doesNotRunOnListedDates
+        case runsOnWorkingDaysExceptListedDates
     }
 
     enum DayStatus: Equatable {
@@ -61,6 +62,10 @@ struct StationTimetableServiceCalendar: Equatable {
             return isListed ? .runs : .doesNotRun
         case .doesNotRunOnListedDates:
             return isListed ? .doesNotRun : .runs
+        case .runsOnWorkingDaysExceptListedDates:
+            return Self.isCzechWorkingDay(day, calendar: calendar) && !isListed
+                ? .runs
+                : .doesNotRun
         }
     }
 
@@ -101,6 +106,17 @@ struct StationTimetableServiceCalendar: Equatable {
         case throughValidityEnd
     }
 
+    /// Fixed Czech holidays encoded as month × 100 + day for efficient calendar-cell evaluation.
+    private static let fixedCzechHolidayCodes: Set<Int> = [
+        101,
+        501, 508,
+        705, 706,
+        928,
+        1028,
+        1117,
+        1224, 1225, 1226,
+    ]
+
     private static func validity(in notes: [String]) -> (start: Date, end: Date)? {
         let calendar = serviceCalendar
 
@@ -134,6 +150,12 @@ struct StationTimetableServiceCalendar: Equatable {
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "cs_CZ"))
             .lowercased()
 
+        let workingDayPattern =
+            #"\bjede\s+v\s+(?:x\b|pracovnich\s+dnech\b)|(?<!not )\bruns?\s+(?:on\s+)?(?:working\s+days?|weekdays?|workdays?)\b"#
+        if normalized.range(of: workingDayPattern, options: .regularExpression) != nil {
+            return .runsOnWorkingDaysExceptListedDates
+        }
+
         if normalized.range(of: #"\bnejede\b|\bdoes\s+not\s+run\b"#, options: .regularExpression) != nil {
             return .doesNotRunOnListedDates
         }
@@ -141,6 +163,56 @@ struct StationTimetableServiceCalendar: Equatable {
             return .runsOnlyOnListedDates
         }
         return nil
+    }
+
+    /// Treats the Czech `X` timetable symbol as Monday through Friday except Czech public holidays.
+    private static func isCzechWorkingDay(_ date: Date, calendar: Calendar) -> Bool {
+        let components = calendar.dateComponents([.year, .month, .day, .weekday], from: date)
+        guard let year = components.year,
+              let month = components.month,
+              let day = components.day,
+              let weekday = components.weekday,
+              (2...6).contains(weekday)
+        else {
+            return false
+        }
+
+        let fixedHolidayCode = month * 100 + day
+        guard !fixedCzechHolidayCodes.contains(fixedHolidayCode),
+              let easterSunday = easterSunday(in: year, calendar: calendar),
+              let goodFriday = calendar.date(byAdding: .day, value: -2, to: easterSunday),
+              let easterMonday = calendar.date(byAdding: .day, value: 1, to: easterSunday)
+        else {
+            return false
+        }
+
+        let civilDate = calendar.startOfDay(for: date)
+        return civilDate != goodFriday && civilDate != easterMonday
+    }
+
+    /// Calculates Easter Sunday so the two movable Czech holidays can be excluded from working days.
+    private static func easterSunday(in year: Int, calendar: Calendar) -> Date? {
+        guard year >= 1583 else { return nil }
+        let a = year % 19
+        let b = year / 100
+        let c = year % 100
+        let d = b / 4
+        let e = b % 4
+        let f = (b + 8) / 25
+        let g = (b - f + 1) / 3
+        let h = (19 * a + b - d - g + 15) % 30
+        let i = c / 4
+        let k = c % 4
+        let l = (32 + 2 * e + 2 * i - h - k) % 7
+        let m = (a + 11 * h + 22 * l) / 451
+        let value = h + l - 7 * m + 114
+
+        return calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: year,
+            month: value / 31,
+            day: value % 31 + 1
+        )).map(calendar.startOfDay(for:))
     }
 
     private static func listedDates(

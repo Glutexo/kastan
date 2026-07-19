@@ -131,6 +131,32 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 21)), .runs)
     }
 
+    func testWorkingDayRuleCombinesWithDatedExceptionAndCzechHolidays() throws {
+        let note = "jede v X.,nejede od 18. do 23.VIII."
+        let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(
+            note: note,
+            validityStart: serviceDate(2025, 12, 14),
+            validityEnd: serviceDate(2026, 12, 12)
+        ))
+
+        XCTAssertEqual(serviceCalendar.rule, .runsOnWorkingDaysExceptListedDates)
+        XCTAssertEqual(
+            serviceCalendar.listedDates,
+            (18...23).map { serviceDate(2026, 8, $0) }
+        )
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 17)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 18)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 21)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 22)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 23)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 24)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 29)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 4, 3)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 4, 6)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 4, 7)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 28)), .doesNotRun)
+    }
+
     func testSingleDateRangesExpandToTheNamedTimetableBoundary() throws {
         let validityStart = serviceDate(2025, 12, 14)
         let validityEnd = serviceDate(2026, 12, 12)
