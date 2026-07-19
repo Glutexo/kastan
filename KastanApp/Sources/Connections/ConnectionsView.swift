@@ -213,6 +213,7 @@ struct ConnectionsView: View {
                         .frame(width: 20, height: 14)
                 }
                 .buttonStyle(.bordered)
+                .fixedSize()
                 .help("Remove journey option")
             }
 
@@ -224,6 +225,7 @@ struct ConnectionsView: View {
                     .frame(width: 20, height: 14)
             }
             .buttonStyle(.bordered)
+            .fixedSize()
             .help("Add journey option")
         }
     }
@@ -237,14 +239,21 @@ struct ConnectionsView: View {
                 .frame(minWidth: 160, maxWidth: 520)
                 .layoutPriority(1)
         case .maximumTransfers:
-            TextField(
-                "Maximum number of transfers",
+            Stepper(
                 value: maximumTransfersBinding(for: option),
-                format: .number
-            )
-            .textFieldStyle(.roundedBorder)
-            .multilineTextAlignment(.trailing)
-            .frame(width: 72)
+                in: ConnectionsViewModel.maximumTransferRange
+            ) {
+                TextField(
+                    "Maximum number of transfers",
+                    value: maximumTransfersBinding(for: option),
+                    format: .number
+                )
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.leading)
+                .frame(width: 40)
+            }
+            .fixedSize()
+            .accessibilityLabel("Maximum number of transfers")
         }
     }
 
