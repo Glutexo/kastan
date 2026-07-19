@@ -1,6 +1,7 @@
 "About Kaštan" = "O aplikaci Kaštan";
 "Add to Calendar" = "Přidat do Kalendáře";
 "Add timetable to favorites" = "Přidat jízdní řád do oblíbených";
+"Add journey option" = "Přidat možnost cesty";
 "Add via place" = "Přidat další místo";
 "address" = "adresa";
 "All timetables" = "Všechny jízdní řády";
@@ -58,8 +59,10 @@
 "Invalid service ID: %@." = "Neplatné ID spoje: %@.";
 "Invalid timetable: %@." = "Neplatný jízdní řád: %@.";
 "Journey options" = "Možnosti cesty";
+"Journey option" = "Možnost cesty";
 "Line" = "Linka";
 "Line number or name" = "Číslo nebo název linky";
+"Maximum number of transfers" = "Nejvyšší počet přestupů";
 "Kaštan on GitHub" = "Kaštan na GitHubu";
 "Kaštan retrieves journey information from publicly accessible IDOS web pages. It is not an official IDOS or CHAPS application." = "Kaštan načítá informace o spojení z veřejně přístupných webových stránek IDOSu. Nejde o oficiální aplikaci IDOSu ani společnosti CHAPS.";
 "Independent macOS client for occasional personal IDOS searches." = "Nezávislý klient pro macOS určený k občasnému osobnímu vyhledávání v IDOSu.";
@@ -93,6 +96,7 @@
 "Results" = "Výsledky";
 "Remove via place" = "Odebrat místo";
 "Remove timetable from favorites" = "Odebrat jízdní řád z oblíbených";
+"Remove journey option" = "Odebrat možnost cesty";
 "Reverse direction" = "Opačný směr";
 "Runs" = "Jede";
 "Runs only on the listed dates" = "Jede pouze v uvedené dny";

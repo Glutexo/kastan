@@ -12,8 +12,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   Choosing a suggestion also preserves its exact IDOS identity, so a station is not broadened to a same-named
   municipality. The selected field marks that identity with a subdued localized type such as municipality,
   train, or bus; editing the field removes the marker and returns it to a free-text search. Searches also support
-  date, time, arrival mode, editable via places, and transfer limits with locale-aware plural wording and a
-  consistently aligned stepper.
+  date, time, arrival mode, and an extensible journey-options builder modeled after native macOS rule editors.
+  Each condition first selects either Via or Maximum number of transfers, then presents the corresponding text
+  or bounded number field; rows can be added and removed while summaries retain locale-aware transfer wording.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, tariff zones, platforms or stands, lockout labels, explanatory notes, and links back to the

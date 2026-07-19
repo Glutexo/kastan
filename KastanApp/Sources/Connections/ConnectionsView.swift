@@ -143,7 +143,7 @@ struct ConnectionsView: View {
             date: IDOSRequestFormatting.date(from: model.date),
             time: IDOSRequestFormatting.time(from: model.time),
             mode: AppLocalization.string(model.isArrival ? "Arrival" : "Departure"),
-            via: model.viaPlaces.map(\.name),
+            via: model.viaPlaceNames,
             transferLimit: model.transferLimitLabel
         )
     }
@@ -167,17 +167,12 @@ struct ConnectionsView: View {
             VStack(alignment: .leading, spacing: 0) {
                 Divider()
 
-                ForEach($model.viaPlaces) { $viaPlace in
-                    viaPlaceRow(name: $viaPlace.name, id: viaPlace.id)
+                ForEach($model.journeyOptions) { $journeyOption in
+                    journeyOptionRow(option: $journeyOption)
                         .padding(.vertical, 6)
 
                     Divider()
                 }
-
-                transfersStepper
-                    .padding(.vertical, 8)
-
-                Divider()
             }
             .padding(.top, 8)
         } label: {
@@ -194,47 +189,76 @@ struct ConnectionsView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func viaPlaceRow(name: Binding<String>, id: ViaPlaceEntry.ID) -> some View {
+    private func journeyOptionRow(option: Binding<JourneyOptionEntry>) -> some View {
         HStack(spacing: 8) {
-            TextField("Via", text: name)
-                .textFieldStyle(.roundedBorder)
-                .frame(minWidth: 160, maxWidth: 520)
+            Picker("Journey option", selection: option.kind) {
+                ForEach(model.availableJourneyOptionKinds(for: option.wrappedValue.id)) { kind in
+                    Text(kind.localizedTitle).tag(kind)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .frame(width: 220, alignment: .leading)
+
+            journeyOptionValue(option: option)
 
             Spacer(minLength: 0)
 
-            Button {
-                model.removeViaPlace(id: id)
-            } label: {
-                Label("Remove via place", systemImage: "minus")
-                    .labelStyle(.iconOnly)
-                    .frame(width: 20, height: 14)
+            if model.journeyOptions.count > 1 {
+                Button {
+                    model.removeJourneyOption(id: option.wrappedValue.id)
+                } label: {
+                    Label("Remove journey option", systemImage: "minus")
+                        .labelStyle(.iconOnly)
+                        .frame(width: 20, height: 14)
+                }
+                .buttonStyle(.bordered)
+                .help("Remove journey option")
             }
-            .buttonStyle(.bordered)
-            .help("Remove via place")
 
             Button {
-                model.addViaPlace(after: id)
+                model.addJourneyOption(after: option.wrappedValue.id)
             } label: {
-                Label("Add via place", systemImage: "plus")
+                Label("Add journey option", systemImage: "plus")
                     .labelStyle(.iconOnly)
                     .frame(width: 20, height: 14)
             }
             .buttonStyle(.bordered)
-            .help("Add via place")
+            .help("Add journey option")
         }
     }
 
-    private var transfersStepper: some View {
-        Stepper(value: $model.maximumTransfers, in: 0...10) {
-            ZStack(alignment: .leading) {
-                Text(AppLocalization.plural("Up to %lld transfers", count: 10))
-                    .hidden()
-                    .accessibilityHidden(true)
-                Text(model.transferLimitLabel)
-            }
-            .lineLimit(1)
-            .fixedSize(horizontal: true, vertical: false)
+    @ViewBuilder
+    private func journeyOptionValue(option: Binding<JourneyOptionEntry>) -> some View {
+        switch option.wrappedValue.kind {
+        case .via:
+            TextField("Via", text: option.viaPlace)
+                .textFieldStyle(.roundedBorder)
+                .frame(minWidth: 160, maxWidth: 520)
+                .layoutPriority(1)
+        case .maximumTransfers:
+            TextField(
+                "Maximum number of transfers",
+                value: maximumTransfersBinding(for: option),
+                format: .number
+            )
+            .textFieldStyle(.roundedBorder)
+            .multilineTextAlignment(.trailing)
+            .frame(width: 72)
         }
+    }
+
+    /// Preserves the former stepper's accepted range while presenting the requested number field.
+    private func maximumTransfersBinding(for option: Binding<JourneyOptionEntry>) -> Binding<Int> {
+        Binding(
+            get: { option.wrappedValue.maximumTransfers },
+            set: { newValue in
+                option.wrappedValue.maximumTransfers = min(
+                    max(newValue, ConnectionsViewModel.maximumTransferRange.lowerBound),
+                    ConnectionsViewModel.maximumTransferRange.upperBound
+                )
+            }
+        )
     }
 
     @ViewBuilder

@@ -960,13 +960,13 @@ final class KastanAppTests: XCTestCase {
             kind: .train
         )
         model.fromSelection = fromSelection
-        model.viaPlaces = [
-            ViaPlaceEntry(name: " Pardubice "),
-            ViaPlaceEntry(name: ""),
-            ViaPlaceEntry(name: "Olomouc")
+        model.journeyOptions = [
+            JourneyOptionEntry(viaPlace: " Pardubice "),
+            JourneyOptionEntry(viaPlace: ""),
+            JourneyOptionEntry(viaPlace: "Olomouc"),
+            JourneyOptionEntry(kind: .maximumTransfers, maximumTransfers: 2),
         ]
         model.isArrival = true
-        model.maximumTransfers = 2
 
         await model.search()
 
@@ -1018,20 +1018,38 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(model.fromSelection)
     }
 
-    func testConnectionViaRowsCanBeAddedAndRemovedWithoutDroppingTheLastField() {
+    func testJourneyOptionRowsCanBeAddedAndRemovedWithoutDroppingTheLastField() {
         let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
-        let firstID = model.viaPlaces[0].id
+        let firstID = model.journeyOptions[0].id
 
-        model.addViaPlace(after: firstID)
-        XCTAssertEqual(model.viaPlaces.count, 2)
+        model.addJourneyOption(after: firstID)
+        XCTAssertEqual(model.journeyOptions.count, 2)
 
-        let secondID = model.viaPlaces[1].id
-        model.viaPlaces[1].name = "Olomouc"
-        model.removeViaPlace(id: firstID)
-        XCTAssertEqual(model.viaPlaces.map(\.name), ["Olomouc"])
+        let secondID = model.journeyOptions[1].id
+        model.journeyOptions[1].viaPlace = "Olomouc"
+        model.removeJourneyOption(id: firstID)
+        XCTAssertEqual(model.viaPlaceNames, ["Olomouc"])
 
-        model.removeViaPlace(id: secondID)
-        XCTAssertEqual(model.viaPlaces.map(\.name), [""])
+        model.removeJourneyOption(id: secondID)
+        XCTAssertEqual(model.journeyOptions, [JourneyOptionEntry(id: secondID)])
+    }
+
+    func testJourneyOptionPickerKeepsSingletonConditionsUnique() {
+        let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
+        let firstID = model.journeyOptions[0].id
+
+        XCTAssertEqual(model.availableJourneyOptionKinds(for: firstID), [.via, .maximumTransfers])
+
+        model.journeyOptions[0].kind = .maximumTransfers
+        model.addJourneyOption(after: firstID)
+        let secondID = model.journeyOptions[1].id
+
+        XCTAssertEqual(model.availableJourneyOptionKinds(for: firstID), [.via, .maximumTransfers])
+        XCTAssertEqual(model.availableJourneyOptionKinds(for: secondID), [.via])
+
+        model.removeJourneyOption(id: firstID)
+
+        XCTAssertEqual(model.availableJourneyOptionKinds(for: secondID), [.via, .maximumTransfers])
     }
 
     func testZeroTransferLimitRequestsAndLabelsDirectConnections() async {
@@ -1039,7 +1057,9 @@ final class KastanAppTests: XCTestCase {
         let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())
         model.from = "Praha"
         model.to = "Brno"
-        model.maximumTransfers = 0
+        model.journeyOptions = [
+            JourneyOptionEntry(kind: .maximumTransfers, maximumTransfers: 0),
+        ]
 
         XCTAssertEqual(model.transferLimitLabel, AppLocalization.string("Direct only"))
 

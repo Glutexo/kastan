@@ -1,20 +1,55 @@
 import Foundation
 import Kastan
 
-/// One independently editable intermediate place in the connection search form.
-struct ViaPlaceEntry: Identifiable, Equatable {
-    let id: UUID
-    var name: String
+/// Identifies the value editor shown by one extensible journey-option row.
+enum JourneyOptionKind: String, CaseIterable, Identifiable {
+    case via
+    case maximumTransfers
 
-    init(id: UUID = UUID(), name: String = "") {
+    var id: Self { self }
+
+    /// Uses the same product wording in the picker and its corresponding editor.
+    var localizedTitle: String {
+        switch self {
+        case .via:
+            AppLocalization.string("Via")
+        case .maximumTransfers:
+            AppLocalization.string("Maximum number of transfers")
+        }
+    }
+
+    /// Intermediate places can form an ordered route, while a transfer ceiling is unique.
+    var allowsMultiple: Bool {
+        self == .via
+    }
+}
+
+/// Stores one independently editable condition in the journey-options builder.
+struct JourneyOptionEntry: Identifiable, Equatable {
+    let id: UUID
+    var kind: JourneyOptionKind
+    var viaPlace: String
+    var maximumTransfers: Int
+
+    init(
+        id: UUID = UUID(),
+        kind: JourneyOptionKind = .via,
+        viaPlace: String = "",
+        maximumTransfers: Int = 4
+    ) {
         self.id = id
-        self.name = name
+        self.kind = kind
+        self.viaPlace = viaPlace
+        self.maximumTransfers = maximumTransfers
     }
 }
 
 /// Owns one connection search and exposes only UI-ready state to the SwiftUI view.
 @MainActor
 final class ConnectionsViewModel: ObservableObject {
+    static let maximumTransferRange = 0...10
+    private static let defaultMaximumTransfers = 4
+
     @Published var from = "" {
         didSet {
             if let fromSelection, fromSelection.text != from {
@@ -32,7 +67,7 @@ final class ConnectionsViewModel: ObservableObject {
     /// Exact IDOS choices retained only while their corresponding visible text is unchanged.
     @Published var fromSelection: PlaceFieldSelection?
     @Published var toSelection: PlaceFieldSelection?
-    @Published var viaPlaces = [ViaPlaceEntry()]
+    @Published var journeyOptions = [JourneyOptionEntry()]
     @Published var timetable = IDOSTimetable.defaultTimetable {
         didSet {
             guard timetable.slug != oldValue.slug else { return }
@@ -43,7 +78,6 @@ final class ConnectionsViewModel: ObservableObject {
     @Published var date = Date()
     @Published var time = Date()
     @Published var isArrival = false
-    @Published var maximumTransfers = 4
     @Published private(set) var connections: [IDOSConnection] = []
     @Published private(set) var isSearching = false
     @Published private(set) var isLoadingEarlier = false
@@ -81,12 +115,25 @@ final class ConnectionsViewModel: ObservableObject {
         !connections.isEmpty && resultPage?.canLoadLater == true && !isSearching && !isLoadingEarlier
     }
 
-    /// Presents zero transfers as the equivalent, clearer direct-only journey constraint.
+    /// Returns intermediate places in their visible row order for the request and collapsed summary.
+    var viaPlaceNames: [String] {
+        journeyOptions.compactMap { option in
+            option.kind == .via ? option.viaPlace : nil
+        }
+    }
+
+    /// Returns the single visible transfer ceiling, or `nil` when that condition was not selected.
+    var maximumTransfers: Int? {
+        journeyOptions.first { $0.kind == .maximumTransfers }?.maximumTransfers
+    }
+
+    /// Presents the explicit transfer ceiling, or IDOS's four-transfer default, in the summary.
     var transferLimitLabel: String {
-        if maximumTransfers == 0 {
+        let transferLimit = maximumTransfers ?? Self.defaultMaximumTransfers
+        if transferLimit == 0 {
             return AppLocalization.string("Direct only")
         }
-        return AppLocalization.plural("Up to %lld transfers", count: maximumTransfers)
+        return AppLocalization.plural("Up to %lld transfers", count: transferLimit)
     }
 
     func swapEndpoints() {
@@ -98,19 +145,28 @@ final class ConnectionsViewModel: ObservableObject {
         toSelection = previousFromSelection
     }
 
-    /// Inserts another intermediate-place row directly after the selected row.
-    func addViaPlace(after id: ViaPlaceEntry.ID) {
-        guard let index = viaPlaces.firstIndex(where: { $0.id == id }) else { return }
-        viaPlaces.insert(ViaPlaceEntry(), at: index + 1)
+    /// Keeps each picker limited to repeatable conditions and currently unused singleton conditions.
+    func availableJourneyOptionKinds(for id: JourneyOptionEntry.ID) -> [JourneyOptionKind] {
+        JourneyOptionKind.allCases.filter { kind in
+            kind.allowsMultiple || !journeyOptions.contains { option in
+                option.id != id && option.kind == kind
+            }
+        }
     }
 
-    /// Removes the selected row while retaining one empty row for future input.
-    func removeViaPlace(id: ViaPlaceEntry.ID) {
-        guard let index = viaPlaces.firstIndex(where: { $0.id == id }) else { return }
-        if viaPlaces.count == 1 {
-            viaPlaces[0].name = ""
+    /// Inserts a new, immediately editable condition directly after the selected row.
+    func addJourneyOption(after id: JourneyOptionEntry.ID) {
+        guard let index = journeyOptions.firstIndex(where: { $0.id == id }) else { return }
+        journeyOptions.insert(JourneyOptionEntry(), at: index + 1)
+    }
+
+    /// Removes the selected condition while retaining one empty row for future input.
+    func removeJourneyOption(id: JourneyOptionEntry.ID) {
+        guard let index = journeyOptions.firstIndex(where: { $0.id == id }) else { return }
+        if journeyOptions.count == 1 {
+            journeyOptions[0] = JourneyOptionEntry(id: id)
         } else {
-            viaPlaces.remove(at: index)
+            journeyOptions.remove(at: index)
         }
     }
 
@@ -127,9 +183,10 @@ final class ConnectionsViewModel: ObservableObject {
         resultPage = nil
         defer { isSearching = false }
 
-        let requestedViaPlaces = viaPlaces
-            .map { $0.name.trimmingCharacters(in: .whitespacesAndNewlines) }
+        let requestedViaPlaces = viaPlaceNames
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+        let requestedMaximumTransfers = maximumTransfers
         let request = IDOSConnectionRequest(
             timetable: timetable,
             from: departure,
@@ -139,9 +196,9 @@ final class ConnectionsViewModel: ObservableObject {
             date: IDOSRequestFormatting.date(from: date),
             time: IDOSRequestFormatting.time(from: time),
             isArrival: isArrival,
-            onlyDirect: maximumTransfers == 0,
+            onlyDirect: requestedMaximumTransfers == 0,
             via: requestedViaPlaces,
-            maxTransfers: maximumTransfers,
+            maxTransfers: requestedMaximumTransfers,
             resultLimit: 10
         )
 

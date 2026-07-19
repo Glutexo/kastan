@@ -1,6 +1,7 @@
 "About Kaštan" = "About Kaštan";
 "Add to Calendar" = "Add to Calendar";
 "Add timetable to favorites" = "Add timetable to favorites";
+"Add journey option" = "Add journey option";
 "Add via place" = "Add via place";
 "address" = "address";
 "All timetables" = "All timetables";
@@ -58,8 +59,10 @@
 "Invalid service ID: %@." = "Invalid service ID: %@.";
 "Invalid timetable: %@." = "Invalid timetable: %@.";
 "Journey options" = "Journey options";
+"Journey option" = "Journey option";
 "Line" = "Line";
 "Line number or name" = "Line number or name";
+"Maximum number of transfers" = "Maximum number of transfers";
 "Kaštan on GitHub" = "Kaštan on GitHub";
 "Kaštan retrieves journey information from publicly accessible IDOS web pages. It is not an official IDOS or CHAPS application." = "Kaštan retrieves journey information from publicly accessible IDOS web pages. It is not an official IDOS or CHAPS application.";
 "Independent macOS client for occasional personal IDOS searches." = "Independent macOS client for occasional personal IDOS searches.";
@@ -93,6 +96,7 @@
 "Results" = "Results";
 "Remove via place" = "Remove via place";
 "Remove timetable from favorites" = "Remove timetable from favorites";
+"Remove journey option" = "Remove journey option";
 "Reverse direction" = "Reverse direction";
 "Runs" = "Runs";
 "Runs only on the listed dates" = "Runs only on the listed dates";
