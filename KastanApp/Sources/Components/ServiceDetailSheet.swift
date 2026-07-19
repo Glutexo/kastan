@@ -399,6 +399,7 @@ struct ServiceDetailView: View {
                 if !service.information.isEmpty {
                     GroupBox("Service information") {
                         BulletedTextList(items: service.information)
+                            .textSelection(.enabled)
                     }
                 }
             }
