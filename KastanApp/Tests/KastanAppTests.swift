@@ -131,6 +131,33 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 21)), .runs)
     }
 
+    func testSingleDateRangesExpandToTheNamedTimetableBoundary() throws {
+        let validityStart = serviceDate(2025, 12, 14)
+        let validityEnd = serviceDate(2026, 12, 12)
+        let runsUntil = try XCTUnwrap(StationTimetableServiceCalendar(
+            note: "jede do 3.XII.",
+            validityStart: validityStart,
+            validityEnd: validityEnd
+        ))
+        let doesNotRunFrom = try XCTUnwrap(StationTimetableServiceCalendar(
+            note: "does not run from 3.XII.",
+            validityStart: validityStart,
+            validityEnd: validityEnd
+        ))
+
+        XCTAssertEqual(runsUntil.listedDates.first, validityStart)
+        XCTAssertEqual(runsUntil.listedDates.last, serviceDate(2026, 12, 3))
+        XCTAssertEqual(runsUntil.status(on: serviceDate(2026, 12, 2)), .runs)
+        XCTAssertEqual(runsUntil.status(on: serviceDate(2026, 12, 3)), .runs)
+        XCTAssertEqual(runsUntil.status(on: serviceDate(2026, 12, 4)), .doesNotRun)
+
+        XCTAssertEqual(doesNotRunFrom.listedDates.first, serviceDate(2026, 12, 3))
+        XCTAssertEqual(doesNotRunFrom.listedDates.last, validityEnd)
+        XCTAssertEqual(doesNotRunFrom.status(on: serviceDate(2026, 12, 2)), .runs)
+        XCTAssertEqual(doesNotRunFrom.status(on: serviceDate(2026, 12, 3)), .doesNotRun)
+        XCTAssertEqual(doesNotRunFrom.status(on: serviceDate(2026, 12, 4)), .doesNotRun)
+    }
+
     func testServiceCalendarInitiallyShowsCurrentOrNearestValidityMonth() throws {
         let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(
             note: "nejede 24.XII.",

@@ -95,6 +95,12 @@ struct StationTimetableServiceCalendar: Equatable {
         let year: Int?
     }
 
+    /// Describes a one-sided service range whose other boundary is the timetable validity interval.
+    private enum ValidityRelativeRange {
+        case fromValidityStart
+        case throughValidityEnd
+    }
+
     private static func validity(in notes: [String]) -> (start: Date, end: Date)? {
         let calendar = serviceCalendar
 
@@ -146,6 +152,23 @@ struct StationTimetableServiceCalendar: Equatable {
         let tokens = serviceDateTokens(in: note)
         guard !tokens.isEmpty else { return [] }
 
+        if tokens.count == 1,
+           let range = validityRelativeRange(before: tokens[0], in: note),
+           let boundaryDate = resolvedDates(
+               for: tokens[0],
+               validityStart: validityStart,
+               validityEnd: validityEnd,
+               calendar: calendar
+           ).first
+        {
+            switch range {
+            case .fromValidityStart:
+                return dates(from: validityStart, through: boundaryDate, calendar: calendar)
+            case .throughValidityEnd:
+                return dates(from: boundaryDate, through: validityEnd, calendar: calendar)
+            }
+        }
+
         var dates = Set<Date>()
         var index = 0
         while index < tokens.count {
@@ -168,12 +191,7 @@ struct StationTimetableServiceCalendar: Equatable {
                ).first,
                start <= end
             {
-                var date = start
-                while date <= end {
-                    dates.insert(date)
-                    guard let next = calendar.date(byAdding: .day, value: 1, to: date) else { break }
-                    date = next
-                }
+                dates.formUnion(Self.dates(from: start, through: end, calendar: calendar))
                 index += 2
             } else {
                 dates.formUnion(tokenDates)
@@ -182,6 +200,39 @@ struct StationTimetableServiceCalendar: Equatable {
         }
 
         return dates.sorted()
+    }
+
+    /// Recognizes a boundary word immediately before the only concrete date in a service note.
+    private static func validityRelativeRange(
+        before token: ServiceDateToken,
+        in note: String
+    ) -> ValidityRelativeRange? {
+        let prefix = (note as NSString).substring(
+            with: NSRange(location: 0, length: token.range.location)
+        )
+        .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "cs_CZ"))
+        .lowercased()
+
+        if prefix.range(of: #"\b(?:do|until|to)\s*$"#, options: .regularExpression) != nil {
+            return .fromValidityStart
+        }
+        if prefix.range(of: #"\b(?:od|from)\s*$"#, options: .regularExpression) != nil {
+            return .throughValidityEnd
+        }
+        return nil
+    }
+
+    /// Expands an inclusive civil-date interval for display as individual operating states.
+    private static func dates(from start: Date, through end: Date, calendar: Calendar) -> [Date] {
+        guard start <= end else { return [] }
+        var dates: [Date] = []
+        var date = start
+        while date <= end {
+            dates.append(date)
+            guard let next = calendar.date(byAdding: .day, value: 1, to: date) else { break }
+            date = next
+        }
+        return dates
     }
 
     private static func serviceDateTokens(in note: String) -> [ServiceDateToken] {
