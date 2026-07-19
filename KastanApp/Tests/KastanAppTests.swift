@@ -131,6 +131,27 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 21)), .runs)
     }
 
+    func testAbbreviatedDateListInheritsTheFollowingMonth() throws {
+        let note = "nejede 23.VII.,18.,19.IX.,26.XI.,10.XII."
+        let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(
+            note: note,
+            validityStart: serviceDate(2025, 12, 14),
+            validityEnd: serviceDate(2026, 12, 12)
+        ))
+
+        XCTAssertEqual(serviceCalendar.rule, .doesNotRunOnListedDates)
+        XCTAssertEqual(serviceCalendar.listedDates, [
+            serviceDate(2026, 7, 23),
+            serviceDate(2026, 9, 18),
+            serviceDate(2026, 9, 19),
+            serviceDate(2026, 11, 26),
+            serviceDate(2026, 12, 10),
+        ])
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 17)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 18)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 19)), .doesNotRun)
+    }
+
     func testWorkingDayRuleCombinesWithDatedExceptionAndCzechHolidays() throws {
         let note = "jede v X.,nejede od 18. do 23.VIII."
         let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(

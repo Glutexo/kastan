@@ -381,6 +381,28 @@ struct StationTimetableServiceCalendar: Equatable {
             tokens.append(contentsOf: inferredTokens)
         }
 
+        // IDOS can omit a shared month from leading dates, for example `18.,19.IX.`.
+        let abbreviatedListPattern =
+            #"(?i)(\d{1,2})\s*\.(?=\s*,\s*(?:\d{1,2}\s*\.\s*,\s*)*\d{1,2}\s*\.\s*("# +
+            monthPattern + #")\s*\.?\s*(\d{4})?)"#
+        if let abbreviatedExpression = try? NSRegularExpression(pattern: abbreviatedListPattern) {
+            let inferredTokens = abbreviatedExpression.matches(
+                in: note,
+                range: NSRange(location: 0, length: source.length)
+            ).compactMap { match -> ServiceDateToken? in
+                guard let day = Int(source.substring(with: match.range(at: 1))),
+                      let month = monthNumber(source.substring(with: match.range(at: 2))),
+                      (1...31).contains(day)
+                else {
+                    return nil
+                }
+                let yearRange = match.range(at: 3)
+                let year = yearRange.location == NSNotFound ? nil : Int(source.substring(with: yearRange))
+                return ServiceDateToken(range: match.range(at: 1), day: day, month: month, year: year)
+            }
+            tokens.append(contentsOf: inferredTokens)
+        }
+
         return tokens.sorted { $0.range.location < $1.range.location }
     }
 
