@@ -68,6 +68,7 @@ let departuresRequest = IDOSDeparturesRequest(
 )
 let departures = try await client.findDepartures(request: departuresRequest)
 let service = try await client.serviceDetail(id: departures[0].id, language: .czech)
+let validity = try await client.timetableValidity(for: service.timetable, language: .czech)
 let serviceCalendar = try await client.serviceCalendar(for: service)
 let servicePDF = try await client.servicePDF(for: service, language: .czech)
 
@@ -103,7 +104,7 @@ The main public types are:
 
 - Client and errors: `IDOSClient`, `IDOSClienting`, and `IDOSError`.
 - Requests and timetables: `IDOSConnectionRequest`, `IDOSDeparturesRequest`, `IDOSStationTimetableRequest`,
-  `IDOSPlaceSelection`, and `IDOSTimetable`.
+  `IDOSPlaceSelection`, `IDOSTimetable`, and `IDOSTimetableValidity`.
 - Results: `IDOSSuggestion`, `IDOSConnection`, `IDOSConnectionLeg`, `IDOSDeparture`, `IDOSServiceDetail`,
   `IDOSServiceStop`, `IDOSStationTimetable`, `IDOSStationTimetableStop`, `IDOSStationTimetableSchedule`,
   `IDOSStationTimetableHour`, and `IDOSTransportMode`.
@@ -121,6 +122,7 @@ interpretation as typing into the IDOS form without choosing a suggestion.
 `connectionCalendar` returns IDOS iCalendar text for a search result. `serviceCalendar` and `servicePDF`
 resolve a dated service's permanent result link and return the corresponding native IDOS export.
 `connectionPDF` and `servicePDF` accept an explicit language for the document text.
+`timetableValidity` returns the inclusive first and last dates published by the selected IDOS timetable.
 
 `searchStationTimetableLines` returns the terminal pair for every matching MHD line direction.
 `searchStationTimetableStops` limits suggestions to one selected line, and `findStationTimetable` returns the

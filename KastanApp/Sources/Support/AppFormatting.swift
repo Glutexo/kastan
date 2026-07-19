@@ -493,30 +493,6 @@ struct NoteText: View {
     }
 }
 
-/// Presents IDOS notes and service information with consistent list indentation and readable wrapping.
-struct BulletedTextList: View {
-    let items: [String]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text("•")
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 8, alignment: .center)
-                        .accessibilityHidden(true)
-                    NoteText(item)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-    }
-}
-
 extension Color {
     /// Preserves an IDOS line color when it uses the HTML `#RRGGBB` representation.
     init?(idosHTMLColor value: String?) {

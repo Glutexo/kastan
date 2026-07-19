@@ -5,6 +5,7 @@ import SwiftUI
 @MainActor
 final class ServiceDetailViewModel: ObservableObject {
     @Published private(set) var service: IDOSServiceDetail?
+    @Published private(set) var timetableValidity: IDOSTimetableValidity?
     @Published private(set) var isLoading = false
     @Published private(set) var isAddingToCalendar = false
     @Published private(set) var isSavingPDF = false
@@ -38,11 +39,17 @@ final class ServiceDetailViewModel: ObservableObject {
         }
         isLoading = true
         errorMessage = nil
-        defer { isLoading = false }
 
         do {
-            service = try await client.serviceDetail(id: id, language: AppLanguagePreference.idosLanguage)
+            let service = try await client.serviceDetail(id: id, language: AppLanguagePreference.idosLanguage)
+            self.service = service
+            isLoading = false
+            timetableValidity = try? await client.timetableValidity(
+                for: service.timetable,
+                language: AppLanguagePreference.idosLanguage
+            )
         } catch {
+            isLoading = false
             errorMessage = AppErrorPresentation.message(for: error)
         }
     }
@@ -398,7 +405,10 @@ struct ServiceDetailView: View {
 
                 if !service.information.isEmpty {
                     GroupBox("Service information") {
-                        BulletedTextList(items: service.information)
+                        ServiceNotesView(
+                            notes: service.information,
+                            timetableValidity: model.timetableValidity
+                        )
                             .textSelection(.enabled)
                     }
                 }

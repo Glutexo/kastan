@@ -298,7 +298,7 @@ struct StationTimetablesView: View {
 
             if !result.notes.isEmpty {
                 GroupBox("Notes") {
-                    StationTimetableNotesView(notes: result.notes)
+                    ServiceNotesView(notes: result.notes)
                 }
             }
         }

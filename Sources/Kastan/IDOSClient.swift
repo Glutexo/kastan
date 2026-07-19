@@ -91,6 +91,11 @@ public protocol IDOSClienting: Sendable {
         request: IDOSStationTimetableRequest,
         language: IDOSLanguage
     ) async throws -> IDOSStationTimetable
+    /// Loads the inclusive validity interval published for one IDOS timetable.
+    func timetableValidity(
+        for timetable: IDOSTimetable,
+        language: IDOSLanguage
+    ) async throws -> IDOSTimetableValidity
     func findConnections(request: IDOSConnectionRequest) async throws -> [IDOSConnection]
     /// Starts a connection search while retaining IDOS's continuation state for both chronological edges.
     func findConnectionsPage(request: IDOSConnectionRequest) async throws -> IDOSConnectionPage
@@ -180,6 +185,14 @@ public extension IDOSClienting {
         language: IDOSLanguage
     ) async throws -> IDOSStationTimetable {
         throw IDOSError.stationTimetableUnavailable
+    }
+
+    /// Preserves compatibility for custom clients that do not expose timetable validity yet.
+    func timetableValidity(
+        for timetable: IDOSTimetable,
+        language: IDOSLanguage
+    ) async throws -> IDOSTimetableValidity {
+        throw IDOSError.invalidResponse
     }
 
     /// Preserves compatibility for custom clients that do not provide dated-service calendar exports yet.
@@ -347,6 +360,22 @@ public struct IDOSClient: IDOSClienting {
             throw IDOSError.stationTimetableUnavailable
         }
         return result
+    }
+
+    /// Loads the exact inclusive date range embedded in the selected IDOS search form.
+    public func timetableValidity(
+        for timetable: IDOSTimetable,
+        language: IDOSLanguage = .english
+    ) async throws -> IDOSTimetableValidity {
+        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        components.path = language.path(timetable: timetable, endpoint: "spojeni/")
+        let data = try await data(from: components.requiredURL)
+        guard let html = String(data: data, encoding: .utf8),
+              let validity = IDOSTimetableValidityParser.parse(html: html)
+        else {
+            throw IDOSError.invalidResponse
+        }
+        return validity
     }
 
     public func findConnections(request: IDOSConnectionRequest) async throws -> [IDOSConnection] {
@@ -1354,6 +1383,17 @@ public struct IDOSTimetable: Codable, Equatable, Sendable {
         "Žatec",
         "Žďár nad Sázavou",
     ]
+}
+
+/// The inclusive first and last service dates published by an IDOS timetable search form.
+public struct IDOSTimetableValidity: Codable, Equatable, Sendable {
+    public var validFrom: Date
+    public var validThrough: Date
+
+    public init(validFrom: Date, validThrough: Date) {
+        self.validFrom = validFrom
+        self.validThrough = validThrough
+    }
 }
 
 public struct IDOSSuggestion: Codable, Equatable, Sendable {
@@ -2403,6 +2443,43 @@ enum IDOSConnectionParser {
     private static func nonEmpty(_ value: String) -> String? {
         let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return value.isEmpty ? nil : value
+    }
+}
+
+enum IDOSTimetableValidityParser {
+    /// Reads the two JavaScript dates used by IDOS to constrain the selected timetable's search form.
+    static func parse(html: String) -> IDOSTimetableValidity? {
+        guard let values = RegexSupport.captures(
+            pattern: #"Conn\.ConnFormParams\s*\(\s*new Date\([\"'](\d{1,2})/(\d{1,2})/(\d{4})[\"']\)\s*,\s*new Date\([\"'](\d{1,2})/(\d{1,2})/(\d{4})[\"']\)"#,
+            in: html
+        ).first,
+              values.count == 6,
+              let validFrom = date(month: values[0], day: values[1], year: values[2]),
+              let validThrough = date(month: values[3], day: values[4], year: values[5]),
+              validFrom <= validThrough
+        else {
+            return nil
+        }
+
+        return IDOSTimetableValidity(validFrom: validFrom, validThrough: validThrough)
+    }
+
+    private static func date(month: String, day: String, year: String) -> Date? {
+        guard let month = Int(month), let day = Int(day), let year = Int(year) else {
+            return nil
+        }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/Prague")!
+        let components = DateComponents(
+            timeZone: calendar.timeZone,
+            year: year,
+            month: month,
+            day: day
+        )
+        guard let date = calendar.date(from: components) else { return nil }
+        let parsed = calendar.dateComponents([.year, .month, .day], from: date)
+        guard parsed.year == year, parsed.month == month, parsed.day == day else { return nil }
+        return calendar.startOfDay(for: date)
     }
 }
 

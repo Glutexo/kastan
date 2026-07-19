@@ -1801,6 +1801,28 @@ import Testing
     ) == "/vlaky/Ajax/TrainDetail")
 }
 
+@Test func timetableValidityParserReadsInclusiveIDOSSearchRange() throws {
+    let html = """
+    <script>
+    var params = new Conn.ConnFormParams(new Date('12/14/2025'), new Date('12/12/2026'), '/vlaky/Ajax/');
+    </script>
+    """
+    let validity = try #require(IDOSTimetableValidityParser.parse(html: html))
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "Europe/Prague")!
+
+    #expect(calendar.dateComponents([.year, .month, .day], from: validity.validFrom) == DateComponents(
+        year: 2025,
+        month: 12,
+        day: 14
+    ))
+    #expect(calendar.dateComponents([.year, .month, .day], from: validity.validThrough) == DateComponents(
+        year: 2026,
+        month: 12,
+        day: 12
+    ))
+}
+
 @Test func serviceDetailParserReadsCzechStopMetadata() throws {
     let html = """
     <div id="train-detail-151">

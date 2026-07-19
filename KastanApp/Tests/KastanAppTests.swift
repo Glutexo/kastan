@@ -112,6 +112,25 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 20)), .doesNotRun)
     }
 
+    func testAbbreviatedDoesNotRunRangeInServiceInformationUsesTimetableValidity() throws {
+        let note = "nejede od 17. do 20.VIII."
+        let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(
+            note: note,
+            validityStart: serviceDate(2025, 12, 14),
+            validityEnd: serviceDate(2026, 12, 12)
+        ))
+
+        XCTAssertEqual(serviceCalendar.rule, .doesNotRunOnListedDates)
+        XCTAssertEqual(
+            serviceCalendar.listedDates,
+            (17...20).map { serviceDate(2026, 8, $0) }
+        )
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 16)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 17)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 20)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 21)), .runs)
+    }
+
     func testNonDatedAndOutOfValidityNotesDoNotOfferServiceCalendars() {
         XCTAssertNil(StationTimetableServiceCalendar(
             note: "A: jede jen do zastávky Háje",
@@ -1003,6 +1022,15 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(model.actionErrorMessage)
     }
 
+    func testServiceDetailLoadsItsTimetableValidityForInformationCalendars() async {
+        let model = ServiceDetailViewModel(id: "service-1", client: MockIDOSClient())
+
+        await model.load()
+
+        XCTAssertEqual(model.timetableValidity?.validFrom, serviceDate(2025, 12, 14))
+        XCTAssertEqual(model.timetableValidity?.validThrough, serviceDate(2026, 12, 12))
+    }
+
     func testServicePDFExportUsesDocumentReturnedByIDOS() async {
         let client = MockIDOSClient()
         let exporter = RecordingPDFExporter()
@@ -1250,6 +1278,18 @@ private actor MockIDOSClient: IDOSClienting {
                     hours: [IDOSStationTimetableHour(hour: "5", departures: ["13", "35"])]
                 )
             ]
+        )
+    }
+
+    func timetableValidity(
+        for timetable: IDOSTimetable,
+        language: IDOSLanguage
+    ) async throws -> IDOSTimetableValidity {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/Prague")!
+        return IDOSTimetableValidity(
+            validFrom: calendar.date(from: DateComponents(year: 2025, month: 12, day: 14))!,
+            validThrough: calendar.date(from: DateComponents(year: 2026, month: 12, day: 12))!
         )
     }
 

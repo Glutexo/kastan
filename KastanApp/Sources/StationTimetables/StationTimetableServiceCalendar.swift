@@ -1,7 +1,7 @@
 import Kastan
 import SwiftUI
 
-/// Interprets one dated IDOS service note only within the validity printed for its station timetable.
+/// Interprets one dated IDOS service note only within the validity of its current timetable.
 struct StationTimetableServiceCalendar: Equatable {
     enum Rule: Equatable {
         case runsOnlyOnListedDates
@@ -22,22 +22,27 @@ struct StationTimetableServiceCalendar: Equatable {
 
     /// Builds a calendar only when IDOS supplied a complete validity interval and concrete service dates.
     init?(note: String, allNotes: [String]) {
-        guard let validity = Self.validity(in: allNotes),
-              let rule = Self.rule(in: note)
-        else {
-            return nil
-        }
+        guard let validity = Self.validity(in: allNotes) else { return nil }
+        self.init(note: note, validityStart: validity.start, validityEnd: validity.end)
+    }
+
+    /// Builds a calendar from validity loaded separately from an IDOS connection timetable.
+    init?(note: String, validityStart: Date, validityEnd: Date) {
+        let calendar = Self.serviceCalendar
+        let validityStart = calendar.startOfDay(for: validityStart)
+        let validityEnd = calendar.startOfDay(for: validityEnd)
+        guard validityStart <= validityEnd, let rule = Self.rule(in: note) else { return nil }
 
         let dates = Self.listedDates(
             in: note,
-            validityStart: validity.start,
-            validityEnd: validity.end
+            validityStart: validityStart,
+            validityEnd: validityEnd
         )
         guard !dates.isEmpty else { return nil }
 
         self.note = note
-        validityStart = validity.start
-        validityEnd = validity.end
+        self.validityStart = validityStart
+        self.validityEnd = validityEnd
         listedDates = dates
         self.rule = rule
     }
@@ -164,11 +169,15 @@ struct StationTimetableServiceCalendar: Equatable {
     }
 
     private static func serviceDateTokens(in note: String) -> [ServiceDateToken] {
-        let pattern = #"(?i)(\d{1,2})\s*\.\s*(XII|XI|IX|VIII|VII|VI|IV|V|X|III|II|I|\d{1,2})\s*\.?\s*(\d{4})?"#
+        let monthPattern = #"XII|XI|IX|VIII|VII|VI|IV|V|X|III|II|I|\d{1,2}"#
+        let pattern = #"(?i)(\d{1,2})\s*\.\s*("# + monthPattern + #")\s*\.?\s*(\d{4})?"#
         guard let expression = try? NSRegularExpression(pattern: pattern) else { return [] }
         let source = note as NSString
 
-        return expression.matches(in: note, range: NSRange(location: 0, length: source.length)).compactMap { match in
+        var tokens = expression.matches(
+            in: note,
+            range: NSRange(location: 0, length: source.length)
+        ).compactMap { match -> ServiceDateToken? in
             guard match.numberOfRanges >= 3,
                   let day = Int(source.substring(with: match.range(at: 1))),
                   let month = monthNumber(source.substring(with: match.range(at: 2))),
@@ -181,6 +190,29 @@ struct StationTimetableServiceCalendar: Equatable {
             let year = yearRange.location == NSNotFound ? nil : Int(source.substring(with: yearRange))
             return ServiceDateToken(range: match.range, day: day, month: month, year: year)
         }
+
+        let abbreviatedRangePattern =
+            #"(?i)(\d{1,2})\s*\.\s*(?:až|do|to|-|–|—)\s*\d{1,2}\s*\.\s*("# +
+            monthPattern + #")\s*\.?\s*(\d{4})?"#
+        if let abbreviatedExpression = try? NSRegularExpression(pattern: abbreviatedRangePattern) {
+            let inferredTokens = abbreviatedExpression.matches(
+                in: note,
+                range: NSRange(location: 0, length: source.length)
+            ).compactMap { match -> ServiceDateToken? in
+                guard let day = Int(source.substring(with: match.range(at: 1))),
+                      let month = monthNumber(source.substring(with: match.range(at: 2))),
+                      (1...31).contains(day)
+                else {
+                    return nil
+                }
+                let yearRange = match.range(at: 3)
+                let year = yearRange.location == NSNotFound ? nil : Int(source.substring(with: yearRange))
+                return ServiceDateToken(range: match.range(at: 1), day: day, month: month, year: year)
+            }
+            tokens.append(contentsOf: inferredTokens)
+        }
+
+        return tokens.sorted { $0.range.location < $1.range.location }
     }
 
     private static func resolvedDates(
@@ -257,9 +289,15 @@ struct StationTimetableServiceCalendar: Equatable {
     }
 }
 
-/// Keeps ordinary notes readable while making only date-based service rules interactive.
-struct StationTimetableNotesView: View {
+/// Keeps ordinary notes readable while making date-based service rules interactive.
+struct ServiceNotesView: View {
     let notes: [String]
+    let timetableValidity: IDOSTimetableValidity?
+
+    init(notes: [String], timetableValidity: IDOSTimetableValidity? = nil) {
+        self.notes = notes
+        self.timetableValidity = timetableValidity
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -271,7 +309,7 @@ struct StationTimetableNotesView: View {
                         .frame(width: 8, alignment: .center)
                         .accessibilityHidden(true)
 
-                    if let serviceCalendar = StationTimetableServiceCalendar(note: note, allNotes: notes) {
+                    if let serviceCalendar = serviceCalendar(for: note) {
                         StationTimetableServiceCalendarButton(serviceCalendar: serviceCalendar)
                     } else {
                         NoteText(note)
@@ -283,6 +321,17 @@ struct StationTimetableNotesView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
+    }
+
+    private func serviceCalendar(for note: String) -> StationTimetableServiceCalendar? {
+        if let timetableValidity {
+            return StationTimetableServiceCalendar(
+                note: note,
+                validityStart: timetableValidity.validFrom,
+                validityEnd: timetableValidity.validThrough
+            )
+        }
+        return StationTimetableServiceCalendar(note: note, allNotes: notes)
     }
 }
 
