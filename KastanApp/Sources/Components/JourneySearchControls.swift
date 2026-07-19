@@ -3,8 +3,10 @@ import SwiftUI
 
 /// Keeps timetable, date, time, mode, and search actions visually identical across app searches.
 struct JourneySearchControls: View {
-    /// Keeps a small visible gap beside the native picker without shrinking the favorite's click target.
-    static let timetableFavoriteSpacing: CGFloat = -2
+    /// Balances the favorite's visible gap against the different picker widths in both search layouts.
+    static func timetableFavoriteSpacing(usesStackedLayout: Bool) -> CGFloat {
+        usesStackedLayout ? -4 : 0
+    }
 
     /// Leaves enough room for the localized time mode to stay on the compact search row.
     static func searchButtonContentWidth(usesStackedLayout: Bool) -> CGFloat {
@@ -101,7 +103,7 @@ struct JourneySearchControls: View {
             Text("Timetable")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            HStack(spacing: Self.timetableFavoriteSpacing) {
+            HStack(spacing: Self.timetableFavoriteSpacing(usesStackedLayout: usesStackedLayout)) {
                 Picker("Timetable", selection: timetableSlug) {
                     AppTimetablePickerOptions(favoriteSlugs: timetableFavorites.slugs)
                 }
