@@ -257,6 +257,7 @@ struct ConnectionsView: View {
                         isPerformingExport: model.importingConnectionID == connection.id ||
                             model.exportingPDFConnectionID == connection.id,
                         showsActionMenu: true,
+                        timeFrameCoordinateSpace: nil,
                         openConnection: {
                             openWindow(
                                 id: AppWindow.connectionDetail,
@@ -294,12 +295,35 @@ struct ConnectionSelection: Codable, Hashable, Identifiable {
     }
 }
 
+/// Moves a connection's time range into its window title exactly when the content label has scrolled away.
+enum ConnectionWindowTitlePresentation {
+    static func title(for connection: IDOSConnection, timeIsUnderTitle: Bool) -> String {
+        let route = "\(connection.departureStation) → \(connection.arrivalStation)"
+        guard timeIsUnderTitle else { return route }
+
+        return "\(route) · \(connection.departureTime) → \(connection.arrivalTime)"
+    }
+
+    static func timeIsUnderTitle(frame: CGRect?) -> Bool {
+        (frame?.maxY ?? 1) <= 0
+    }
+}
+
+private struct ConnectionTimeFramePreferenceKey: PreferenceKey {
+    static let defaultValue: CGRect? = nil
+
+    static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) {
+        value = nextValue() ?? value
+    }
+}
+
 /// Contains one complete journey and all of its legs in a distinct native result card.
 private struct ConnectionCard: View {
     let number: Int?
     let connection: IDOSConnection
     let isPerformingExport: Bool
     let showsActionMenu: Bool
+    let timeFrameCoordinateSpace: String?
     let openConnection: (() -> Void)?
     let openService: (ServiceSelection) -> Void
     let addToCalendar: () -> Void
@@ -316,6 +340,16 @@ private struct ConnectionCard: View {
                     }
                     Text("\(connection.departureTime) → \(connection.arrivalTime)")
                         .font(.title2.bold().monospacedDigit())
+                        .background {
+                            if let timeFrameCoordinateSpace {
+                                GeometryReader { geometry in
+                                    Color.clear.preference(
+                                        key: ConnectionTimeFramePreferenceKey.self,
+                                        value: geometry.frame(in: .named(timeFrameCoordinateSpace))
+                                    )
+                                }
+                            }
+                        }
                     Text(connection.duration)
                         .foregroundStyle(.secondary)
                     if connection.legs.count <= 1 {
@@ -452,9 +486,12 @@ enum ConnectionDetailToolbarAction: CaseIterable, Hashable, Identifiable {
 
 /// Shows one complete connection in its own window with result actions in the native toolbar.
 struct ConnectionDetailView: View {
+    private static let scrollCoordinateSpace = "connection-detail-scroll"
+
     @Environment(\.openWindow) private var openWindow
     @Environment(\.openURL) private var openURL
     @StateObject private var actionsModel: ConnectionsViewModel
+    @State private var timeIsUnderTitle = false
     private let selection: ConnectionSelection
 
     init(selection: ConnectionSelection, client: any IDOSClienting) {
@@ -481,6 +518,7 @@ struct ConnectionDetailView: View {
                     isPerformingExport: actionsModel.importingConnectionID == selection.connection.id ||
                         actionsModel.exportingPDFConnectionID == selection.connection.id,
                     showsActionMenu: false,
+                    timeFrameCoordinateSpace: Self.scrollCoordinateSpace,
                     openConnection: nil,
                     openService: { openWindow(id: AppWindow.serviceDetail, value: $0) },
                     addToCalendar: {
@@ -493,8 +531,18 @@ struct ConnectionDetailView: View {
             }
             .padding(24)
         }
+        .coordinateSpace(name: Self.scrollCoordinateSpace)
+        .onPreferenceChange(ConnectionTimeFramePreferenceKey.self) { frame in
+            let newValue = ConnectionWindowTitlePresentation.timeIsUnderTitle(frame: frame)
+            if timeIsUnderTitle != newValue {
+                timeIsUnderTitle = newValue
+            }
+        }
+        .onAppear {
+            timeIsUnderTitle = false
+        }
         .frame(minWidth: 620, minHeight: 420)
-        .navigationTitle("\(selection.connection.departureStation) → \(selection.connection.arrivalStation)")
+        .navigationTitle(windowTitle)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 ForEach(
@@ -506,6 +554,13 @@ struct ConnectionDetailView: View {
                 }
             }
         }
+    }
+
+    private var windowTitle: String {
+        ConnectionWindowTitlePresentation.title(
+            for: selection.connection,
+            timeIsUnderTitle: timeIsUnderTitle
+        )
     }
 
     private var connectionActionURL: URL? {

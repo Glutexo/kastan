@@ -627,6 +627,29 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testConnectionTimeMovesIntoWindowTitleOnlyAfterScrollingOutOfView() {
+        let connection = connection(id: "connection-title")
+
+        XCTAssertEqual(
+            ConnectionWindowTitlePresentation.title(for: connection, timeIsUnderTitle: false),
+            "Praha hl.n. → Brno hl.n."
+        )
+        XCTAssertEqual(
+            ConnectionWindowTitlePresentation.title(for: connection, timeIsUnderTitle: true),
+            "Praha hl.n. → Brno hl.n. · 12:00 → 14:30"
+        )
+        XCTAssertFalse(
+            ConnectionWindowTitlePresentation.timeIsUnderTitle(
+                frame: CGRect(x: 0, y: -27, width: 150, height: 28)
+            )
+        )
+        XCTAssertTrue(
+            ConnectionWindowTitlePresentation.timeIsUnderTitle(
+                frame: CGRect(x: 0, y: -28, width: 150, height: 28)
+            )
+        )
+    }
+
     func testCompleteConnectionRoundTripsThroughWindowState() throws {
         let selection = ConnectionSelection(
             connection: connection(id: "connection-window"),
