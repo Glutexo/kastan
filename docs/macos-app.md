@@ -27,7 +27,7 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   content.
 - Timetable menus grouped into general rail and bus choices, integrated transport systems, and city networks,
   with persistent favorites repeated in their own first section without disappearing from the catalog, and a
-  favorite button kept tightly beside the picker at every window width.
+  favorite button kept beside the picker with a small visible gap at every window width.
 - Search forms fixed above independently scrollable result areas, then collapsed into low query summaries after
   submission with an explicit action for returning to the editable form. The main window remains usable down to
   a compact 522-point width without moving the connection or station-board time mode below the date and time

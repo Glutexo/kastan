@@ -147,7 +147,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(layout.usesStackedSearchControls)
         XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: true), 120)
         XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: false), 140)
-        XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing, -6)
+        XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing, -2)
     }
 
     func testDetailLayoutUsesHorizontalControlsWhenEnoughSpaceIsAvailable() {
