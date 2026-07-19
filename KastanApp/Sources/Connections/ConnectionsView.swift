@@ -191,14 +191,7 @@ struct ConnectionsView: View {
 
     private func journeyOptionRow(option: Binding<JourneyOptionEntry>) -> some View {
         HStack(spacing: 8) {
-            Picker("Journey option", selection: option.kind) {
-                ForEach(model.availableJourneyOptionKinds(for: option.wrappedValue.id)) { kind in
-                    Text(kind.localizedTitle).tag(kind)
-                }
-            }
-            .labelsHidden()
-            .pickerStyle(.menu)
-            .fixedSize(horizontal: true, vertical: false)
+            journeyOptionKindMenu(option: option)
 
             journeyOptionValue(option: option)
 
@@ -229,6 +222,36 @@ struct ConnectionsView: View {
             .help("Add journey option")
         }
         .frame(height: 28)
+    }
+
+    /// Keeps the visible menu as wide as the longest supported condition, including unavailable singleton types.
+    private func journeyOptionKindMenu(option: Binding<JourneyOptionEntry>) -> some View {
+        Menu {
+            ForEach(model.availableJourneyOptionKinds(for: option.wrappedValue.id)) { kind in
+                Button {
+                    option.wrappedValue.kind = kind
+                } label: {
+                    if kind == option.wrappedValue.kind {
+                        Label(kind.localizedTitle, systemImage: "checkmark")
+                    } else {
+                        Text(kind.localizedTitle)
+                    }
+                }
+            }
+        } label: {
+            ZStack(alignment: .leading) {
+                ForEach(JourneyOptionKind.allCases) { kind in
+                    Text(kind.localizedTitle)
+                        .opacity(0)
+                        .accessibilityHidden(true)
+                }
+                Text(option.wrappedValue.kind.localizedTitle)
+            }
+            .lineLimit(1)
+        }
+        .fixedSize(horizontal: true, vertical: false)
+        .accessibilityLabel("Journey option")
+        .accessibilityValue(Text(option.wrappedValue.kind.localizedTitle))
     }
 
     @ViewBuilder

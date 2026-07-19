@@ -15,8 +15,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   date, time, arrival mode, and an extensible journey-options builder modeled after native macOS rule editors.
   Each condition first selects either Via or Maximum number of transfers, then presents the corresponding text
   or compact, left-aligned number field with native stepper arrows. Both editors share one row height and follow the
-  naturally sized condition menu at standard control spacing; fixed-size controls add and remove rows while summaries
-  retain locale-aware transfer wording.
+  condition menu sized from the longest supported localized option at standard control spacing; fixed-size controls
+  add and remove rows while summaries retain locale-aware transfer wording.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, tariff zones, platforms or stands, lockout labels, explanatory notes, and links back to the
