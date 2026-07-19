@@ -7,6 +7,7 @@ struct StationTimetableServiceCalendar: Equatable {
         case runsOnlyOnListedDates
         case doesNotRunOnListedDates
         case runsOnWorkingDaysExceptListedDates
+        case runsOnListedDatesMatchingWeekdays(Set<Int>)
     }
 
     enum DayStatus: Equatable {
@@ -64,6 +65,10 @@ struct StationTimetableServiceCalendar: Equatable {
             return isListed ? .doesNotRun : .runs
         case .runsOnWorkingDaysExceptListedDates:
             return Self.isCzechWorkingDay(day, calendar: calendar) && !isListed
+                ? .runs
+                : .doesNotRun
+        case let .runsOnListedDatesMatchingWeekdays(weekdays):
+            return isListed && weekdays.contains(Self.idosWeekday(for: day, calendar: calendar))
                 ? .runs
                 : .doesNotRun
         }
@@ -150,6 +155,13 @@ struct StationTimetableServiceCalendar: Equatable {
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "cs_CZ"))
             .lowercased()
 
+        let runsThroughBoundaryPattern = #"\bjede\s+do\b|(?<!not )\bruns?\s+(?:until|to)\b"#
+        if let weekdays = numberedWeekdays(in: normalized),
+           normalized.range(of: runsThroughBoundaryPattern, options: .regularExpression) != nil
+        {
+            return .runsOnListedDatesMatchingWeekdays(weekdays)
+        }
+
         let workingDayPattern =
             #"\bjede\s+v\s+(?:x\b|pracovnich\s+dnech\b)|(?<!not )\bruns?\s+(?:on\s+)?(?:working\s+days?|weekdays?|workdays?)\b"#
         if normalized.range(of: workingDayPattern, options: .regularExpression) != nil {
@@ -163,6 +175,24 @@ struct StationTimetableServiceCalendar: Equatable {
             return .runsOnlyOnListedDates
         }
         return nil
+    }
+
+    /// Reads IDOS weekday numbers, where Monday is 1 and Sunday is 7.
+    private static func numberedWeekdays(in normalizedNote: String) -> Set<Int>? {
+        let pattern = #"\b(?:v|on)\s+([1-7](?:\s*,\s*[1-7])*)\b"#
+        guard let values = captures(pattern: pattern, in: normalizedNote).first?.first else {
+            return nil
+        }
+        let weekdays = Set(values.split(separator: ",").compactMap { value in
+            Int(value.trimmingCharacters(in: .whitespaces))
+        })
+        return weekdays.isEmpty ? nil : weekdays
+    }
+
+    /// Converts Foundation's Sunday-first weekday number to the Monday-first notation printed by IDOS.
+    private static func idosWeekday(for date: Date, calendar: Calendar) -> Int {
+        let foundationWeekday = calendar.component(.weekday, from: date)
+        return (foundationWeekday + 5) % 7 + 1
     }
 
     /// Treats the Czech `X` timetable symbol as Monday through Friday except Czech public holidays.
