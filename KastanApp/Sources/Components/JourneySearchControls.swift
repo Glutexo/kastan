@@ -3,6 +3,11 @@ import SwiftUI
 
 /// Keeps timetable, date, time, mode, and search actions visually identical across app searches.
 struct JourneySearchControls: View {
+    /// Leaves enough room for the localized time mode to stay on the compact search row.
+    static func searchButtonContentWidth(usesStackedLayout: Bool) -> CGFloat {
+        usesStackedLayout ? 120 : 140
+    }
+
     @AppStorage(TimetableFavorites.storageKey) private var serializedTimetableFavorites = "[]"
     @Binding private var timetable: IDOSTimetable
     @Binding private var date: Date
@@ -184,7 +189,7 @@ struct JourneySearchControls: View {
                     Label("Search", systemImage: "magnifyingglass")
                 }
             }
-            .frame(width: 140)
+            .frame(width: Self.searchButtonContentWidth(usesStackedLayout: usesStackedLayout))
             .frame(minHeight: 26)
         }
         .buttonStyle(.borderedProminent)
