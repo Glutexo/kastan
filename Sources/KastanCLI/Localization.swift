@@ -155,6 +155,8 @@ enum LocalizationKey: String, CaseIterable {
     case arrival = "label.arrival"
     case carrier = "label.carrier"
     case delay = "label.delay"
+    case currentlyNoDelay = "delay.currentlyNoDelay"
+    case departureTendsToBeOnTime = "delay.departureTendsToBeOnTime"
     case station = "label.station"
     case time = "label.time"
     case destination = "label.destination"
@@ -255,5 +257,20 @@ struct Localization {
             }
             return timetable.displayName
         }
+    }
+
+    /// Localizes stable IDOS punctuality states while retaining carrier-specific details verbatim.
+    func delayStatus(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+            return nil
+        }
+
+        if value.compare("Currently no delay", options: .caseInsensitive) == .orderedSame {
+            return text(.currentlyNoDelay)
+        }
+        if value.compare("Departure tends to be on time", options: .caseInsensitive) == .orderedSame {
+            return text(.departureTendsToBeOnTime)
+        }
+        return value
     }
 }

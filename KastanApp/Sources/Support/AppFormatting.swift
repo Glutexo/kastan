@@ -422,13 +422,20 @@ enum ResultMetadata {
         )
     }
 
-    /// Localizes known IDOS delay states while preserving unrecognized carrier messages verbatim.
+    /// Localizes known IDOS punctuality states while preserving unrecognized carrier messages verbatim.
     static func delay(_ value: String?) -> String? {
         guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
             return nil
         }
-        if value.compare("Currently no delay", options: .caseInsensitive) == .orderedSame {
-            return AppLocalization.string("Currently no delay")
+
+        let knownStates = [
+            "Currently no delay",
+            "Departure tends to be on time",
+        ]
+        if let key = knownStates.first(where: {
+            value.compare($0, options: .caseInsensitive) == .orderedSame
+        }) {
+            return AppLocalization.string(key)
         }
         return value
     }

@@ -1,6 +1,8 @@
 "app.description" = "Search IDOS connections, departures, station timetables, stations, service routes, or suggested places.";
 "app.helpHint" = "Run kastan --help for usage.";
 "command.unknown" = "Unknown command: {0}";
+"delay.currentlyNoDelay" = "Currently no delay";
+"delay.departureTendsToBeOnTime" = "Departure tends to be on time";
 "error.fallback" = "The operation failed, but no error details were provided.";
 "error.label" = "Error";
 "error.invalidLanguage" = "Unsupported language: {0}. Use en or cs.";

@@ -1,6 +1,8 @@
 "app.description" = "Vyhledávání spojení, odjezdů, zastávkových jízdních řádů, stanic, tras spojů nebo navrhovaných míst v IDOSu.";
 "app.helpHint" = "Nápovědu zobrazíte příkazem kastan --help.";
 "command.unknown" = "Neznámý příkaz: {0}";
+"delay.currentlyNoDelay" = "Aktuálně bez zpoždění";
+"delay.departureTendsToBeOnTime" = "Odjezd bývá včas";
 "error.fallback" = "Operace selhala, ale nebyly poskytnuty žádné podrobnosti.";
 "error.label" = "Chyba";
 "error.invalidLanguage" = "Nepodporovaný jazyk: {0}. Použijte en nebo cs.";

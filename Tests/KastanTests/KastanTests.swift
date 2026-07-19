@@ -100,6 +100,19 @@ import Testing
     #expect(output.contains("ID: 396829589"))
     #expect(output.contains("ID spoje: vlaky:0-74552-18.06.2026 12:04:00"))
     #expect(output.contains("tarifní zóna P · nástupiště 4"))
+    #expect(output.contains("Aktuálně bez zpoždění"))
+    #expect(!output.contains("Currently no delay"))
+}
+
+@Test func knownIDOSDelayStatesFollowTheSelectedOutputLanguage() {
+    let czech = Localization(language: .czech)
+    let english = Localization(language: .english)
+
+    #expect(czech.delayStatus(" Currently no delay ") == "Aktuálně bez zpoždění")
+    #expect(czech.delayStatus("Departure tends to be on time") == "Odjezd bývá včas")
+    #expect(english.delayStatus("Departure tends to be on time") == "Departure tends to be on time")
+    #expect(czech.delayStatus("Delay 12 min") == "Delay 12 min")
+    #expect(czech.delayStatus("  ") == nil)
 }
 
 @Test func czechLanguageLocalizesMarkdownAndErrors() async {

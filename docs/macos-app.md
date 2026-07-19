@@ -44,7 +44,7 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   each of its services can still open a separate complete route. When scrolling hides the connection's main
   time range, that range moves into the window title until its content label is visible again.
 - Connection cards with line colors, transport symbols, platforms, tariff zones, carriers, and localized delay
-  states supplied by IDOS.
+  and expected-punctuality states supplied by IDOS.
 - Complete service routes with the search-relevant segment highlighted without implying live vehicle position.
   When scrolling hides a service date, the date moves into the window title until its content label is visible
   again.

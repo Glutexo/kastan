@@ -927,7 +927,7 @@ private enum OutputFormat: String {
                 let legs = connection.legs.map { leg in
                     if output.verbose {
                         let serviceID = leg.id.map { "`\(Markdown.escape($0))`" } ?? ""
-                        return "| \(Markdown.lineName(leg)) | \(serviceID) | \(Markdown.escape(leg.fromStation)) | \(Markdown.escape(leg.fromTariffZone ?? "")) | \(Markdown.escape(leg.fromPlatform ?? "")) | \(Markdown.bold(leg.departureTime)) | \(Markdown.escape(leg.toStation)) | \(Markdown.escape(leg.toTariffZone ?? "")) | \(Markdown.escape(leg.toPlatform ?? "")) | \(Markdown.bold(leg.arrivalTime)) | \(Markdown.escape(leg.carrier ?? "")) | \(Markdown.escape(leg.delay ?? "")) |"
+                        return "| \(Markdown.lineName(leg)) | \(serviceID) | \(Markdown.escape(leg.fromStation)) | \(Markdown.escape(leg.fromTariffZone ?? "")) | \(Markdown.escape(leg.fromPlatform ?? "")) | \(Markdown.bold(leg.departureTime)) | \(Markdown.escape(leg.toStation)) | \(Markdown.escape(leg.toTariffZone ?? "")) | \(Markdown.escape(leg.toPlatform ?? "")) | \(Markdown.bold(leg.arrivalTime)) | \(Markdown.escape(leg.carrier ?? "")) | \(Markdown.escape(localization.delayStatus(leg.delay) ?? "")) |"
                     }
 
                     return "| \(Markdown.lineName(leg)) | \(Markdown.escape(leg.fromStation)) | \(Markdown.bold(leg.departureTime)) | \(Markdown.escape(leg.toStation)) | \(Markdown.bold(leg.arrivalTime)) |"
@@ -1112,7 +1112,7 @@ private enum OutputFormat: String {
 
             let rows = output.departures.enumerated().map { index, departure in
                 if output.verbose {
-                    return "| \(index + 1) | \(Markdown.bold(departure.time)) | \(Markdown.departureLineName(departure)) | \(Markdown.escape(departure.destination)) | \(Markdown.escape(departure.tariffZone ?? "")) | \(Markdown.escape(departure.platform ?? "")) | \(Markdown.escape(departure.via ?? "")) | \(Markdown.escape(departure.carrier ?? "")) | \(Markdown.escape(departure.delay ?? "")) | `\(Markdown.escape(departure.id))` |"
+                    return "| \(index + 1) | \(Markdown.bold(departure.time)) | \(Markdown.departureLineName(departure)) | \(Markdown.escape(departure.destination)) | \(Markdown.escape(departure.tariffZone ?? "")) | \(Markdown.escape(departure.platform ?? "")) | \(Markdown.escape(departure.via ?? "")) | \(Markdown.escape(departure.carrier ?? "")) | \(Markdown.escape(localization.delayStatus(departure.delay) ?? "")) | `\(Markdown.escape(departure.id))` |"
                 }
 
                 return "| \(index + 1) | \(Markdown.bold(departure.time)) | \(Markdown.departureLineName(departure)) | \(Markdown.escape(departure.destination)) | \(Markdown.escape(departure.via ?? "")) |"
@@ -1423,7 +1423,7 @@ private enum OutputFormat: String {
             details.append(localization.text(.viaInline, via))
         }
         if includeDetails {
-            details.append(contentsOf: [departure.carrier, departure.delay]
+            details.append(contentsOf: [departure.carrier, localization.delayStatus(departure.delay)]
                 .compactMap(\.self)
                 .filter { !$0.isEmpty })
         }
@@ -1590,7 +1590,7 @@ private struct ConnectionOutput: Encodable {
                 let details = includeDetails ? [
                     leg.id.map { "\(localization.text(.serviceIdentifier)): \($0)" },
                     leg.carrier,
-                    leg.delay,
+                    localization.delayStatus(leg.delay),
                 ]
                     .compactMap(\.self)
                     .filter { !$0.isEmpty }

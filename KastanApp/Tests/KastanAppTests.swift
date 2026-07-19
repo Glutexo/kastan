@@ -697,13 +697,23 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(didSelect)
     }
 
-    func testDelayPresentationLocalizesKnownStateAndPreservesCarrierDetail() {
+    func testDelayPresentationLocalizesKnownStateAndPreservesCarrierDetail() throws {
         XCTAssertEqual(
             ResultMetadata.delay(" Currently no delay "),
             AppLocalization.string("Currently no delay")
         )
+        XCTAssertEqual(
+            ResultMetadata.delay("Departure tends to be on time"),
+            AppLocalization.string("Departure tends to be on time")
+        )
         XCTAssertEqual(ResultMetadata.delay("Delay 12 min"), "Delay 12 min")
         XCTAssertNil(ResultMetadata.delay("  "))
+
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        let key = "Departure tends to be on time"
+        XCTAssertEqual(czech.localizedString(forKey: key, value: nil, table: nil), "Odjezd bývá včas")
+        XCTAssertEqual(english.localizedString(forKey: key, value: nil, table: nil), key)
     }
 
     func testServiceRouteHighlightMatchesSearchStopsAndDirection() {
