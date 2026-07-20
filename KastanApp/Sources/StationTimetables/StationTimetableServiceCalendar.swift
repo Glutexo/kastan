@@ -664,14 +664,16 @@ struct ServiceNotesView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             ForEach(Array(notes.enumerated()), id: \.offset) { _, note in
+                let serviceCalendar = serviceCalendar(for: note)
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text("•")
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 8, alignment: .center)
+                    Text(ServiceNoteEmoji.symbol(
+                        for: note,
+                        presentsCalendar: serviceCalendar != nil
+                    ))
+                        .frame(width: 22, alignment: .center)
                         .accessibilityHidden(true)
 
-                    if let serviceCalendar = serviceCalendar(for: note) {
+                    if let serviceCalendar {
                         StationTimetableServiceCalendarButton(serviceCalendar: serviceCalendar)
                     } else {
                         NoteText(note)
@@ -694,6 +696,47 @@ struct ServiceNotesView: View {
             )
         }
         return StationTimetableServiceCalendar(note: note, allNotes: notes)
+    }
+}
+
+/// Assigns a concise visual meaning to every IDOS service note without replacing its readable text.
+enum ServiceNoteEmoji {
+    static func symbol(for note: String, presentsCalendar: Bool = false) -> String {
+        let normalized = note
+            .folding(
+                options: [.diacriticInsensitive, .caseInsensitive],
+                locale: Locale(identifier: "en_US_POSIX")
+            )
+            .lowercased()
+
+        if normalized.contains("traffic restriction") ||
+            normalized.contains("planned restriction") ||
+            normalized.contains("planovane omezeni") ||
+            normalized.contains("omezeni provozu") ||
+            normalized.contains("vyluk")
+        {
+            return "🚧"
+        }
+        if presentsCalendar {
+            return "📅"
+        }
+        if normalized.range(of: #"\s[-–—]\s"#, options: .regularExpression) != nil {
+            return "🛤️"
+        }
+        if normalized.contains("carrier:") ||
+            normalized.contains("dopravce:") ||
+            normalized.contains("a.s.") ||
+            normalized.contains("a. s.") ||
+            normalized.contains("s.r.o.") ||
+            normalized.contains("s. r. o.") ||
+            normalized.hasSuffix(" gmbh") ||
+            normalized.hasSuffix(" ltd") ||
+            normalized.hasSuffix(" ltd.")
+        {
+            return "🏢"
+        }
+
+        return "ℹ️"
     }
 }
 

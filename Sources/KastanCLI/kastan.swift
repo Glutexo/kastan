@@ -1451,10 +1451,21 @@ enum ServiceInformationLine {
             .lowercased()
 
         if normalized.contains("traffic restriction") ||
+            normalized.contains("planned restriction") ||
+            normalized.contains("planovane omezeni") ||
             normalized.contains("vyluk") ||
             normalized.contains("omezeni provozu")
         {
             return "🚧"
+        }
+        if normalized.range(
+            of: #"\b(?:jede|nejede|runs?|does\s+not\s+run|valid\s+from|plati\s+od)\b"#,
+            options: .regularExpression
+        ) != nil {
+            return "📅"
+        }
+        if normalized.range(of: #"\s[-–—]\s"#, options: .regularExpression) != nil {
+            return "🛤️"
         }
         if normalized.contains("carrier:") ||
             normalized.contains("dopravce:") ||

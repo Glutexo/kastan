@@ -345,6 +345,17 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(ServiceCalendarOpeningOptions.showsRecognizedConditions(for: [.command]))
     }
 
+    func testServiceNotesReceiveSemanticEmoji() {
+        XCTAssertEqual(
+            ServiceNoteEmoji.symbol(for: "Na trase spojení je toto plánované omezení provozu."),
+            "🚧"
+        )
+        XCTAssertEqual(ServiceNoteEmoji.symbol(for: "Háje - Letňany"), "🛤️")
+        XCTAssertEqual(ServiceNoteEmoji.symbol(for: "Dopravní podnik hl. m. Prahy, a.s."), "🏢")
+        XCTAssertEqual(ServiceNoteEmoji.symbol(for: "jede v 1-5", presentsCalendar: true), "📅")
+        XCTAssertEqual(ServiceNoteEmoji.symbol(for: "Doplňující informace"), "ℹ️")
+    }
+
     func testNonDatedAndOutOfValidityNotesDoNotOfferServiceCalendars() {
         XCTAssertNil(StationTimetableServiceCalendar(
             note: "A: jede jen do zastávky Háje",
