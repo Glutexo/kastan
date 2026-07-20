@@ -386,7 +386,7 @@ final class KastanAppTests: XCTestCase {
             ("ve vlaku řazen vůz s přípojkou 230 V", "🔌"),
             ("tichý oddíl", "🤫"),
             ("vůz nebo oddíly vyhrazené pro cestující s dětmi do 10 let", "👶🏻"),
-            ("Ladies compartment (compartment for women travelling alone)", "👩"),
+            ("Ladies compartment (compartment for women travelling alone)", "👩🏻"),
             ("dětské kino", "📽️"),
             ("přeprava spoluzavazadel s povinnou rezervací místa pro jízdní kolo a cestujícího", "🚲"),
             ("přeprava jízdních kol jako spoluzavazadel je vyloučena", "🚳"),
@@ -437,7 +437,7 @@ final class KastanAppTests: XCTestCase {
                 for: "dámský oddíl (oddíl pro samostatně cestující ženy) v 1-5,7",
                 presentsCalendar: true
             ),
-            "👩"
+            "👩🏻"
         )
         XCTAssertEqual(ServiceNoteEmoji.symbol(for: "jede v 1,3-5,7", presentsCalendar: true), "📅")
         XCTAssertEqual(ServiceNoteEmoji.symbol(for: "K-IM Tour Michalovce"), "ℹ️")

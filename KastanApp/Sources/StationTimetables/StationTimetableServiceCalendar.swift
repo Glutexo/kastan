@@ -903,7 +903,7 @@ enum ServiceNoteEmoji {
             (normalized.contains("ladies") &&
                 (normalized.contains("compartment") || normalized.contains("coach")))
         {
-            return "👩"
+            return "👩🏻"
         }
         // Keep place names such as Kolín from turning unrelated fare notes into bicycle services.
         let mentionsBicycle = normalized.range(
