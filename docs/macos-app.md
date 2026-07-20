@@ -26,7 +26,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   or `v 1-6` restrict a dated operating range to the selected weekdays. Positive and negative dated exceptions
   then override that recurring rule. The calendar marks running and non-running days only within the validity
   interval printed by IDOS for the current timetable; days outside that interval remain visibly out of scope.
-  Phone numbers in timetable notes, service information, and route-stop notes open as `tel:` links.
+  Notes whose subject applies only on numbered weekdays, such as refreshments `v 1-5,7`, open a separate note
+  calendar whose legend says whether the note applies instead of implying that the service itself runs. Phone
+  numbers in timetable notes, service information, and route-stop notes open as `tel:` links.
 - A genuine AppKit toolbar centers a complete mode control for switching between Connections, Departures, and
   Station Timetables while preserving each search's state. Stable toolbar identifiers and visibility priorities
   keep that control intact, and its natural width follows the localized labels without stretching the final
@@ -58,7 +60,7 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   same-month lists such as `18.,19.IX.`, open the same running/non-running calendar using the exact validity
   interval published by the current IDOS timetable. When opened, the calendar scrolls to the current month or
   to the nearest month covered by that timetable. Option-clicking a calendar note also lists the operating rule
-  and every individual date or range recognized from it.
+  or note-applicability rule and every individual date or range recognized from it.
 - Permanent connection and service-detail links using the IDOS language that matches the app, available for
   opening in IDOS or sharing through the standard macOS share sheet. Every service-detail action is an
   individually visible control in that window's native toolbar.

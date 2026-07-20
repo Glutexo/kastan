@@ -290,6 +290,25 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 7)), .doesNotRun)
     }
 
+    func testStandaloneNumberedWeekdaysOfferANoteApplicabilityCalendar() throws {
+        let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(
+            note: "občerstvení (roznášková služba nebo samoobslužný automat) v 1-5,7",
+            validityStart: serviceDate(2025, 12, 14),
+            validityEnd: serviceDate(2026, 12, 12)
+        ))
+
+        XCTAssertEqual(serviceCalendar.rule.subject, .noteApplicability)
+        XCTAssertEqual(serviceCalendar.rule.recurrence, .selectedWeekdays(Set([1, 2, 3, 4, 5, 7])))
+        XCTAssertTrue(serviceCalendar.listedDates.isEmpty)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 20)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 25)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 26)), .runs)
+        XCTAssertEqual(
+            serviceCalendar.status(on: serviceDate(2025, 12, 13)),
+            .outsideTimetableValidity
+        )
+    }
+
     func testServiceCalendarInitiallyShowsCurrentOrNearestValidityMonth() throws {
         let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(
             note: "nejede 24.XII.",

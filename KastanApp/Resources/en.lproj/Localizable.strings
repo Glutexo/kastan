@@ -6,6 +6,8 @@
 "Add via place" = "Add via place";
 "address" = "address";
 "All timetables" = "All timetables";
+"Applies" = "Applies";
+"Applies on days %@ throughout timetable validity" = "Applies on days %@ throughout timetable validity";
 "Availability and accuracy are not guaranteed. Confirm important journey details with the carrier." = "Availability and accuracy are not guaranteed. Confirm important journey details with the carrier.";
 "Arrival" = "Arrival";
 "Arrival place" = "Arrival place";
@@ -36,6 +38,7 @@
 "Does not run" = "Does not run";
 "Does not run %@" = "Does not run %@";
 "Does not run on the listed dates" = "Does not run on the listed dates";
+"Does not apply" = "Does not apply";
 "Direction from" = "Direction from";
 "Direction to" = "Direction to";
 "district %@" = "district %@";
@@ -82,6 +85,7 @@
 "No connections yet" = "No connections yet";
 "No station board yet" = "No station board yet";
 "No station timetable yet" = "No station timetable yet";
+"Note calendar" = "Note calendar";
 "Notes" = "Notes";
 "Network request failed. Check your internet connection." = "Network request failed. Check your internet connection.";
 "Network request failed. Check your internet connection. %@" = "Network request failed. Check your internet connection. %@";
@@ -112,6 +116,8 @@
 "Searches" = "Search";
 "Searching connections…" = "Searching connections…";
 "Share Link" = "Share Link";
+"Show note calendar" = "Show note calendar";
+"Show note calendar; hold Option for recognized conditions" = "Show note calendar; hold Option for recognized conditions";
 "Show service calendar" = "Show service calendar";
 "Show service calendar; hold Option for recognized conditions" = "Show service calendar; hold Option for recognized conditions";
 "Service calendar" = "Service calendar";

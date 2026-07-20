@@ -2,9 +2,14 @@ import AppKit
 import Kastan
 import SwiftUI
 
-/// Interprets one dated IDOS service note only within the validity of its current timetable.
+/// Interprets one dated or recurring IDOS condition only within the validity of its current timetable.
 struct StationTimetableServiceCalendar: Equatable {
     struct Rule: Equatable {
+        enum Subject: Equatable {
+            case serviceOperation
+            case noteApplicability
+        }
+
         enum Recurrence: Equatable {
             case none
             case everyDay
@@ -12,6 +17,7 @@ struct StationTimetableServiceCalendar: Equatable {
             case selectedWeekdays(Set<Int>)
         }
 
+        let subject: Subject
         let recurrence: Recurrence
         let operatingRange: ClosedRange<Date>
         let hasExplicitOperatingRange: Bool
@@ -32,7 +38,7 @@ struct StationTimetableServiceCalendar: Equatable {
     let recognizedDateRanges: [ClosedRange<Date>]
     let rule: Rule
 
-    /// Builds a calendar only when IDOS supplied a complete validity interval and concrete service dates.
+    /// Builds a calendar when IDOS supplied a complete validity interval and a dated or recurring condition.
     init?(note: String, allNotes: [String]) {
         guard let validity = Self.validity(in: allNotes) else { return nil }
         self.init(note: note, validityStart: validity.start, validityEnd: validity.end)
@@ -48,8 +54,7 @@ struct StationTimetableServiceCalendar: Equatable {
                   in: note,
                   validityStart: validityStart,
                   validityEnd: validityEnd
-              ),
-              !parsedRule.listedDates.isEmpty
+              )
         else { return nil }
 
         self.note = note
@@ -60,7 +65,7 @@ struct StationTimetableServiceCalendar: Equatable {
         rule = parsedRule.rule
     }
 
-    /// Distinguishes service days, non-service days, and dates not covered by the current timetable.
+    /// Distinguishes matching days, non-matching days, and dates not covered by the current timetable.
     func status(on date: Date) -> DayStatus {
         let calendar = Self.serviceCalendar
         let day = calendar.startOfDay(for: date)
@@ -195,7 +200,8 @@ struct StationTimetableServiceCalendar: Equatable {
         let negativeRunPattern = #"\bnejede\b|\bdoes\s+not\s+run\b"#
         let hasPositiveRule = normalized.range(of: positiveRunPattern, options: .regularExpression) != nil
         let hasNegativeRule = normalized.range(of: negativeRunPattern, options: .regularExpression) != nil
-        guard hasPositiveRule || hasNegativeRule else { return nil }
+        let standaloneWeekdays = numberedWeekdays(in: normalized)
+        guard hasPositiveRule || hasNegativeRule || standaloneWeekdays != nil else { return nil }
 
         let source = note as NSString
         let negativeMatch = try? NSRegularExpression(
@@ -246,6 +252,7 @@ struct StationTimetableServiceCalendar: Equatable {
         } ?? []
 
         let operatingRange: ClosedRange<Date>
+        let hasExplicitOperatingRange: Bool
         let additionalRunningRanges: [ClosedRange<Date>]
         if runsThroughBoundary,
            let boundaryToken = serviceDateTokens(in: positiveNote).first,
@@ -257,21 +264,37 @@ struct StationTimetableServiceCalendar: Equatable {
            ).first
         {
             operatingRange = validityStart...boundaryDate
+            hasExplicitOperatingRange = true
             additionalRunningRanges = Array(positiveInterpretation.ranges.dropFirst())
         } else {
             operatingRange = validityStart...validityEnd
+            hasExplicitOperatingRange = false
             additionalRunningRanges = positiveInterpretation.ranges
         }
 
+        let hasRecurringCondition: Bool
+        switch recurrence {
+        case .workingDays, .selectedWeekdays:
+            hasRecurringCondition = true
+        case .everyDay:
+            hasRecurringCondition = hasExplicitOperatingRange
+        case .none:
+            hasRecurringCondition = false
+        }
+        guard hasRecurringCondition || !additionalRunningRanges.isEmpty || !nonRunningRanges.isEmpty else {
+            return nil
+        }
+
         let rule = Rule(
+            subject: hasPositiveRule || hasNegativeRule ? .serviceOperation : .noteApplicability,
             recurrence: recurrence,
             operatingRange: operatingRange,
-            hasExplicitOperatingRange: runsThroughBoundary,
+            hasExplicitOperatingRange: hasExplicitOperatingRange,
             additionalRunningRanges: additionalRunningRanges,
             nonRunningRanges: nonRunningRanges
         )
         var recognizedDateRanges = additionalRunningRanges + nonRunningRanges
-        if runsThroughBoundary {
+        if hasExplicitOperatingRange {
             recognizedDateRanges.insert(operatingRange, at: 0)
         }
         let listedDates = Set(recognizedDateRanges.flatMap {
@@ -610,7 +633,7 @@ struct StationTimetableServiceCalendar: Equatable {
     }
 }
 
-/// Keeps ordinary notes readable while making date-based service rules interactive.
+/// Keeps ordinary notes readable while making dated and weekday-scoped conditions interactive.
 struct ServiceNotesView: View {
     let notes: [String]
     let timetableValidity: IDOSTimetableValidity?
@@ -687,9 +710,9 @@ struct StationTimetableServiceCalendarButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(
-            Text("Show service calendar") + Text(": ") + Text(serviceCalendar.note)
+            Text(calendarActionLabel) + Text(": ") + Text(serviceCalendar.note)
         )
-        .help("Show service calendar; hold Option for recognized conditions")
+        .help(calendarHelp)
         .popover(isPresented: $isPresented, arrowEdge: .trailing) {
             StationTimetableServiceCalendarView(
                 serviceCalendar: serviceCalendar,
@@ -697,9 +720,25 @@ struct StationTimetableServiceCalendarButton: View {
             )
         }
     }
+
+    private var calendarActionLabel: String {
+        AppLocalization.string(
+            serviceCalendar.rule.subject == .noteApplicability
+                ? "Show note calendar"
+                : "Show service calendar"
+        )
+    }
+
+    private var calendarHelp: String {
+        AppLocalization.string(
+            serviceCalendar.rule.subject == .noteApplicability
+                ? "Show note calendar; hold Option for recognized conditions"
+                : "Show service calendar; hold Option for recognized conditions"
+        )
+    }
 }
 
-/// Shows every month touched by the current timetable and distinguishes operating, non-operating, and invalid days.
+/// Shows every month touched by the current timetable and distinguishes matching, non-matching, and invalid days.
 private struct StationTimetableServiceCalendarView: View {
     let serviceCalendar: StationTimetableServiceCalendar
     let showsRecognizedConditions: Bool
@@ -708,7 +747,7 @@ private struct StationTimetableServiceCalendarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Service calendar")
+            Text(calendarTitle)
                 .font(.headline)
             Text(serviceCalendar.note)
                 .font(.subheadline)
@@ -782,6 +821,16 @@ private struct StationTimetableServiceCalendarView: View {
     }
 
     private var recognizedRuleDescription: String {
+        if serviceCalendar.rule.subject == .noteApplicability,
+           case let .selectedWeekdays(weekdays) = serviceCalendar.rule.recurrence
+        {
+            let values = weekdays.sorted().map(String.init).joined(separator: ", ")
+            return AppLocalization.string(
+                "Applies on days %@ throughout timetable validity",
+                values
+            )
+        }
+
         switch serviceCalendar.rule.recurrence {
         case .none:
             return AppLocalization.string("Runs only on the listed dates")
@@ -797,6 +846,14 @@ private struct StationTimetableServiceCalendarView: View {
         }
     }
 
+    private var calendarTitle: String {
+        AppLocalization.string(
+            serviceCalendar.rule.subject == .noteApplicability
+                ? "Note calendar"
+                : "Service calendar"
+        )
+    }
+
     private func recognizedRangeDescription(_ range: ClosedRange<Date>) -> String {
         let start = dateFormatter.string(from: range.lowerBound)
         guard range.lowerBound != range.upperBound else { return start }
@@ -805,8 +862,13 @@ private struct StationTimetableServiceCalendarView: View {
 
     private var legend: some View {
         HStack(spacing: 14) {
-            legendItem("Runs", color: .green)
-            legendItem("Does not run", color: .red)
+            if serviceCalendar.rule.subject == .noteApplicability {
+                legendItem("Applies", color: .green)
+                legendItem("Does not apply", color: .red)
+            } else {
+                legendItem("Runs", color: .green)
+                legendItem("Does not run", color: .red)
+            }
             legendItem("Outside timetable validity", color: .secondary)
         }
         .font(.caption)
@@ -884,9 +946,9 @@ private struct StationTimetableServiceCalendarView: View {
     private func statusLabel(_ status: StationTimetableServiceCalendar.DayStatus) -> LocalizedStringKey {
         switch status {
         case .runs:
-            return "Runs"
+            return serviceCalendar.rule.subject == .noteApplicability ? "Applies" : "Runs"
         case .doesNotRun:
-            return "Does not run"
+            return serviceCalendar.rule.subject == .noteApplicability ? "Does not apply" : "Does not run"
         case .outsideTimetableValidity:
             return "Outside timetable validity"
         }

@@ -6,6 +6,8 @@
 "Add via place" = "Přidat další místo";
 "address" = "adresa";
 "All timetables" = "Všechny jízdní řády";
+"Applies" = "Platí";
+"Applies on days %@ throughout timetable validity" = "Platí ve dnech %@ po celou platnost jízdního řádu";
 "Availability and accuracy are not guaranteed. Confirm important journey details with the carrier." = "Dostupnost ani přesnost dat nejsou zaručeny. Důležité údaje o cestě si ověřte u dopravce.";
 "Arrival" = "Příjezd";
 "Arrival place" = "Cílové místo";
@@ -36,6 +38,7 @@
 "Does not run" = "Nejede";
 "Does not run %@" = "Nejede %@";
 "Does not run on the listed dates" = "Nejede v uvedené dny";
+"Does not apply" = "Neplatí";
 "Direction from" = "Směr od";
 "Direction to" = "Směr do";
 "district %@" = "okres %@";
@@ -82,6 +85,7 @@
 "No connections yet" = "Zatím žádné spojení";
 "No station board yet" = "Zatím žádná odjezdová tabule";
 "No station timetable yet" = "Zatím žádný zastávkový jízdní řád";
+"Note calendar" = "Kalendář platnosti poznámky";
 "Notes" = "Poznámky";
 "Network request failed. Check your internet connection." = "Síťový požadavek selhal. Zkontrolujte připojení k internetu.";
 "Network request failed. Check your internet connection. %@" = "Síťový požadavek selhal. Zkontrolujte připojení k internetu. %@";
@@ -112,6 +116,8 @@
 "Searches" = "Vyhledávání";
 "Searching connections…" = "Vyhledávání spojení…";
 "Share Link" = "Sdílet odkaz";
+"Show note calendar" = "Zobrazit kalendář platnosti poznámky";
+"Show note calendar; hold Option for recognized conditions" = "Zobrazit kalendář platnosti poznámky; podržte Option pro rozpoznané podmínky";
 "Show service calendar" = "Zobrazit kalendář provozu";
 "Show service calendar; hold Option for recognized conditions" = "Zobrazit kalendář provozu; podržte Option pro rozpoznané podmínky";
 "Service calendar" = "Kalendář provozu";
