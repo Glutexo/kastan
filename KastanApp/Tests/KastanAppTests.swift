@@ -300,14 +300,16 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(serviceCalendar.rule.subject, .noteApplicability)
         XCTAssertEqual(serviceCalendar.rule.recurrence, .selectedWeekdays(Set([1, 2, 3, 4, 5, 7])))
         XCTAssertTrue(serviceCalendar.listedDates.isEmpty)
-        let linkedContent = StationTimetableServiceCalendarButton.noteApplicabilityContent(
-            for: serviceCalendar
+        let destination = ServiceNotesView.calendarDestination(for: 0)
+        let linkedContent = ServiceCalendarLink.noteApplicabilityContent(
+            for: serviceCalendar,
+            destination: destination
         )
         let linkedRuns = linkedContent.runs.filter { $0.link != nil }
         XCTAssertEqual(String(linkedContent.characters), serviceCalendar.note)
         XCTAssertEqual(linkedRuns.count, 1)
         XCTAssertEqual(String(linkedContent[linkedRuns[0].range].characters), "v 1-5,7")
-        XCTAssertEqual(linkedRuns[0].link, StationTimetableServiceCalendarButton.noteCalendarDestination)
+        XCTAssertEqual(linkedRuns[0].link, destination)
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 20)), .runs)
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 25)), .doesNotRun)
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 26)), .runs)
@@ -354,6 +356,34 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(ServiceNoteEmoji.symbol(for: "Dopravní podnik hl. m. Prahy, a.s."), "🏢")
         XCTAssertEqual(ServiceNoteEmoji.symbol(for: "jede v 1-5", presentsCalendar: true), "📅")
         XCTAssertEqual(ServiceNoteEmoji.symbol(for: "Doplňující informace"), "ℹ️")
+    }
+
+    func testServiceNotesCombineRowsIntoOneSelectableTextFlow() {
+        let notes = [
+            "Na trase spojení je toto plánované omezení provozu.",
+            "Háje - Letňany",
+            "Dopravní podnik hl. m. Prahy, a.s.",
+        ]
+        let content = ServiceNotesView(notes: notes).linkedContent
+
+        XCTAssertEqual(
+            String(content.characters),
+            "🚧 \(notes[0])\n🛤️ \(notes[1])\n🏢 \(notes[2])"
+        )
+    }
+
+    func testSelectableServiceNoteFlowRetainsCalendarAndPhoneLinks() {
+        let view = ServiceNotesView(
+            notes: ["jede v 1-5", "Informace: +420 123 456 789"],
+            timetableValidity: IDOSTimetableValidity(
+                validFrom: serviceDate(2026, 1, 1),
+                validThrough: serviceDate(2026, 12, 31)
+            )
+        )
+        let links = view.linkedContent.runs.compactMap(\.link)
+
+        XCTAssertTrue(links.contains(ServiceNotesView.calendarDestination(for: 0)))
+        XCTAssertTrue(links.contains(URL(string: "tel:+420123456789")!))
     }
 
     func testNonDatedAndOutOfValidityNotesDoNotOfferServiceCalendars() {

@@ -651,10 +651,12 @@ struct StationTimetableServiceCalendar: Equatable {
     }
 }
 
-/// Keeps ordinary notes readable while making dated and weekday-scoped conditions interactive.
+/// Keeps all notes in one selectable text flow while making dated and weekday-scoped conditions interactive.
 struct ServiceNotesView: View {
     let notes: [String]
     let timetableValidity: IDOSTimetableValidity?
+    @State private var presentedServiceCalendar: StationTimetableServiceCalendar?
+    @State private var showsRecognizedConditions = false
 
     init(notes: [String], timetableValidity: IDOSTimetableValidity? = nil) {
         self.notes = notes
@@ -662,29 +664,45 @@ struct ServiceNotesView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ForEach(Array(notes.enumerated()), id: \.offset) { _, note in
-                let serviceCalendar = serviceCalendar(for: note)
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text(ServiceNoteEmoji.symbol(
-                        for: note,
-                        presentsCalendar: serviceCalendar != nil
-                    ))
-                        .frame(width: 22, alignment: .center)
-                        .accessibilityHidden(true)
-
-                    if let serviceCalendar {
-                        StationTimetableServiceCalendarButton(serviceCalendar: serviceCalendar)
-                    } else {
-                        NoteText(note)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+        Text(linkedContent)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .lineSpacing(4)
+            .environment(\.openURL, OpenURLAction { url in
+                openCalendarLink(url)
+            })
+            .popover(isPresented: calendarIsPresented, arrowEdge: .trailing) {
+                if let presentedServiceCalendar {
+                    StationTimetableServiceCalendarView(
+                        serviceCalendar: presentedServiceCalendar,
+                        showsRecognizedConditions: showsRecognizedConditions
+                    )
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+    }
+
+    /// Joins every visible row into one attributed value so a drag selection can cross line boundaries.
+    var linkedContent: AttributedString {
+        notes.enumerated().reduce(into: AttributedString()) { content, item in
+            let (index, note) = item
+            let serviceCalendar = serviceCalendar(for: note)
+            content += AttributedString(
+                "\(ServiceNoteEmoji.symbol(for: note, presentsCalendar: serviceCalendar != nil)) "
+            )
+            if let serviceCalendar {
+                content += ServiceCalendarLink.content(
+                    for: serviceCalendar,
+                    destination: Self.calendarDestination(for: index)
+                )
+            } else {
+                content += NoteText.linkedContent(note)
+            }
+            if index < notes.index(before: notes.endIndex) {
+                content += AttributedString("\n")
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
     }
 
     private func serviceCalendar(for note: String) -> StationTimetableServiceCalendar? {
@@ -696,6 +714,36 @@ struct ServiceNotesView: View {
             )
         }
         return StationTimetableServiceCalendar(note: note, allNotes: notes)
+    }
+
+    static func calendarDestination(for noteIndex: Int) -> URL {
+        URL(string: "kastan-note-calendar://note/\(noteIndex)")!
+    }
+
+    private func openCalendarLink(_ url: URL) -> OpenURLAction.Result {
+        guard url.scheme == "kastan-note-calendar",
+              url.host == "note",
+              let noteIndex = Int(url.lastPathComponent),
+              notes.indices.contains(noteIndex),
+              let serviceCalendar = serviceCalendar(for: notes[noteIndex])
+        else { return .systemAction }
+
+        showsRecognizedConditions = ServiceCalendarOpeningOptions.showsRecognizedConditions(
+            for: NSEvent.modifierFlags
+        )
+        presentedServiceCalendar = serviceCalendar
+        return .handled
+    }
+
+    private var calendarIsPresented: Binding<Bool> {
+        Binding(
+            get: { presentedServiceCalendar != nil },
+            set: { isPresented in
+                if !isPresented {
+                    presentedServiceCalendar = nil
+                }
+            }
+        )
     }
 }
 
@@ -747,65 +795,24 @@ enum ServiceCalendarOpeningOptions {
     }
 }
 
-/// Links either a complete operating rule or only the applicability clause that opens its calendar.
-struct StationTimetableServiceCalendarButton: View {
-    let serviceCalendar: StationTimetableServiceCalendar
-    @State private var isPresented = false
-    @State private var showsRecognizedConditions = false
-
-    static let noteCalendarDestination = URL(string: "kastan-note-calendar:open")!
-
-    var body: some View {
-        Group {
-            if serviceCalendar.rule.subject == .noteApplicability {
-                noteApplicabilityLink
-            } else {
-                serviceOperationButton
-            }
+/// Links a complete operating rule or only the applicability clause inside the shared selectable text.
+enum ServiceCalendarLink {
+    static func content(
+        for serviceCalendar: StationTimetableServiceCalendar,
+        destination: URL
+    ) -> AttributedString {
+        guard serviceCalendar.rule.subject == .noteApplicability else {
+            var result = AttributedString(serviceCalendar.note)
+            result.link = destination
+            return result
         }
-        .popover(isPresented: $isPresented, arrowEdge: .trailing) {
-            StationTimetableServiceCalendarView(
-                serviceCalendar: serviceCalendar,
-                showsRecognizedConditions: showsRecognizedConditions
-            )
-        }
-    }
-
-    private var serviceOperationButton: some View {
-        Button(action: openCalendar) {
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(serviceCalendar.note)
-                    .fixedSize(horizontal: false, vertical: true)
-                Image(systemName: "calendar")
-                    .font(.caption)
-                    .accessibilityHidden(true)
-            }
-            .foregroundStyle(Color.accentColor)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(
-            Text(AppLocalization.string("Show service calendar"))
-                + Text(": ")
-                + Text(serviceCalendar.note)
-        )
-        .help(calendarHelp)
-    }
-
-    private var noteApplicabilityLink: some View {
-        Text(Self.noteApplicabilityContent(for: serviceCalendar))
-            .fixedSize(horizontal: false, vertical: true)
-            .environment(\.openURL, OpenURLAction { url in
-                guard url == Self.noteCalendarDestination else { return .systemAction }
-                openCalendar()
-                return .handled
-            })
-            .accessibilityHint(Text(calendarHelp))
-            .help(calendarHelp)
+        return noteApplicabilityContent(for: serviceCalendar, destination: destination)
     }
 
     /// Preserves the prose styling and links only the exact numbered-weekday clause recognized by the parser.
     static func noteApplicabilityContent(
-        for serviceCalendar: StationTimetableServiceCalendar
+        for serviceCalendar: StationTimetableServiceCalendar,
+        destination: URL
     ) -> AttributedString {
         let note = serviceCalendar.note
         guard let sourceRange = serviceCalendar.rule.noteApplicabilityRange,
@@ -814,25 +821,10 @@ struct StationTimetableServiceCalendarButton: View {
 
         var result = AttributedString(note[..<conditionRange.lowerBound])
         var linkedCondition = AttributedString(note[conditionRange])
-        linkedCondition.link = noteCalendarDestination
+        linkedCondition.link = destination
         result += linkedCondition
         result += AttributedString(note[conditionRange.upperBound...])
         return result
-    }
-
-    private func openCalendar() {
-        showsRecognizedConditions = ServiceCalendarOpeningOptions.showsRecognizedConditions(
-            for: NSEvent.modifierFlags
-        )
-        isPresented = true
-    }
-
-    private var calendarHelp: String {
-        AppLocalization.string(
-            serviceCalendar.rule.subject == .noteApplicability
-                ? "Show note calendar; hold Option for recognized conditions"
-                : "Show service calendar; hold Option for recognized conditions"
-        )
     }
 }
 
