@@ -1514,7 +1514,11 @@ enum ServiceInformationLine {
         {
             return "👶🏻"
         }
-        let mentionsBicycle = (normalized.contains("jizdn") && normalized.contains("kol")) ||
+        // Keep place names such as Kolín from turning unrelated fare notes into bicycle services.
+        let mentionsBicycle = normalized.range(
+            of: #"\bjizdn\p{L}*\s+kol\p{L}*\b"#,
+            options: .regularExpression
+        ) != nil ||
             normalized.contains("bicycle") || normalized.contains("bike")
         if mentionsBicycle && (
             normalized.contains("vyloucen") ||
