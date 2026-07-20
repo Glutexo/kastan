@@ -25,8 +25,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   exceptions and exclude weekends and Czech public holidays, while numbered weekday rules such as `v 6,7`
   or `v 1-6` restrict a dated operating range to the selected weekdays. A numbered weekday clause after a dated
   non-running range likewise restricts only that exclusion. Positive and negative dated exceptions then override
-  the recurring rule. The calendar marks running and non-running days only within the validity
-  interval printed by IDOS for the current timetable; days outside that interval remain visibly out of scope.
+  the recurring rule. One-sided boundaries such as `od 2.X.` extend to the corresponding timetable-validity edge
+  even when combined with other listed dates. The calendar marks running and non-running days only within the
+  validity interval printed by IDOS for the current timetable; days outside that interval remain visibly out of scope.
   Notes whose subject applies only on numbered weekdays, such as refreshments `v 1-5,7`, open a separate note
   calendar whose legend says whether the note applies instead of implying that the service itself runs. Only the
   numbered-weekday clause is linked in these notes; notes describing whether a service runs remain linked in full.

@@ -263,6 +263,27 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(doesNotRunFrom.status(on: serviceDate(2026, 12, 4)), .doesNotRun)
     }
 
+    func testOneSidedRangeExpandsAlongsideIndividualDateExceptions() throws {
+        let validityEnd = serviceDate(2026, 12, 12)
+        let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(
+            note: "nejede 1.,9.,18.VIII. a od 2.X.",
+            validityStart: serviceDate(2025, 12, 14),
+            validityEnd: validityEnd
+        ))
+
+        XCTAssertEqual(serviceCalendar.rule.nonRunningRanges, [
+            serviceDate(2026, 8, 1)...serviceDate(2026, 8, 1),
+            serviceDate(2026, 8, 9)...serviceDate(2026, 8, 9),
+            serviceDate(2026, 8, 18)...serviceDate(2026, 8, 18),
+            serviceDate(2026, 10, 2)...validityEnd,
+        ])
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 1)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 2)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 10, 1)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 10, 2)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: validityEnd), .doesNotRun)
+    }
+
     func testRunsUntilRangeIsRestrictedToNumberedWeekendDays() throws {
         let validityStart = serviceDate(2025, 12, 14)
         let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(

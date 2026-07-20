@@ -485,35 +485,6 @@ struct StationTimetableServiceCalendar: Equatable {
         let tokens = serviceDateTokens(in: note)
         guard !tokens.isEmpty else { return DateInterpretation(dates: [], datedRanges: []) }
 
-        if tokens.count == 1,
-           let range = validityRelativeRange(before: tokens[0], in: note),
-           let boundaryDate = resolvedDates(
-               for: tokens[0],
-               validityStart: validityStart,
-               validityEnd: validityEnd,
-               calendar: calendar
-           ).first
-        {
-            switch range {
-            case .fromValidityStart:
-                return DateInterpretation(
-                    dates: dates(from: validityStart, through: boundaryDate, calendar: calendar),
-                    datedRanges: [InterpretedDateRange(
-                        range: validityStart...boundaryDate,
-                        sourceRange: tokens[0].range
-                    )]
-                )
-            case .throughValidityEnd:
-                return DateInterpretation(
-                    dates: dates(from: boundaryDate, through: validityEnd, calendar: calendar),
-                    datedRanges: [InterpretedDateRange(
-                        range: boundaryDate...validityEnd,
-                        sourceRange: tokens[0].range
-                    )]
-                )
-            }
-        }
-
         var dates = Set<Date>()
         var datedRanges: [InterpretedDateRange] = []
         var index = 0
@@ -547,6 +518,25 @@ struct StationTimetableServiceCalendar: Equatable {
                     )
                 ))
                 index += 2
+            } else if let relativeRange = validityRelativeRange(before: token, in: note),
+                      let boundaryDate = tokenDates.first
+            {
+                let range = switch relativeRange {
+                case .fromValidityStart:
+                    validityStart...boundaryDate
+                case .throughValidityEnd:
+                    boundaryDate...validityEnd
+                }
+                dates.formUnion(Self.dates(
+                    from: range.lowerBound,
+                    through: range.upperBound,
+                    calendar: calendar
+                ))
+                datedRanges.append(InterpretedDateRange(
+                    range: range,
+                    sourceRange: token.range
+                ))
+                index += 1
             } else {
                 dates.formUnion(tokenDates)
                 datedRanges.append(contentsOf: tokenDates.map {
@@ -559,7 +549,7 @@ struct StationTimetableServiceCalendar: Equatable {
         return DateInterpretation(dates: dates.sorted(), datedRanges: datedRanges)
     }
 
-    /// Recognizes a boundary word immediately before the only concrete date in a service note.
+    /// Recognizes a boundary word immediately before a date not already paired into a closed range.
     private static func validityRelativeRange(
         before token: ServiceDateToken,
         in note: String
