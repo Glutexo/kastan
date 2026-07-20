@@ -849,6 +849,7 @@ import Testing
     #expect(ServiceInformationLine.render("Na trase spojení je toto plánované omezení.") == "🚧 Na trase spojení je toto plánované omezení.")
     #expect(ServiceInformationLine.render("Háje - Letňany") == "🛤️ Háje - Letňany")
     #expect(ServiceInformationLine.render("České dráhy, a.s.") == "🏢 České dráhy, a.s.")
+    #expect(ServiceInformationLine.render("ÖBB Personenverkehr; Am Hauptbahnhof 2, 1100 Wien") == "🏢 ÖBB Personenverkehr; Am Hauptbahnhof 2, 1100 Wien")
     #expect(ServiceInformationLine.render("jede v 1-5") == "📅 jede v 1-5")
     #expect(ServiceInformationLine.render("Additional information") == "ℹ️ Additional information")
 }

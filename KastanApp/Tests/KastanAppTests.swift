@@ -360,6 +360,12 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(ServiceNoteEmoji.symbol(for: "Háje - Letňany"), "🛤️")
         XCTAssertEqual(ServiceNoteEmoji.symbol(for: "Dopravní podnik hl. m. Prahy, a.s."), "🏢")
+        XCTAssertEqual(
+            ServiceNoteEmoji.symbol(
+                for: "ÖBB Personenverkehr; Am Hauptbahnhof 2, 1100 Wien (Břeclav Gr.→Villach Hbf)"
+            ),
+            "🏢"
+        )
         XCTAssertEqual(ServiceNoteEmoji.symbol(for: "jede v 1-5", presentsCalendar: true), "📅")
         XCTAssertEqual(ServiceNoteEmoji.symbol(for: "Doplňující informace"), "ℹ️")
     }

@@ -796,6 +796,7 @@ enum ServiceNoteEmoji {
         }
         if normalized.contains("carrier:") ||
             normalized.contains("dopravce:") ||
+            normalized.contains("personenverkehr") ||
             normalized.contains("a.s.") ||
             normalized.contains("a. s.") ||
             normalized.contains("s.r.o.") ||
