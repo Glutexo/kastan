@@ -835,7 +835,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(AppWindow.connectionDetail, "connection-detail")
     }
 
-    func testForceClickPreviewPrefersTheNestedServiceUnderThePointer() throws {
+    func testForceClickPreviewPrefersTheNestedTargetUnderThePointer() throws {
         let connectionID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000001"))
         let serviceID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000002"))
         let newerEqualTargetID = try XCTUnwrap(
@@ -875,6 +875,22 @@ final class KastanAppTests: XCTestCase {
                 )]
             ),
             newerEqualTargetID
+        )
+    }
+
+    func testConnectionResultLegsPreviewTheirCompleteConnection() {
+        let selection = ConnectionSelection(
+            connection: connection(id: "connection-preview"),
+            timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains")
+        )
+        let resultDestination = ConnectionLegPreviewDestination.completeConnection(selection)
+
+        XCTAssertEqual(resultDestination, .completeConnection(selection))
+        XCTAssertNotEqual(resultDestination, .service)
+        XCTAssertEqual(resultDestination.size, ResultPreviewLayout.connectionSize)
+        XCTAssertEqual(
+            ConnectionLegPreviewDestination.service.size,
+            ResultPreviewLayout.serviceSize
         )
     }
 

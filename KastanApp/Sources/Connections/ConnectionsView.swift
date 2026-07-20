@@ -296,6 +296,7 @@ struct ConnectionsView: View {
                         number: index + 1,
                         connection: connection,
                         client: client,
+                        legPreviewDestination: .completeConnection(selection),
                         isPerformingExport: model.importingConnectionID == connection.id ||
                             model.exportingPDFConnectionID == connection.id,
                         showsActionMenu: true,
@@ -459,11 +460,27 @@ private struct ConnectionTimeFramePreferenceKey: PreferenceKey {
     }
 }
 
+/// Chooses whether a Force Click on a nested leg represents its result card or the individual service.
+enum ConnectionLegPreviewDestination: Equatable {
+    case completeConnection(ConnectionSelection)
+    case service
+
+    var size: CGSize {
+        switch self {
+        case .completeConnection:
+            ResultPreviewLayout.connectionSize
+        case .service:
+            ResultPreviewLayout.serviceSize
+        }
+    }
+}
+
 /// Contains one complete journey and all of its legs in a distinct native result card.
 private struct ConnectionCard: View {
     let number: Int?
     let connection: IDOSConnection
     let client: any IDOSClienting
+    let legPreviewDestination: ConnectionLegPreviewDestination
     let isPerformingExport: Bool
     let showsActionMenu: Bool
     let timeFrameCoordinateSpace: String?
@@ -572,7 +589,12 @@ private struct ConnectionCard: View {
                     Divider()
                     VStack(spacing: 0) {
                         ForEach(Array(connection.legs.enumerated()), id: \.offset) { index, leg in
-                            ConnectionLegRow(leg: leg, client: client, openService: openService)
+                            ConnectionLegRow(
+                                leg: leg,
+                                client: client,
+                                previewDestination: legPreviewDestination,
+                                openService: openService
+                            )
                             if index < connection.legs.count - 1 {
                                 Divider()
                                     .padding(.leading, 30)
@@ -667,6 +689,7 @@ struct ConnectionDetailView: View {
                     number: nil,
                     connection: selection.connection,
                     client: client,
+                    legPreviewDestination: .service,
                     isPerformingExport: actionsModel.importingConnectionID == selection.connection.id ||
                         actionsModel.exportingPDFConnectionID == selection.connection.id,
                     showsActionMenu: false,
@@ -801,6 +824,7 @@ struct ConnectionDetailView: View {
 private struct ConnectionLegRow: View {
     let leg: IDOSConnectionLeg
     let client: any IDOSClienting
+    let previewDestination: ConnectionLegPreviewDestination
     let openService: (ServiceSelection) -> Void
     @State private var suppressesPrimaryAction = false
 
@@ -809,14 +833,10 @@ private struct ConnectionLegRow: View {
         if let selection {
             rowButton(selection: selection)
                 .forceClickPreview(
-                    size: ResultPreviewLayout.serviceSize,
+                    size: previewDestination.size,
                     suppressesPrimaryAction: $suppressesPrimaryAction
                 ) {
-                    ServiceDetailView(
-                        selection: selection,
-                        client: client,
-                        presentation: .preview
-                    )
+                    preview(for: selection)
                 }
         } else {
             rowButton(selection: nil)
@@ -832,6 +852,25 @@ private struct ConnectionLegRow: View {
                     fromStop: leg.fromStation,
                     toStop: leg.toStation
                 )
+            )
+        }
+    }
+
+    /// Keeps a leg within a result card scoped to the whole connection while retaining service previews in detail.
+    @ViewBuilder
+    private func preview(for selection: ServiceSelection) -> some View {
+        switch previewDestination {
+        case let .completeConnection(connectionSelection):
+            ConnectionDetailView(
+                selection: connectionSelection,
+                client: client,
+                presentation: .preview
+            )
+        case .service:
+            ServiceDetailView(
+                selection: selection,
+                client: client,
+                presentation: .preview
             )
         }
     }

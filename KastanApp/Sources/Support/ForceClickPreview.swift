@@ -20,7 +20,7 @@ struct ForceClickPreviewTargetFrame: Equatable {
     let registrationOrder: Int
 }
 
-/// Gives a nested service row priority over the larger connection card beneath the same pointer location.
+/// Gives a nested interactive row priority over the larger connection card beneath the same pointer location.
 enum ForceClickPreviewTargetResolver {
     static func targetID(
         at location: CGPoint,
