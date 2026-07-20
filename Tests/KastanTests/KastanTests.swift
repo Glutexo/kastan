@@ -829,7 +829,8 @@ import Testing
     )
 
     #expect(output.contains("🚆 \u{001B}[38;2;0;128;0mRJ 1051 RegioJet\u{001B}[0m · Service (Trains)"))
-    #expect(output.contains("Service ID: vlaky:0-74552-18.06.2026 12:04:00"))
+    #expect(output.contains("   🆔 Service ID: vlaky:0-74552-18.06.2026 12:04:00"))
+    #expect(output.contains("   📅 Date: 18.6.2026"))
     #expect(output.contains("🛤️ Route:"))
     #expect(output.contains("1. 📍 Praha-Zahradní Město — Departure \u{001B}[1m11:45\u{001B}[0m · track 3 · 0 km"))
     #expect(output.contains("🚧 Traffic restrictions"))
@@ -838,7 +839,15 @@ import Testing
     #expect(output.contains("♿ wheelchair accessible station"))
     #expect(output.contains("🚉 rail station"))
     #expect(output.contains("ℹ️ Information:"))
-    #expect(output.contains("České dráhy, a.s."))
+    #expect(output.contains("   🚧 Planned traffic restriction"))
+    #expect(output.contains("   🏢 České dráhy, a.s."))
+    #expect(!output.contains("   • "))
+}
+
+@Test func serviceInformationLinesAlwaysReceiveAMeaningfulEmoji() {
+    #expect(ServiceInformationLine.render("There is a planned traffic restriction.") == "🚧 There is a planned traffic restriction.")
+    #expect(ServiceInformationLine.render("České dráhy, a.s.") == "🏢 České dráhy, a.s.")
+    #expect(ServiceInformationLine.render("Additional information") == "ℹ️ Additional information")
 }
 
 @Test func serviceCommandPrintsMarkdown() async {
@@ -849,10 +858,14 @@ import Testing
     )
 
     #expect(output.contains("## 🚆 <span style=\"color: #008000\">RJ 1051 RegioJet</span> · Service"))
-    #expect(output.contains("**Service ID:** `vlaky:0-74552-18.06.2026 12:04:00`"))
+    #expect(output.contains("🆔 **Service ID:** `vlaky:0-74552-18.06.2026 12:04:00`"))
+    #expect(output.contains("📅 **Date:** 18.6.2026"))
+    #expect(output.contains("🗂️ **Timetable:** Trains"))
     #expect(output.contains("| # | Station | Arrival | Departure | Tariff Zone | Platform | Track | Platform/Track | Distance | Notes |"))
     #expect(output.contains("| 2 | Praha hl.n. | **11:53** | **12:04** | P |  |  |  | 7 km | 🚇 transfer to the undeground |"))
     #expect(output.contains("| 3 | Brno hl.n. | **15:44** |  |  |  |  | 3/1 | 262 km | ♿ wheelchair accessible station<br>🚉 rail station |"))
+    #expect(output.contains("- 🚧 Planned traffic restriction"))
+    #expect(output.contains("- 🏢 České dráhy, a.s."))
 }
 
 @Test func serviceCommandPrintsJSON() async throws {
@@ -877,13 +890,16 @@ import Testing
     )
 
     #expect(output.contains("· Spoj (Vlaky)"))
-    #expect(output.contains("ID spoje: vlaky:0-74552-18.06.2026 12:04:00"))
+    #expect(output.contains("🆔 ID spoje: vlaky:0-74552-18.06.2026 12:04:00"))
+    #expect(output.contains("📅 Datum: 18.6.2026"))
     #expect(output.contains("🛤️ Trasa:"))
     #expect(output.contains("Příjezd \u{001B}[1m11:53\u{001B}[0m · Odjezd \u{001B}[1m12:04\u{001B}[0m"))
     #expect(output.contains("🚧 Omezení provozu"))
     #expect(output.contains("🚇 přestup na Metro"))
     #expect(output.contains("♿ bezbariérově přístupná stanice"))
     #expect(output.contains("🚉 zastávka s možností přestupu na železniční dopravu"))
+    #expect(output.contains("🚧 Plánované omezení provozu"))
+    #expect(output.contains("🏢 České dráhy, a.s."))
 }
 
 @Test func serviceCommandRequiresIdentifier() async {

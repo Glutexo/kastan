@@ -190,7 +190,9 @@ Quote the ID because it contains a space. Current IDs contain their timetable; `
 as context for legacy IDs. Scripts must treat connection-result, service, and departure IDs as opaque values.
 
 Service details include all stops supplied by IDOS, arrival and departure times, tariff zones, platforms or
-tracks, distance, stop notes, and service information.
+tracks, distance, stop notes, and service information. Human-readable details mark service metadata and every
+information line with a semantic emoji; uncategorized information keeps its full text and uses a generic
+information marker.
 
 ## Output Formats
 

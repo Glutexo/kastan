@@ -1005,17 +1005,17 @@ private enum OutputFormat: String {
                 let suffix = details.isEmpty ? "" : " — \(details.joined(separator: " · "))"
                 return "\(index + 1). 📍 \(stop.name)\(suffix)\(notes)"
             }.joined(separator: "\n")
-            let date = service.date.map { "\n   \(localization.text(.date)): \($0)" } ?? ""
+            let date = service.date.map { "\n   📅 \(localization.text(.date)): \($0)" } ?? ""
             let information = service.information.isEmpty ? "" : """
 
 
             ℹ️ \(localization.text(.information)):
-            \(service.information.map { "   • \($0)" }.joined(separator: "\n"))
+            \(service.information.map { "   \(ServiceInformationLine.render($0))" }.joined(separator: "\n"))
             """
 
             return """
             \(service.displayName) · \(localization.text(.service)) (\(localization.timetableName(service.timetable)))
-               \(localization.text(.serviceIdentifier)): \(service.id)\(date)
+               🆔 \(localization.text(.serviceIdentifier)): \(service.id)\(date)
             🛤️ \(localization.text(.route)):
             \(stops)\(information)
             """
@@ -1026,20 +1026,20 @@ private enum OutputFormat: String {
                     .joined(separator: "<br>")
                 return "| \(index + 1) | \(Markdown.escape(stop.name)) | \(Markdown.bold(stop.arrivalTime ?? "")) | \(Markdown.bold(stop.departureTime ?? "")) | \(Markdown.escape(stop.tariffZone ?? "")) | \(Markdown.escape(stop.platform ?? "")) | \(Markdown.escape(stop.track ?? "")) | \(Markdown.escape(stop.platformTrack ?? "")) | \(Markdown.escape(stop.distance ?? "")) | \(notes) |"
             }.joined(separator: "\n")
-            let date = service.date.map { "**\(localization.text(.date)):** \(Markdown.escape($0))\n" } ?? ""
+            let date = service.date.map { "📅 **\(localization.text(.date)):** \(Markdown.escape($0))\n" } ?? ""
             let information = service.information.isEmpty ? "" : """
 
 
             ### ℹ️ \(localization.text(.information))
 
-            \(service.information.map { "- \(Markdown.escape($0))" }.joined(separator: "\n"))
+            \(service.information.map { "- \(Markdown.escape(ServiceInformationLine.render($0)))" }.joined(separator: "\n"))
             """
 
             return """
             ## \(Markdown.serviceName(service)) · \(localization.text(.service))
 
-            **\(localization.text(.serviceIdentifier)):** `\(Markdown.escape(service.id))`
-            \(date)**\(localization.text(.timetable)):** \(Markdown.escape(localization.timetableName(service.timetable)))
+            🆔 **\(localization.text(.serviceIdentifier)):** `\(Markdown.escape(service.id))`
+            \(date)🗂️ **\(localization.text(.timetable)):** \(Markdown.escape(localization.timetableName(service.timetable)))
 
             ### 🛤️ \(localization.text(.route))
 
@@ -1433,6 +1433,43 @@ private enum OutputFormat: String {
         }
 
         return result
+    }
+}
+
+/// Gives every service-information line a visual category while preserving the complete IDOS text.
+enum ServiceInformationLine {
+    static func render(_ information: String) -> String {
+        "\(emoji(for: information)) \(information)"
+    }
+
+    private static func emoji(for information: String) -> String {
+        let normalized = information
+            .folding(
+                options: [.diacriticInsensitive, .caseInsensitive],
+                locale: Locale(identifier: "en_US_POSIX")
+            )
+            .lowercased()
+
+        if normalized.contains("traffic restriction") ||
+            normalized.contains("vyluk") ||
+            normalized.contains("omezeni provozu")
+        {
+            return "🚧"
+        }
+        if normalized.contains("carrier:") ||
+            normalized.contains("dopravce:") ||
+            normalized.contains("a.s.") ||
+            normalized.contains("a. s.") ||
+            normalized.contains("s.r.o.") ||
+            normalized.contains("s. r. o.") ||
+            normalized.hasSuffix(" gmbh") ||
+            normalized.hasSuffix(" ltd") ||
+            normalized.hasSuffix(" ltd.")
+        {
+            return "🏢"
+        }
+
+        return "ℹ️"
     }
 }
 
