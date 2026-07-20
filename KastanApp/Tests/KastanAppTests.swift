@@ -355,6 +355,10 @@ final class KastanAppTests: XCTestCase {
             "🚌"
         )
         XCTAssertEqual(
+            ServiceNoteEmoji.symbol(for: "do označených vozů možno zakoupit místenku"),
+            "💺"
+        )
+        XCTAssertEqual(
             ServiceNoteEmoji.symbol(for: "Na trase spojení je toto plánované omezení provozu."),
             "🚧"
         )

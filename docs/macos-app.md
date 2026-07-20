@@ -56,8 +56,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Complete service routes open at the departure stop from the originating search, with the search-relevant
   segment highlighted without implying live vehicle position. When scrolling hides a service date, the date
   moves into the window title until its content label is visible again.
-- Selectable service-information text whose rows use semantic emoji for replacement buses, restrictions,
-  routes, carriers, and calendar-backed operating rules. A single selection can span multiple information rows
+- Selectable service-information text whose rows use semantic emoji for replacement buses, seat reservations,
+  restrictions, routes, carriers, and calendar-backed operating rules. A single selection can span multiple rows
   while retaining clickable phone-number links and the standard macOS copy command. Dated operating
   exceptions, including abbreviated ranges such as `17. to 20.VIII.` and
   same-month lists such as `18.,19.IX.`, open the same running/non-running calendar using the exact validity

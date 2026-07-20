@@ -846,6 +846,11 @@ import Testing
 
 @Test func serviceInformationLinesAlwaysReceiveAMeaningfulEmoji() {
     #expect(ServiceInformationLine.render("Replacement bus service") == "🚌 Replacement bus service")
+    #expect(
+        ServiceInformationLine.render("do označených vozů možno zakoupit místenku") ==
+            "💺 do označených vozů možno zakoupit místenku"
+    )
+    #expect(ServiceInformationLine.render("Seat reservation available") == "💺 Seat reservation available")
     #expect(ServiceInformationLine.render("Na trase spojení je toto plánované omezení.") == "🚧 Na trase spojení je toto plánované omezení.")
     #expect(ServiceInformationLine.render("Háje - Letňany") == "🛤️ Háje - Letňany")
     #expect(ServiceInformationLine.render("České dráhy, a.s.") == "🏢 České dráhy, a.s.")

@@ -780,6 +780,9 @@ enum ServiceNoteEmoji {
         {
             return "🚌"
         }
+        if normalized.contains("mistenk") || normalized.contains("seat reservation") {
+            return "💺"
+        }
         if normalized.contains("traffic restriction") ||
             normalized.contains("planned restriction") ||
             normalized.contains("planovane omezeni") ||
