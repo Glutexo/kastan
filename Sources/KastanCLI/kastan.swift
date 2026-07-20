@@ -1450,6 +1450,12 @@ enum ServiceInformationLine {
             )
             .lowercased()
 
+        if normalized.contains("nahradni autobusova doprava") ||
+            normalized.contains("replacement bus") ||
+            normalized.contains("bus replacement")
+        {
+            return "🚌"
+        }
         if normalized.contains("traffic restriction") ||
             normalized.contains("planned restriction") ||
             normalized.contains("planovane omezeni") ||

@@ -349,6 +349,12 @@ final class KastanAppTests: XCTestCase {
 
     func testServiceNotesReceiveSemanticEmoji() {
         XCTAssertEqual(
+            ServiceNoteEmoji.symbol(
+                for: "náhradní autobusová doprava, některé služby nejsou v úseku náhradní dopravy poskytovány"
+            ),
+            "🚌"
+        )
+        XCTAssertEqual(
             ServiceNoteEmoji.symbol(for: "Na trase spojení je toto plánované omezení provozu."),
             "🚧"
         )
