@@ -720,7 +720,8 @@ public struct IDOSClient: IDOSClienting {
               let detail = IDOSServiceDetailParser.parse(
                 html: html,
                 id: reference.id,
-                timetable: reference.timetable
+                timetable: reference.timetable,
+                language: language
               )
         else {
             throw IDOSError.invalidResponse
@@ -2940,7 +2941,8 @@ enum IDOSServiceDetailParser {
     static func parse(
         html: String,
         id: String,
-        timetable: IDOSTimetable = .defaultTimetable
+        timetable: IDOSTimetable = .defaultTimetable,
+        language: IDOSLanguage? = nil
     ) -> IDOSServiceDetail? {
         guard let heading = RegexSupport.capture(
             pattern: #"(<h1\b.*?</h1>)"#,
@@ -3029,7 +3031,7 @@ enum IDOSServiceDetailParser {
                 options: [.dotMatchesLineSeparators]
             ).map(HTMLText.clean).flatMap(nonEmpty),
             stops: stops,
-            information: information(in: html),
+            information: localizedInformation(information(in: html), language: language),
             shareURL: RegexSupport.capture(
                 pattern: #"\bdata-share-url="([^"]+)""#,
                 in: html
@@ -3094,6 +3096,66 @@ enum IDOSServiceDetailParser {
         ).compactMap { $0.first.map(HTMLText.clean).flatMap(nonEmpty) }
 
         return unique(plainItems + remarks)
+    }
+
+    /// Prefers the requested language only when IDOS supplied a recognized Czech-English pair.
+    private static func localizedInformation(
+        _ values: [String],
+        language: IDOSLanguage?
+    ) -> [String] {
+        guard let language else { return values }
+        let variants = values.map(localizedInformationVariant)
+
+        return zip(values, variants).compactMap { value, variant in
+            guard let variant else { return value }
+            let hasRequestedVariant = variants.contains {
+                $0?.kind == variant.kind && $0?.language == language
+            }
+            let hasOtherVariant = variants.contains {
+                $0?.kind == variant.kind && $0?.language != language
+            }
+            guard hasRequestedVariant && hasOtherVariant else { return value }
+            return variant.language == language ? value : nil
+        }
+    }
+
+    /// Recognizes equivalent carrier messages without discarding unrelated single-language information.
+    private static func localizedInformationVariant(
+        _ value: String
+    ) -> LocalizedInformationVariant? {
+        let normalized = value
+            .folding(
+                options: [.diacriticInsensitive, .caseInsensitive],
+                locale: Locale(identifier: "en_US_POSIX")
+            )
+            .lowercased()
+
+        if normalized.contains("veskere informace") {
+            return LocalizedInformationVariant(kind: .generalInformation, language: .czech)
+        }
+        if normalized.contains("all information") {
+            return LocalizedInformationVariant(kind: .generalInformation, language: .english)
+        }
+        if normalized.contains("povinna rezervace") && normalized.contains("tarif") {
+            return LocalizedInformationVariant(kind: .reservationAndTariff, language: .czech)
+        }
+        if (normalized.contains("reservation required") ||
+            normalized.contains("required reservation")) &&
+            (normalized.contains("tariff") || normalized.contains("fare"))
+        {
+            return LocalizedInformationVariant(kind: .reservationAndTariff, language: .english)
+        }
+        return nil
+    }
+
+    private struct LocalizedInformationVariant {
+        let kind: LocalizedInformationKind
+        let language: IDOSLanguage
+    }
+
+    private enum LocalizedInformationKind: Equatable {
+        case generalInformation
+        case reservationAndTariff
     }
 
     private static func attribute(_ name: String, in html: String) -> String? {

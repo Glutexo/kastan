@@ -1543,6 +1543,12 @@ enum ServiceInformationLine {
         {
             return "🥤"
         }
+        if (normalized.contains("veskere informace") ||
+            normalized.contains("all information")) &&
+            (normalized.contains("www.") || normalized.contains("http"))
+        {
+            return "🌐"
+        }
         if normalized.contains("palubni portal") ||
             normalized.contains("onboard portal") ||
             normalized.contains("on-board portal")
@@ -1618,6 +1624,8 @@ enum ServiceInformationLine {
         }
         if normalized.contains("mistenk") ||
             normalized.contains("seat reservation") ||
+            normalized.contains("place reservation") ||
+            normalized.contains("places reservation") ||
             (normalized.contains("rezervac") && normalized.contains("mist"))
         {
             return "💺"
@@ -1665,7 +1673,7 @@ enum ServiceInformationLine {
         }
         if normalized.hasPrefix("linka ") ||
             normalized.hasPrefix("line ") ||
-            hasRouteShape(normalized)
+            hasRouteShape(information)
         {
             return "🛤️"
         }
@@ -1675,6 +1683,8 @@ enum ServiceInformationLine {
             normalized.contains("a. s.") ||
             normalized.contains("s.r.o.") ||
             normalized.contains("s. r. o.") ||
+            normalized.contains("k.s.") ||
+            normalized.contains("k. s.") ||
             normalized.hasSuffix(" gmbh") ||
             normalized.hasSuffix(" ltd") ||
             normalized.hasSuffix(" ltd.")
@@ -1696,20 +1706,24 @@ enum ServiceInformationLine {
 
         let name = fields[0]
         let address = fields[1]
-        guard name.contains(where: \.isLetter),
-              address.contains(where: \.isLetter),
-              address.contains(where: \.isNumber)
-        else {
+        guard name.contains(where: \.isLetter), address.contains(where: \.isLetter) else {
             return false
         }
 
-        return fields.count == 2 || fields[2].contains(where: \.isNumber)
+        if fields.count == 2 {
+            return address.contains(where: \.isNumber)
+        }
+
+        return fields[2].filter(\.isNumber).count >= 6
     }
 
     /// Recognizes an IDOS itinerary without treating date ranges or one hyphenated name as a route.
     private static func hasRouteShape(_ information: String) -> Bool {
         information.range(
             of: #"\p{L}\s+[-–—]\s+\p{L}"#,
+            options: .regularExpression
+        ) != nil || information.range(
+            of: #"^\p{Lu}[\p{L}\p{M}]{1,}\s*[-–—]\s*\p{Lu}[\p{L}\p{M}]{1,}$"#,
             options: .regularExpression
         ) != nil || information.range(
             of: #"\p{L}[-–—]\p{L}.*\p{L}[-–—]\p{L}"#,

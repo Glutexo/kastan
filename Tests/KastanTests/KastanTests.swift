@@ -853,6 +853,11 @@ import Testing
         ("The fare announced by A-EXPRESS Ltd. applies on this line.", "🎫"),
         ("Plzeň-Praha-Poprad-Spišská Nová Ves-Levoča-Prešov-Vranov n.T.-Strážske-Michalovce-Humenné-Snina", "🛤️"),
         ("A-EXPRESS s.r.o.; Plzeň; +420 606 619 913", "🏢"),
+        ("Brno-Praha", "🛤️"),
+        ("RegioJet/STUDENT AGENCY k.s.; Brno; 222 222 221", "🏢"),
+        ("All information on www.regiojet.com", "🌐"),
+        ("Veškeré informace dostupné na www.regiojet.cz", "🌐"),
+        ("Places reservation required on the line. There is a valid tariff set by the carrier.", "💺"),
         ("jede v 1,3-5,7", "📅"),
         ("Zastávka Jihlava,Kaufland a Trenčín,Hasičská je obsluhována pro nástup pouze s předem zakoupenou jízdenkou (výstup možný vždy).", "🎫"),
         ("Vnitrostátní přeprava na území České republiky je povolena. Vnitrostátní přeprava na území Slovenské republiky je povolena v rozsahu vymezeném v tomto jízdním řádu. Za ztrátu jízdenky a zmeškaný spoj se náhrada neposkytuje.", "✅"),
@@ -1915,6 +1920,57 @@ import Testing
     #expect(detail.stops[2].notes.isEmpty)
     #expect(detail.information == ["There is a planned traffic restriction.", "České dráhy, a.s."])
     #expect(detail.shareURL == "https://idos.cz/service")
+}
+
+@Test func serviceDetailKeepsOnlyTheRequestedVariantOfBilingualCarrierInformation() throws {
+    let html = """
+    <div id="train-detail-151">
+      <h1 title="bus"><span>RJ 1030 RegioJet</span></h1>
+      <ul class="reset line-itinerary">
+        <li class="item" title="">
+          <span class="departure"><span class="label out"></span>10:00</span>
+          <strong class="name">Brno</strong>
+        </li>
+        <li class="item" title="">
+          <span class="arrival"><span class="label out"></span>12:30</span>
+          <strong class="name">Praha</strong>
+        </li>
+      </ul>
+      <ul class="reset messages"><li class="message"><h3>Information</h3><ul>
+        <li>Brno-Praha</li>
+        <li>RegioJet/STUDENT AGENCY k.s.; Brno; 222 222 221</li>
+        <li>All information on www.regiojet.com</li>
+        <li>Na lince je povinná rezervace místa. Na lince platí jízdné v tarifu dopravce. Informace o tarifu jsou uveřejněny v autobusech.</li>
+        <li>Veškeré informace dostupné na www.regiojet.cz</li>
+        <li>Places reservation required on the line. There is a valid tariff set by the carrier. The information about the tariff are published in busses.</li>
+      </ul></li></ul>
+      <ul class="reset line-share"></ul>
+    </div>
+    """
+
+    let czech = try #require(IDOSServiceDetailParser.parse(
+        html: html,
+        id: "autobusy:1-1030-20.07.2026 10:00:00",
+        language: .czech
+    ))
+    let english = try #require(IDOSServiceDetailParser.parse(
+        html: html,
+        id: "autobusy:1-1030-20.07.2026 10:00:00",
+        language: .english
+    ))
+
+    #expect(czech.information == [
+        "Brno-Praha",
+        "RegioJet/STUDENT AGENCY k.s.; Brno; 222 222 221",
+        "Na lince je povinná rezervace místa. Na lince platí jízdné v tarifu dopravce. Informace o tarifu jsou uveřejněny v autobusech.",
+        "Veškeré informace dostupné na www.regiojet.cz",
+    ])
+    #expect(english.information == [
+        "Brno-Praha",
+        "RegioJet/STUDENT AGENCY k.s.; Brno; 222 222 221",
+        "All information on www.regiojet.com",
+        "Places reservation required on the line. There is a valid tariff set by the carrier. The information about the tariff are published in busses.",
+    ])
 }
 
 @Test func serviceReferenceUsesEmbeddedTimetableAndCanonicalizesLegacyIDs() throws {
