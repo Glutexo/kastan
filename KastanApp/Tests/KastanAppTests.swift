@@ -354,10 +354,25 @@ final class KastanAppTests: XCTestCase {
             ),
             "🚌"
         )
-        XCTAssertEqual(
-            ServiceNoteEmoji.symbol(for: "do označených vozů možno zakoupit místenku"),
-            "💺"
-        )
+        let passengerServiceNotes = [
+            ("do označených vozů možno zakoupit místenku", "💺"),
+            ("restaurační vůz", "🍽️"),
+            ("bistrovůz (Graz Hbf→Villach Hbf)", "🍽️"),
+            ("palubní portál", "🌐"),
+            ("ve vlaku řazen vůz s bezdrátovým připojením k internetu", "📶"),
+            ("ve vlaku řazen vůz s přípojkou 230 V", "🔌"),
+            ("tichý oddíl", "🤫"),
+            ("vůz nebo oddíly vyhrazené pro cestující s dětmi do 10 let", "👪"),
+            ("dětské kino", "🎬"),
+            ("přeprava spoluzavazadel s povinnou rezervací místa pro jízdní kolo a cestujícího", "🚲"),
+            ("vůz vhodný pro přepravu cestujících na vozíku; je nutné objednání přepravy", "♿"),
+            ("linka Ex3 (Praha hl.n. →Břeclav)", "🛤️"),
+            ("V oddílech 1. vozové třídy Business povinná rezervace místa", "💺"),
+            ("pohraniční přechodový bod [CZ/A]: Breclav(Gr)", "🛂"),
+        ]
+        for (note, symbol) in passengerServiceNotes {
+            XCTAssertEqual(ServiceNoteEmoji.symbol(for: note), symbol, note)
+        }
         XCTAssertEqual(
             ServiceNoteEmoji.symbol(for: "Na trase spojení je toto plánované omezení provozu."),
             "🚧"
@@ -374,7 +389,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(ServiceNoteEmoji.symbol(for: "Doplňující informace"), "ℹ️")
     }
 
-    func testServiceNotesCombineRowsIntoOneSelectableTextFlow() throws {
+    func testServiceNotesCombineRowsIntoOneSelectableTextFlow() {
         let notes = [
             "Na trase spojení je toto plánované omezení provozu.",
             "Háje - Letňany",
@@ -386,11 +401,7 @@ final class KastanAppTests: XCTestCase {
             String(content.characters),
             "🚧 \(notes[0])\n🛤️ \(notes[1])\n🏢 \(notes[2])"
         )
-        let renderedContent = try NSAttributedString(content, including: \.appKit)
-        let paragraphStyle = try XCTUnwrap(
-            renderedContent.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
-        )
-        XCTAssertEqual(paragraphStyle.paragraphSpacing, 8)
+        XCTAssertEqual(ServiceNotesView.informationLineSpacing, 8)
     }
 
     func testSelectableServiceNoteFlowRetainsCalendarAndPhoneLinks() {

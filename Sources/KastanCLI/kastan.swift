@@ -1456,8 +1456,74 @@ enum ServiceInformationLine {
         {
             return "🚌"
         }
-        if normalized.contains("mistenk") || normalized.contains("seat reservation") {
+        if normalized.contains("restauracni vuz") ||
+            normalized.contains("bistrovuz") ||
+            normalized.contains("restaurant car") ||
+            normalized.contains("dining car") ||
+            normalized.contains("bistro car")
+        {
+            return "🍽️"
+        }
+        if normalized.contains("palubni portal") ||
+            normalized.contains("onboard portal") ||
+            normalized.contains("on-board portal")
+        {
+            return "🌐"
+        }
+        if normalized.contains("wi-fi") ||
+            normalized.contains("wifi") ||
+            normalized.contains("wireless internet") ||
+            (normalized.contains("bezdratov") && normalized.contains("internet"))
+        {
+            return "📶"
+        }
+        if normalized.contains("230 v") ||
+            normalized.contains("power socket") ||
+            normalized.contains("power outlet") ||
+            normalized.contains("electrical socket")
+        {
+            return "🔌"
+        }
+        if normalized.contains("tichy oddil") ||
+            normalized.contains("quiet compartment") ||
+            normalized.contains("quiet coach")
+        {
+            return "🤫"
+        }
+        if normalized.contains("detske kino") ||
+            normalized.contains("children's cinema") ||
+            normalized.contains("children cinema") ||
+            normalized.contains("kids cinema")
+        {
+            return "🎬"
+        }
+        if normalized.contains("cestujici s detmi") ||
+            normalized.contains("passengers with children") ||
+            normalized.contains("family compartment") ||
+            normalized.contains("family coach")
+        {
+            return "👪"
+        }
+        if normalized.contains("jizdni kolo") ||
+            normalized.contains("bicycle") ||
+            normalized.contains("bike")
+        {
+            return "🚲"
+        }
+        if normalized.contains("cestujicich na voziku") || normalized.contains("wheelchair") {
+            return "♿"
+        }
+        if normalized.contains("mistenk") ||
+            normalized.contains("seat reservation") ||
+            (normalized.contains("rezervac") && normalized.contains("mista"))
+        {
             return "💺"
+        }
+        if normalized.contains("pohranicni prechodovy bod") ||
+            normalized.contains("border crossing") ||
+            normalized.contains("border point")
+        {
+            return "🛂"
         }
         if normalized.contains("traffic restriction") ||
             normalized.contains("planned restriction") ||
@@ -1473,7 +1539,10 @@ enum ServiceInformationLine {
         ) != nil {
             return "📅"
         }
-        if normalized.range(of: #"\s[-–—]\s"#, options: .regularExpression) != nil {
+        if normalized.hasPrefix("linka ") ||
+            normalized.hasPrefix("line ") ||
+            normalized.range(of: #"\s[-–—]\s"#, options: .regularExpression) != nil
+        {
             return "🛤️"
         }
         if normalized.contains("carrier:") ||

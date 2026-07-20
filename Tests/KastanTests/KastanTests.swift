@@ -846,10 +846,25 @@ import Testing
 
 @Test func serviceInformationLinesAlwaysReceiveAMeaningfulEmoji() {
     #expect(ServiceInformationLine.render("Replacement bus service") == "🚌 Replacement bus service")
-    #expect(
-        ServiceInformationLine.render("do označených vozů možno zakoupit místenku") ==
-            "💺 do označených vozů možno zakoupit místenku"
-    )
+    let passengerServiceLines = [
+        ("do označených vozů možno zakoupit místenku", "💺"),
+        ("restaurační vůz", "🍽️"),
+        ("bistrovůz (Graz Hbf→Villach Hbf)", "🍽️"),
+        ("palubní portál", "🌐"),
+        ("ve vlaku řazen vůz s bezdrátovým připojením k internetu", "📶"),
+        ("ve vlaku řazen vůz s přípojkou 230 V", "🔌"),
+        ("tichý oddíl", "🤫"),
+        ("vůz nebo oddíly vyhrazené pro cestující s dětmi do 10 let", "👪"),
+        ("dětské kino", "🎬"),
+        ("přeprava spoluzavazadel s povinnou rezervací místa pro jízdní kolo a cestujícího", "🚲"),
+        ("vůz vhodný pro přepravu cestujících na vozíku; je nutné objednání přepravy", "♿"),
+        ("linka Ex3 (Praha hl.n. →Břeclav)", "🛤️"),
+        ("V oddílech 1. vozové třídy Business povinná rezervace místa", "💺"),
+        ("pohraniční přechodový bod [CZ/A]: Breclav(Gr)", "🛂"),
+    ]
+    for (line, emoji) in passengerServiceLines {
+        #expect(ServiceInformationLine.render(line) == "\(emoji) \(line)")
+    }
     #expect(ServiceInformationLine.render("Seat reservation available") == "💺 Seat reservation available")
     #expect(ServiceInformationLine.render("Na trase spojení je toto plánované omezení.") == "🚧 Na trase spojení je toto plánované omezení.")
     #expect(ServiceInformationLine.render("Háje - Letňany") == "🛤️ Háje - Letňany")
