@@ -805,14 +805,14 @@ enum ServiceNoteEmoji {
             normalized.contains("children cinema") ||
             normalized.contains("kids cinema")
         {
-            return "🎬"
+            return "📽️"
         }
         if normalized.contains("cestujici s detmi") ||
             normalized.contains("passengers with children") ||
             normalized.contains("family compartment") ||
             normalized.contains("family coach")
         {
-            return "👪"
+            return "👶🏻"
         }
         if normalized.contains("jizdni kolo") ||
             normalized.contains("bicycle") ||
