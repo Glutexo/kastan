@@ -37,6 +37,7 @@
 "Direct only" = "Jen přímé";
 "Does not run" = "Nejede";
 "Does not run %@" = "Nejede %@";
+"Does not run on days %@ within %@" = "Nejede ve dnech %@ v období %@";
 "Does not run on the listed dates" = "Nejede v uvedené dny";
 "Does not apply" = "Neplatí";
 "Direction from" = "Směr od";

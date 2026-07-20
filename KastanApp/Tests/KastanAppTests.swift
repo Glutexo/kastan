@@ -135,6 +135,45 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 21)), .runs)
     }
 
+    func testDoesNotRunRangesCanEachBeRestrictedToNumberedWeekdays() throws {
+        let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(
+            note: "nejede od 22. do 29.VII. v 2,3,30.VII.,od 10. do 17.VIII. v 1,6,7,18.,19.,28.VIII.,10.IX.",
+            validityStart: serviceDate(2025, 12, 14),
+            validityEnd: serviceDate(2027, 1, 14)
+        ))
+
+        XCTAssertEqual(serviceCalendar.rule.nonRunningConditions, [
+            .selectedWeekdays(
+                Set([2, 3]),
+                within: serviceDate(2026, 7, 22)...serviceDate(2026, 7, 29)
+            ),
+            .dates(serviceDate(2026, 7, 30)...serviceDate(2026, 7, 30)),
+            .selectedWeekdays(
+                Set([1, 6, 7]),
+                within: serviceDate(2026, 8, 10)...serviceDate(2026, 8, 17)
+            ),
+            .dates(serviceDate(2026, 8, 18)...serviceDate(2026, 8, 18)),
+            .dates(serviceDate(2026, 8, 19)...serviceDate(2026, 8, 19)),
+            .dates(serviceDate(2026, 8, 28)...serviceDate(2026, 8, 28)),
+            .dates(serviceDate(2026, 9, 10)...serviceDate(2026, 9, 10)),
+        ])
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 22)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 23)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 28)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 29)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 30)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 31)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 10)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 11)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 15)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 16)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 17)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 18)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 19)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 28)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 10)), .doesNotRun)
+    }
+
     func testAbbreviatedDateListInheritsTheFollowingMonth() throws {
         let note = "nejede 23.VII.,18.,19.IX.,26.XI.,10.XII."
         let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(

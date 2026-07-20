@@ -37,6 +37,7 @@
 "Direct only" = "Direct only";
 "Does not run" = "Does not run";
 "Does not run %@" = "Does not run %@";
+"Does not run on days %@ within %@" = "Does not run on days %@ within %@";
 "Does not run on the listed dates" = "Does not run on the listed dates";
 "Does not apply" = "Does not apply";
 "Direction from" = "Direction from";

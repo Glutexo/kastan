@@ -17,13 +17,34 @@ struct StationTimetableServiceCalendar: Equatable {
             case selectedWeekdays(Set<Int>)
         }
 
+        /// Keeps a dated exclusion either unconditional or limited to IDOS's Monday-first weekdays.
+        enum NonRunningCondition: Equatable {
+            case dates(ClosedRange<Date>)
+            case selectedWeekdays(Set<Int>, within: ClosedRange<Date>)
+
+            var range: ClosedRange<Date> {
+                switch self {
+                case let .dates(range), let .selectedWeekdays(_, within: range):
+                    return range
+                }
+            }
+        }
+
         let subject: Subject
         let recurrence: Recurrence
         let operatingRange: ClosedRange<Date>
         let hasExplicitOperatingRange: Bool
         let additionalRunningRanges: [ClosedRange<Date>]
-        let nonRunningRanges: [ClosedRange<Date>]
+        let nonRunningConditions: [NonRunningCondition]
         let noteApplicabilityRange: NSRange?
+
+        /// Exposes unconditional exclusions separately for concise calendar diagnostics and tests.
+        var nonRunningRanges: [ClosedRange<Date>] {
+            nonRunningConditions.compactMap { condition in
+                guard case let .dates(range) = condition else { return nil }
+                return range
+            }
+        }
     }
 
     enum DayStatus: Equatable {
@@ -74,7 +95,14 @@ struct StationTimetableServiceCalendar: Equatable {
             return .outsideTimetableValidity
         }
 
-        if rule.nonRunningRanges.contains(where: { $0.contains(day) }) {
+        if rule.nonRunningConditions.contains(where: { condition in
+            switch condition {
+            case let .dates(range):
+                return range.contains(day)
+            case let .selectedWeekdays(weekdays, within: range):
+                return range.contains(day) && weekdays.contains(Self.idosWeekday(for: day, calendar: calendar))
+            }
+        }) {
             return .doesNotRun
         }
         if rule.additionalRunningRanges.contains(where: { $0.contains(day) }) {
@@ -135,10 +163,20 @@ struct StationTimetableServiceCalendar: Equatable {
         let sourceRange: NSRange
     }
 
+    /// Retains an interpreted date range's source position so a following weekday clause can scope it.
+    private struct InterpretedDateRange {
+        let range: ClosedRange<Date>
+        let sourceRange: NSRange
+    }
+
     /// Keeps both effective dates and the individual dates or ranges recognized in the IDOS note.
     private struct DateInterpretation {
         let dates: [Date]
-        let ranges: [ClosedRange<Date>]
+        let datedRanges: [InterpretedDateRange]
+
+        var ranges: [ClosedRange<Date>] {
+            datedRanges.map(\.range)
+        }
     }
 
     /// Carries the composed operating rule together with the dates represented by the source note.
@@ -251,12 +289,15 @@ struct StationTimetableServiceCalendar: Equatable {
             validityStart: validityStart,
             validityEnd: validityEnd
         )
-        let nonRunningRanges = negativeNote.map {
-            dateInterpretation(
-                in: $0,
-                validityStart: validityStart,
-                validityEnd: validityEnd
-            ).ranges
+        let nonRunningConditions = negativeNote.map { note in
+            makeNonRunningConditions(
+                from: dateInterpretation(
+                    in: note,
+                    validityStart: validityStart,
+                    validityEnd: validityEnd
+                ),
+                weekdayConditions: numberedWeekdayConditions(in: note)
+            )
         } ?? []
 
         let operatingRange: ClosedRange<Date>
@@ -289,7 +330,7 @@ struct StationTimetableServiceCalendar: Equatable {
         case .none:
             hasRecurringCondition = false
         }
-        guard hasRecurringCondition || !additionalRunningRanges.isEmpty || !nonRunningRanges.isEmpty else {
+        guard hasRecurringCondition || !additionalRunningRanges.isEmpty || !nonRunningConditions.isEmpty else {
             return nil
         }
 
@@ -299,12 +340,12 @@ struct StationTimetableServiceCalendar: Equatable {
             operatingRange: operatingRange,
             hasExplicitOperatingRange: hasExplicitOperatingRange,
             additionalRunningRanges: additionalRunningRanges,
-            nonRunningRanges: nonRunningRanges,
+            nonRunningConditions: nonRunningConditions,
             noteApplicabilityRange: hasPositiveRule || hasNegativeRule
                 ? nil
                 : standaloneWeekdayCondition?.sourceRange
         )
-        var recognizedDateRanges = additionalRunningRanges + nonRunningRanges
+        var recognizedDateRanges = additionalRunningRanges + nonRunningConditions.map(\.range)
         if hasExplicitOperatingRange {
             recognizedDateRanges.insert(operatingRange, at: 0)
         }
@@ -320,34 +361,63 @@ struct StationTimetableServiceCalendar: Equatable {
 
     /// Reads individual numbers and ranges in IDOS's Monday-first weekday notation and preserves their source range.
     private static func numberedWeekdayCondition(in note: String) -> NumberedWeekdayCondition? {
-        let element = #"[1-7](?:\s*[-–—]\s*[1-7])?"#
-        let pattern = #"\b(?:v|on)\s+("# + element + #"(?:\s*,\s*"# + element + #")*)(?!\d)"#
+        numberedWeekdayConditions(in: note).first
+    }
+
+    /// Finds every weekday clause without consuming the leading number of a following date such as `30.VII.`.
+    private static func numberedWeekdayConditions(in note: String) -> [NumberedWeekdayCondition] {
+        let weekday = #"[1-7](?!\d|\s*\.)"#
+        let element = weekday + #"(?:\s*[-–—]\s*"# + weekday + #")?"#
+        let pattern = #"\b(?:v|on)\s+("# + element + #"(?:\s*,\s*"# + element + #")*)"#
         guard let expression = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
-            return nil
+            return []
         }
         let source = note as NSString
-        guard let match = expression.firstMatch(
+        return expression.matches(
             in: note,
             range: NSRange(location: 0, length: source.length)
-        ), match.numberOfRanges >= 2 else { return nil }
-        let values = source.substring(with: match.range(at: 1))
-        var weekdays = Set<Int>()
-        let rangeSeparators = CharacterSet(charactersIn: "-–—")
-        for element in values.split(separator: ",") {
-            let bounds = element.components(separatedBy: rangeSeparators).compactMap { value in
-                Int(value.trimmingCharacters(in: .whitespaces))
+        ).compactMap { match in
+            guard match.numberOfRanges >= 2 else { return nil }
+            let values = source.substring(with: match.range(at: 1))
+            var weekdays = Set<Int>()
+            let rangeSeparators = CharacterSet(charactersIn: "-–—")
+            for element in values.split(separator: ",") {
+                let bounds = element.components(separatedBy: rangeSeparators).compactMap { value in
+                    Int(value.trimmingCharacters(in: .whitespaces))
+                }
+                switch bounds.count {
+                case 1:
+                    weekdays.insert(bounds[0])
+                case 2 where bounds[0] <= bounds[1]:
+                    weekdays.formUnion(bounds[0]...bounds[1])
+                default:
+                    continue
+                }
             }
-            switch bounds.count {
-            case 1:
-                weekdays.insert(bounds[0])
-            case 2 where bounds[0] <= bounds[1]:
-                weekdays.formUnion(bounds[0]...bounds[1])
-            default:
-                continue
-            }
+            guard !weekdays.isEmpty else { return nil }
+            return NumberedWeekdayCondition(weekdays: weekdays, sourceRange: match.range)
         }
-        guard !weekdays.isEmpty else { return nil }
-        return NumberedWeekdayCondition(weekdays: weekdays, sourceRange: match.range)
+    }
+
+    /// Applies each weekday clause to the closest dated range before it while preserving all other exclusions.
+    private static func makeNonRunningConditions(
+        from interpretation: DateInterpretation,
+        weekdayConditions: [NumberedWeekdayCondition]
+    ) -> [Rule.NonRunningCondition] {
+        var weekdaysByRangeIndex: [Int: Set<Int>] = [:]
+        for condition in weekdayConditions {
+            guard let rangeIndex = interpretation.datedRanges.indices.last(where: {
+                NSMaxRange(interpretation.datedRanges[$0].sourceRange) <= condition.sourceRange.location
+            }) else { continue }
+            weekdaysByRangeIndex[rangeIndex] = condition.weekdays
+        }
+
+        return interpretation.datedRanges.enumerated().map { index, datedRange in
+            if let weekdays = weekdaysByRangeIndex[index] {
+                return .selectedWeekdays(weekdays, within: datedRange.range)
+            }
+            return .dates(datedRange.range)
+        }
     }
 
     /// Converts Foundation's Sunday-first weekday number to the Monday-first notation printed by IDOS.
@@ -413,7 +483,7 @@ struct StationTimetableServiceCalendar: Equatable {
     ) -> DateInterpretation {
         let calendar = serviceCalendar
         let tokens = serviceDateTokens(in: note)
-        guard !tokens.isEmpty else { return DateInterpretation(dates: [], ranges: []) }
+        guard !tokens.isEmpty else { return DateInterpretation(dates: [], datedRanges: []) }
 
         if tokens.count == 1,
            let range = validityRelativeRange(before: tokens[0], in: note),
@@ -428,18 +498,24 @@ struct StationTimetableServiceCalendar: Equatable {
             case .fromValidityStart:
                 return DateInterpretation(
                     dates: dates(from: validityStart, through: boundaryDate, calendar: calendar),
-                    ranges: [validityStart...boundaryDate]
+                    datedRanges: [InterpretedDateRange(
+                        range: validityStart...boundaryDate,
+                        sourceRange: tokens[0].range
+                    )]
                 )
             case .throughValidityEnd:
                 return DateInterpretation(
                     dates: dates(from: boundaryDate, through: validityEnd, calendar: calendar),
-                    ranges: [boundaryDate...validityEnd]
+                    datedRanges: [InterpretedDateRange(
+                        range: boundaryDate...validityEnd,
+                        sourceRange: tokens[0].range
+                    )]
                 )
             }
         }
 
         var dates = Set<Date>()
-        var ranges: [ClosedRange<Date>] = []
+        var datedRanges: [InterpretedDateRange] = []
         var index = 0
         while index < tokens.count {
             let token = tokens[index]
@@ -462,16 +538,25 @@ struct StationTimetableServiceCalendar: Equatable {
                start <= end
             {
                 dates.formUnion(Self.dates(from: start, through: end, calendar: calendar))
-                ranges.append(start...end)
+                let endToken = tokens[index + 1]
+                datedRanges.append(InterpretedDateRange(
+                    range: start...end,
+                    sourceRange: NSRange(
+                        location: token.range.location,
+                        length: NSMaxRange(endToken.range) - token.range.location
+                    )
+                ))
                 index += 2
             } else {
                 dates.formUnion(tokenDates)
-                ranges.append(contentsOf: tokenDates.map { $0...$0 })
+                datedRanges.append(contentsOf: tokenDates.map {
+                    InterpretedDateRange(range: $0...$0, sourceRange: token.range)
+                })
                 index += 1
             }
         }
 
-        return DateInterpretation(dates: dates.sorted(), ranges: ranges)
+        return DateInterpretation(dates: dates.sorted(), datedRanges: datedRanges)
     }
 
     /// Recognizes a boundary word immediately before the only concrete date in a service note.
@@ -1148,11 +1233,26 @@ private struct StationTimetableServiceCalendarView: View {
                         )
                     }
                 }
-                ForEach(Array(serviceCalendar.rule.nonRunningRanges.enumerated()), id: \.offset) { _, range in
-                    Label(
-                        AppLocalization.string("Does not run %@", recognizedRangeDescription(range)),
-                        systemImage: "minus.circle"
-                    )
+                ForEach(
+                    Array(serviceCalendar.rule.nonRunningConditions.enumerated()),
+                    id: \.offset
+                ) { _, condition in
+                    switch condition {
+                    case let .dates(range):
+                        Label(
+                            AppLocalization.string("Does not run %@", recognizedRangeDescription(range)),
+                            systemImage: "minus.circle"
+                        )
+                    case let .selectedWeekdays(weekdays, within: range):
+                        Label(
+                            AppLocalization.string(
+                                "Does not run on days %@ within %@",
+                                weekdays.sorted().map(String.init).joined(separator: ", "),
+                                recognizedRangeDescription(range)
+                            ),
+                            systemImage: "minus.circle"
+                        )
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
