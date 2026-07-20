@@ -945,7 +945,7 @@ enum ServiceNoteEmoji {
             normalized.contains("through coach") ||
             normalized.contains("through car")
         {
-            return "🚃"
+            return "🔗"
         }
         // A named train after a departure station marks where the same service changes designation.
         if (normalized.hasPrefix("ze stanice ") &&
