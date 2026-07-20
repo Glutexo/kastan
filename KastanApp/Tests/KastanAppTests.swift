@@ -395,10 +395,21 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             ServiceNoteEmoji.symbol(
+                for: "MÁV-START Zrt.; Könyves Kálmán körút 36., 1097 Budapest; +36 1 349 4949"
+            ),
+            "🏢"
+        )
+        XCTAssertEqual(
+            ServiceNoteEmoji.symbol(for: "MÁV; Könyves Kálmán körút 36., 1097 Budapest"),
+            "🏢"
+        )
+        XCTAssertEqual(
+            ServiceNoteEmoji.symbol(
                 for: "ÖBB Personenverkehr; Am Hauptbahnhof 2, 1100 Wien (Břeclav Gr.→Villach Hbf)"
             ),
             "🏢"
         )
+        XCTAssertEqual(ServiceNoteEmoji.symbol(for: "Doplňující informace; bez omezení"), "ℹ️")
         XCTAssertEqual(ServiceNoteEmoji.symbol(for: "jede v 1-5", presentsCalendar: true), "📅")
         XCTAssertEqual(ServiceNoteEmoji.symbol(for: "Doplňující informace"), "ℹ️")
     }

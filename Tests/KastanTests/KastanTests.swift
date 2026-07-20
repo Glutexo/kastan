@@ -882,7 +882,20 @@ import Testing
             "platí také jízdní doklady IREDO (Kolín→Březová n.Svitavou)"
         ) == "ℹ️ platí také jízdní doklady IREDO (Kolín→Březová n.Svitavou)"
     )
+    #expect(
+        ServiceInformationLine.render(
+            "MÁV-START Zrt.; Könyves Kálmán körút 36., 1097 Budapest; +36 1 349 4949"
+        ) == "🏢 MÁV-START Zrt.; Könyves Kálmán körút 36., 1097 Budapest; +36 1 349 4949"
+    )
+    #expect(
+        ServiceInformationLine.render("MÁV; Könyves Kálmán körút 36., 1097 Budapest") ==
+            "🏢 MÁV; Könyves Kálmán körút 36., 1097 Budapest"
+    )
     #expect(ServiceInformationLine.render("ÖBB Personenverkehr; Am Hauptbahnhof 2, 1100 Wien") == "🏢 ÖBB Personenverkehr; Am Hauptbahnhof 2, 1100 Wien")
+    #expect(
+        ServiceInformationLine.render("Doplňující informace; bez omezení") ==
+            "ℹ️ Doplňující informace; bez omezení"
+    )
     #expect(ServiceInformationLine.render("jede v 1-5") == "📅 jede v 1-5")
     #expect(ServiceInformationLine.render("Additional information") == "ℹ️ Additional information")
 }

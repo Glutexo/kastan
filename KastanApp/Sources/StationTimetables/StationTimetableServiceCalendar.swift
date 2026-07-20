@@ -882,6 +882,9 @@ enum ServiceNoteEmoji {
         if presentsCalendar {
             return "📅"
         }
+        if hasCarrierContactShape(normalized) {
+            return "🏢"
+        }
         if normalized.hasPrefix("linka ") ||
             normalized.hasPrefix("line ") ||
             normalized.range(of: #"\s[-–—]\s"#, options: .regularExpression) != nil
@@ -890,7 +893,6 @@ enum ServiceNoteEmoji {
         }
         if normalized.contains("carrier:") ||
             normalized.contains("dopravce:") ||
-            normalized.contains("personenverkehr") ||
             normalized.contains("a.s.") ||
             normalized.contains("a. s.") ||
             normalized.contains("s.r.o.") ||
@@ -903,6 +905,27 @@ enum ServiceNoteEmoji {
         }
 
         return "ℹ️"
+    }
+
+    /// Recognizes the IDOS carrier contact layout without maintaining a list of operator names.
+    private static func hasCarrierContactShape(_ note: String) -> Bool {
+        let fields = note
+            .split(separator: ";", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        guard fields.count == 2 || fields.count == 3 else {
+            return false
+        }
+
+        let name = fields[0]
+        let address = fields[1]
+        guard name.contains(where: \.isLetter),
+              address.contains(where: \.isLetter),
+              address.contains(where: \.isNumber)
+        else {
+            return false
+        }
+
+        return fields.count == 2 || fields[2].contains(where: \.isNumber)
     }
 }
 

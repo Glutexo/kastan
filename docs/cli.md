@@ -193,7 +193,8 @@ Service details include all stops supplied by IDOS, arrival and departure times,
 tracks, distance, stop notes, and service information. Human-readable details mark service metadata and every
 information line with a semantic emoji for details such as replacement buses, onboard amenities, accessibility,
 family and bicycle services, seat reservations, restrictions, routes, carriers, and operating rules;
-uncategorized information keeps its full text and uses a generic information marker.
+carrier contact rows are recognized from their `name; address[; phone]` structure rather than operator names.
+Uncategorized information keeps its full text and uses a generic information marker.
 
 ## Output Formats
 
