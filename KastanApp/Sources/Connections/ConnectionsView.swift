@@ -1,3 +1,4 @@
+import AppKit
 import Kastan
 import SwiftUI
 
@@ -226,32 +227,11 @@ struct ConnectionsView: View {
 
     /// Keeps the visible menu as wide as the longest supported condition, including unavailable singleton types.
     private func journeyOptionKindMenu(option: Binding<JourneyOptionEntry>) -> some View {
-        Menu {
-            ForEach(model.availableJourneyOptionKinds(for: option.wrappedValue.id)) { kind in
-                Button {
-                    option.wrappedValue.kind = kind
-                } label: {
-                    if kind == option.wrappedValue.kind {
-                        Label(kind.localizedTitle, systemImage: "checkmark")
-                    } else {
-                        Text(kind.localizedTitle)
-                    }
-                }
-            }
-        } label: {
-            ZStack(alignment: .leading) {
-                ForEach(JourneyOptionKind.allCases) { kind in
-                    Text(kind.localizedTitle)
-                        .opacity(0)
-                        .accessibilityHidden(true)
-                }
-                Text(option.wrappedValue.kind.localizedTitle)
-            }
-            .lineLimit(1)
-        }
+        JourneyOptionKindPicker(
+            selection: option.kind,
+            availableKinds: model.availableJourneyOptionKinds(for: option.wrappedValue.id)
+        )
         .fixedSize(horizontal: true, vertical: false)
-        .accessibilityLabel("Journey option")
-        .accessibilityValue(Text(option.wrappedValue.kind.localizedTitle))
     }
 
     @ViewBuilder
@@ -331,6 +311,94 @@ struct ConnectionsView: View {
                 }
             }
         }
+    }
+}
+
+/// Bridges the journey-condition selector to the native popup control while retaining a stable catalog width.
+struct JourneyOptionKindPicker: NSViewRepresentable {
+    @Binding var selection: JourneyOptionKind
+    let availableKinds: [JourneyOptionKind]
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(selection: $selection)
+    }
+
+    func makeNSView(context: Context) -> StableWidthPopUpButton {
+        let button = StableWidthPopUpButton(frame: .zero, pullsDown: false)
+        button.controlSize = .regular
+        button.target = context.coordinator
+        button.action = #selector(Coordinator.selectKind(_:))
+        button.setAccessibilityLabel(AppLocalization.string("Journey option"))
+        return button
+    }
+
+    func updateNSView(_ button: StableWidthPopUpButton, context: Context) {
+        context.coordinator.selection = $selection
+        button.sizingTitles = JourneyOptionKind.allCases.map(\.localizedTitle)
+
+        let representedKinds = button.itemArray.compactMap { item in
+            (item.representedObject as? String).flatMap(JourneyOptionKind.init(rawValue:))
+        }
+        if representedKinds != availableKinds {
+            button.removeAllItems()
+            for kind in availableKinds {
+                button.addItem(withTitle: kind.localizedTitle)
+                button.lastItem?.representedObject = kind.rawValue
+            }
+        }
+
+        if let index = availableKinds.firstIndex(of: selection) {
+            button.selectItem(at: index)
+        }
+        button.setAccessibilityValue(selection.localizedTitle)
+        button.invalidateIntrinsicContentSize()
+    }
+
+    /// Passes the selected native menu item back into the SwiftUI row binding.
+    @MainActor
+    final class Coordinator: NSObject {
+        var selection: Binding<JourneyOptionKind>
+
+        init(selection: Binding<JourneyOptionKind>) {
+            self.selection = selection
+        }
+
+        @objc func selectKind(_ sender: NSPopUpButton) {
+            guard let rawValue = sender.selectedItem?.representedObject as? String,
+                  let kind = JourneyOptionKind(rawValue: rawValue)
+            else { return }
+
+            selection.wrappedValue = kind
+        }
+    }
+}
+
+/// Adds the widest catalog title to the native popup button's own chrome-derived intrinsic width.
+final class StableWidthPopUpButton: NSPopUpButton {
+    var sizingTitles: [String] = [] {
+        didSet {
+            guard sizingTitles != oldValue else { return }
+            invalidateIntrinsicContentSize()
+        }
+    }
+
+    override var intrinsicContentSize: NSSize {
+        let nativeSize = super.intrinsicContentSize
+        guard let selectedTitle = titleOfSelectedItem, !sizingTitles.isEmpty else {
+            return nativeSize
+        }
+
+        let selectedTitleWidth = measuredWidth(of: selectedTitle)
+        let widestTitleWidth = sizingTitles.map(measuredWidth).max() ?? selectedTitleWidth
+        let chromeWidth = max(0, nativeSize.width - selectedTitleWidth)
+        return NSSize(width: ceil(chromeWidth + widestTitleWidth), height: nativeSize.height)
+    }
+
+    private func measuredWidth(of title: String) -> CGFloat {
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font ?? NSFont.systemFont(ofSize: NSFont.systemFontSize),
+        ]
+        return (title as NSString).size(withAttributes: attributes).width
     }
 }
 

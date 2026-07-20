@@ -1060,6 +1060,28 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(english.localizedString(forKey: "Via place", value: nil, table: nil), "Via place")
     }
 
+    func testJourneyOptionPickerUsesWidestCatalogTitleWhenOnlyViaIsAvailable() throws {
+        let picker = JourneyOptionKindPicker(
+            selection: .constant(.via),
+            availableKinds: [.via]
+        )
+        let hostingView = NSHostingView(rootView: picker)
+
+        hostingView.layoutSubtreeIfNeeded()
+
+        let popupButton = try XCTUnwrap(
+            ([hostingView] + hostingView.allDescendantViews)
+            .compactMap { $0 as? StableWidthPopUpButton }
+            .first
+        )
+        let catalogWidth = popupButton.intrinsicContentSize.width
+
+        XCTAssertEqual(popupButton.sizingTitles, JourneyOptionKind.allCases.map(\.localizedTitle))
+
+        popupButton.sizingTitles = [JourneyOptionKind.via.localizedTitle]
+        XCTAssertGreaterThan(catalogWidth, popupButton.intrinsicContentSize.width)
+    }
+
     func testZeroTransferLimitRequestsAndLabelsDirectConnections() async {
         let client = MockIDOSClient()
         let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())
@@ -1579,4 +1601,10 @@ private actor MockIDOSClient: IDOSClienting {
 private struct SuggestionQuery: Sendable {
     let prefix: String
     let timetableSlug: String
+}
+
+private extension NSView {
+    var allDescendantViews: [NSView] {
+        subviews + subviews.flatMap(\.allDescendantViews)
+    }
 }
