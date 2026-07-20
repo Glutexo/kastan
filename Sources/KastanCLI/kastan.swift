@@ -1583,6 +1583,18 @@ enum ServiceInformationLine {
         {
             return "👶🏻"
         }
+        if (normalized.contains("damsk") && normalized.contains("oddil")) ||
+            (normalized.contains("samostatne cestujici") && normalized.contains("zen")) ||
+            (normalized.contains("women") &&
+                (normalized.contains("compartment") ||
+                    normalized.contains("coach") ||
+                    normalized.contains("travelling alone") ||
+                    normalized.contains("traveling alone"))) ||
+            (normalized.contains("ladies") &&
+                (normalized.contains("compartment") || normalized.contains("coach")))
+        {
+            return "👩"
+        }
         // Keep place names such as Kolín from turning unrelated fare notes into bicycle services.
         let mentionsBicycle = normalized.range(
             of: #"\bjizdn\p{L}*\s+kol\p{L}*\b"#,

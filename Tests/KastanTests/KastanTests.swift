@@ -879,6 +879,8 @@ import Testing
         ("ve vlaku řazen vůz s přípojkou 230 V", "🔌"),
         ("tichý oddíl", "🤫"),
         ("vůz nebo oddíly vyhrazené pro cestující s dětmi do 10 let", "👶🏻"),
+        ("dámský oddíl (oddíl pro samostatně cestující ženy) v 1-5,7", "👩"),
+        ("Ladies compartment (compartment for women travelling alone)", "👩"),
         ("dětské kino", "📽️"),
         ("přeprava spoluzavazadel s povinnou rezervací místa pro jízdní kolo a cestujícího", "🚲"),
         ("přeprava jízdních kol jako spoluzavazadel je vyloučena", "🚳"),
