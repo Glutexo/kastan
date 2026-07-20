@@ -236,6 +236,10 @@ enum ServiceDetailToolbarAction: CaseIterable, Hashable, Identifiable {
 
 /// Shows every stop and piece of service information supplied by IDOS in its own window.
 struct ServiceDetailView: View {
+    /// Keeps new service windows compact while leaving room for the adaptive route and information layout.
+    static let defaultWindowWidth: CGFloat = 600
+    static let minimumWindowWidth: CGFloat = 480
+
     private static let scrollCoordinateSpace = "service-detail-scroll"
 
     @Environment(\.openURL) private var openURL
@@ -272,7 +276,7 @@ struct ServiceDetailView: View {
                 Color.clear
             }
         }
-        .frame(minWidth: 680, minHeight: 520)
+        .frame(minWidth: Self.minimumWindowWidth, minHeight: 520)
         .navigationTitle(windowTitle)
         .toolbar {
             if let serviceActionURL {

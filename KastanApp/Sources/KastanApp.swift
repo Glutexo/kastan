@@ -334,7 +334,7 @@ struct KastanApp: App {
                 ServiceDetailView(selection: selection, client: client)
             }
         }
-        .defaultSize(width: 760, height: 640)
+        .defaultSize(width: ServiceDetailView.defaultWindowWidth, height: 640)
         .commands {
             AppInformationCommands()
             AppHelpCommands()

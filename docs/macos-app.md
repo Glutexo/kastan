@@ -49,8 +49,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Native tabs and windows, including independent favorite-timetable, complete-connection, and resizable
   service-route windows. A connection opened in its own window presents its export and sharing actions as
   individually visible controls in the native toolbar instead of repeating the result-card action menu, and
-  each of its services can still open a separate complete route. When scrolling hides the connection's main
-  time range, that range moves into the window title until its content label is visible again.
+  each of its services can still open a separate complete route. Complete service routes open at a compact
+  600-point width and remain usable down to 480 points. When scrolling hides the connection's main time range,
+  that range moves into the window title until its content label is visible again.
 - Connection cards with line colors, transport symbols, platforms, tariff zones, carriers, and localized delay
   and expected-punctuality states supplied by IDOS.
 - Complete service routes open at the departure stop from the originating search, with the search-relevant

@@ -1028,6 +1028,41 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(ServiceSelection.self, from: data), selection)
     }
 
+    func testCompleteServiceDetailRendersAtCompactWindowWidth() {
+        XCTAssertEqual(ServiceDetailView.defaultWindowWidth, 600)
+        XCTAssertEqual(ServiceDetailView.minimumWindowWidth, 480)
+
+        let hostingView = NSHostingView(
+            rootView: ServiceDetailView(
+                selection: ServiceSelection(id: "service-1"),
+                client: MockIDOSClient()
+            )
+            .frame(width: ServiceDetailView.minimumWindowWidth, height: 520)
+        )
+        hostingView.frame = NSRect(
+            x: 0,
+            y: 0,
+            width: ServiceDetailView.minimumWindowWidth,
+            height: 520
+        )
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .titled,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        XCTAssertEqual(
+            hostingView.frame.size,
+            NSSize(width: ServiceDetailView.minimumWindowWidth, height: 520)
+        )
+        XCTAssertGreaterThan(hostingView.fittingSize.height, 0)
+    }
+
     func testServiceDateMovesIntoWindowTitleOnlyAfterScrollingOutOfView() {
         let service = IDOSServiceDetail(
             id: "tram-4",
