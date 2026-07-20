@@ -288,9 +288,14 @@ struct ConnectionsView: View {
         } else {
             LazyVStack(alignment: .leading, spacing: 12) {
                 ForEach(Array(model.connections.enumerated()), id: \.element.id) { index, connection in
+                    let selection = ConnectionSelection(
+                        connection: connection,
+                        timetable: model.timetable
+                    )
                     ConnectionCard(
                         number: index + 1,
                         connection: connection,
+                        client: client,
                         isPerformingExport: model.importingConnectionID == connection.id ||
                             model.exportingPDFConnectionID == connection.id,
                         showsActionMenu: true,
@@ -298,16 +303,20 @@ struct ConnectionsView: View {
                         openConnection: {
                             openWindow(
                                 id: AppWindow.connectionDetail,
-                                value: ConnectionSelection(
-                                    connection: connection,
-                                    timetable: model.timetable
-                                )
+                                value: selection
                             )
                         },
                         openService: { openWindow(id: AppWindow.serviceDetail, value: $0) },
                         addToCalendar: { Task { await model.addToCalendar(connection) } },
                         saveAsPDF: { Task { await model.saveAsPDF(connection) } }
                     )
+                    .forceClickPreview(size: ResultPreviewLayout.connectionSize) {
+                        ConnectionDetailView(
+                            selection: selection,
+                            client: client,
+                            presentation: .preview
+                        )
+                    }
                 }
             }
         }
@@ -454,6 +463,7 @@ private struct ConnectionTimeFramePreferenceKey: PreferenceKey {
 private struct ConnectionCard: View {
     let number: Int?
     let connection: IDOSConnection
+    let client: any IDOSClienting
     let isPerformingExport: Bool
     let showsActionMenu: Bool
     let timeFrameCoordinateSpace: String?
@@ -562,7 +572,7 @@ private struct ConnectionCard: View {
                     Divider()
                     VStack(spacing: 0) {
                         ForEach(Array(connection.legs.enumerated()), id: \.offset) { index, leg in
-                            ConnectionLegRow(leg: leg, openService: openService)
+                            ConnectionLegRow(leg: leg, client: client, openService: openService)
                             if index < connection.legs.count - 1 {
                                 Divider()
                                     .padding(.leading, 30)
@@ -626,9 +636,17 @@ struct ConnectionDetailView: View {
     @StateObject private var actionsModel: ConnectionsViewModel
     @State private var timeIsUnderTitle = false
     private let selection: ConnectionSelection
+    private let client: any IDOSClienting
+    private let presentation: ResultDetailPresentation
 
-    init(selection: ConnectionSelection, client: any IDOSClienting) {
+    init(
+        selection: ConnectionSelection,
+        client: any IDOSClienting,
+        presentation: ResultDetailPresentation = .window
+    ) {
         self.selection = selection
+        self.client = client
+        self.presentation = presentation
         let actionsModel = ConnectionsViewModel(client: client)
         actionsModel.timetable = selection.timetable
         _actionsModel = StateObject(wrappedValue: actionsModel)
@@ -648,6 +666,7 @@ struct ConnectionDetailView: View {
                 ConnectionCard(
                     number: nil,
                     connection: selection.connection,
+                    client: client,
                     isPerformingExport: actionsModel.importingConnectionID == selection.connection.id ||
                         actionsModel.exportingPDFConnectionID == selection.connection.id,
                     showsActionMenu: false,
@@ -677,13 +696,15 @@ struct ConnectionDetailView: View {
         .frame(minWidth: 620, minHeight: 420)
         .navigationTitle(windowTitle)
         .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                ForEach(
-                    ConnectionDetailToolbarAction.availableActions(
-                        hasPermanentLink: connectionActionURL != nil
-                    )
-                ) { action in
-                    connectionActionControl(action, url: connectionActionURL)
+            if presentation == .window {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    ForEach(
+                        ConnectionDetailToolbarAction.availableActions(
+                            hasPermanentLink: connectionActionURL != nil
+                        )
+                    ) { action in
+                        connectionActionControl(action, url: connectionActionURL)
+                    }
                 }
             }
         }
@@ -779,20 +800,50 @@ struct ConnectionDetailView: View {
 
 private struct ConnectionLegRow: View {
     let leg: IDOSConnectionLeg
+    let client: any IDOSClienting
     let openService: (ServiceSelection) -> Void
+    @State private var suppressesPrimaryAction = false
 
+    @ViewBuilder
     var body: some View {
-        Button {
-            if let id = leg.id {
-                openService(
-                    ServiceSelection(
-                        id: id,
-                        highlight: ServiceRouteHighlight(
-                            fromStop: leg.fromStation,
-                            toStop: leg.toStation
-                        )
+        if let selection {
+            rowButton(selection: selection)
+                .forceClickPreview(
+                    size: ResultPreviewLayout.serviceSize,
+                    suppressesPrimaryAction: $suppressesPrimaryAction
+                ) {
+                    ServiceDetailView(
+                        selection: selection,
+                        client: client,
+                        presentation: .preview
                     )
+                }
+        } else {
+            rowButton(selection: nil)
+                .disabled(true)
+        }
+    }
+
+    private var selection: ServiceSelection? {
+        leg.id.map {
+            ServiceSelection(
+                id: $0,
+                highlight: ServiceRouteHighlight(
+                    fromStop: leg.fromStation,
+                    toStop: leg.toStation
                 )
+            )
+        }
+    }
+
+    private func rowButton(selection: ServiceSelection?) -> some View {
+        Button {
+            guard !suppressesPrimaryAction else {
+                suppressesPrimaryAction = false
+                return
+            }
+            if let selection {
+                openService(selection)
             }
         } label: {
             HStack(alignment: .top, spacing: 10) {
@@ -848,6 +899,5 @@ private struct ConnectionLegRow: View {
             .padding(.vertical, 8)
         }
         .buttonStyle(.plain)
-        .disabled(leg.id == nil)
     }
 }

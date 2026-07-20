@@ -805,6 +805,49 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(AppWindow.connectionDetail, "connection-detail")
     }
 
+    func testForceClickPreviewPrefersTheNestedServiceUnderThePointer() throws {
+        let connectionID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000001"))
+        let serviceID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000002"))
+        let newerEqualTargetID = try XCTUnwrap(
+            UUID(uuidString: "00000000-0000-0000-0000-000000000003")
+        )
+        let targets = [
+            ForceClickPreviewTargetFrame(
+                id: connectionID,
+                frame: CGRect(x: 0, y: 0, width: 500, height: 320),
+                registrationOrder: 0
+            ),
+            ForceClickPreviewTargetFrame(
+                id: serviceID,
+                frame: CGRect(x: 24, y: 40, width: 452, height: 72),
+                registrationOrder: 1
+            ),
+        ]
+
+        XCTAssertEqual(
+            ForceClickPreviewTargetResolver.targetID(at: CGPoint(x: 100, y: 70), in: targets),
+            serviceID
+        )
+        XCTAssertEqual(
+            ForceClickPreviewTargetResolver.targetID(at: CGPoint(x: 100, y: 220), in: targets),
+            connectionID
+        )
+        XCTAssertNil(
+            ForceClickPreviewTargetResolver.targetID(at: CGPoint(x: 600, y: 220), in: targets)
+        )
+        XCTAssertEqual(
+            ForceClickPreviewTargetResolver.targetID(
+                at: CGPoint(x: 100, y: 70),
+                in: targets + [ForceClickPreviewTargetFrame(
+                    id: newerEqualTargetID,
+                    frame: CGRect(x: 24, y: 40, width: 452, height: 72),
+                    registrationOrder: 2
+                )]
+            ),
+            newerEqualTargetID
+        )
+    }
+
     func testNativeToolbarKeepsTheModePickerAheadOfOverflowActions() throws {
         var selection = AppSection.connections
         let coordinator = MainWindowToolbarInstaller.Coordinator(

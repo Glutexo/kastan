@@ -288,9 +288,15 @@ struct ServiceDetailView: View {
     @State private var hasScheduledInitialRoutePosition = false
     @State private var initialRouteBottomClearance: CGFloat = 0
     private let routeHighlight: ServiceRouteHighlight?
+    private let presentation: ResultDetailPresentation
 
-    init(selection: ServiceSelection, client: any IDOSClienting) {
+    init(
+        selection: ServiceSelection,
+        client: any IDOSClienting,
+        presentation: ResultDetailPresentation = .window
+    ) {
         routeHighlight = selection.highlight
+        self.presentation = presentation
         _model = StateObject(wrappedValue: ServiceDetailViewModel(id: selection.id, client: client))
     }
 
@@ -320,7 +326,7 @@ struct ServiceDetailView: View {
         .frame(minWidth: Self.minimumWindowWidth, minHeight: 520)
         .navigationTitle(windowTitle)
         .toolbar {
-            if let serviceActionURL {
+            if presentation == .window, let serviceActionURL {
                 ToolbarItemGroup(placement: .primaryAction) {
                     ForEach(ServiceDetailToolbarAction.allCases) { action in
                         serviceActionControl(action, url: serviceActionURL)

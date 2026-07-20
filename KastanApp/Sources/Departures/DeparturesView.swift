@@ -134,16 +134,21 @@ struct DeparturesView: View {
         } else {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(model.departures.enumerated()), id: \.element.id) { index, departure in
-                    DepartureRow(departure: departure) {
-                        let station = departure.stationName ?? model.station
+                    let station = departure.stationName ?? model.station
+                    let selection = ServiceSelection(
+                        id: departure.id,
+                        highlight: model.isArrival
+                            ? ServiceRouteHighlight(toStop: station)
+                            : ServiceRouteHighlight(fromStop: station)
+                    )
+                    DepartureRow(
+                        departure: departure,
+                        selection: selection,
+                        client: client
+                    ) {
                         openWindow(
                             id: AppWindow.serviceDetail,
-                            value: ServiceSelection(
-                                id: departure.id,
-                                highlight: model.isArrival
-                                    ? ServiceRouteHighlight(toStop: station)
-                                    : ServiceRouteHighlight(fromStop: station)
-                            )
+                            value: selection
                         )
                     }
 
@@ -158,10 +163,19 @@ struct DeparturesView: View {
 
 private struct DepartureRow: View {
     let departure: IDOSDeparture
+    let selection: ServiceSelection
+    let client: any IDOSClienting
     let openService: () -> Void
+    @State private var suppressesPrimaryAction = false
 
     var body: some View {
-        Button(action: openService) {
+        Button {
+            guard !suppressesPrimaryAction else {
+                suppressesPrimaryAction = false
+                return
+            }
+            openService()
+        } label: {
             HStack(spacing: 14) {
                 Text(departure.time)
                     .font(.title3.bold().monospacedDigit())
@@ -200,5 +214,15 @@ private struct DepartureRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .forceClickPreview(
+            size: ResultPreviewLayout.serviceSize,
+            suppressesPrimaryAction: $suppressesPrimaryAction
+        ) {
+            ServiceDetailView(
+                selection: selection,
+                client: client,
+                presentation: .preview
+            )
+        }
     }
 }

@@ -54,7 +54,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   600-point width and remain usable down to 480 points. When scrolling hides the connection's main time range,
   that range moves into the window title until its content label is visible again.
 - Connection cards with line colors, transport symbols, platforms, tariff zones, carriers, and localized delay
-  and expected-punctuality states supplied by IDOS.
+  and expected-punctuality states supplied by IDOS. A trackpad Force Click on a connection card previews the
+  complete connection, while Force Click on one of its services or a station-board row previews that service's
+  complete route. An ordinary click continues to open the corresponding independent detail window.
 - Complete service routes open with the departure stop from the originating search fully visible at the top,
   below the window toolbar, and with the search-relevant segment highlighted without implying live vehicle
   position. When scrolling hides a service date, the date moves into the window title until its content label
