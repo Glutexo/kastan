@@ -914,6 +914,37 @@ enum ServiceNoteEmoji {
         {
             return "⚠️"
         }
+        // Keep Deluxe sleeping compartments visually distinct from the general sleeping-car category.
+        if (normalized.contains("oddil") && normalized.contains("deluxe")) ||
+            (normalized.contains("deluxe") && normalized.contains("shower"))
+        {
+            return "🚿"
+        }
+        if (normalized.contains("luzkov") && normalized.contains("vuz")) ||
+            normalized.contains("sleeping car") ||
+            normalized.contains("sleeping coach") ||
+            normalized.contains("sleeper car")
+        {
+            return "🛏️"
+        }
+        if (normalized.contains("lehatkov") && normalized.contains("vuz")) ||
+            normalized.contains("couchette car") ||
+            normalized.contains("couchette coach")
+        {
+            return "🛌"
+        }
+        if normalized.contains("primy vuz") ||
+            normalized.contains("through coach") ||
+            normalized.contains("through car")
+        {
+            return "🚃"
+        }
+        if (normalized.contains("k sezeni pouze") && normalized.contains("2. vozove tridy")) ||
+            (normalized.contains("seating") &&
+                (normalized.contains("2nd class only") || normalized.contains("second class only")))
+        {
+            return "2️⃣"
+        }
         if normalized.contains("restauracni vuz") ||
             normalized.contains("bistrovuz") ||
             normalized.contains("restaurant car") ||

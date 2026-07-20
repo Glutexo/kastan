@@ -63,8 +63,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   position. When scrolling hides a service date, the date moves into the window title until its content label
   is visible again.
 - Selectable service-information text whose visibly separated rows use semantic emoji for replacement buses,
-  onboard amenities, accessibility, family and bicycle services, tickets, baggage, passenger and reservation
-  restrictions, cancellation policies, routes, carriers, and calendar-backed operating rules. Carrier contact
+  onboard amenities, sleeping and couchette cars, through coaches, seating-class restrictions, accessibility,
+  family and bicycle services, tickets, baggage, passenger and reservation restrictions, cancellation policies,
+  routes, carriers, and calendar-backed operating rules. Carrier contact
   rows use their `name; address[; phone]`
   structure instead of an operator-name list. Dining and bistro cars are visually distinct from lighter
   refreshment trolley or vending-machine service, while tickets accepted from integrated transport systems
