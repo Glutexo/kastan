@@ -222,8 +222,10 @@ private struct ServiceRouteInitialLayoutPreferenceKey: PreferenceKey {
 /// Makes enough room below a route to place its searched departure stop at the visible top.
 @MainActor
 enum ServiceRouteInitialScroll {
-    /// Leaves the searched departure visually clear of a unified window toolbar.
-    static let topClearance: CGFloat = 8
+    /// Leaves the searched departure clear of either a toolbar or the rounded preview edge.
+    static func topClearance(for presentation: ResultDetailPresentation) -> CGFloat {
+        presentation == .preview ? 12 : 8
+    }
 
     /// Preserves the natural top when no preceding route needs to be skipped or the complete route already fits.
     static func needsPositioning(
@@ -237,14 +239,19 @@ enum ServiceRouteInitialScroll {
     static func bottomClearance(
         viewportHeight: CGFloat,
         naturalContentBottom: CGFloat,
-        departureTop: CGFloat
+        departureTop: CGFloat,
+        topClearance: CGFloat
     ) -> CGFloat {
         let contentBelowDeparture = max(0, naturalContentBottom - departureTop)
         return max(0, viewportHeight - topClearance - contentBelowDeparture)
     }
 
     /// Converts the fixed visual clearance into the shared item-and-viewport anchor used by `scrollTo`.
-    static func anchor(viewportHeight: CGFloat, departureHeight: CGFloat) -> UnitPoint {
+    static func anchor(
+        viewportHeight: CGFloat,
+        departureHeight: CGFloat,
+        topClearance: CGFloat
+    ) -> UnitPoint {
         let availableTravel = viewportHeight - departureHeight
         guard availableTravel > 0 else { return .top }
         return UnitPoint(
@@ -597,10 +604,12 @@ struct ServiceDetailView: View {
             return
         }
 
+        let topClearance = ServiceRouteInitialScroll.topClearance(for: presentation)
         let bottomClearance = ServiceRouteInitialScroll.bottomClearance(
             viewportHeight: viewportHeight,
             naturalContentBottom: naturalContentFrame.maxY,
-            departureTop: departureFrame.minY
+            departureTop: departureFrame.minY,
+            topClearance: topClearance
         )
         if abs(initialRouteBottomClearance - bottomClearance) > 0.5 {
             initialRouteBottomClearance = bottomClearance
@@ -610,7 +619,8 @@ struct ServiceDetailView: View {
         hasScheduledInitialRoutePosition = true
         let scrollAnchor = ServiceRouteInitialScroll.anchor(
             viewportHeight: viewportHeight,
-            departureHeight: departureFrame.height
+            departureHeight: departureFrame.height,
+            topClearance: topClearance
         )
         ServiceRouteInitialScroll.afterWindowLayout {
             proxy.scrollTo(departureIndex, anchor: scrollAnchor)

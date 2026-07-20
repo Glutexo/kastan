@@ -1172,6 +1172,8 @@ final class KastanAppTests: XCTestCase {
     }
 
     func testServiceRouteInitialScrollMakesRoomForTheDepartureStopAtTheTop() {
+        XCTAssertEqual(ServiceRouteInitialScroll.topClearance(for: .window), 8)
+        XCTAssertEqual(ServiceRouteInitialScroll.topClearance(for: .preview), 12)
         XCTAssertFalse(ServiceRouteInitialScroll.needsPositioning(
             departureIndex: 0,
             viewportHeight: 520,
@@ -1191,7 +1193,8 @@ final class KastanAppTests: XCTestCase {
             ServiceRouteInitialScroll.bottomClearance(
                 viewportHeight: 520,
                 naturalContentBottom: 680,
-                departureTop: 420
+                departureTop: 420,
+                topClearance: 8
             ),
             252
         )
@@ -1199,14 +1202,16 @@ final class KastanAppTests: XCTestCase {
             ServiceRouteInitialScroll.bottomClearance(
                 viewportHeight: 520,
                 naturalContentBottom: 1_100,
-                departureTop: 420
+                departureTop: 420,
+                topClearance: 8
             ),
             0
         )
         XCTAssertEqual(
             ServiceRouteInitialScroll.anchor(
                 viewportHeight: 520,
-                departureHeight: 64
+                departureHeight: 64,
+                topClearance: 8
             ).y,
             8 / 456,
             accuracy: 0.000_001
