@@ -788,7 +788,7 @@ enum ServiceNoteEmoji {
             normalized.contains("wireless internet") ||
             (normalized.contains("bezdratov") && normalized.contains("internet"))
         {
-            return "📶"
+            return "🛜"
         }
         if normalized.contains("230 v") ||
             normalized.contains("power socket") ||

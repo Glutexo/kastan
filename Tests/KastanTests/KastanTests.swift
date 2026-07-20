@@ -853,7 +853,7 @@ import Testing
         ("bistrovůz (Graz Hbf→Villach Hbf)", "🍽️"),
         ("občerstvení (roznášková služba nebo samoobslužný automat)", "🍽️"),
         ("palubní portál", "🌐"),
-        ("ve vlaku řazen vůz s bezdrátovým připojením k internetu", "📶"),
+        ("ve vlaku řazen vůz s bezdrátovým připojením k internetu", "🛜"),
         ("ve vlaku řazen vůz s přípojkou 230 V", "🔌"),
         ("tichý oddíl", "🤫"),
         ("vůz nebo oddíly vyhrazené pro cestující s dětmi do 10 let", "👶🏻"),
