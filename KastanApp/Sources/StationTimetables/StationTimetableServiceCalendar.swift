@@ -768,9 +768,12 @@ enum ServiceNoteEmoji {
         }
         if normalized.contains("restauracni vuz") ||
             normalized.contains("bistrovuz") ||
+            normalized.contains("obcerstveni") ||
             normalized.contains("restaurant car") ||
             normalized.contains("dining car") ||
-            normalized.contains("bistro car")
+            normalized.contains("bistro car") ||
+            normalized.contains("refreshment") ||
+            normalized.contains("snack service")
         {
             return "🍽️"
         }
@@ -814,7 +817,7 @@ enum ServiceNoteEmoji {
         {
             return "👶🏻"
         }
-        if normalized.contains("jizdni kolo") ||
+        if (normalized.contains("jizdn") && normalized.contains("kol")) ||
             normalized.contains("bicycle") ||
             normalized.contains("bike")
         {
@@ -825,9 +828,23 @@ enum ServiceNoteEmoji {
         }
         if normalized.contains("mistenk") ||
             normalized.contains("seat reservation") ||
-            (normalized.contains("rezervac") && normalized.contains("mista"))
+            (normalized.contains("rezervac") && normalized.contains("mist"))
         {
             return "💺"
+        }
+        if (normalized.contains("neceka") && normalized.contains("pripoj")) ||
+            normalized.contains("does not wait for connection") ||
+            normalized.contains("doesn't wait for connection") ||
+            normalized.contains("will not wait for connection")
+        {
+            return "⏱️"
+        }
+        if normalized.contains("komercni riziko") ||
+            normalized.contains("nabidkoveho rizeni") ||
+            normalized.contains("commercial risk") ||
+            normalized.contains("competitive tender")
+        {
+            return "💼"
         }
         if normalized.contains("pohranicni prechodovy bod") ||
             normalized.contains("border crossing") ||

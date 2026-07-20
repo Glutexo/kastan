@@ -848,8 +848,10 @@ import Testing
     #expect(ServiceInformationLine.render("Replacement bus service") == "🚌 Replacement bus service")
     let passengerServiceLines = [
         ("do označených vozů možno zakoupit místenku", "💺"),
+        ("povinná rezervace míst", "💺"),
         ("restaurační vůz", "🍽️"),
         ("bistrovůz (Graz Hbf→Villach Hbf)", "🍽️"),
+        ("občerstvení (roznášková služba nebo samoobslužný automat)", "🍽️"),
         ("palubní portál", "🌐"),
         ("ve vlaku řazen vůz s bezdrátovým připojením k internetu", "📶"),
         ("ve vlaku řazen vůz s přípojkou 230 V", "🔌"),
@@ -857,7 +859,10 @@ import Testing
         ("vůz nebo oddíly vyhrazené pro cestující s dětmi do 10 let", "👶🏻"),
         ("dětské kino", "📽️"),
         ("přeprava spoluzavazadel s povinnou rezervací místa pro jízdní kolo a cestujícího", "🚲"),
+        ("přeprava jízdních kol jako spoluzavazadel je vyloučena", "🚲"),
         ("vůz vhodný pro přepravu cestujících na vozíku; je nutné objednání přepravy", "♿"),
+        ("vlak nečeká na přípoje", "⏱️"),
+        ("vlak je provozován na komerční riziko dopravce nebo na základě nabídkového řízení", "💼"),
         ("linka Ex3 (Praha hl.n. →Břeclav)", "🛤️"),
         ("V oddílech 1. vozové třídy Business povinná rezervace místa", "💺"),
         ("pohraniční přechodový bod [CZ/A]: Breclav(Gr)", "🛂"),
