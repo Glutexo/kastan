@@ -27,8 +27,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   then override that recurring rule. The calendar marks running and non-running days only within the validity
   interval printed by IDOS for the current timetable; days outside that interval remain visibly out of scope.
   Notes whose subject applies only on numbered weekdays, such as refreshments `v 1-5,7`, open a separate note
-  calendar whose legend says whether the note applies instead of implying that the service itself runs. Phone
-  numbers in timetable notes, service information, and route-stop notes open as `tel:` links.
+  calendar whose legend says whether the note applies instead of implying that the service itself runs. Only the
+  numbered-weekday clause is linked in these notes; notes describing whether a service runs remain linked in full.
+  Phone numbers in timetable notes, service information, and route-stop notes open as `tel:` links.
 - A genuine AppKit toolbar centers a complete mode control for switching between Connections, Departures, and
   Station Timetables while preserving each search's state. Stable toolbar identifiers and visibility priorities
   keep that control intact, and its natural width follows the localized labels without stretching the final

@@ -300,6 +300,14 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(serviceCalendar.rule.subject, .noteApplicability)
         XCTAssertEqual(serviceCalendar.rule.recurrence, .selectedWeekdays(Set([1, 2, 3, 4, 5, 7])))
         XCTAssertTrue(serviceCalendar.listedDates.isEmpty)
+        let linkedContent = StationTimetableServiceCalendarButton.noteApplicabilityContent(
+            for: serviceCalendar
+        )
+        let linkedRuns = linkedContent.runs.filter { $0.link != nil }
+        XCTAssertEqual(String(linkedContent.characters), serviceCalendar.note)
+        XCTAssertEqual(linkedRuns.count, 1)
+        XCTAssertEqual(String(linkedContent[linkedRuns[0].range].characters), "v 1-5,7")
+        XCTAssertEqual(linkedRuns[0].link, StationTimetableServiceCalendarButton.noteCalendarDestination)
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 20)), .runs)
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 25)), .doesNotRun)
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 26)), .runs)

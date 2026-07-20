@@ -23,6 +23,7 @@ struct StationTimetableServiceCalendar: Equatable {
         let hasExplicitOperatingRange: Bool
         let additionalRunningRanges: [ClosedRange<Date>]
         let nonRunningRanges: [ClosedRange<Date>]
+        let noteApplicabilityRange: NSRange?
     }
 
     enum DayStatus: Equatable {
@@ -128,6 +129,12 @@ struct StationTimetableServiceCalendar: Equatable {
         let year: Int?
     }
 
+    /// Keeps the parsed weekdays together with the exact source text that should open a note calendar.
+    private struct NumberedWeekdayCondition {
+        let weekdays: Set<Int>
+        let sourceRange: NSRange
+    }
+
     /// Keeps both effective dates and the individual dates or ranges recognized in the IDOS note.
     private struct DateInterpretation {
         let dates: [Date]
@@ -200,8 +207,8 @@ struct StationTimetableServiceCalendar: Equatable {
         let negativeRunPattern = #"\bnejede\b|\bdoes\s+not\s+run\b"#
         let hasPositiveRule = normalized.range(of: positiveRunPattern, options: .regularExpression) != nil
         let hasNegativeRule = normalized.range(of: negativeRunPattern, options: .regularExpression) != nil
-        let standaloneWeekdays = numberedWeekdays(in: normalized)
-        guard hasPositiveRule || hasNegativeRule || standaloneWeekdays != nil else { return nil }
+        let standaloneWeekdayCondition = numberedWeekdayCondition(in: note)
+        guard hasPositiveRule || hasNegativeRule || standaloneWeekdayCondition != nil else { return nil }
 
         let source = note as NSString
         let negativeMatch = try? NSRegularExpression(
@@ -227,11 +234,12 @@ struct StationTimetableServiceCalendar: Equatable {
         ) != nil
         let workingDayPattern =
             #"\bjede\s+v\s+(?:x\b|pracovnich\s+dnech\b)|(?<!not )\bruns?\s+(?:on\s+)?(?:working\s+days?|weekdays?|workdays?)\b"#
+        let positiveWeekdayCondition = numberedWeekdayCondition(in: positiveNote)
         let recurrence: Rule.Recurrence
         if positiveNormalized.range(of: workingDayPattern, options: .regularExpression) != nil {
             recurrence = .workingDays
-        } else if let weekdays = numberedWeekdays(in: positiveNormalized) {
-            recurrence = .selectedWeekdays(weekdays)
+        } else if let condition = positiveWeekdayCondition {
+            recurrence = .selectedWeekdays(condition.weekdays)
         } else if runsThroughBoundary || !hasPositiveRule {
             recurrence = .everyDay
         } else {
@@ -291,7 +299,10 @@ struct StationTimetableServiceCalendar: Equatable {
             operatingRange: operatingRange,
             hasExplicitOperatingRange: hasExplicitOperatingRange,
             additionalRunningRanges: additionalRunningRanges,
-            nonRunningRanges: nonRunningRanges
+            nonRunningRanges: nonRunningRanges,
+            noteApplicabilityRange: hasPositiveRule || hasNegativeRule
+                ? nil
+                : standaloneWeekdayCondition?.sourceRange
         )
         var recognizedDateRanges = additionalRunningRanges + nonRunningRanges
         if hasExplicitOperatingRange {
@@ -307,13 +318,19 @@ struct StationTimetableServiceCalendar: Equatable {
         )
     }
 
-    /// Reads individual numbers and ranges in IDOS's Monday-first weekday notation.
-    private static func numberedWeekdays(in normalizedNote: String) -> Set<Int>? {
+    /// Reads individual numbers and ranges in IDOS's Monday-first weekday notation and preserves their source range.
+    private static func numberedWeekdayCondition(in note: String) -> NumberedWeekdayCondition? {
         let element = #"[1-7](?:\s*[-–—]\s*[1-7])?"#
         let pattern = #"\b(?:v|on)\s+("# + element + #"(?:\s*,\s*"# + element + #")*)(?!\d)"#
-        guard let values = captures(pattern: pattern, in: normalizedNote).first?.first else {
+        guard let expression = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
             return nil
         }
+        let source = note as NSString
+        guard let match = expression.firstMatch(
+            in: note,
+            range: NSRange(location: 0, length: source.length)
+        ), match.numberOfRanges >= 2 else { return nil }
+        let values = source.substring(with: match.range(at: 1))
         var weekdays = Set<Int>()
         let rangeSeparators = CharacterSet(charactersIn: "-–—")
         for element in values.split(separator: ",") {
@@ -329,7 +346,8 @@ struct StationTimetableServiceCalendar: Equatable {
                 continue
             }
         }
-        return weekdays.isEmpty ? nil : weekdays
+        guard !weekdays.isEmpty else { return nil }
+        return NumberedWeekdayCondition(weekdays: weekdays, sourceRange: match.range)
     }
 
     /// Converts Foundation's Sunday-first weekday number to the Monday-first notation printed by IDOS.
@@ -686,19 +704,32 @@ enum ServiceCalendarOpeningOptions {
     }
 }
 
-/// Preserves the IDOS note as the button label and reveals its date interpretation in a popover.
+/// Links either a complete operating rule or only the applicability clause that opens its calendar.
 struct StationTimetableServiceCalendarButton: View {
     let serviceCalendar: StationTimetableServiceCalendar
     @State private var isPresented = false
     @State private var showsRecognizedConditions = false
 
+    static let noteCalendarDestination = URL(string: "kastan-note-calendar:open")!
+
     var body: some View {
-        Button {
-            showsRecognizedConditions = ServiceCalendarOpeningOptions.showsRecognizedConditions(
-                for: NSEvent.modifierFlags
+        Group {
+            if serviceCalendar.rule.subject == .noteApplicability {
+                noteApplicabilityLink
+            } else {
+                serviceOperationButton
+            }
+        }
+        .popover(isPresented: $isPresented, arrowEdge: .trailing) {
+            StationTimetableServiceCalendarView(
+                serviceCalendar: serviceCalendar,
+                showsRecognizedConditions: showsRecognizedConditions
             )
-            isPresented = true
-        } label: {
+        }
+    }
+
+    private var serviceOperationButton: some View {
+        Button(action: openCalendar) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(serviceCalendar.note)
                     .fixedSize(horizontal: false, vertical: true)
@@ -710,23 +741,47 @@ struct StationTimetableServiceCalendarButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(
-            Text(calendarActionLabel) + Text(": ") + Text(serviceCalendar.note)
+            Text(AppLocalization.string("Show service calendar"))
+                + Text(": ")
+                + Text(serviceCalendar.note)
         )
         .help(calendarHelp)
-        .popover(isPresented: $isPresented, arrowEdge: .trailing) {
-            StationTimetableServiceCalendarView(
-                serviceCalendar: serviceCalendar,
-                showsRecognizedConditions: showsRecognizedConditions
-            )
-        }
     }
 
-    private var calendarActionLabel: String {
-        AppLocalization.string(
-            serviceCalendar.rule.subject == .noteApplicability
-                ? "Show note calendar"
-                : "Show service calendar"
+    private var noteApplicabilityLink: some View {
+        Text(Self.noteApplicabilityContent(for: serviceCalendar))
+            .fixedSize(horizontal: false, vertical: true)
+            .environment(\.openURL, OpenURLAction { url in
+                guard url == Self.noteCalendarDestination else { return .systemAction }
+                openCalendar()
+                return .handled
+            })
+            .accessibilityHint(Text(calendarHelp))
+            .help(calendarHelp)
+    }
+
+    /// Preserves the prose styling and links only the exact numbered-weekday clause recognized by the parser.
+    static func noteApplicabilityContent(
+        for serviceCalendar: StationTimetableServiceCalendar
+    ) -> AttributedString {
+        let note = serviceCalendar.note
+        guard let sourceRange = serviceCalendar.rule.noteApplicabilityRange,
+              let conditionRange = Range(sourceRange, in: note)
+        else { return AttributedString(note) }
+
+        var result = AttributedString(note[..<conditionRange.lowerBound])
+        var linkedCondition = AttributedString(note[conditionRange])
+        linkedCondition.link = noteCalendarDestination
+        result += linkedCondition
+        result += AttributedString(note[conditionRange.upperBound...])
+        return result
+    }
+
+    private func openCalendar() {
+        showsRecognizedConditions = ServiceCalendarOpeningOptions.showsRecognizedConditions(
+            for: NSEvent.modifierFlags
         )
+        isPresented = true
     }
 
     private var calendarHelp: String {
