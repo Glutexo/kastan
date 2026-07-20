@@ -1507,10 +1507,18 @@ enum ServiceInformationLine {
         {
             return "👶🏻"
         }
-        if (normalized.contains("jizdn") && normalized.contains("kol")) ||
-            normalized.contains("bicycle") ||
-            normalized.contains("bike")
-        {
+        let mentionsBicycle = (normalized.contains("jizdn") && normalized.contains("kol")) ||
+            normalized.contains("bicycle") || normalized.contains("bike")
+        if mentionsBicycle && (
+            normalized.contains("vyloucen") ||
+                normalized.contains("excluded") ||
+                normalized.contains("not permitted") ||
+                normalized.contains("not allowed") ||
+                normalized.contains("prohibited")
+        ) {
+            return "🚳"
+        }
+        if mentionsBicycle {
             return "🚲"
         }
         if normalized.contains("cestujicich na voziku") || normalized.contains("wheelchair") {
