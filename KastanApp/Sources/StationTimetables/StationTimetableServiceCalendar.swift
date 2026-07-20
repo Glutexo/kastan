@@ -728,7 +728,7 @@ struct ServiceNotesView: View {
         else { return content }
 
         let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.paragraphSpacing = 4
+        paragraphStyle.paragraphSpacing = 8
         styledContent.addAttribute(
             .paragraphStyle,
             value: paragraphStyle,

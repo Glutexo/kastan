@@ -386,7 +386,7 @@ final class KastanAppTests: XCTestCase {
         let paragraphStyle = try XCTUnwrap(
             renderedContent.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
         )
-        XCTAssertEqual(paragraphStyle.paragraphSpacing, 4)
+        XCTAssertEqual(paragraphStyle.paragraphSpacing, 8)
     }
 
     func testSelectableServiceNoteFlowRetainsCalendarAndPhoneLinks() {
