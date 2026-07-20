@@ -326,6 +326,8 @@ struct JourneyOptionKindPicker: NSViewRepresentable {
     func makeNSView(context: Context) -> StableWidthPopUpButton {
         let button = StableWidthPopUpButton(frame: .zero, pullsDown: false)
         button.controlSize = .regular
+        button.setContentHuggingPriority(.required, for: .horizontal)
+        button.setContentCompressionResistancePriority(.required, for: .horizontal)
         button.target = context.coordinator
         button.action = #selector(Coordinator.selectKind(_:))
         button.setAccessibilityLabel(AppLocalization.string("Journey option"))
@@ -354,6 +356,14 @@ struct JourneyOptionKindPicker: NSViewRepresentable {
         button.invalidateIntrinsicContentSize()
     }
 
+    func sizeThatFits(
+        _ proposal: ProposedViewSize,
+        nsView button: StableWidthPopUpButton,
+        context: Context
+    ) -> CGSize? {
+        button.intrinsicContentSize
+    }
+
     /// Passes the selected native menu item back into the SwiftUI row binding.
     @MainActor
     final class Coordinator: NSObject {
@@ -373,7 +383,7 @@ struct JourneyOptionKindPicker: NSViewRepresentable {
     }
 }
 
-/// Adds the widest catalog title to the native popup button's own chrome-derived intrinsic width.
+/// Uses a native popup containing the full catalog as the compact, selection-independent sizing reference.
 final class StableWidthPopUpButton: NSPopUpButton {
     var sizingTitles: [String] = [] {
         didSet {
@@ -384,21 +394,19 @@ final class StableWidthPopUpButton: NSPopUpButton {
 
     override var intrinsicContentSize: NSSize {
         let nativeSize = super.intrinsicContentSize
-        guard let selectedTitle = titleOfSelectedItem, !sizingTitles.isEmpty else {
+        guard !sizingTitles.isEmpty else {
             return nativeSize
         }
 
-        let selectedTitleWidth = measuredWidth(of: selectedTitle)
-        let widestTitleWidth = sizingTitles.map(measuredWidth).max() ?? selectedTitleWidth
-        let chromeWidth = max(0, nativeSize.width - selectedTitleWidth)
-        return NSSize(width: ceil(chromeWidth + widestTitleWidth), height: nativeSize.height)
-    }
+        let sizingButton = NSPopUpButton(frame: .zero, pullsDown: false)
+        sizingButton.controlSize = controlSize
+        sizingButton.bezelStyle = bezelStyle
+        if let font {
+            sizingButton.font = font
+        }
+        sizingButton.addItems(withTitles: sizingTitles)
 
-    private func measuredWidth(of title: String) -> CGFloat {
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: font ?? NSFont.systemFont(ofSize: NSFont.systemFontSize),
-        ]
-        return (title as NSString).size(withAttributes: attributes).width
+        return NSSize(width: sizingButton.intrinsicContentSize.width, height: nativeSize.height)
     }
 }
 

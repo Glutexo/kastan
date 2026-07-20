@@ -1060,12 +1060,13 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(english.localizedString(forKey: "Via place", value: nil, table: nil), "Via place")
     }
 
-    func testJourneyOptionPickerUsesWidestCatalogTitleWhenOnlyViaIsAvailable() throws {
+    func testJourneyOptionPickerUsesCompactStableCatalogWidthWhenOnlyViaIsAvailable() throws {
         let picker = JourneyOptionKindPicker(
             selection: .constant(.via),
             availableKinds: [.via]
         )
-        let hostingView = NSHostingView(rootView: picker)
+        let hostingView = NSHostingView(rootView: picker.fixedSize(horizontal: true, vertical: false))
+        hostingView.frame = NSRect(x: 0, y: 0, width: 1_000, height: 30)
 
         hostingView.layoutSubtreeIfNeeded()
 
@@ -1075,8 +1076,13 @@ final class KastanAppTests: XCTestCase {
             .first
         )
         let catalogWidth = popupButton.intrinsicContentSize.width
+        let nativeCatalogButton = NSPopUpButton(frame: .zero, pullsDown: false)
+        nativeCatalogButton.controlSize = .regular
+        nativeCatalogButton.addItems(withTitles: JourneyOptionKind.allCases.map(\.localizedTitle))
 
         XCTAssertEqual(popupButton.sizingTitles, JourneyOptionKind.allCases.map(\.localizedTitle))
+        XCTAssertEqual(catalogWidth, nativeCatalogButton.intrinsicContentSize.width, accuracy: 0.5)
+        XCTAssertEqual(popupButton.frame.width, catalogWidth, accuracy: 0.5)
 
         popupButton.sizingTitles = [JourneyOptionKind.via.localizedTitle]
         XCTAssertGreaterThan(catalogWidth, popupButton.intrinsicContentSize.width)
