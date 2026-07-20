@@ -345,7 +345,7 @@ struct KastanApp: App {
                 ConnectionDetailView(selection: selection, client: client)
             }
         }
-        .defaultSize(width: 760, height: 640)
+        .defaultSize(width: ConnectionDetailView.defaultWindowWidth, height: 640)
         .commands {
             AppInformationCommands()
             AppHelpCommands()

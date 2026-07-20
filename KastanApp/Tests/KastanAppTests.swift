@@ -1273,7 +1273,7 @@ final class KastanAppTests: XCTestCase {
     }
 
     func testCompleteServiceDetailRendersAtCompactWindowWidth() {
-        XCTAssertEqual(ServiceDetailView.defaultWindowWidth, 600)
+        XCTAssertEqual(ServiceDetailView.defaultWindowWidth, 540)
         XCTAssertEqual(ServiceDetailView.minimumWindowWidth, 480)
 
         let hostingView = NSHostingView(
@@ -1384,15 +1384,22 @@ final class KastanAppTests: XCTestCase {
     }
 
     func testCompleteConnectionDetailRendersInAnIndependentWindow() {
+        XCTAssertEqual(ConnectionDetailView.defaultWindowWidth, 680)
+        XCTAssertEqual(ConnectionDetailView.minimumWindowWidth, 620)
         let selection = ConnectionSelection(
             connection: connection(id: "connection-detail"),
             timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains")
         )
         let hostingView = NSHostingView(
             rootView: ConnectionDetailView(selection: selection, client: MockIDOSClient())
-                .frame(width: 700, height: 500)
+                .frame(width: ConnectionDetailView.defaultWindowWidth, height: 500)
         )
-        hostingView.frame = NSRect(x: 0, y: 0, width: 700, height: 500)
+        hostingView.frame = NSRect(
+            x: 0,
+            y: 0,
+            width: ConnectionDetailView.defaultWindowWidth,
+            height: 500
+        )
         let window = NSWindow(
             contentRect: hostingView.frame,
             styleMask: .titled,
@@ -1404,7 +1411,10 @@ final class KastanAppTests: XCTestCase {
         hostingView.layoutSubtreeIfNeeded()
         defer { window.orderOut(nil) }
 
-        XCTAssertEqual(hostingView.frame.size, NSSize(width: 700, height: 500))
+        XCTAssertEqual(
+            hostingView.frame.size,
+            NSSize(width: ConnectionDetailView.defaultWindowWidth, height: 500)
+        )
         XCTAssertGreaterThan(hostingView.fittingSize.height, 0)
     }
 

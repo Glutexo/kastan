@@ -673,6 +673,10 @@ enum ConnectionDetailToolbarAction: CaseIterable, Hashable, Identifiable {
 
 /// Shows one complete connection in its own window with result actions in the native toolbar.
 struct ConnectionDetailView: View {
+    /// Opens complete connections compactly while preserving a wider minimum than individual service routes.
+    static let defaultWindowWidth: CGFloat = 680
+    static let minimumWindowWidth: CGFloat = 620
+
     private static let scrollCoordinateSpace = "connection-detail-scroll"
 
     @Environment(\.openWindow) private var openWindow
@@ -738,7 +742,7 @@ struct ConnectionDetailView: View {
         .onAppear {
             timeIsUnderTitle = false
         }
-        .frame(minWidth: 620, minHeight: 420)
+        .frame(minWidth: Self.minimumWindowWidth, minHeight: 420)
         .navigationTitle(windowTitle)
         .toolbar {
             if presentation == .window {
