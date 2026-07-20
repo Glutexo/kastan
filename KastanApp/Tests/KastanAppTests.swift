@@ -1045,6 +1045,39 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(ServiceRouteHighlight(toStop: "Frýdek,T.G.Masaryka").departureIndex(in: stops))
     }
 
+    func testServiceRouteInitialScrollWaitsForLoadedWindowLayout() async {
+        var didScroll = false
+        let scrollCompleted = expectation(description: "Initial route scroll was deferred")
+
+        ServiceRouteInitialScroll.afterWindowLayout {
+            didScroll = true
+            scrollCompleted.fulfill()
+        }
+
+        XCTAssertFalse(didScroll)
+        await fulfillment(of: [scrollCompleted])
+        XCTAssertTrue(didScroll)
+    }
+
+    func testServiceRouteInitialScrollMakesRoomForTheDepartureStopAtTheTop() {
+        XCTAssertEqual(
+            ServiceRouteInitialScroll.bottomClearance(
+                viewportHeight: 520,
+                naturalContentBottom: 680,
+                departureTop: 420
+            ),
+            260
+        )
+        XCTAssertEqual(
+            ServiceRouteInitialScroll.bottomClearance(
+                viewportHeight: 520,
+                naturalContentBottom: 1_100,
+                departureTop: 420
+            ),
+            0
+        )
+    }
+
     func testServiceSelectionRoundTripsThroughWindowState() throws {
         let selection = ServiceSelection(
             id: "service-301",

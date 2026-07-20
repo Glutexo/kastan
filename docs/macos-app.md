@@ -54,9 +54,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   that range moves into the window title until its content label is visible again.
 - Connection cards with line colors, transport symbols, platforms, tariff zones, carriers, and localized delay
   and expected-punctuality states supplied by IDOS.
-- Complete service routes open at the departure stop from the originating search, with the search-relevant
-  segment highlighted without implying live vehicle position. When scrolling hides a service date, the date
-  moves into the window title until its content label is visible again.
+- Complete service routes open with the departure stop from the originating search fully visible at the top,
+  below the window toolbar, and with the search-relevant segment highlighted without implying live vehicle
+  position. When scrolling hides a service date, the date moves into the window title until its content label
+  is visible again.
 - Selectable service-information text whose visibly separated rows use semantic emoji for replacement buses,
   onboard amenities, accessibility, family and bicycle services, tickets, baggage, passenger and reservation
   restrictions, cancellation policies, routes, carriers, and calendar-backed operating rules. Carrier contact
