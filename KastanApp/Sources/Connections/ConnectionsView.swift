@@ -2,6 +2,23 @@ import AppKit
 import Kastan
 import SwiftUI
 
+/// Chooses one mutually exclusive result body while a fresh search replaces the previous query.
+enum ConnectionResultsPresentation: Equatable {
+    case searching
+    case empty
+    case connections
+
+    static func resolve(
+        isSearching: Bool,
+        hasConnections: Bool,
+        hasError: Bool
+    ) -> Self {
+        if isSearching { return .searching }
+        if !hasConnections, !hasError { return .empty }
+        return .connections
+    }
+}
+
 /// Combines a compact macOS search workspace with expandable journey results.
 struct ConnectionsView: View {
     @Environment(\.openWindow) private var openWindow
@@ -276,16 +293,21 @@ struct ConnectionsView: View {
 
     @ViewBuilder
     private var results: some View {
-        if model.isSearching, model.connections.isEmpty {
+        switch ConnectionResultsPresentation.resolve(
+            isSearching: model.isSearching,
+            hasConnections: !model.connections.isEmpty,
+            hasError: model.errorMessage != nil
+        ) {
+        case .searching:
             ProgressView("Searching connections…")
                 .frame(maxWidth: .infinity, minHeight: 180)
-        } else if model.connections.isEmpty, model.errorMessage == nil {
+        case .empty:
             EmptyStateView(
                 title: "No connections yet",
                 systemImage: "arrow.left.arrow.right",
                 description: "Enter a route and start a search."
             )
-        } else {
+        case .connections:
             LazyVStack(alignment: .leading, spacing: 12) {
                 ForEach(Array(model.connections.enumerated()), id: \.element.id) { index, connection in
                     let selection = ConnectionSelection(

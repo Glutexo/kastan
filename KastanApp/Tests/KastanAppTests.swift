@@ -801,6 +801,33 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testFreshConnectionSearchReplacesExistingResultsWithProgress() {
+        XCTAssertEqual(
+            ConnectionResultsPresentation.resolve(
+                isSearching: true,
+                hasConnections: true,
+                hasError: false
+            ),
+            .searching
+        )
+        XCTAssertEqual(
+            ConnectionResultsPresentation.resolve(
+                isSearching: false,
+                hasConnections: true,
+                hasError: false
+            ),
+            .connections
+        )
+        XCTAssertEqual(
+            ConnectionResultsPresentation.resolve(
+                isSearching: false,
+                hasConnections: false,
+                hasError: false
+            ),
+            .empty
+        )
+    }
+
     func testCollapsedSearchSummariesPreserveSubmittedQueryContext() {
         let connection = SearchSummaryPresentation.connection(
             from: " Praha ",

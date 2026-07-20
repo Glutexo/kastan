@@ -46,8 +46,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   submission with an explicit action for returning to the editable form. The main window remains usable down to
   a compact 522-point width without moving the connection or station-board time mode below the date and time
   controls.
-- Connection and station-board results extend chronologically without replacement: pulling past the top loads
-  earlier results, while pulling past the bottom loads the following results and removes duplicate rows.
+- Submitting changed connection criteria replaces the previous result list with a progress indicator until the
+  fresh response arrives. Connection and station-board paging still extends results chronologically without
+  replacement: pulling past the top loads earlier results, while pulling past the bottom loads the following
+  results and removes duplicate rows.
 - Native tabs and windows, including independent favorite-timetable, complete-connection, and resizable
   service-route windows. A connection opened in its own window presents its export and sharing actions as
   individually visible controls in the native toolbar instead of repeating the result-card action menu, and
