@@ -785,6 +785,60 @@ enum ServiceNoteEmoji {
         {
             return "🎟️"
         }
+        if (normalized.contains("jizdenk") &&
+            (normalized.contains("zakoup") || normalized.contains("predem"))) ||
+            (normalized.range(of: #"\btickets?\b"#, options: .regularExpression) != nil &&
+                (normalized.contains("purchase") ||
+                    normalized.contains("bought in advance") ||
+                    normalized.contains("pre-purchased")))
+        {
+            return "🎫"
+        }
+        if normalized.contains("stornopodmink") ||
+            normalized.contains("cancellation conditions") ||
+            normalized.contains("cancellation policy")
+        {
+            return "↩️"
+        }
+        if (normalized.contains("telefonick") && normalized.contains("rezervac")) ||
+            normalized.contains("telephone reservation") ||
+            normalized.contains("phone reservation")
+        {
+            return "📵"
+        }
+        if normalized.contains("vnitrostatni preprava") ||
+            normalized.contains("domestic transport") ||
+            normalized.contains("domestic carriage")
+        {
+            return "✅"
+        }
+        if (normalized.contains("neprepravuji") ||
+            normalized.contains("not carried") ||
+            normalized.contains("not transported")) &&
+            (normalized.contains("zavazadl") ||
+                normalized.contains("kocark") ||
+                normalized.contains("zvirat") ||
+                normalized.contains("baggage") ||
+                normalized.contains("luggage") ||
+                normalized.contains("stroller") ||
+                normalized.contains("animal"))
+        {
+            return "🚫"
+        }
+        if normalized.contains("zavazadl") ||
+            normalized.contains("baggage") ||
+            normalized.contains("luggage")
+        {
+            return "🧳"
+        }
+        if normalized.contains("osoby opile") ||
+            normalized.contains("podnapile") ||
+            normalized.contains("autosedack") ||
+            normalized.contains("intoxicated passenger") ||
+            normalized.contains("car seat")
+        {
+            return "⚠️"
+        }
         if normalized.contains("restauracni vuz") ||
             normalized.contains("bistrovuz") ||
             normalized.contains("restaurant car") ||
@@ -867,9 +921,13 @@ enum ServiceNoteEmoji {
             return "💺"
         }
         if (normalized.contains("neceka") && normalized.contains("pripoj")) ||
+            (normalized.contains("zmeskan") &&
+                normalized.contains("navazn") &&
+                normalized.contains("spoj")) ||
             normalized.contains("does not wait for connection") ||
             normalized.contains("doesn't wait for connection") ||
-            normalized.contains("will not wait for connection")
+            normalized.contains("will not wait for connection") ||
+            normalized.contains("missed connection")
         {
             return "⏱️"
         }
@@ -902,7 +960,7 @@ enum ServiceNoteEmoji {
         }
         if normalized.hasPrefix("linka ") ||
             normalized.hasPrefix("line ") ||
-            normalized.range(of: #"\s[-–—]\s"#, options: .regularExpression) != nil
+            hasRouteShape(normalized)
         {
             return "🛤️"
         }
@@ -941,6 +999,17 @@ enum ServiceNoteEmoji {
         }
 
         return fields.count == 2 || fields[2].contains(where: \.isNumber)
+    }
+
+    /// Recognizes an IDOS itinerary without treating date ranges or one hyphenated name as a route.
+    private static func hasRouteShape(_ note: String) -> Bool {
+        note.range(
+            of: #"\p{L}\s+[-–—]\s+\p{L}"#,
+            options: .regularExpression
+        ) != nil || note.range(
+            of: #"\p{L}[-–—]\p{L}.*\p{L}[-–—]\p{L}"#,
+            options: .regularExpression
+        ) != nil
     }
 }
 

@@ -851,6 +851,18 @@ import Testing
         ("The carrier's fare and conditions of carriage apply.", "🎫"),
         ("Na lince platí tarif vyhlášený A-EXPRESS s.r.o. Plzeň", "🎫"),
         ("The fare announced by A-EXPRESS Ltd. applies on this line.", "🎫"),
+        ("Plzeň-Praha-Poprad-Spišská Nová Ves-Levoča-Prešov-Vranov n.T.-Strážske-Michalovce-Humenné-Snina", "🛤️"),
+        ("A-EXPRESS s.r.o.; Plzeň; +420 606 619 913", "🏢"),
+        ("jede v 1,3-5,7", "📅"),
+        ("Zastávka Jihlava,Kaufland a Trenčín,Hasičská je obsluhována pro nástup pouze s předem zakoupenou jízdenkou (výstup možný vždy).", "🎫"),
+        ("Vnitrostátní přeprava na území České republiky je povolena. Vnitrostátní přeprava na území Slovenské republiky je povolena v rozsahu vymezeném v tomto jízdním řádu. Za ztrátu jízdenky a zmeškaný spoj se náhrada neposkytuje.", "✅"),
+        ("Přeprava jednoho zavazadla do úložného prostoru a příručního zdarma. Každé další zavazadlo navíc bude přijato k přepravě pouze při volné kapacitě zavazadlového prostoru a zpoplatněno 30,-Kč/1,-EUR. O tom, zda je zavazadlo příruční, rozhoduje řidič.", "🧳"),
+        ("Nedoprovázená zavazadla, dětské kočárky (kromě skládacích) a živá zvířata se nepřepravují! Maximální hmotnost zavazadla je 20 kg, maximální rozměry 25x60x80 cm.", "🚫"),
+        ("Osoby opilé nebo podnapilé mohou být ihned vyloučeny z přepravy bez náhrady. Děti do 4 let se přepravují jen s autosedačkou!", "⚠️"),
+        ("Společnost neručí za zmeškání návazných spojů v cílové stanici. Dopravce si vyhrazuje právo změnit cestujícímu číslo sedadla.", "⏱️"),
+        ("Jízdenky možno zakoupit: www.aexpress.cz, www.amsbus.cz, ÚAN Praha Florenc, ÚAN Brno Zvonařka, DJK Spišská N.Ves, Esperia shopping MALL-Turancar,", "🎫"),
+        ("K-IM Tour Michalovce, Gama Travel Humenné. Telefonické rezervace neprovádíme na dny jízdy 15. - 31. 12. z ČR a 1. - 10. 1. ze Slovenska.", "📵"),
+        ("Stornopodmínky: do 24 hodin: -20% z jízdného, méně než 24 hodin: -50% z jízdného, méně než 60 minut: -100% z jízdného. www.aexpress.cz", "↩️"),
         ("platí také jízdní doklady IDS JMK (Tišnov→Brno hl.n.)", "🎟️"),
         ("platí také jízdní doklady PID (Praha-Vršovice→Světlá n.Sázavou)", "🎟️"),
         ("platí také jízdní doklady VDV (Čáslav→Tišnov)", "🎟️"),
@@ -907,6 +919,7 @@ import Testing
             "ℹ️ Doplňující informace; bez omezení"
     )
     #expect(ServiceInformationLine.render("jede v 1-5") == "📅 jede v 1-5")
+    #expect(ServiceInformationLine.render("K-IM Tour Michalovce") == "ℹ️ K-IM Tour Michalovce")
     #expect(ServiceInformationLine.render("Additional information") == "ℹ️ Additional information")
 }
 

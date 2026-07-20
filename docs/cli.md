@@ -192,7 +192,8 @@ as context for legacy IDs. Scripts must treat connection-result, service, and de
 Service details include all stops supplied by IDOS, arrival and departure times, tariff zones, platforms or
 tracks, distance, stop notes, and service information. Human-readable details mark service metadata and every
 information line with a semantic emoji for details such as replacement buses, onboard amenities, accessibility,
-family and bicycle services, seat reservations, restrictions, routes, carriers, and operating rules;
+family and bicycle services, tickets, baggage, passenger and reservation restrictions, cancellation policies,
+routes, carriers, and operating rules;
 carrier contact rows are recognized from their `name; address[; phone]` structure rather than operator names.
 Dining and bistro cars are visually distinct from lighter refreshment trolley or vending-machine service.
 Tickets accepted from integrated transport systems are distinct from carrier fares and broader fare conditions.
