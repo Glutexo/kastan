@@ -939,6 +939,14 @@ enum ServiceNoteEmoji {
         {
             return "🚃"
         }
+        // A named train after a departure station marks where the same service changes designation.
+        if (normalized.hasPrefix("ze stanice ") &&
+            normalized.range(of: #"\bvlak\b"#, options: .regularExpression) != nil) ||
+            (normalized.hasPrefix("from station ") &&
+                normalized.range(of: #"\btrain\b"#, options: .regularExpression) != nil)
+        {
+            return "🔄"
+        }
         if (normalized.contains("k sezeni pouze") && normalized.contains("2. vozove tridy")) ||
             (normalized.contains("seating") &&
                 (normalized.contains("2nd class only") || normalized.contains("second class only")))

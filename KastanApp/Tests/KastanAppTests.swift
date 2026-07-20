@@ -445,6 +445,7 @@ final class KastanAppTests: XCTestCase {
             ("lůžkový vůz", "🛏️"),
             ("lehátkový vůz", "🛌"),
             ("vlak veze přímý vůz (Berlin Hbf (tief)→Břeclav)", "🚃"),
+            ("ze stanice Děčín hl.n. (odj. 23:26) vlak LE 235", "🔄"),
             ("v lůžkovém voze k dispozici i oddíly Deluxe (WC + sprcha)", "🚿"),
             ("restaurační vůz", "🍽️"),
             ("bistrovůz (Graz Hbf→Villach Hbf)", "🍽️"),
