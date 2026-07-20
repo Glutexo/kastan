@@ -766,6 +766,13 @@ enum ServiceNoteEmoji {
         {
             return "🚌"
         }
+        if (normalized.contains("tarif") && normalized.contains("prepravni podmink")) ||
+            ((normalized.contains("fare") || normalized.contains("tariff")) &&
+                (normalized.contains("conditions of carriage") ||
+                    normalized.contains("transport conditions")))
+        {
+            return "🎫"
+        }
         if normalized.contains("restauracni vuz") ||
             normalized.contains("bistrovuz") ||
             normalized.contains("obcerstveni") ||

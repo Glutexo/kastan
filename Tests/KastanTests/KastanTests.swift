@@ -847,6 +847,8 @@ import Testing
 @Test func serviceInformationLinesAlwaysReceiveAMeaningfulEmoji() {
     #expect(ServiceInformationLine.render("Replacement bus service") == "🚌 Replacement bus service")
     let passengerServiceLines = [
+        ("Na lince platí tarif a přepravní podmínky vyhlášené dopravcem.", "🎫"),
+        ("The carrier's fare and conditions of carriage apply.", "🎫"),
         ("do označených vozů možno zakoupit místenku", "💺"),
         ("povinná rezervace míst", "💺"),
         ("restaurační vůz", "🍽️"),

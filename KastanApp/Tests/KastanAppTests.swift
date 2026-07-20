@@ -355,6 +355,8 @@ final class KastanAppTests: XCTestCase {
             "🚌"
         )
         let passengerServiceNotes = [
+            ("Na lince platí tarif a přepravní podmínky vyhlášené dopravcem.", "🎫"),
+            ("The carrier's fare and conditions of carriage apply.", "🎫"),
             ("do označených vozů možno zakoupit místenku", "💺"),
             ("povinná rezervace míst", "💺"),
             ("restaurační vůz", "🍽️"),
