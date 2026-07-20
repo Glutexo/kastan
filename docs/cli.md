@@ -195,7 +195,7 @@ information line with a semantic emoji for details such as replacement buses, on
 family and bicycle services, seat reservations, restrictions, routes, carriers, and operating rules;
 carrier contact rows are recognized from their `name; address[; phone]` structure rather than operator names.
 Dining and bistro cars are visually distinct from lighter refreshment trolley or vending-machine service.
-Tickets accepted from integrated transport systems are distinct from general carrier fare conditions.
+Tickets accepted from integrated transport systems are distinct from carrier fares and broader fare conditions.
 Uncategorized information keeps its full text and uses a generic information marker.
 
 ## Output Formats

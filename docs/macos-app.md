@@ -62,8 +62,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   carriers, and calendar-backed operating rules. Carrier contact rows use their `name; address[; phone]`
   structure instead of an operator-name list. Dining and bistro cars are visually distinct from lighter
   refreshment trolley or vending-machine service, while tickets accepted from integrated transport systems
-  are distinct from general carrier fare conditions. A single selection can span multiple rows while retaining
-  clickable phone-number links and the standard macOS copy command. Dated operating
+  are distinct from carrier fares and broader fare conditions. A single selection can span multiple rows while
+  retaining clickable phone-number links and the standard macOS copy command. Dated operating
   exceptions, including abbreviated ranges such as `17. to 20.VIII.` and
   same-month lists such as `18.,19.IX.`, open the same running/non-running calendar using the exact validity
   interval published by the current IDOS timetable. When opened, the calendar scrolls to the current month or

@@ -1456,10 +1456,16 @@ enum ServiceInformationLine {
         {
             return "🚌"
         }
-        if (normalized.contains("tarif") && normalized.contains("prepravni podmink")) ||
+        // Keep carrier legal forms from overriding information whose subject is the applicable fare.
+        if (normalized.contains("tarif") &&
+            (normalized.contains("prepravni podmink") ||
+                normalized.contains("plati tarif") ||
+                normalized.contains("tarif vyhlasen"))) ||
             ((normalized.contains("fare") || normalized.contains("tariff")) &&
                 (normalized.contains("conditions of carriage") ||
-                    normalized.contains("transport conditions")))
+                    normalized.contains("transport conditions") ||
+                    normalized.contains("fare announced") ||
+                    normalized.contains("tariff announced")))
         {
             return "🎫"
         }

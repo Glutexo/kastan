@@ -357,6 +357,8 @@ final class KastanAppTests: XCTestCase {
         let passengerServiceNotes = [
             ("Na lince platí tarif a přepravní podmínky vyhlášené dopravcem.", "🎫"),
             ("The carrier's fare and conditions of carriage apply.", "🎫"),
+            ("Na lince platí tarif vyhlášený A-EXPRESS s.r.o. Plzeň", "🎫"),
+            ("The fare announced by A-EXPRESS Ltd. applies on this line.", "🎫"),
             ("platí také jízdní doklady IDS JMK (Tišnov→Brno hl.n.)", "🎟️"),
             ("platí také jízdní doklady PID (Praha-Vršovice→Světlá n.Sázavou)", "🎟️"),
             ("platí také jízdní doklady VDV (Čáslav→Tišnov)", "🎟️"),
@@ -400,6 +402,7 @@ final class KastanAppTests: XCTestCase {
             "🎟️"
         )
         XCTAssertEqual(ServiceNoteEmoji.symbol(for: "Jízdní doklady se prodávají ve vlaku"), "ℹ️")
+        XCTAssertEqual(ServiceNoteEmoji.symbol(for: "Tarifní zóna 101"), "ℹ️")
         XCTAssertEqual(
             ServiceNoteEmoji.symbol(
                 for: "MÁV-START Zrt.; Könyves Kálmán körút 36., 1097 Budapest; +36 1 349 4949"
