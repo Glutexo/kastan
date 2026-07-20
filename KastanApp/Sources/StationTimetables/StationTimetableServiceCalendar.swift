@@ -967,6 +967,12 @@ enum ServiceNoteEmoji {
         {
             return "2️⃣"
         }
+        if (normalized.contains("samoobsluzn") && normalized.contains("odbavovani cestujicich")) ||
+            (normalized.contains("self-service") &&
+                (normalized.contains("passenger check-in") || normalized.contains("passenger handling")))
+        {
+            return "👁️"
+        }
         if normalized.contains("restauracni vuz") ||
             normalized.contains("bistrovuz") ||
             normalized.contains("restaurant car") ||

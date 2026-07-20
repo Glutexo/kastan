@@ -444,6 +444,7 @@ final class KastanAppTests: XCTestCase {
             ("ve vlaku řazeny k sezení i vozy 1. vozové třídy", "1️⃣"),
             ("ve vlaku řazeny k sezení pouze vozy 2. vozové třídy", "2️⃣"),
             ("přeprava spoluzavazadel (do vyčerpání kapacity)", "🧳"),
+            ("samoobslužný způsob odbavování cestujících", "👁️"),
             ("lůžkový vůz", "🛏️"),
             ("lehátkový vůz", "🛌"),
             ("vlak veze přímý vůz (Berlin Hbf (tief)→Břeclav)", "🚃"),

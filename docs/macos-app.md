@@ -64,8 +64,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   is visible again.
 - Selectable service-information text whose visibly separated rows use semantic emoji for replacement buses,
   onboard amenities, sleeping and couchette cars, through coaches, on-route train-designation changes,
-  seating-class restrictions, accessibility, family and bicycle services, tickets, baggage, passenger and
-  reservation restrictions, cancellation policies, routes, carriers, and calendar-backed operating rules.
+  seating-class restrictions, self-service passenger handling, accessibility, family and bicycle services,
+  tickets, baggage, passenger and reservation restrictions, cancellation policies, routes, carriers, and
+  calendar-backed operating rules.
   Carrier contact rows use their `name; address[; phone]`
   structure instead of an operator-name list. Dining and bistro cars are visually distinct from lighter
   refreshment trolley or vending-machine service, while tickets accepted from integrated transport systems
