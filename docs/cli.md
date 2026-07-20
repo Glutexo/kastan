@@ -211,9 +211,10 @@ swift run kastan timetables --format json
 
 Text and Markdown retain IDOS line colors as ANSI colors, use transport and status emoji, and emphasize times.
 Connection headings identify direct and shortest displayed results. `--verbose` adds IDs, tariff zones,
-platforms, carriers, and delay information when IDOS supplies them. Known IDOS punctuality states follow the
-selected language in text and Markdown, while JSON exposes the original stable fields without relying on
-terminal styling.
+platforms, carriers, and delay information when IDOS supplies them. Human-readable connection rows use
+semantic markers for their time summary, identifiers, carrier, delay status, and transport mode; an unknown
+transport mode uses a generic route marker. Known IDOS punctuality states follow the selected language in text
+and Markdown, while JSON exposes the original stable fields without relying on terminal styling.
 
 Unknown options are rejected. Network failures are returned as normal command errors in the selected format.
 Ambiguous place names are reported together with the possible IDOS choices.

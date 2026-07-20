@@ -940,14 +940,14 @@ private enum OutputFormat: String {
                 | --- | --- | --- | --- | --- |
                 """
                 let metadata = [
-                    "\(localization.text(.duration)): **\(Markdown.escape(connection.duration))**",
+                    "⏱️ \(localization.text(.duration)): **\(Markdown.escape(connection.duration))**",
                     output.verbose
-                        ? "**\(localization.text(.identifier)):** `\(Markdown.escape(connection.id))`"
+                        ? "🆔 **\(localization.text(.identifier)):** `\(Markdown.escape(connection.id))`"
                         : nil,
                 ].compactMap(\.self).joined(separator: "\n")
 
                 return """
-                ### \(index + 1). \(item.markdownLabel(localization: localization))\(Markdown.bold(connection.departureTime)) \(Markdown.escape(connection.departureStation)) → \(Markdown.bold(connection.arrivalTime)) \(Markdown.escape(connection.arrivalStation))
+                ### \(index + 1). \(item.markdownLabel(localization: localization))🕒 \(Markdown.bold(connection.departureTime)) \(Markdown.escape(connection.departureStation)) → \(Markdown.bold(connection.arrivalTime)) \(Markdown.escape(connection.arrivalStation))
 
                 \(metadata)
 
@@ -1549,26 +1549,26 @@ private struct ConnectionOutput: Encodable {
         return "\(numberPrefix)\(labels.joined(separator: " · ")) — \(summary.dropFirst(numberPrefix.count))"
     }
 
-    /// Recreates the library summary with localized labels while retaining IDOS data and terminal styling.
+    /// Recreates the library summary with localized labels and a semantic marker on every information row.
     private func localizedSummaryLine(
         number: Int,
         includeDetails: Bool,
         localization: Localization
     ) -> String {
-        var result = "\(number). \(Terminal.bold(connection.departureTime)) \(connection.departureStation) → \(Terminal.bold(connection.arrivalTime)) \(connection.arrivalStation)"
+        var result = "\(number). 🕒 \(Terminal.bold(connection.departureTime)) \(connection.departureStation) → \(Terminal.bold(connection.arrivalTime)) \(connection.arrivalStation)"
 
         if !connection.duration.isEmpty {
             result += " (\(connection.duration))"
         }
 
         if includeDetails {
-            result += "\n   \(localization.text(.identifier)): \(connection.id)"
+            result += "\n   🆔 \(localization.text(.identifier)): \(connection.id)"
         }
 
         if !connection.legs.isEmpty {
             let legSummary = connection.legs.map { leg in
                 let line = [
-                    leg.displayName,
+                    leg.transportMode == nil ? "🛣️ \(leg.displayName)" : leg.displayName,
                     stationDisplay(
                         name: leg.fromStation,
                         tariffZone: includeDetails ? leg.fromTariffZone : nil,
@@ -1588,9 +1588,9 @@ private struct ConnectionOutput: Encodable {
                     .filter { !$0.isEmpty }
                     .joined(separator: " ")
                 let details = includeDetails ? [
-                    leg.id.map { "\(localization.text(.serviceIdentifier)): \($0)" },
-                    leg.carrier,
-                    localization.delayStatus(leg.delay),
+                    leg.id.map { "🆔 \(localization.text(.serviceIdentifier)): \($0)" },
+                    leg.carrier.map { "🏢 \($0)" },
+                    localization.delayStatus(leg.delay).map { "⏱️ \($0)" },
                 ]
                     .compactMap(\.self)
                     .filter { !$0.isEmpty }
@@ -1887,7 +1887,7 @@ private enum Markdown {
 
     static func lineName(_ leg: IDOSConnectionLeg) -> String {
         let name = htmlEscape(leg.name)
-        let prefix = leg.transportMode.map { "\($0.emoji) " } ?? ""
+        let prefix = leg.transportMode.map { "\($0.emoji) " } ?? "🛣️ "
         guard let color = leg.color, !color.isEmpty else {
             return "\(prefix)\(escape(leg.name))"
         }

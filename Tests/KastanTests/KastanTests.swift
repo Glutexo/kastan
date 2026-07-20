@@ -239,7 +239,7 @@ import Testing
     )
 
     #expect(output.contains("🧭 Connections Praha → Brno (Trains)"))
-    #expect(output.contains("1. ➡️  Direct · ⚡ Shortest —"))
+    #expect(output.contains("1. ➡️  Direct · ⚡ Shortest — 🕒"))
     #expect(output.contains("\u{001B}[1m12:04\u{001B}[0m Praha hl.n. → \u{001B}[1m15:44\u{001B}[0m Brno hl.n."))
     #expect(output.contains("🚆"))
     #expect(output.contains("R9"))
@@ -270,6 +270,7 @@ import Testing
     #expect(second?.contains("⚡ Shortest") == true)
     #expect(third?.contains("➡️  Direct") == false)
     #expect(third?.contains("⚡ Shortest") == false)
+    #expect(third?.contains("🕒") == true)
 }
 
 @Test func connectionCommandHighlightsAllResultsTiedForShortestDuration() async {
@@ -300,16 +301,33 @@ import Testing
     #expect(output.contains("🧭 Connections Praha → Brno (Trains)"))
 }
 
+@Test func connectionCommandMarksUnknownTransportAsGenericRoute() async {
+    let runner = englishCommandRunner(
+        client: MockIDOSClient(connectionResults: [
+            connectionResult(id: "1", duration: "4 h", legNames: ["Mystery service"], transportMode: nil),
+        ])
+    )
+    let text = await runner.output(
+        for: ["connections", "Praha", "Brno", "--timetable", "vlaky", "--limit", "1"]
+    )
+    let markdown = await runner.output(
+        for: ["connections", "Praha", "Brno", "--timetable", "vlaky", "--format", "markdown", "--limit", "1"]
+    )
+
+    #expect(text.contains("   🛣️ Mystery service"))
+    #expect(markdown.contains("| 🛣️ Mystery service |"))
+}
+
 @Test func connectionCommandPrintsVerboseConnections() async {
     let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--limit", "1", "--verbose"]
     )
 
     #expect(output.contains("tariff zone P · platform 4"))
-    #expect(output.contains("ID: 396829589"))
-    #expect(output.contains("Service ID: vlaky:0-74552-18.06.2026 12:04:00"))
-    #expect(output.contains("České dráhy, a.s."))
-    #expect(output.contains("Currently no delay"))
+    #expect(output.contains("   🆔 ID: 396829589"))
+    #expect(output.contains("      🆔 Service ID: vlaky:0-74552-18.06.2026 12:04:00"))
+    #expect(output.contains("      🏢 České dráhy, a.s."))
+    #expect(output.contains("      ⏱️ Currently no delay"))
 }
 
 @Test func connectionCommandRequestsViaPlaces() async {
@@ -456,7 +474,8 @@ import Testing
     )
 
     #expect(output.contains("## 🧭 Connections"))
-    #expect(output.contains("### 1. ➡️  Direct · ⚡ Shortest — **12:04** Praha hl.n. → **15:44** Brno hl.n."))
+    #expect(output.contains("### 1. ➡️  Direct · ⚡ Shortest — 🕒 **12:04** Praha hl.n. → **15:44** Brno hl.n."))
+    #expect(output.contains("⏱️ Duration: **3 hod 40 min**"))
     #expect(output.contains("| Line | From | Departure | To | Arrival |"))
     #expect(output.contains("| 🚆 <span style=\"color: #008000\">R9 (R 981 Vysočina)</span> | Praha hl.n. | **12:04** | Brno hl.n. | **15:44** |"))
     #expect(output.contains(#"🚆 <span style="color: #008000">R9 (R 981 Vysočina)</span>"#))
@@ -475,7 +494,7 @@ import Testing
 
     #expect(output.contains("| Line | Service ID | From | From Tariff Zone | From Platform | Departure | To | To Tariff Zone | To Platform | Arrival | Carrier | Delay |"))
     #expect(output.contains("| 🚆 <span style=\"color: #008000\">R9 (R 981 Vysočina)</span> | `vlaky:0-74552-18.06.2026 12:04:00` | Praha hl.n. | P | 4 | **12:04** | Brno hl.n. | 100 |  | **15:44** | České dráhy, a.s. | Currently no delay |"))
-    #expect(output.contains("**ID:** `396829589`"))
+    #expect(output.contains("🆔 **ID:** `396829589`"))
 }
 
 @Test func connectionCommandPrintsMarkdownWithVia() async {
@@ -2188,7 +2207,12 @@ private struct MockCalendarImporter: CalendarImporting {
     }
 }
 
-private func connectionResult(id: String, duration: String, legNames: [String]) -> IDOSConnection {
+private func connectionResult(
+    id: String,
+    duration: String,
+    legNames: [String],
+    transportMode: IDOSTransportMode? = .train
+) -> IDOSConnection {
     IDOSConnection(
         id: id,
         departureTime: "12:00",
@@ -2199,7 +2223,7 @@ private func connectionResult(id: String, duration: String, legNames: [String]) 
         legs: legNames.enumerated().map { index, name in
             IDOSConnectionLeg(
                 name: name,
-                transportMode: .train,
+                transportMode: transportMode,
                 departureTime: "1\(index + 2):00",
                 fromStation: index == 0 ? "Praha hl.n." : "Pardubice hl.n.",
                 arrivalTime: "1\(index + 3):00",
