@@ -194,6 +194,7 @@ tracks, distance, stop notes, and service information. Human-readable details ma
 information line with a semantic emoji for details such as replacement buses, onboard amenities, accessibility,
 family and bicycle services, seat reservations, restrictions, routes, carriers, and operating rules;
 carrier contact rows are recognized from their `name; address[; phone]` structure rather than operator names.
+Dining and bistro cars are visually distinct from lighter refreshment trolley or vending-machine service.
 Uncategorized information keeps its full text and uses a generic information marker.
 
 ## Output Formats

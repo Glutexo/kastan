@@ -775,14 +775,17 @@ enum ServiceNoteEmoji {
         }
         if normalized.contains("restauracni vuz") ||
             normalized.contains("bistrovuz") ||
-            normalized.contains("obcerstveni") ||
             normalized.contains("restaurant car") ||
             normalized.contains("dining car") ||
-            normalized.contains("bistro car") ||
+            normalized.contains("bistro car")
+        {
+            return "🍽️"
+        }
+        if normalized.contains("obcerstveni") ||
             normalized.contains("refreshment") ||
             normalized.contains("snack service")
         {
-            return "🍽️"
+            return "🥤"
         }
         if normalized.contains("palubni portal") ||
             normalized.contains("onboard portal") ||

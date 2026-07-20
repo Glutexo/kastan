@@ -59,7 +59,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Selectable service-information text whose visibly separated rows use semantic emoji for replacement buses,
   onboard amenities, accessibility, family and bicycle services, seat reservations, restrictions, routes,
   carriers, and calendar-backed operating rules. Carrier contact rows use their `name; address[; phone]`
-  structure instead of an operator-name list. A single selection can span multiple rows while retaining
+  structure instead of an operator-name list. Dining and bistro cars are visually distinct from lighter
+  refreshment trolley or vending-machine service. A single selection can span multiple rows while retaining
   clickable phone-number links and the standard macOS copy command. Dated operating
   exceptions, including abbreviated ranges such as `17. to 20.VIII.` and
   same-month lists such as `18.,19.IX.`, open the same running/non-running calendar using the exact validity
