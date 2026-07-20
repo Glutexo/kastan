@@ -773,6 +773,12 @@ enum ServiceNoteEmoji {
         {
             return "🎫"
         }
+        if normalized.contains("plati take jizdni doklady") ||
+            (normalized.contains("integrated transport") &&
+                normalized.range(of: #"\btickets?\b"#, options: .regularExpression) != nil)
+        {
+            return "🎟️"
+        }
         if normalized.contains("restauracni vuz") ||
             normalized.contains("bistrovuz") ||
             normalized.contains("restaurant car") ||

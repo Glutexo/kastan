@@ -849,6 +849,10 @@ import Testing
     let passengerServiceLines = [
         ("Na lince platí tarif a přepravní podmínky vyhlášené dopravcem.", "🎫"),
         ("The carrier's fare and conditions of carriage apply.", "🎫"),
+        ("platí také jízdní doklady IDS JMK (Tišnov→Brno hl.n.)", "🎟️"),
+        ("platí také jízdní doklady PID (Praha-Vršovice→Světlá n.Sázavou)", "🎟️"),
+        ("platí také jízdní doklady VDV (Čáslav→Tišnov)", "🎟️"),
+        ("Tickets of the integrated transport system are also valid.", "🎟️"),
         ("do označených vozů možno zakoupit místenku", "💺"),
         ("povinná rezervace míst", "💺"),
         ("restaurační vůz", "🍽️"),
@@ -882,8 +886,9 @@ import Testing
     #expect(
         ServiceInformationLine.render(
             "platí také jízdní doklady IREDO (Kolín→Březová n.Svitavou)"
-        ) == "ℹ️ platí také jízdní doklady IREDO (Kolín→Březová n.Svitavou)"
+        ) == "🎟️ platí také jízdní doklady IREDO (Kolín→Březová n.Svitavou)"
     )
+    #expect(ServiceInformationLine.render("Jízdní doklady se prodávají ve vlaku") == "ℹ️ Jízdní doklady se prodávají ve vlaku")
     #expect(
         ServiceInformationLine.render(
             "MÁV-START Zrt.; Könyves Kálmán körút 36., 1097 Budapest; +36 1 349 4949"
