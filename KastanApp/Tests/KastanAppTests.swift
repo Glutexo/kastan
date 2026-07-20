@@ -1178,7 +1178,7 @@ final class KastanAppTests: XCTestCase {
                 naturalContentBottom: 680,
                 departureTop: 420
             ),
-            260
+            252
         )
         XCTAssertEqual(
             ServiceRouteInitialScroll.bottomClearance(
@@ -1187,6 +1187,14 @@ final class KastanAppTests: XCTestCase {
                 departureTop: 420
             ),
             0
+        )
+        XCTAssertEqual(
+            ServiceRouteInitialScroll.anchor(
+                viewportHeight: 520,
+                departureHeight: 64
+            ).y,
+            8 / 456,
+            accuracy: 0.000_001
         )
     }
 

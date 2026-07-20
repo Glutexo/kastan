@@ -220,13 +220,26 @@ private struct ServiceRouteInitialLayoutPreferenceKey: PreferenceKey {
 /// Makes enough room below a route to place its searched departure stop at the visible top.
 @MainActor
 enum ServiceRouteInitialScroll {
+    /// Leaves the searched departure visually clear of a unified window toolbar.
+    static let topClearance: CGFloat = 8
+
     static func bottomClearance(
         viewportHeight: CGFloat,
         naturalContentBottom: CGFloat,
         departureTop: CGFloat
     ) -> CGFloat {
         let contentBelowDeparture = max(0, naturalContentBottom - departureTop)
-        return max(0, viewportHeight - contentBelowDeparture)
+        return max(0, viewportHeight - topClearance - contentBelowDeparture)
+    }
+
+    /// Converts the fixed visual clearance into the shared item-and-viewport anchor used by `scrollTo`.
+    static func anchor(viewportHeight: CGFloat, departureHeight: CGFloat) -> UnitPoint {
+        let availableTravel = viewportHeight - departureHeight
+        guard availableTravel > 0 else { return .top }
+        return UnitPoint(
+            x: 0.5,
+            y: min(1, topClearance / availableTravel)
+        )
     }
 
     /// Waits for the loaded route's title and toolbar to establish the visible top edge before positioning it.
@@ -558,8 +571,12 @@ struct ServiceDetailView: View {
         }
 
         hasScheduledInitialRoutePosition = true
+        let scrollAnchor = ServiceRouteInitialScroll.anchor(
+            viewportHeight: viewportHeight,
+            departureHeight: departureFrame.height
+        )
         ServiceRouteInitialScroll.afterWindowLayout {
-            proxy.scrollTo(departureIndex, anchor: .top)
+            proxy.scrollTo(departureIndex, anchor: scrollAnchor)
             hasAppliedInitialRoutePosition = true
         }
     }

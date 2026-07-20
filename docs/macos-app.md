@@ -59,9 +59,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   complete connection, while Force Click on one of its services or a station-board row previews that service's
   complete route. An ordinary click continues to open the corresponding independent detail window.
 - Complete service routes open with the departure stop from the originating search fully visible at the top,
-  below the window toolbar, and with the search-relevant segment highlighted without implying live vehicle
-  position. When scrolling hides a service date, the date moves into the window title until its content label
-  is visible again.
+  with a small visual clearance below the window toolbar, and with the search-relevant segment highlighted
+  without implying live vehicle position. When scrolling hides a service date, the date moves into the window
+  title until its content label is visible again.
 - Selectable service-information text whose visibly separated rows use semantic emoji for replacement buses,
   onboard amenities, sleeping and couchette cars, through coaches, on-route train-designation changes,
   seating-class restrictions, self-service passenger handling, accessibility, family and bicycle services,
