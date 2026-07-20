@@ -201,6 +201,7 @@ private struct ServiceDateFramePreferenceKey: PreferenceKey {
 /// Supplies the geometry needed to keep a searched departure stop at the visible top of a route.
 private struct ServiceRouteInitialLayout: Equatable {
     var naturalContentFrame: CGRect?
+    var routeFrame: CGRect?
     var departureFrame: CGRect?
 }
 
@@ -213,6 +214,7 @@ private struct ServiceRouteInitialLayoutPreferenceKey: PreferenceKey {
     ) {
         let nextValue = nextValue()
         value.naturalContentFrame = nextValue.naturalContentFrame ?? value.naturalContentFrame
+        value.routeFrame = nextValue.routeFrame ?? value.routeFrame
         value.departureFrame = nextValue.departureFrame ?? value.departureFrame
     }
 }
@@ -222,6 +224,15 @@ private struct ServiceRouteInitialLayoutPreferenceKey: PreferenceKey {
 enum ServiceRouteInitialScroll {
     /// Leaves the searched departure visually clear of a unified window toolbar.
     static let topClearance: CGFloat = 8
+
+    /// Preserves the natural top when no preceding route needs to be skipped or the complete route already fits.
+    static func needsPositioning(
+        departureIndex: Int,
+        viewportHeight: CGFloat,
+        routeBottom: CGFloat
+    ) -> Bool {
+        departureIndex > 0 && routeBottom > viewportHeight
+    }
 
     static func bottomClearance(
         viewportHeight: CGFloat,
@@ -492,6 +503,18 @@ struct ServiceDetailView: View {
                                     }
                                 }
                             }
+                            .background {
+                                GeometryReader { geometry in
+                                    Color.clear.preference(
+                                        key: ServiceRouteInitialLayoutPreferenceKey.self,
+                                        value: ServiceRouteInitialLayout(
+                                            routeFrame: geometry.frame(
+                                                in: .named(Self.scrollCoordinateSpace)
+                                            )
+                                        )
+                                    )
+                                }
+                            }
 
                             if !service.information.isEmpty {
                                 GroupBox("Service information") {
@@ -555,8 +578,22 @@ struct ServiceDetailView: View {
             !hasScheduledInitialRoutePosition,
             let departureIndex,
             let naturalContentFrame = layout.naturalContentFrame,
+            let routeFrame = layout.routeFrame,
             let departureFrame = layout.departureFrame
         else {
+            return
+        }
+
+        guard ServiceRouteInitialScroll.needsPositioning(
+            departureIndex: departureIndex,
+            viewportHeight: viewportHeight,
+            routeBottom: routeFrame.maxY
+        ) else {
+            if initialRouteBottomClearance > 0.5 {
+                initialRouteBottomClearance = 0
+                return
+            }
+            hasAppliedInitialRoutePosition = true
             return
         }
 
