@@ -358,7 +358,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(ServiceNoteEmoji.symbol(for: "Doplňující informace"), "ℹ️")
     }
 
-    func testServiceNotesCombineRowsIntoOneSelectableTextFlow() {
+    func testServiceNotesCombineRowsIntoOneSelectableTextFlow() throws {
         let notes = [
             "Na trase spojení je toto plánované omezení provozu.",
             "Háje - Letňany",
@@ -370,6 +370,11 @@ final class KastanAppTests: XCTestCase {
             String(content.characters),
             "🚧 \(notes[0])\n🛤️ \(notes[1])\n🏢 \(notes[2])"
         )
+        let renderedContent = try NSAttributedString(content, including: \.appKit)
+        let paragraphStyle = try XCTUnwrap(
+            renderedContent.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+        )
+        XCTAssertEqual(paragraphStyle.paragraphSpacing, 4)
     }
 
     func testSelectableServiceNoteFlowRetainsCalendarAndPhoneLinks() {

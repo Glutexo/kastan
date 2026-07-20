@@ -685,7 +685,7 @@ struct ServiceNotesView: View {
 
     /// Joins every visible row into one attributed value so a drag selection can cross line boundaries.
     var linkedContent: AttributedString {
-        notes.enumerated().reduce(into: AttributedString()) { content, item in
+        let content = notes.enumerated().reduce(into: AttributedString()) { content, item in
             let (index, note) = item
             let serviceCalendar = serviceCalendar(for: note)
             content += AttributedString(
@@ -703,6 +703,7 @@ struct ServiceNotesView: View {
                 content += AttributedString("\n")
             }
         }
+        return Self.addingRowSpacing(to: content)
     }
 
     private func serviceCalendar(for note: String) -> StationTimetableServiceCalendar? {
@@ -718,6 +719,22 @@ struct ServiceNotesView: View {
 
     static func calendarDestination(for noteIndex: Int) -> URL {
         URL(string: "kastan-note-calendar://note/\(noteIndex)")!
+    }
+
+    /// Adds breathing room between notes without widening wrapped lines inside one note.
+    private static func addingRowSpacing(to content: AttributedString) -> AttributedString {
+        guard !content.characters.isEmpty,
+              let styledContent = try? NSMutableAttributedString(content, including: \.appKit)
+        else { return content }
+
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.paragraphSpacing = 4
+        styledContent.addAttribute(
+            .paragraphStyle,
+            value: paragraphStyle,
+            range: NSRange(location: 0, length: styledContent.length)
+        )
+        return (try? AttributedString(styledContent, including: \.appKit)) ?? content
     }
 
     private func openCalendarLink(_ url: URL) -> OpenURLAction.Result {
