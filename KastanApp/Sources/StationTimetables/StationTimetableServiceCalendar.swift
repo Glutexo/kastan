@@ -887,6 +887,12 @@ enum ServiceNoteEmoji {
         {
             return "✅"
         }
+        // Keep place names such as Kolín from turning unrelated fare notes into bicycle services.
+        let mentionsBicycle = normalized.range(
+            of: #"\bjizdn\p{L}*\s+kol\p{L}*\b"#,
+            options: .regularExpression
+        ) != nil ||
+            normalized.contains("bicycle") || normalized.contains("bike")
         if (normalized.contains("neprepravuji") ||
             normalized.contains("not carried") ||
             normalized.contains("not transported")) &&
@@ -902,7 +908,9 @@ enum ServiceNoteEmoji {
         }
         if normalized.contains("zavazadl") ||
             normalized.contains("baggage") ||
-            normalized.contains("luggage")
+            normalized.contains("luggage") ||
+            ((normalized.contains("spoluzavazad") || normalized.contains("accompanied luggage")) &&
+                !mentionsBicycle)
         {
             return "🧳"
         }
@@ -946,6 +954,12 @@ enum ServiceNoteEmoji {
                 normalized.range(of: #"\btrain\b"#, options: .regularExpression) != nil)
         {
             return "🔄"
+        }
+        if (normalized.contains("k sezeni i vozy") && normalized.contains("1. vozove tridy")) ||
+            (normalized.contains("seating") &&
+                (normalized.contains("1st class coaches") || normalized.contains("first class coaches")))
+        {
+            return "1️⃣"
         }
         if (normalized.contains("k sezeni pouze") && normalized.contains("2. vozove tridy")) ||
             (normalized.contains("seating") &&
@@ -1025,12 +1039,6 @@ enum ServiceNoteEmoji {
         {
             return "👩🏻"
         }
-        // Keep place names such as Kolín from turning unrelated fare notes into bicycle services.
-        let mentionsBicycle = normalized.range(
-            of: #"\bjizdn\p{L}*\s+kol\p{L}*\b"#,
-            options: .regularExpression
-        ) != nil ||
-            normalized.contains("bicycle") || normalized.contains("bike")
         if mentionsBicycle && (
             normalized.contains("vyloucen") ||
                 normalized.contains("excluded") ||
