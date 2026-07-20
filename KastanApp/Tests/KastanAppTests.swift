@@ -86,7 +86,7 @@ final class KastanAppTests: XCTestCase {
             allNotes: ["platí od 1.7.2026 do 26.7.2026", note]
         ))
 
-        XCTAssertEqual(serviceCalendar.rule, .runsOnlyOnListedDates)
+        XCTAssertEqual(serviceCalendar.rule.recurrence, .none)
         XCTAssertEqual(serviceCalendar.validityStart, serviceDate(2026, 7, 1))
         XCTAssertEqual(serviceCalendar.validityEnd, serviceDate(2026, 7, 26))
         XCTAssertEqual(serviceCalendar.listedDates, [serviceDate(2026, 7, 19)])
@@ -103,7 +103,7 @@ final class KastanAppTests: XCTestCase {
             allNotes: ["valid from 1.7.2026 to 31.7.2026", note]
         ))
 
-        XCTAssertEqual(serviceCalendar.rule, .doesNotRunOnListedDates)
+        XCTAssertEqual(serviceCalendar.rule.recurrence, .everyDay)
         XCTAssertEqual(
             serviceCalendar.listedDates,
             [serviceDate(2026, 7, 19), serviceDate(2026, 7, 20), serviceDate(2026, 7, 21)]
@@ -120,7 +120,7 @@ final class KastanAppTests: XCTestCase {
             validityEnd: serviceDate(2026, 12, 12)
         ))
 
-        XCTAssertEqual(serviceCalendar.rule, .doesNotRunOnListedDates)
+        XCTAssertEqual(serviceCalendar.rule.recurrence, .everyDay)
         XCTAssertEqual(
             serviceCalendar.listedDates,
             (17...20).map { serviceDate(2026, 8, $0) }
@@ -143,7 +143,7 @@ final class KastanAppTests: XCTestCase {
             validityEnd: serviceDate(2026, 12, 12)
         ))
 
-        XCTAssertEqual(serviceCalendar.rule, .doesNotRunOnListedDates)
+        XCTAssertEqual(serviceCalendar.rule.recurrence, .everyDay)
         XCTAssertEqual(serviceCalendar.listedDates, [
             serviceDate(2026, 7, 23),
             serviceDate(2026, 9, 18),
@@ -171,7 +171,7 @@ final class KastanAppTests: XCTestCase {
             validityEnd: serviceDate(2026, 12, 12)
         ))
 
-        XCTAssertEqual(serviceCalendar.rule, .runsOnWorkingDaysExceptListedDates)
+        XCTAssertEqual(serviceCalendar.rule.recurrence, .workingDays)
         XCTAssertEqual(
             serviceCalendar.listedDates,
             (18...23).map { serviceDate(2026, 8, $0) }
@@ -232,7 +232,7 @@ final class KastanAppTests: XCTestCase {
             validityEnd: serviceDate(2026, 12, 12)
         ))
 
-        XCTAssertEqual(serviceCalendar.rule, .runsOnListedDatesMatchingWeekdays(Set([6, 7])))
+        XCTAssertEqual(serviceCalendar.rule.recurrence, .selectedWeekdays(Set([6, 7])))
         XCTAssertEqual(serviceCalendar.listedDates.first, validityStart)
         XCTAssertEqual(serviceCalendar.listedDates.last, serviceDate(2026, 8, 29))
         XCTAssertEqual(serviceCalendar.status(on: validityStart), .runs)
@@ -240,6 +240,54 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 29)), .runs)
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 30)), .doesNotRun)
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 5)), .doesNotRun)
+    }
+
+    func testNumberedWeekdayRangeComposesWithPositiveAndNegativeExceptions() throws {
+        let validityStart = serviceDate(2025, 12, 14)
+        let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(
+            note: "jede do 3.XI. v 1-6,27.IX.,nejede 28.IX.",
+            validityStart: validityStart,
+            validityEnd: serviceDate(2026, 12, 12)
+        ))
+
+        XCTAssertEqual(serviceCalendar.rule.recurrence, .selectedWeekdays(Set(1...6)))
+        XCTAssertEqual(serviceCalendar.rule.operatingRange, validityStart...serviceDate(2026, 11, 3))
+        XCTAssertEqual(
+            serviceCalendar.rule.additionalRunningRanges,
+            [serviceDate(2026, 9, 27)...serviceDate(2026, 9, 27)]
+        )
+        XCTAssertEqual(
+            serviceCalendar.rule.nonRunningRanges,
+            [serviceDate(2026, 9, 28)...serviceDate(2026, 9, 28)]
+        )
+        XCTAssertEqual(serviceCalendar.recognizedDateRanges, [
+            validityStart...serviceDate(2026, 11, 3),
+            serviceDate(2026, 9, 27)...serviceDate(2026, 9, 27),
+            serviceDate(2026, 9, 28)...serviceDate(2026, 9, 28),
+        ])
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 26)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 27)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 28)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 29)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 11, 3)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 11, 4)), .doesNotRun)
+    }
+
+    func testWeekdayHyphenDoesNotConsumeALaterPositiveException() throws {
+        let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(
+            note: "jede do 29.VIII. v 1-6,6.IX.",
+            validityStart: serviceDate(2025, 12, 14),
+            validityEnd: serviceDate(2026, 12, 12)
+        ))
+
+        XCTAssertEqual(serviceCalendar.rule.recurrence, .selectedWeekdays(Set(1...6)))
+        XCTAssertEqual(
+            serviceCalendar.rule.additionalRunningRanges,
+            [serviceDate(2026, 9, 6)...serviceDate(2026, 9, 6)]
+        )
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 5)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 6)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 7)), .doesNotRun)
     }
 
     func testServiceCalendarInitiallyShowsCurrentOrNearestValidityMonth() throws {

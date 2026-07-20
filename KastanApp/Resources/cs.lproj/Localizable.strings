@@ -1,5 +1,6 @@
 "About Kaštan" = "O aplikaci Kaštan";
 "Add to Calendar" = "Přidat do Kalendáře";
+"Additionally runs %@" = "Navíc jede %@";
 "Add timetable to favorites" = "Přidat jízdní řád do oblíbených";
 "Add journey option" = "Přidat možnost cesty";
 "Add via place" = "Přidat další místo";
@@ -33,6 +34,7 @@
 "Direct" = "Přímé";
 "Direct only" = "Jen přímé";
 "Does not run" = "Nejede";
+"Does not run %@" = "Nejede %@";
 "Does not run on the listed dates" = "Nejede v uvedené dny";
 "Direction from" = "Směr od";
 "Direction to" = "Směr do";
@@ -99,9 +101,11 @@
 "Remove journey option" = "Odebrat možnost cesty";
 "Reverse direction" = "Opačný směr";
 "Runs" = "Jede";
+"Runs every day within the listed date range" = "Jede každý den v uvedeném rozsahu";
 "Runs only on the listed dates" = "Jede pouze v uvedené dny";
 "Runs on days %@ within the listed date range" = "Jede ve dnech %@ v uvedeném rozsahu";
 "Runs on working days except the listed dates" = "Jede v pracovní dny kromě uvedených dat";
+"Runs throughout timetable validity except the listed dates" = "Jede po celou platnost jízdního řádu kromě uvedených dat";
 "Search" = "Hledat";
 "Search mode" = "Režim vyhledávání";
 "Save as PDF" = "Uložit jako PDF";

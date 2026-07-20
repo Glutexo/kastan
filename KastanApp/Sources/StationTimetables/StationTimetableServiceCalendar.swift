@@ -4,11 +4,19 @@ import SwiftUI
 
 /// Interprets one dated IDOS service note only within the validity of its current timetable.
 struct StationTimetableServiceCalendar: Equatable {
-    enum Rule: Equatable {
-        case runsOnlyOnListedDates
-        case doesNotRunOnListedDates
-        case runsOnWorkingDaysExceptListedDates
-        case runsOnListedDatesMatchingWeekdays(Set<Int>)
+    struct Rule: Equatable {
+        enum Recurrence: Equatable {
+            case none
+            case everyDay
+            case workingDays
+            case selectedWeekdays(Set<Int>)
+        }
+
+        let recurrence: Recurrence
+        let operatingRange: ClosedRange<Date>
+        let hasExplicitOperatingRange: Bool
+        let additionalRunningRanges: [ClosedRange<Date>]
+        let nonRunningRanges: [ClosedRange<Date>]
     }
 
     enum DayStatus: Equatable {
@@ -35,21 +43,21 @@ struct StationTimetableServiceCalendar: Equatable {
         let calendar = Self.serviceCalendar
         let validityStart = calendar.startOfDay(for: validityStart)
         let validityEnd = calendar.startOfDay(for: validityEnd)
-        guard validityStart <= validityEnd, let rule = Self.rule(in: note) else { return nil }
-
-        let dateInterpretation = Self.dateInterpretation(
-            in: note,
-            validityStart: validityStart,
-            validityEnd: validityEnd
-        )
-        guard !dateInterpretation.dates.isEmpty else { return nil }
+        guard validityStart <= validityEnd,
+              let parsedRule = Self.parsedRule(
+                  in: note,
+                  validityStart: validityStart,
+                  validityEnd: validityEnd
+              ),
+              !parsedRule.listedDates.isEmpty
+        else { return nil }
 
         self.note = note
         self.validityStart = validityStart
         self.validityEnd = validityEnd
-        listedDates = dateInterpretation.dates
-        recognizedDateRanges = dateInterpretation.ranges
-        self.rule = rule
+        listedDates = parsedRule.listedDates
+        recognizedDateRanges = parsedRule.recognizedDateRanges
+        rule = parsedRule.rule
     }
 
     /// Distinguishes service days, non-service days, and dates not covered by the current timetable.
@@ -60,18 +68,25 @@ struct StationTimetableServiceCalendar: Equatable {
             return .outsideTimetableValidity
         }
 
-        let isListed = listedDates.contains(day)
-        switch rule {
-        case .runsOnlyOnListedDates:
-            return isListed ? .runs : .doesNotRun
-        case .doesNotRunOnListedDates:
-            return isListed ? .doesNotRun : .runs
-        case .runsOnWorkingDaysExceptListedDates:
-            return Self.isCzechWorkingDay(day, calendar: calendar) && !isListed
-                ? .runs
-                : .doesNotRun
-        case let .runsOnListedDatesMatchingWeekdays(weekdays):
-            return isListed && weekdays.contains(Self.idosWeekday(for: day, calendar: calendar))
+        if rule.nonRunningRanges.contains(where: { $0.contains(day) }) {
+            return .doesNotRun
+        }
+        if rule.additionalRunningRanges.contains(where: { $0.contains(day) }) {
+            return .runs
+        }
+        guard rule.operatingRange.contains(day) else {
+            return .doesNotRun
+        }
+
+        switch rule.recurrence {
+        case .none:
+            return .doesNotRun
+        case .everyDay:
+            return .runs
+        case .workingDays:
+            return Self.isCzechWorkingDay(day, calendar: calendar) ? .runs : .doesNotRun
+        case let .selectedWeekdays(weekdays):
+            return weekdays.contains(Self.idosWeekday(for: day, calendar: calendar))
                 ? .runs
                 : .doesNotRun
         }
@@ -112,6 +127,13 @@ struct StationTimetableServiceCalendar: Equatable {
     private struct DateInterpretation {
         let dates: [Date]
         let ranges: [ClosedRange<Date>]
+    }
+
+    /// Carries the composed operating rule together with the dates represented by the source note.
+    private struct ParsedRule {
+        let rule: Rule
+        let listedDates: [Date]
+        let recognizedDateRanges: [ClosedRange<Date>]
     }
 
     /// Describes a one-sided service range whose other boundary is the timetable validity interval.
@@ -159,42 +181,131 @@ struct StationTimetableServiceCalendar: Equatable {
         return nil
     }
 
-    private static func rule(in note: String) -> Rule? {
+    /// Composes the recurring rule, positive exceptions, and negative exceptions found in one IDOS note.
+    private static func parsedRule(
+        in note: String,
+        validityStart: Date,
+        validityEnd: Date
+    ) -> ParsedRule? {
         let normalized = note
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "cs_CZ"))
             .lowercased()
 
-        let runsThroughBoundaryPattern = #"\bjede\s+do\b|(?<!not )\bruns?\s+(?:until|to)\b"#
-        if let weekdays = numberedWeekdays(in: normalized),
-           normalized.range(of: runsThroughBoundaryPattern, options: .regularExpression) != nil
-        {
-            return .runsOnListedDatesMatchingWeekdays(weekdays)
+        let positiveRunPattern = #"\bjede\b|(?<!not )\bruns?\b"#
+        let negativeRunPattern = #"\bnejede\b|\bdoes\s+not\s+run\b"#
+        let hasPositiveRule = normalized.range(of: positiveRunPattern, options: .regularExpression) != nil
+        let hasNegativeRule = normalized.range(of: negativeRunPattern, options: .regularExpression) != nil
+        guard hasPositiveRule || hasNegativeRule else { return nil }
+
+        let source = note as NSString
+        let negativeMatch = try? NSRegularExpression(
+            pattern: #"(?i)\bnejede\b|\bdoes\s+not\s+run\b"#
+        ).firstMatch(in: note, range: NSRange(location: 0, length: source.length))
+        let positiveNote: String
+        let negativeNote: String?
+        if let negativeMatch {
+            positiveNote = source.substring(to: negativeMatch.range.location)
+            negativeNote = source.substring(from: negativeMatch.range.location)
+        } else {
+            positiveNote = note
+            negativeNote = nil
         }
 
+        let positiveNormalized = positiveNote
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "cs_CZ"))
+            .lowercased()
+        let runsThroughBoundaryPattern = #"\bjede\s+do\b|(?<!not )\bruns?\s+(?:until|to)\b"#
+        let runsThroughBoundary = positiveNormalized.range(
+            of: runsThroughBoundaryPattern,
+            options: .regularExpression
+        ) != nil
         let workingDayPattern =
             #"\bjede\s+v\s+(?:x\b|pracovnich\s+dnech\b)|(?<!not )\bruns?\s+(?:on\s+)?(?:working\s+days?|weekdays?|workdays?)\b"#
-        if normalized.range(of: workingDayPattern, options: .regularExpression) != nil {
-            return .runsOnWorkingDaysExceptListedDates
+        let recurrence: Rule.Recurrence
+        if positiveNormalized.range(of: workingDayPattern, options: .regularExpression) != nil {
+            recurrence = .workingDays
+        } else if let weekdays = numberedWeekdays(in: positiveNormalized) {
+            recurrence = .selectedWeekdays(weekdays)
+        } else if runsThroughBoundary || !hasPositiveRule {
+            recurrence = .everyDay
+        } else {
+            recurrence = .none
         }
 
-        if normalized.range(of: #"\bnejede\b|\bdoes\s+not\s+run\b"#, options: .regularExpression) != nil {
-            return .doesNotRunOnListedDates
+        let positiveInterpretation = dateInterpretation(
+            in: positiveNote,
+            validityStart: validityStart,
+            validityEnd: validityEnd
+        )
+        let nonRunningRanges = negativeNote.map {
+            dateInterpretation(
+                in: $0,
+                validityStart: validityStart,
+                validityEnd: validityEnd
+            ).ranges
+        } ?? []
+
+        let operatingRange: ClosedRange<Date>
+        let additionalRunningRanges: [ClosedRange<Date>]
+        if runsThroughBoundary,
+           let boundaryToken = serviceDateTokens(in: positiveNote).first,
+           let boundaryDate = resolvedDates(
+               for: boundaryToken,
+               validityStart: validityStart,
+               validityEnd: validityEnd,
+               calendar: serviceCalendar
+           ).first
+        {
+            operatingRange = validityStart...boundaryDate
+            additionalRunningRanges = Array(positiveInterpretation.ranges.dropFirst())
+        } else {
+            operatingRange = validityStart...validityEnd
+            additionalRunningRanges = positiveInterpretation.ranges
         }
-        if normalized.range(of: #"\bjede\b|\bruns?\b"#, options: .regularExpression) != nil {
-            return .runsOnlyOnListedDates
+
+        let rule = Rule(
+            recurrence: recurrence,
+            operatingRange: operatingRange,
+            hasExplicitOperatingRange: runsThroughBoundary,
+            additionalRunningRanges: additionalRunningRanges,
+            nonRunningRanges: nonRunningRanges
+        )
+        var recognizedDateRanges = additionalRunningRanges + nonRunningRanges
+        if runsThroughBoundary {
+            recognizedDateRanges.insert(operatingRange, at: 0)
         }
-        return nil
+        let listedDates = Set(recognizedDateRanges.flatMap {
+            dates(from: $0.lowerBound, through: $0.upperBound, calendar: serviceCalendar)
+        }).sorted()
+        return ParsedRule(
+            rule: rule,
+            listedDates: listedDates,
+            recognizedDateRanges: recognizedDateRanges
+        )
     }
 
-    /// Reads IDOS weekday numbers, where Monday is 1 and Sunday is 7.
+    /// Reads individual numbers and ranges in IDOS's Monday-first weekday notation.
     private static func numberedWeekdays(in normalizedNote: String) -> Set<Int>? {
-        let pattern = #"\b(?:v|on)\s+([1-7](?:\s*,\s*[1-7])*)\b"#
+        let element = #"[1-7](?:\s*[-–—]\s*[1-7])?"#
+        let pattern = #"\b(?:v|on)\s+("# + element + #"(?:\s*,\s*"# + element + #")*)(?!\d)"#
         guard let values = captures(pattern: pattern, in: normalizedNote).first?.first else {
             return nil
         }
-        let weekdays = Set(values.split(separator: ",").compactMap { value in
-            Int(value.trimmingCharacters(in: .whitespaces))
-        })
+        var weekdays = Set<Int>()
+        let rangeSeparators = CharacterSet(charactersIn: "-–—")
+        for element in values.split(separator: ",") {
+            let bounds = element.components(separatedBy: rangeSeparators).compactMap { value in
+                Int(value.trimmingCharacters(in: .whitespaces))
+            }
+            switch bounds.count {
+            case 1:
+                weekdays.insert(bounds[0])
+            case 2 where bounds[0] <= bounds[1]:
+                weekdays.formUnion(bounds[0]...bounds[1])
+            default:
+                continue
+            }
+        }
         return weekdays.isEmpty ? nil : weekdays
     }
 
@@ -456,7 +567,8 @@ struct StationTimetableServiceCalendar: Equatable {
         let connector = source.substring(with: NSRange(location: location, length: length))
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "cs_CZ"))
             .lowercased()
-        return connector.contains("-") || connector.contains("–") || connector.contains("—") ||
+        let symbolicRangePattern = #"(?<!\d)[-–—](?!\d)"#
+        return connector.range(of: symbolicRangePattern, options: .regularExpression) != nil ||
             connector.range(of: #"\b(?:az|do|to)\b"#, options: .regularExpression) != nil
     }
 
@@ -636,8 +748,31 @@ private struct StationTimetableServiceCalendarView: View {
         GroupBox("Recognized conditions") {
             VStack(alignment: .leading, spacing: 7) {
                 Label(recognizedRuleDescription, systemImage: "checkmark.circle")
-                ForEach(Array(serviceCalendar.recognizedDateRanges.enumerated()), id: \.offset) { _, range in
-                    Label(recognizedRangeDescription(range), systemImage: "calendar")
+                if serviceCalendar.rule.hasExplicitOperatingRange {
+                    Label(
+                        recognizedRangeDescription(serviceCalendar.rule.operatingRange),
+                        systemImage: "calendar"
+                    )
+                }
+                ForEach(
+                    Array(serviceCalendar.rule.additionalRunningRanges.enumerated()),
+                    id: \.offset
+                ) { _, range in
+                    let description = recognizedRangeDescription(range)
+                    if serviceCalendar.rule.recurrence == .none {
+                        Label(description, systemImage: "calendar")
+                    } else {
+                        Label(
+                            AppLocalization.string("Additionally runs %@", description),
+                            systemImage: "plus.circle"
+                        )
+                    }
+                }
+                ForEach(Array(serviceCalendar.rule.nonRunningRanges.enumerated()), id: \.offset) { _, range in
+                    Label(
+                        AppLocalization.string("Does not run %@", recognizedRangeDescription(range)),
+                        systemImage: "minus.circle"
+                    )
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -647,14 +782,16 @@ private struct StationTimetableServiceCalendarView: View {
     }
 
     private var recognizedRuleDescription: String {
-        switch serviceCalendar.rule {
-        case .runsOnlyOnListedDates:
+        switch serviceCalendar.rule.recurrence {
+        case .none:
             return AppLocalization.string("Runs only on the listed dates")
-        case .doesNotRunOnListedDates:
-            return AppLocalization.string("Does not run on the listed dates")
-        case .runsOnWorkingDaysExceptListedDates:
+        case .everyDay where serviceCalendar.rule.hasExplicitOperatingRange:
+            return AppLocalization.string("Runs every day within the listed date range")
+        case .everyDay:
+            return AppLocalization.string("Runs throughout timetable validity except the listed dates")
+        case .workingDays:
             return AppLocalization.string("Runs on working days except the listed dates")
-        case let .runsOnListedDatesMatchingWeekdays(weekdays):
+        case let .selectedWeekdays(weekdays):
             let values = weekdays.sorted().map(String.init).joined(separator: ", ")
             return AppLocalization.string("Runs on days %@ within the listed date range", values)
         }

@@ -1,5 +1,6 @@
 "About Kaštan" = "About Kaštan";
 "Add to Calendar" = "Add to Calendar";
+"Additionally runs %@" = "Additionally runs %@";
 "Add timetable to favorites" = "Add timetable to favorites";
 "Add journey option" = "Add journey option";
 "Add via place" = "Add via place";
@@ -33,6 +34,7 @@
 "Direct" = "Direct";
 "Direct only" = "Direct only";
 "Does not run" = "Does not run";
+"Does not run %@" = "Does not run %@";
 "Does not run on the listed dates" = "Does not run on the listed dates";
 "Direction from" = "Direction from";
 "Direction to" = "Direction to";
@@ -99,9 +101,11 @@
 "Remove journey option" = "Remove journey option";
 "Reverse direction" = "Reverse direction";
 "Runs" = "Runs";
+"Runs every day within the listed date range" = "Runs every day within the listed date range";
 "Runs only on the listed dates" = "Runs only on the listed dates";
 "Runs on days %@ within the listed date range" = "Runs on days %@ within the listed date range";
 "Runs on working days except the listed dates" = "Runs on working days except the listed dates";
+"Runs throughout timetable validity except the listed dates" = "Runs throughout timetable validity except the listed dates";
 "Search" = "Search";
 "Search mode" = "Search mode";
 "Save as PDF" = "Save as PDF";
