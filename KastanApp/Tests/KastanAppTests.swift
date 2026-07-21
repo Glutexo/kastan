@@ -947,6 +947,58 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(ResultPreviewLayout.serviceSize, CGSize(width: 600, height: 560))
     }
 
+    func testDoubleClickingConnectionHeaderOpensItsWindow() {
+        var openCount = 0
+        let card = ConnectionCard(
+            number: 1,
+            connection: connection(id: "connection-double-click"),
+            client: MockIDOSClient(),
+            isPerformingExport: false,
+            showsActionMenu: false,
+            timeFrameCoordinateSpace: nil,
+            openConnection: { openCount += 1 },
+            openService: { _ in },
+            addToCalendar: {},
+            saveAsPDF: {}
+        )
+        let hostingView = NSHostingView(
+            rootView: card.frame(width: 700, height: 140, alignment: .topLeading)
+        )
+        hostingView.frame = NSRect(x: 0, y: 0, width: 700, height: 140)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        let location = NSPoint(x: 300, y: 112)
+        for clickCount in 1...2 {
+            for eventType in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                let event = NSEvent.mouseEvent(
+                    with: eventType,
+                    location: location,
+                    modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime + Double(clickCount) * 0.01,
+                    windowNumber: window.windowNumber,
+                    context: nil,
+                    eventNumber: 0,
+                    clickCount: clickCount,
+                    pressure: eventType == .leftMouseDown ? 1 : 0
+                )
+                if let event {
+                    window.sendEvent(event)
+                }
+            }
+        }
+
+        XCTAssertEqual(openCount, 1)
+    }
+
     func testNativeToolbarKeepsTheModePickerAheadOfOverflowActions() throws {
         var selection = AppSection.connections
         let coordinator = MainWindowToolbarInstaller.Coordinator(

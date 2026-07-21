@@ -61,7 +61,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   or English IDOS states for on-time or delayed arrivals and departures. A trackpad Force Click on a service row,
   either in the result list or an opened connection detail, previews that service's complete route. Force Click on
   a station-board row behaves the same way. Connection cards themselves do not duplicate their visible content in
-  a preview. An ordinary click continues to open the corresponding independent detail window.
+  a preview. Double-clicking a connection header opens that complete connection in an independent window; the
+  visible window button remains available as an alternative. An ordinary service click opens its detail window.
 - Long service routes open with the departure stop from the originating search fully visible at the top, with a
   small visual clearance below the window toolbar. When the departure is already the first stop or the complete
   route fits in the viewport, the natural position is preserved without artificial trailing space. The

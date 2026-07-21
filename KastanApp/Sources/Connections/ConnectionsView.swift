@@ -491,33 +491,39 @@ struct ConnectionCard: View {
         GroupBox {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
-                    if let number {
-                        Text(AppLocalization.string("Connection %lld", number))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Text("\(connection.departureTime) → \(connection.arrivalTime)")
-                        .font(.title2.bold().monospacedDigit())
-                        .background {
-                            if let timeFrameCoordinateSpace {
-                                GeometryReader { geometry in
-                                    Color.clear.preference(
-                                        key: ConnectionTimeFramePreferenceKey.self,
-                                        value: geometry.frame(in: .named(timeFrameCoordinateSpace))
-                                    )
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        if let number {
+                            Text(AppLocalization.string("Connection %lld", number))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Text("\(connection.departureTime) → \(connection.arrivalTime)")
+                            .font(.title2.bold().monospacedDigit())
+                            .background {
+                                if let timeFrameCoordinateSpace {
+                                    GeometryReader { geometry in
+                                        Color.clear.preference(
+                                            key: ConnectionTimeFramePreferenceKey.self,
+                                            value: geometry.frame(in: .named(timeFrameCoordinateSpace))
+                                        )
+                                    }
                                 }
                             }
+                        Text(connection.duration)
+                            .foregroundStyle(.secondary)
+                        if connection.legs.count <= 1 {
+                            Text("Direct")
+                                .font(.caption.bold())
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 3)
+                                .background(.green.opacity(0.14), in: Capsule())
                         }
-                    Text(connection.duration)
-                        .foregroundStyle(.secondary)
-                    if connection.legs.count <= 1 {
-                        Text("Direct")
-                            .font(.caption.bold())
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
-                            .background(.green.opacity(0.14), in: Capsule())
+                        Spacer()
                     }
-                    Spacer()
+                    .contentShape(Rectangle())
+                    .onTapGesture(count: 2) {
+                        openConnection?()
+                    }
                     if let openConnection {
                         Button(action: openConnection) {
                             Label("Open connection in new window", systemImage: "macwindow")
