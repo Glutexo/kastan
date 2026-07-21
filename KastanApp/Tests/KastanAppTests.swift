@@ -862,6 +862,10 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(AppWindow.connectionDetail, "connection-detail")
     }
 
+    func testFavoriteTimetablesCommandBelongsToWindowMenu() {
+        XCTAssertEqual(FavoriteTimetablesCommands.menu, .window)
+    }
+
     func testForceClickPreviewPrefersTheSmallestLatestTargetUnderThePointer() throws {
         let connectionID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000001"))
         let serviceID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000002"))

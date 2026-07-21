@@ -36,9 +36,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   Station Timetables while preserving each search's state. Stable toolbar identifiers and visibility priorities
   keep that control intact, and its natural width follows the localized labels without stretching the final
   segment. macOS moves secondary actions into its native overflow menu when a compact window cannot show them
-  directly. The same actions remain available from the app menus. These actions open the
-  timetable-favorites manager and app information in their own windows, with concise labels that name their
-  content.
+  directly. The same actions remain available from the app menus. Search-mode commands stay in View, while
+  Favorite timetables belongs to Window and remains available from every app window. These actions open the
+  timetable-favorites manager and app information in their own windows, with concise labels that name their content.
 - Timetable menus grouped into general rail and bus choices, integrated transport systems, and city networks,
   with persistent favorites repeated in their own first section without disappearing from the catalog, and a
   favorite button whose small visible gap adapts to the compact and wide search layouts.
