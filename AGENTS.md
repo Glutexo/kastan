@@ -16,6 +16,7 @@ Pravidla budeme prubezne rozsirovat.
 - Neprovadej destruktivni git operace bez vyslovneho souhlasu.
 - Vsechny dokoncene zmeny hned commituj a pushuj na GitHub, pokud uzivatel vyslovne nerekne jinak.
 - Po kazde zmene zkontroluj, zda reprezentativni snimek aplikace v README zustava aktualni. Pokud ho zmena zneaktualni, zaloz pred odevzdanim GitHub issue pro jeho obnoveni.
+- Reprezentativni snimek aplikace v README nesmi nikdy obsahovat spoje dopravce RegioJet.
 - Pred odevzdanim zkontroluj `git status`.
 
 ## Kvalita zmen
