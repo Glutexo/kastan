@@ -1,13 +1,12 @@
 import AppKit
 import SwiftUI
 
-/// Keeps result previews large enough to show useful route context without becoming another full window.
+/// Keeps service previews large enough to show useful route context without becoming another full window.
 enum ResultPreviewLayout {
-    static let connectionSize = CGSize(width: 700, height: 540)
     static let serviceSize = CGSize(width: 600, height: 560)
 }
 
-/// Distinguishes a complete independent detail window from the same content embedded in a preview.
+/// Distinguishes an independent service window from the same route embedded in a preview.
 enum ResultDetailPresentation {
     case window
     case preview
@@ -20,7 +19,7 @@ struct ForceClickPreviewTargetFrame: Equatable {
     let registrationOrder: Int
 }
 
-/// Gives a nested interactive row priority over the larger connection card beneath the same pointer location.
+/// Chooses the smallest and most recently registered preview target beneath the pointer.
 enum ForceClickPreviewTargetResolver {
     static func targetID(
         at location: CGPoint,
@@ -153,6 +152,8 @@ private final class ForceClickPreviewMonitor {
 }
 
 /// Registers a geometry-only SwiftUI background with the shared native pressure monitor.
+final class ForceClickPreviewAttachmentView: NSView {}
+
 private struct ForceClickPreviewAttachment: NSViewRepresentable {
     let showPreview: @MainActor () -> Void
     let pressureEnded: @MainActor () -> Void
@@ -162,7 +163,7 @@ private struct ForceClickPreviewAttachment: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSView {
-        let view = NSView()
+        let view = ForceClickPreviewAttachmentView()
         ForceClickPreviewMonitor.shared.register(
             id: context.coordinator.id,
             attachmentView: view,

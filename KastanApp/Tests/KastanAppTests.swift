@@ -862,7 +862,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(AppWindow.connectionDetail, "connection-detail")
     }
 
-    func testForceClickPreviewPrefersTheNestedTargetUnderThePointer() throws {
+    func testForceClickPreviewPrefersTheSmallestLatestTargetUnderThePointer() throws {
         let connectionID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000001"))
         let serviceID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000002"))
         let newerEqualTargetID = try XCTUnwrap(
@@ -905,20 +905,46 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testConnectionResultLegsPreviewTheirCompleteConnection() {
-        let selection = ConnectionSelection(
-            connection: connection(id: "connection-preview"),
-            timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains")
+    func testConnectionCardRegistersForceClickOnlyForItsServices() {
+        var displayedConnection = connection(id: "connection-preview-targets")
+        displayedConnection.legs = [
+            IDOSConnectionLeg(
+                name: "R 879 Svitava",
+                id: "vlaky:service-preview",
+                transportMode: .train,
+                departureTime: "12:00",
+                fromStation: "Praha hl.n.",
+                arrivalTime: "14:30",
+                toStation: "Brno hl.n."
+            ),
+        ]
+        let card = ConnectionCard(
+            number: 1,
+            connection: displayedConnection,
+            client: MockIDOSClient(),
+            isPerformingExport: false,
+            showsActionMenu: true,
+            timeFrameCoordinateSpace: nil,
+            openConnection: {},
+            openService: { _ in },
+            addToCalendar: {},
+            saveAsPDF: {}
         )
-        let resultDestination = ConnectionLegPreviewDestination.completeConnection(selection)
+        let hostingView = NSHostingView(rootView: card.frame(width: 700))
+        hostingView.frame = NSRect(x: 0, y: 0, width: 700, height: 300)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
 
-        XCTAssertEqual(resultDestination, .completeConnection(selection))
-        XCTAssertNotEqual(resultDestination, .service)
-        XCTAssertEqual(resultDestination.size, ResultPreviewLayout.connectionSize)
-        XCTAssertEqual(
-            ConnectionLegPreviewDestination.service.size,
-            ResultPreviewLayout.serviceSize
-        )
+        XCTAssertEqual(forceClickPreviewAttachmentCount(in: hostingView), 1)
+        XCTAssertEqual(ResultPreviewLayout.serviceSize, CGSize(width: 600, height: 560))
     }
 
     func testNativeToolbarKeepsTheModePickerAheadOfOverflowActions() throws {
@@ -1865,6 +1891,12 @@ private func departure(id: String) -> IDOSDeparture {
         lineName: "S2",
         destination: "Opava"
     )
+}
+
+@MainActor
+private func forceClickPreviewAttachmentCount(in view: NSView) -> Int {
+    (view is ForceClickPreviewAttachmentView ? 1 : 0) +
+        view.subviews.reduce(0) { $0 + forceClickPreviewAttachmentCount(in: $1) }
 }
 
 private func localizationBundle(languageCode: String) -> Bundle? {

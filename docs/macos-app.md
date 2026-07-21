@@ -58,11 +58,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   hides the connection's main time range, that range moves into the window title until its content label is
   visible again.
 - Connection cards with line colors, transport symbols, platforms, tariff zones, carriers, and localized Czech
-  or English IDOS states for on-time or delayed arrivals and departures. A trackpad Force Click anywhere within
-  a connection card,
-  including one of its service rows, previews the complete connection. Force Click on a service inside an opened
-  connection detail or on a station-board row previews that individual service's complete route. An ordinary
-  click continues to open the corresponding independent detail window.
+  or English IDOS states for on-time or delayed arrivals and departures. A trackpad Force Click on a service row,
+  either in the result list or an opened connection detail, previews that service's complete route. Force Click on
+  a station-board row behaves the same way. Connection cards themselves do not duplicate their visible content in
+  a preview. An ordinary click continues to open the corresponding independent detail window.
 - Long service routes open with the departure stop from the originating search fully visible at the top, with a
   small visual clearance below the window toolbar. When the departure is already the first stop or the complete
   route fits in the viewport, the natural position is preserved without artificial trailing space. The

@@ -318,7 +318,6 @@ struct ConnectionsView: View {
                         number: index + 1,
                         connection: connection,
                         client: client,
-                        legPreviewDestination: .completeConnection(selection),
                         isPerformingExport: model.importingConnectionID == connection.id ||
                             model.exportingPDFConnectionID == connection.id,
                         showsActionMenu: true,
@@ -333,13 +332,6 @@ struct ConnectionsView: View {
                         addToCalendar: { Task { await model.addToCalendar(connection) } },
                         saveAsPDF: { Task { await model.saveAsPDF(connection) } }
                     )
-                    .forceClickPreview(size: ResultPreviewLayout.connectionSize) {
-                        ConnectionDetailView(
-                            selection: selection,
-                            client: client,
-                            presentation: .preview
-                        )
-                    }
                 }
             }
         }
@@ -482,27 +474,11 @@ private struct ConnectionTimeFramePreferenceKey: PreferenceKey {
     }
 }
 
-/// Chooses whether a Force Click on a nested leg represents its result card or the individual service.
-enum ConnectionLegPreviewDestination: Equatable {
-    case completeConnection(ConnectionSelection)
-    case service
-
-    var size: CGSize {
-        switch self {
-        case .completeConnection:
-            ResultPreviewLayout.connectionSize
-        case .service:
-            ResultPreviewLayout.serviceSize
-        }
-    }
-}
-
 /// Contains one complete journey and all of its legs in a distinct native result card.
-private struct ConnectionCard: View {
+struct ConnectionCard: View {
     let number: Int?
     let connection: IDOSConnection
     let client: any IDOSClienting
-    let legPreviewDestination: ConnectionLegPreviewDestination
     let isPerformingExport: Bool
     let showsActionMenu: Bool
     let timeFrameCoordinateSpace: String?
@@ -614,7 +590,6 @@ private struct ConnectionCard: View {
                             ConnectionLegRow(
                                 leg: leg,
                                 client: client,
-                                previewDestination: legPreviewDestination,
                                 openService: openService
                             )
                             if index < connection.legs.count - 1 {
@@ -685,16 +660,13 @@ struct ConnectionDetailView: View {
     @State private var timeIsUnderTitle = false
     private let selection: ConnectionSelection
     private let client: any IDOSClienting
-    private let presentation: ResultDetailPresentation
 
     init(
         selection: ConnectionSelection,
-        client: any IDOSClienting,
-        presentation: ResultDetailPresentation = .window
+        client: any IDOSClienting
     ) {
         self.selection = selection
         self.client = client
-        self.presentation = presentation
         let actionsModel = ConnectionsViewModel(client: client)
         actionsModel.timetable = selection.timetable
         _actionsModel = StateObject(wrappedValue: actionsModel)
@@ -715,7 +687,6 @@ struct ConnectionDetailView: View {
                     number: nil,
                     connection: selection.connection,
                     client: client,
-                    legPreviewDestination: .service,
                     isPerformingExport: actionsModel.importingConnectionID == selection.connection.id ||
                         actionsModel.exportingPDFConnectionID == selection.connection.id,
                     showsActionMenu: false,
@@ -745,15 +716,13 @@ struct ConnectionDetailView: View {
         .frame(minWidth: Self.minimumWindowWidth, minHeight: 420)
         .navigationTitle(windowTitle)
         .toolbar {
-            if presentation == .window {
-                ToolbarItemGroup(placement: .primaryAction) {
-                    ForEach(
-                        ConnectionDetailToolbarAction.availableActions(
-                            hasPermanentLink: connectionActionURL != nil
-                        )
-                    ) { action in
-                        connectionActionControl(action, url: connectionActionURL)
-                    }
+            ToolbarItemGroup(placement: .primaryAction) {
+                ForEach(
+                    ConnectionDetailToolbarAction.availableActions(
+                        hasPermanentLink: connectionActionURL != nil
+                    )
+                ) { action in
+                    connectionActionControl(action, url: connectionActionURL)
                 }
             }
         }
@@ -850,7 +819,6 @@ struct ConnectionDetailView: View {
 private struct ConnectionLegRow: View {
     let leg: IDOSConnectionLeg
     let client: any IDOSClienting
-    let previewDestination: ConnectionLegPreviewDestination
     let openService: (ServiceSelection) -> Void
     @State private var suppressesPrimaryAction = false
 
@@ -859,10 +827,14 @@ private struct ConnectionLegRow: View {
         if let selection {
             rowButton(selection: selection)
                 .forceClickPreview(
-                    size: previewDestination.size,
+                    size: ResultPreviewLayout.serviceSize,
                     suppressesPrimaryAction: $suppressesPrimaryAction
                 ) {
-                    preview(for: selection)
+                    ServiceDetailView(
+                        selection: selection,
+                        client: client,
+                        presentation: .preview
+                    )
                 }
         } else {
             rowButton(selection: nil)
@@ -878,25 +850,6 @@ private struct ConnectionLegRow: View {
                     fromStop: leg.fromStation,
                     toStop: leg.toStation
                 )
-            )
-        }
-    }
-
-    /// Keeps a leg within a result card scoped to the whole connection while retaining service previews in detail.
-    @ViewBuilder
-    private func preview(for selection: ServiceSelection) -> some View {
-        switch previewDestination {
-        case let .completeConnection(connectionSelection):
-            ConnectionDetailView(
-                selection: connectionSelection,
-                client: client,
-                presentation: .preview
-            )
-        case .service:
-            ServiceDetailView(
-                selection: selection,
-                client: client,
-                presentation: .preview
             )
         }
     }
