@@ -266,6 +266,12 @@ struct TimetableFavorites: Equatable {
     }
 }
 
+/// Keeps every macOS search mode aligned on the narrowest useful timetable available to all of them.
+enum AppTimetableDefaults {
+    static let search = IDOSTimetable.known.first { $0.slug == "vlaky" }
+        ?? IDOSTimetable(slug: "vlaky", displayName: "Trains")
+}
+
 /// Product-facing sections that keep the long IDOS timetable catalog scannable.
 enum AppTimetableGroup: CaseIterable, Identifiable {
     case general
@@ -302,9 +308,10 @@ enum AppTimetableGroup: CaseIterable, Identifiable {
         }
     }
 
-    /// Limits station timetables to the integrated systems and individual MHD catalogs supported by IDOS.
+    /// Limits station timetables to trains, integrated systems, and individual MHD catalogs supported by IDOS.
     static var stationTimetables: [IDOSTimetable] {
-        integratedSystems.timetables + cityTransport.timetables
+        let trains = general.timetables.filter { $0.slug == "vlaky" }
+        return trains + integratedSystems.timetables + cityTransport.timetables
     }
 
     private func contains(_ timetable: IDOSTimetable) -> Bool {

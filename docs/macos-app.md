@@ -40,8 +40,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   Favorite timetables belongs to Window and remains available from every app window. These actions open the
   timetable-favorites manager and app information in their own windows, with concise labels that name their content.
 - Timetable menus grouped into general rail and bus choices, integrated transport systems, and city networks,
-  with persistent favorites repeated in their own first section without disappearing from the catalog, and a
-  favorite button whose small visible gap adapts to the compact and wide search layouts.
+  with Trains selected initially in every search mode. Station Timetables offer that shared rail default together
+  with integrated systems and city networks while omitting unsupported broad combinations such as All timetables.
+  Persistent favorites repeat in their own first section without disappearing from the catalog, and the favorite
+  button's small visible gap adapts to the compact and wide search layouts.
 - Search forms fixed above independently scrollable result areas, then collapsed into low query summaries after
   submission with an explicit action for returning to the editable form. The main window remains usable down to
   a compact 522-point width without moving the connection or station-board time mode below the date and time

@@ -13,7 +13,7 @@ final class DeparturesViewModel: ObservableObject {
     }
     /// The selected IDOS station or stop, retained only while its visible text is unchanged.
     @Published var stationSelection: PlaceFieldSelection?
-    @Published var timetable = IDOSTimetable.defaultTimetable {
+    @Published var timetable = AppTimetableDefaults.search {
         didSet {
             guard timetable.slug != oldValue.slug else { return }
             stationSelection = nil

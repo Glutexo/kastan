@@ -68,7 +68,7 @@ final class ConnectionsViewModel: ObservableObject {
     @Published var fromSelection: PlaceFieldSelection?
     @Published var toSelection: PlaceFieldSelection?
     @Published var journeyOptions = [JourneyOptionEntry()]
-    @Published var timetable = IDOSTimetable.defaultTimetable {
+    @Published var timetable = AppTimetableDefaults.search {
         didSet {
             guard timetable.slug != oldValue.slug else { return }
             fromSelection = nil

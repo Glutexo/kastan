@@ -18,7 +18,7 @@ final class StationTimetablesViewModel: ObservableObject {
 
     init(client: any IDOSClienting) {
         self.client = client
-        timetable = Self.defaultTimetable
+        timetable = AppTimetableDefaults.search
     }
 
     var canSearch: Bool {
@@ -106,7 +106,4 @@ final class StationTimetablesViewModel: ObservableObject {
         swap(&from, &to)
         await search()
     }
-
-    private static let defaultTimetable = IDOSTimetable.known.first { $0.slug == "pid" }
-        ?? IDOSTimetable(slug: "pid", displayName: "Prague + PID")
 }

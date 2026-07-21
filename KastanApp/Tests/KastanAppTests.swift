@@ -1090,14 +1090,24 @@ final class KastanAppTests: XCTestCase {
         let groupedSlugs = Set(AppTimetableGroup.allCases.flatMap { $0.timetables.map(\.slug) })
         XCTAssertEqual(groupedSlugs, Set(IDOSTimetable.known.map(\.slug)))
         XCTAssertEqual(
-            AppTimetableGroup.stationTimetables.prefix(4).map(\.slug),
-            ["pid", "idsjmk", "odis", "idol"]
+            AppTimetableGroup.stationTimetables.prefix(5).map(\.slug),
+            ["vlaky", "pid", "idsjmk", "odis", "idol"]
         )
         XCTAssertTrue(
-            AppTimetableGroup.stationTimetables.dropFirst(4).allSatisfy {
+            AppTimetableGroup.stationTimetables.dropFirst(5).allSatisfy {
                 $0.displayName.hasPrefix("Urban Public Transport ")
             }
         )
+    }
+
+    func testEverySearchModeDefaultsToTrains() {
+        let client = MockIDOSClient()
+
+        XCTAssertEqual(AppTimetableDefaults.search.slug, "vlaky")
+        XCTAssertEqual(ConnectionsViewModel(client: client).timetable.slug, "vlaky")
+        XCTAssertEqual(DeparturesViewModel(client: client).timetable.slug, "vlaky")
+        XCTAssertEqual(StationTimetablesViewModel(client: client).timetable.slug, "vlaky")
+        XCTAssertEqual(AppTimetableGroup.stationTimetables.first?.slug, "vlaky")
     }
 
     func testFavoriteTimetablesPersistKnownUniqueSlugsInOrder() {
@@ -1587,7 +1597,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(model.toSelection)
 
         model.fromSelection = municipality
-        model.timetable = IDOSTimetable(slug: "vlaky", displayName: "Trains")
+        model.timetable = IDOSTimetable(slug: "pid", displayName: "Prague + PID")
 
         XCTAssertNil(model.fromSelection)
     }
@@ -1914,6 +1924,7 @@ final class KastanAppTests: XCTestCase {
     func testStationTimetableSearchUsesSelectedLineDirectionAndWeekMode() async {
         let client = MockIDOSClient()
         let model = StationTimetablesViewModel(client: client)
+        model.selectTimetable(slug: "pid")
         model.selectLineSuggestion(IDOSSuggestion(
             text: "Bus 154",
             from: "Strašnická",
@@ -1939,6 +1950,7 @@ final class KastanAppTests: XCTestCase {
     func testStationTimetableStopSelectionStartsAtThatStop() async {
         let client = MockIDOSClient()
         let model = StationTimetablesViewModel(client: client)
+        model.selectTimetable(slug: "pid")
         model.selectLineSuggestion(IDOSSuggestion(
             text: "Bus 154",
             from: "Strašnická",
