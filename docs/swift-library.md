@@ -68,6 +68,9 @@ let departuresRequest = IDOSDeparturesRequest(
 )
 let departures = try await client.findDepartures(request: departuresRequest)
 let service = try await client.serviceDetail(id: departures[0].id, language: .czech)
+let serviceInformation = service.serviceInformation
+let firstInformationCategory = serviceInformation.first?.category
+let firstInformationText = serviceInformation.first?.displayText
 let validity = try await client.timetableValidity(for: service.timetable, language: .czech)
 let serviceCalendar = try await client.serviceCalendar(for: service)
 let servicePDF = try await client.servicePDF(for: service, language: .czech)
@@ -106,13 +109,19 @@ The main public types are:
 - Requests and timetables: `IDOSConnectionRequest`, `IDOSDeparturesRequest`, `IDOSStationTimetableRequest`,
   `IDOSPlaceSelection`, `IDOSTimetable`, and `IDOSTimetableValidity`.
 - Results: `IDOSSuggestion`, `IDOSConnection`, `IDOSConnectionLeg`, `IDOSDeparture`, `IDOSServiceDetail`,
-  `IDOSServiceStop`, `IDOSStationTimetable`, `IDOSStationTimetableStop`, `IDOSStationTimetableSchedule`,
-  `IDOSStationTimetableHour`, and `IDOSTransportMode`.
+  `IDOSServiceInformation`, `IDOSServiceStop`, `IDOSStationTimetable`, `IDOSStationTimetableStop`,
+  `IDOSStationTimetableSchedule`, `IDOSStationTimetableHour`, and `IDOSTransportMode`.
 - Personal aliases: `StopAlias`, `StopAliasDatabase`, `StopAliasFile`, and `StopAliasError`.
 
 Connection-result, service, and departure identifiers are opaque and must not be parsed by clients. Models
 preserve the semantic information received from IDOS, including line colors, transport modes, platforms,
 tariff zones, carriers, delay details, and localized service notes when available.
+
+`IDOSServiceDetail.information` preserves every original IDOS information line for stable decoding and display.
+Its `serviceInformation` view adds an `IDOSServiceInformation.Category` and the same semantic symbol used by
+Kaštan's human-readable interfaces without replacing that text. Categories distinguish passenger-facing meanings
+such as replacement transport, accommodation and onboard services, accessibility, tickets and reservations,
+operating calendars, restrictions, routes, and carriers; unrecognized text remains in the `general` category.
 
 Create an `IDOSPlaceSelection` from a chosen `IDOSSuggestion` and pass it as `fromSelection`, `toSelection`, or
 `stationSelection` when the query must target that exact IDOS object. This distinguishes, for example, a railway
