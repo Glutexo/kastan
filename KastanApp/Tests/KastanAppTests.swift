@@ -1152,15 +1152,17 @@ final class KastanAppTests: XCTestCase {
     }
 
     func testDelayPresentationLocalizesKnownStateAndPreservesCarrierDetail() throws {
-        let knownStates = [
-            "Currently no delay",
-            "Departure tends to be on time",
-            "Arrival tends to be on time",
-            "Departure tends to be delayed",
-            "Arrival tends to be delayed",
+        let knownStates: [(key: String, czechSource: String)] = [
+            ("Currently no delay", "Aktuálně bez zpoždění"),
+            ("Departure tends to be on time", "Odjezd bývá včas"),
+            ("Arrival tends to be on time", "Příjezd bývá včas"),
+            ("Departure tends to be delayed", "Odjezd bývá zpožděn"),
+            ("Arrival tends to be delayed", "Příjezd bývá zpožděn"),
         ]
         for state in knownStates {
-            XCTAssertEqual(ResultMetadata.delay(" \(state) "), AppLocalization.string(state))
+            let expected = AppLocalization.string(state.key)
+            XCTAssertEqual(ResultMetadata.delay(" \(state.key) "), expected)
+            XCTAssertEqual(ResultMetadata.delay(" \(state.czechSource) "), expected)
         }
         XCTAssertEqual(ResultMetadata.delay("Delay 12 min"), "Delay 12 min")
         XCTAssertNil(ResultMetadata.delay("  "))
@@ -1168,18 +1170,18 @@ final class KastanAppTests: XCTestCase {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
         XCTAssertEqual(
-            knownStates.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
+            knownStates.map { czech.localizedString(forKey: $0.key, value: nil, table: nil) },
             [
                 "Aktuálně bez zpoždění",
                 "Odjezd bývá včas",
                 "Příjezd bývá včas",
-                "Odjezd bývá zpožděný",
-                "Příjezd bývá zpožděný",
+                "Odjezd bývá zpožděn",
+                "Příjezd bývá zpožděn",
             ]
         )
         XCTAssertEqual(
-            knownStates.map { english.localizedString(forKey: $0, value: nil, table: nil) },
-            knownStates
+            knownStates.map { english.localizedString(forKey: $0.key, value: nil, table: nil) },
+            knownStates.map { $0.key }
         )
     }
 

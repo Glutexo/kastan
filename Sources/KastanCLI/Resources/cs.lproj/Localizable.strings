@@ -4,8 +4,8 @@
 "delay.currentlyNoDelay" = "Aktuálně bez zpoždění";
 "delay.departureTendsToBeOnTime" = "Odjezd bývá včas";
 "delay.arrivalTendsToBeOnTime" = "Příjezd bývá včas";
-"delay.departureTendsToBeDelayed" = "Odjezd bývá zpožděný";
-"delay.arrivalTendsToBeDelayed" = "Příjezd bývá zpožděný";
+"delay.departureTendsToBeDelayed" = "Odjezd bývá zpožděn";
+"delay.arrivalTendsToBeDelayed" = "Příjezd bývá zpožděn";
 "error.fallback" = "Operace selhala, ale nebyly poskytnuty žádné podrobnosti.";
 "error.label" = "Chyba";
 "error.invalidLanguage" = "Nepodporovaný jazyk: {0}. Použijte en nebo cs.";

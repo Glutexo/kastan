@@ -262,21 +262,23 @@ struct Localization {
         }
     }
 
-    /// Localizes stable IDOS punctuality states while retaining carrier-specific details verbatim.
+    /// Localizes stable Czech or English IDOS punctuality states while retaining other details verbatim.
     func delayStatus(_ value: String?) -> String? {
         guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
             return nil
         }
 
-        let knownStates: [(source: String, key: LocalizationKey)] = [
-            ("Currently no delay", .currentlyNoDelay),
-            ("Departure tends to be on time", .departureTendsToBeOnTime),
-            ("Arrival tends to be on time", .arrivalTendsToBeOnTime),
-            ("Departure tends to be delayed", .departureTendsToBeDelayed),
-            ("Arrival tends to be delayed", .arrivalTendsToBeDelayed),
+        let knownStates: [(sourceVariants: [String], key: LocalizationKey)] = [
+            (["Currently no delay", "Aktuálně bez zpoždění"], .currentlyNoDelay),
+            (["Departure tends to be on time", "Odjezd bývá včas"], .departureTendsToBeOnTime),
+            (["Arrival tends to be on time", "Příjezd bývá včas"], .arrivalTendsToBeOnTime),
+            (["Departure tends to be delayed", "Odjezd bývá zpožděn"], .departureTendsToBeDelayed),
+            (["Arrival tends to be delayed", "Příjezd bývá zpožděn"], .arrivalTendsToBeDelayed),
         ]
-        if let state = knownStates.first(where: {
-            value.compare($0.source, options: .caseInsensitive) == .orderedSame
+        if let state = knownStates.first(where: { state in
+            state.sourceVariants.contains {
+                value.compare($0, options: .caseInsensitive) == .orderedSame
+            }
         }) {
             return text(state.key)
         }

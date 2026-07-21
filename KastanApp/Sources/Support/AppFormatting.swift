@@ -422,23 +422,25 @@ enum ResultMetadata {
         )
     }
 
-    /// Localizes known IDOS punctuality states while preserving unrecognized carrier messages verbatim.
+    /// Localizes known Czech or English IDOS punctuality states while preserving other messages verbatim.
     static func delay(_ value: String?) -> String? {
         guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
             return nil
         }
 
-        let knownStates = [
-            "Currently no delay",
-            "Departure tends to be on time",
-            "Arrival tends to be on time",
-            "Departure tends to be delayed",
-            "Arrival tends to be delayed",
+        let knownStates: [(key: String, sourceVariants: [String])] = [
+            ("Currently no delay", ["Currently no delay", "Aktuálně bez zpoždění"]),
+            ("Departure tends to be on time", ["Departure tends to be on time", "Odjezd bývá včas"]),
+            ("Arrival tends to be on time", ["Arrival tends to be on time", "Příjezd bývá včas"]),
+            ("Departure tends to be delayed", ["Departure tends to be delayed", "Odjezd bývá zpožděn"]),
+            ("Arrival tends to be delayed", ["Arrival tends to be delayed", "Příjezd bývá zpožděn"]),
         ]
-        if let key = knownStates.first(where: {
-            value.compare($0, options: .caseInsensitive) == .orderedSame
+        if let state = knownStates.first(where: { state in
+            state.sourceVariants.contains {
+                value.compare($0, options: .caseInsensitive) == .orderedSame
+            }
         }) {
-            return AppLocalization.string(key)
+            return AppLocalization.string(state.key)
         }
         return value
     }
