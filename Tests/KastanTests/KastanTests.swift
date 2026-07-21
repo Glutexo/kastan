@@ -110,7 +110,13 @@ import Testing
 
     #expect(czech.delayStatus(" Currently no delay ") == "Aktuálně bez zpoždění")
     #expect(czech.delayStatus("Departure tends to be on time") == "Odjezd bývá včas")
+    #expect(czech.delayStatus("Arrival tends to be on time") == "Příjezd bývá včas")
+    #expect(czech.delayStatus("Departure tends to be delayed") == "Odjezd bývá zpožděný")
+    #expect(czech.delayStatus("Arrival tends to be delayed") == "Příjezd bývá zpožděný")
     #expect(english.delayStatus("Departure tends to be on time") == "Departure tends to be on time")
+    #expect(english.delayStatus("Arrival tends to be on time") == "Arrival tends to be on time")
+    #expect(english.delayStatus("Departure tends to be delayed") == "Departure tends to be delayed")
+    #expect(english.delayStatus("Arrival tends to be delayed") == "Arrival tends to be delayed")
     #expect(czech.delayStatus("Delay 12 min") == "Delay 12 min")
     #expect(czech.delayStatus("  ") == nil)
 }

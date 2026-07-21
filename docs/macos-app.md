@@ -57,8 +57,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   while service routes open at a compact 540-point width and remain usable down to 480 points. When scrolling
   hides the connection's main time range, that range moves into the window title until its content label is
   visible again.
-- Connection cards with line colors, transport symbols, platforms, tariff zones, carriers, and localized delay
-  and expected-punctuality states supplied by IDOS. A trackpad Force Click anywhere within a connection card,
+- Connection cards with line colors, transport symbols, platforms, tariff zones, carriers, and localized IDOS
+  states for on-time or delayed arrivals and departures. A trackpad Force Click anywhere within a connection card,
   including one of its service rows, previews the complete connection. Force Click on a service inside an opened
   connection detail or on a station-board row previews that individual service's complete route. An ordinary
   click continues to open the corresponding independent detail window.

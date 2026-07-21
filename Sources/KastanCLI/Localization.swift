@@ -157,6 +157,9 @@ enum LocalizationKey: String, CaseIterable {
     case delay = "label.delay"
     case currentlyNoDelay = "delay.currentlyNoDelay"
     case departureTendsToBeOnTime = "delay.departureTendsToBeOnTime"
+    case arrivalTendsToBeOnTime = "delay.arrivalTendsToBeOnTime"
+    case departureTendsToBeDelayed = "delay.departureTendsToBeDelayed"
+    case arrivalTendsToBeDelayed = "delay.arrivalTendsToBeDelayed"
     case station = "label.station"
     case time = "label.time"
     case destination = "label.destination"
@@ -265,11 +268,17 @@ struct Localization {
             return nil
         }
 
-        if value.compare("Currently no delay", options: .caseInsensitive) == .orderedSame {
-            return text(.currentlyNoDelay)
-        }
-        if value.compare("Departure tends to be on time", options: .caseInsensitive) == .orderedSame {
-            return text(.departureTendsToBeOnTime)
+        let knownStates: [(source: String, key: LocalizationKey)] = [
+            ("Currently no delay", .currentlyNoDelay),
+            ("Departure tends to be on time", .departureTendsToBeOnTime),
+            ("Arrival tends to be on time", .arrivalTendsToBeOnTime),
+            ("Departure tends to be delayed", .departureTendsToBeDelayed),
+            ("Arrival tends to be delayed", .arrivalTendsToBeDelayed),
+        ]
+        if let state = knownStates.first(where: {
+            value.compare($0.source, options: .caseInsensitive) == .orderedSame
+        }) {
+            return text(state.key)
         }
         return value
     }

@@ -12,6 +12,8 @@
 "Arrival" = "Příjezd";
 "Arrival place" = "Cílové místo";
 "Arrivals" = "Příjezdy";
+"Arrival tends to be delayed" = "Příjezd bývá zpožděný";
+"Arrival tends to be on time" = "Příjezd bývá včas";
 "Board type" = "Typ tabule";
 "bus" = "autobus";
 "Buses" = "Autobusy";
@@ -29,6 +31,7 @@
 "Connections" = "Spojení";
 "Date" = "Datum";
 "Departure" = "Odjezd";
+"Departure tends to be delayed" = "Odjezd bývá zpožděný";
 "Departure tends to be on time" = "Odjezd bývá včas";
 "Departure place" = "Výchozí místo";
 "Departures" = "Odjezdy";

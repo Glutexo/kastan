@@ -3,6 +3,9 @@
 "command.unknown" = "Unknown command: {0}";
 "delay.currentlyNoDelay" = "Currently no delay";
 "delay.departureTendsToBeOnTime" = "Departure tends to be on time";
+"delay.arrivalTendsToBeOnTime" = "Arrival tends to be on time";
+"delay.departureTendsToBeDelayed" = "Departure tends to be delayed";
+"delay.arrivalTendsToBeDelayed" = "Arrival tends to be delayed";
 "error.fallback" = "The operation failed, but no error details were provided.";
 "error.label" = "Error";
 "error.invalidLanguage" = "Unsupported language: {0}. Use en or cs.";

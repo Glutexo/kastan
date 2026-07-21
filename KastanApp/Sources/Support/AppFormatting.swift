@@ -431,6 +431,9 @@ enum ResultMetadata {
         let knownStates = [
             "Currently no delay",
             "Departure tends to be on time",
+            "Arrival tends to be on time",
+            "Departure tends to be delayed",
+            "Arrival tends to be delayed",
         ]
         if let key = knownStates.first(where: {
             value.compare($0, options: .caseInsensitive) == .orderedSame

@@ -1152,22 +1152,35 @@ final class KastanAppTests: XCTestCase {
     }
 
     func testDelayPresentationLocalizesKnownStateAndPreservesCarrierDetail() throws {
-        XCTAssertEqual(
-            ResultMetadata.delay(" Currently no delay "),
-            AppLocalization.string("Currently no delay")
-        )
-        XCTAssertEqual(
-            ResultMetadata.delay("Departure tends to be on time"),
-            AppLocalization.string("Departure tends to be on time")
-        )
+        let knownStates = [
+            "Currently no delay",
+            "Departure tends to be on time",
+            "Arrival tends to be on time",
+            "Departure tends to be delayed",
+            "Arrival tends to be delayed",
+        ]
+        for state in knownStates {
+            XCTAssertEqual(ResultMetadata.delay(" \(state) "), AppLocalization.string(state))
+        }
         XCTAssertEqual(ResultMetadata.delay("Delay 12 min"), "Delay 12 min")
         XCTAssertNil(ResultMetadata.delay("  "))
 
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
-        let key = "Departure tends to be on time"
-        XCTAssertEqual(czech.localizedString(forKey: key, value: nil, table: nil), "Odjezd bývá včas")
-        XCTAssertEqual(english.localizedString(forKey: key, value: nil, table: nil), key)
+        XCTAssertEqual(
+            knownStates.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
+            [
+                "Aktuálně bez zpoždění",
+                "Odjezd bývá včas",
+                "Příjezd bývá včas",
+                "Odjezd bývá zpožděný",
+                "Příjezd bývá zpožděný",
+            ]
+        )
+        XCTAssertEqual(
+            knownStates.map { english.localizedString(forKey: $0, value: nil, table: nil) },
+            knownStates
+        )
     }
 
     func testServiceRouteHighlightMatchesSearchStopsAndDirection() {

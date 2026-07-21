@@ -12,6 +12,8 @@
 "Arrival" = "Arrival";
 "Arrival place" = "Arrival place";
 "Arrivals" = "Arrivals";
+"Arrival tends to be delayed" = "Arrival tends to be delayed";
+"Arrival tends to be on time" = "Arrival tends to be on time";
 "Board type" = "Board type";
 "bus" = "bus";
 "Buses" = "Buses";
@@ -29,6 +31,7 @@
 "Connections" = "Connections";
 "Date" = "Date";
 "Departure" = "Departure";
+"Departure tends to be delayed" = "Departure tends to be delayed";
 "Departure tends to be on time" = "Departure tends to be on time";
 "Departure place" = "Departure place";
 "Departures" = "Departures";
