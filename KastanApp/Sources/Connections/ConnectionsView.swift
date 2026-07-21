@@ -67,9 +67,22 @@ struct ConnectionsView: View {
     private var resultsPanel: some View {
         VStack(alignment: .leading, spacing: 20) {
             if let errorMessage = model.errorMessage {
-                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                HStack(spacing: 12) {
+                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Button {
+                        Task { await model.refresh() }
+                    } label: {
+                        Label("Refresh connections", systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .fixedSize()
+                    .disabled(!model.canSearch)
+                    .help("Refresh connections")
+                }
                     .foregroundStyle(.red)
-                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
                     .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
             }

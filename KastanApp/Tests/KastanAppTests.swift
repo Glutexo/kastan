@@ -621,6 +621,14 @@ final class KastanAppTests: XCTestCase {
             keys.map { english.localizedString(forKey: $0, value: nil, table: nil) },
             keys
         )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Refresh connections", value: nil, table: nil),
+            "Obnovit spojení"
+        )
+        XCTAssertEqual(
+            english.localizedString(forKey: "Refresh connections", value: nil, table: nil),
+            "Refresh connections"
+        )
     }
 
     func testConnectionDetailToolbarOffersEveryAvailableActionSeparately() {
@@ -1739,6 +1747,35 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(directions, [.earlier, .later])
     }
 
+    func testConnectionRefreshRecoversAnExpiredPagingSession() async {
+        let client = MockIDOSClient()
+        await client.configureConnectionPages(
+            earlier: [connection(id: "connection-0")],
+            later: []
+        )
+        let model = ConnectionsViewModel(client: client)
+        model.from = "Praha"
+        model.to = "Brno"
+
+        await model.search()
+        await client.expireConnectionPagingSession()
+        await model.loadMore(.earlier)
+
+        XCTAssertEqual(model.connections.map(\.id), ["connection-1"])
+        XCTAssertNotNil(model.errorMessage)
+
+        await model.refresh()
+
+        XCTAssertNil(model.errorMessage)
+        let searchCount = await client.connectionSearchCount
+        XCTAssertEqual(searchCount, 2)
+        XCTAssertTrue(model.canLoadEarlier)
+
+        await model.loadMore(.earlier)
+
+        XCTAssertEqual(model.connections.map(\.id), ["connection-0", "connection-1"])
+    }
+
     func testDeparturePagingPrependsAndAppendsUniqueResults() async {
         let client = MockIDOSClient()
         await client.configureDeparturePages(
@@ -1994,8 +2031,10 @@ private actor MockIDOSClient: IDOSClienting {
     var lastStationTimetableLanguage: IDOSLanguage?
     var connectionPageDirections: [IDOSPageDirection] = []
     var departurePageDirections: [IDOSPageDirection] = []
+    var connectionSearchCount = 0
     private var connectionPages: [IDOSPageDirection: [IDOSConnection]] = [:]
     private var departurePages: [IDOSPageDirection: [IDOSDeparture]] = [:]
+    private var connectionPagingSessionExpired = false
 
     func configureConnectionPages(
         earlier: [IDOSConnection],
@@ -2009,6 +2048,10 @@ private actor MockIDOSClient: IDOSClienting {
         later: [IDOSDeparture]
     ) {
         departurePages = [.earlier: earlier, .later: later]
+    }
+
+    func expireConnectionPagingSession() {
+        connectionPagingSessionExpired = true
     }
 
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
@@ -2076,6 +2119,8 @@ private actor MockIDOSClient: IDOSClienting {
     }
 
     func findConnections(request: IDOSConnectionRequest) async throws -> [IDOSConnection] {
+        connectionSearchCount += 1
+        connectionPagingSessionExpired = false
         lastConnectionRequest = request
         return [
             IDOSConnection(
@@ -2103,6 +2148,9 @@ private actor MockIDOSClient: IDOSClienting {
         direction: IDOSPageDirection
     ) async throws -> IDOSConnectionPage {
         connectionPageDirections.append(direction)
+        if connectionPagingSessionExpired {
+            throw IDOSError.invalidResponse
+        }
         return IDOSConnectionPage(
             connections: connectionPages[direction] ?? [],
             canLoadEarlier: connectionPages[.earlier] != nil,

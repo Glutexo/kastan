@@ -212,6 +212,11 @@ final class ConnectionsViewModel: ObservableObject {
         }
     }
 
+    /// Repeats the submitted query to replace stale results and establish fresh IDOS paging state.
+    func refresh() async {
+        await search()
+    }
+
     /// Extends the submitted connection search at the selected chronological edge without replacing results.
     func loadMore(_ direction: IDOSPageDirection) async {
         guard let resultPage,

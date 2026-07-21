@@ -49,7 +49,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Submitting changed connection criteria replaces the previous result list with a progress indicator until the
   fresh response arrives. Connection and station-board paging still extends results chronologically without
   replacement: pulling past the top loads earlier results, while pulling past the bottom loads the following
-  results and removes duplicate rows.
+  results and removes duplicate rows. If connection paging fails after its IDOS session expires, the error banner
+  can repeat the unchanged search, replace the stale list with progress, and establish a fresh paging session.
 - Native tabs and windows, including independent favorite-timetable, complete-connection, and resizable
   service-route windows. A connection opened in its own window presents its export and sharing actions as
   individually visible controls in the native toolbar instead of repeating the result-card action menu, and
