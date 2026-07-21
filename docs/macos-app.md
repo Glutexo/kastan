@@ -1,6 +1,6 @@
 # Kaštan for macOS
 
-[← Project overview](../README.md)
+[← Documentation](README.md)
 
 Kaštan includes a native SwiftUI application for macOS 13 or newer. It imports the `Kastan` library directly,
 so its IDOS requests and parsed models stay aligned with the CLI and MCP server.

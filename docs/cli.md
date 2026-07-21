@@ -1,6 +1,6 @@
 # Kaštan CLI
 
-[← Project overview](../README.md)
+[← Documentation](README.md)
 
 The `kastan` executable provides personal, low-frequency IDOS queries from a terminal. It supports macOS,
 Windows, and Linux, with the exception of direct calendar opening, which is available only on macOS.

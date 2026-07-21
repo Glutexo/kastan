@@ -29,6 +29,18 @@ Pravidla budeme prubezne rozsirovat.
 - Pridavej testy u zmen, ktere meni chovani nebo mohou rozbit existujici funkcnost.
 - Pokud testy nejdou spustit, uved duvod a co zustava neoverene.
 
+## Dokumentace
+
+- `README.md` udrzuj jako strucnou, uzivatelsky privetivou vstupni stranku produktu. Patri do nej hlavni prinos,
+  podporovana rozhrani, reprezentativni snimek, nejkratsi cesta ke spusteni a odkaz na uplnou dokumentaci;
+  nepatri do nej vycerpavajici seznamy vlastnosti, voleb nebo API.
+- `docs/README.md` je rozcestnik uplne dokumentace. Podrobne pruvodce jednotlivych rozhrani udrzuj jako
+  kanonicky a uplny popis jejich vlastnosti, chovani, pozadavku a prikladu.
+- Pri zmene chovani aktualizuj prislusny podrobny pruvodce. README men jen tehdy, kdyz se meni celkove zamereni,
+  podporovane rozhrani, hlavni pozadavky nebo nejkratsi cesta ke spusteni.
+- Nove verejne rozhrani dostane vlastniho pruvodce v `docs/` a odkaz v `docs/README.md`. Podrobnosti mezi README
+  a pruvodci zbytecne neduplikuj.
+
 ## Styl CLI
 
 - Vystup na prikazove radce ma co nejverneji zachovavat vyznamove informace z IDOSu.

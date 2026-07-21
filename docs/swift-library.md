@@ -1,6 +1,6 @@
 # Kaštan Swift Library
 
-[← Project overview](../README.md)
+[← Documentation](README.md)
 
 The Swift package exports the `Kastan` library product used by the CLI, macOS app, and MCP server. It requires
 Swift 6.3 or newer and declares macOS 12 as its minimum Apple-platform deployment target.
