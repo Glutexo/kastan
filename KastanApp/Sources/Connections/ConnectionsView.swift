@@ -667,8 +667,8 @@ enum ConnectionDetailToolbarAction: CaseIterable, Hashable, Identifiable {
 
 /// Shows one complete connection in its own window with result actions in the native toolbar.
 struct ConnectionDetailView: View {
-    /// Opens complete connections compactly while preserving a wider minimum than individual service routes.
-    static let defaultWindowWidth: CGFloat = 680
+    /// Opens complete connections at their compact supported width while retaining room for journey details.
+    static let defaultWindowWidth: CGFloat = 620
     static let minimumWindowWidth: CGFloat = 620
 
     private static let scrollCoordinateSpace = "connection-detail-scroll"

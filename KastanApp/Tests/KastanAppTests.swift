@@ -1388,7 +1388,7 @@ final class KastanAppTests: XCTestCase {
     }
 
     func testCompleteConnectionDetailRendersInAnIndependentWindow() {
-        XCTAssertEqual(ConnectionDetailView.defaultWindowWidth, 680)
+        XCTAssertEqual(ConnectionDetailView.defaultWindowWidth, 620)
         XCTAssertEqual(ConnectionDetailView.minimumWindowWidth, 620)
         let selection = ConnectionSelection(
             connection: connection(id: "connection-detail"),
