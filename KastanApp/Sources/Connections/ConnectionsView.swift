@@ -601,6 +601,11 @@ struct ConnectionCard: View {
                         }
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture(count: 2) {
+                    openConnection?()
+                }
 
                 if !connection.legs.isEmpty {
                     Divider()
