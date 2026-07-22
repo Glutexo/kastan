@@ -845,16 +845,6 @@ private struct ConnectionLegRow: View {
     var body: some View {
         if let selection {
             rowButton(selection: selection)
-                .forceClickPreview(
-                    size: ResultPreviewLayout.serviceSize,
-                    suppressesPrimaryAction: $suppressesPrimaryAction
-                ) {
-                    ServiceDetailView(
-                        selection: selection,
-                        client: client,
-                        presentation: .preview
-                    )
-                }
         } else {
             rowButton(selection: nil)
                 .disabled(true)
@@ -934,6 +924,20 @@ private struct ConnectionLegRow: View {
             }
             .contentShape(Rectangle())
             .padding(.vertical, 8)
+            .fixedSize(horizontal: false, vertical: true)
+            .forceClickPreview(
+                size: ResultPreviewLayout.serviceSize,
+                isEnabled: selection != nil,
+                suppressesPrimaryAction: $suppressesPrimaryAction
+            ) {
+                if let selection {
+                    ServiceDetailView(
+                        selection: selection,
+                        client: client,
+                        presentation: .preview
+                    )
+                }
+            }
         }
         .buttonStyle(.plain)
     }

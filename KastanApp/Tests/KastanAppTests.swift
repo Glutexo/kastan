@@ -773,12 +773,14 @@ final class KastanAppTests: XCTestCase {
             ForceClickPreviewTargetFrame(
                 id: connectionID,
                 frame: CGRect(x: 0, y: 0, width: 500, height: 320),
-                registrationOrder: 0
+                registrationOrder: 0,
+                acceptsPressure: true
             ),
             ForceClickPreviewTargetFrame(
                 id: serviceID,
                 frame: CGRect(x: 24, y: 40, width: 452, height: 72),
-                registrationOrder: 1
+                registrationOrder: 1,
+                acceptsPressure: true
             ),
         ]
 
@@ -799,10 +801,26 @@ final class KastanAppTests: XCTestCase {
                 in: targets + [ForceClickPreviewTargetFrame(
                     id: newerEqualTargetID,
                     frame: CGRect(x: 24, y: 40, width: 452, height: 72),
-                    registrationOrder: 2
+                    registrationOrder: 2,
+                    acceptsPressure: true
                 )]
             ),
             newerEqualTargetID
+        )
+    }
+
+    func testForceClickPreviewIgnoresTargetsOutsideHoveredContent() throws {
+        let serviceID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000002"))
+        XCTAssertNil(
+            ForceClickPreviewTargetResolver.targetID(
+                at: CGPoint(x: 100, y: 70),
+                in: [ForceClickPreviewTargetFrame(
+                    id: serviceID,
+                    frame: CGRect(x: 0, y: 0, width: 500, height: 320),
+                    registrationOrder: 0,
+                    acceptsPressure: false
+                )]
+            )
         )
     }
 

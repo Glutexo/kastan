@@ -17,16 +17,17 @@ struct ForceClickPreviewTargetFrame: Equatable {
     let id: UUID
     let frame: CGRect
     let registrationOrder: Int
+    let acceptsPressure: Bool
 }
 
-/// Chooses the smallest and most recently registered preview target beneath the pointer.
+/// Chooses the smallest, most recent preview target whose visible content is beneath the pointer.
 enum ForceClickPreviewTargetResolver {
     static func targetID(
         at location: CGPoint,
         in targets: [ForceClickPreviewTargetFrame]
     ) -> UUID? {
         targets
-            .filter { $0.frame.contains(location) && !$0.frame.isEmpty }
+            .filter { $0.acceptsPressure && $0.frame.contains(location) && !$0.frame.isEmpty }
             .min { lhs, rhs in
                 let lhsArea = lhs.frame.width * lhs.frame.height
                 let rhsArea = rhs.frame.width * rhs.frame.height
@@ -47,6 +48,7 @@ private final class ForceClickPreviewMonitor {
     private struct Target {
         weak var attachmentView: NSView?
         let registrationOrder: Int
+        var acceptsPressure: @MainActor () -> Bool
         var showPreview: @MainActor () -> Void
         var pressureEnded: @MainActor () -> Void
     }
@@ -62,6 +64,7 @@ private final class ForceClickPreviewMonitor {
     func register(
         id: UUID,
         attachmentView: NSView,
+        acceptsPressure: @escaping @MainActor () -> Bool,
         showPreview: @escaping @MainActor () -> Void,
         pressureEnded: @escaping @MainActor () -> Void
     ) {
@@ -75,6 +78,7 @@ private final class ForceClickPreviewMonitor {
         targets[id] = Target(
             attachmentView: attachmentView,
             registrationOrder: registrationOrder,
+            acceptsPressure: acceptsPressure,
             showPreview: showPreview,
             pressureEnded: pressureEnded
         )
@@ -141,7 +145,8 @@ private final class ForceClickPreviewMonitor {
             return ForceClickPreviewTargetFrame(
                 id: id,
                 frame: view.convert(view.visibleRect, to: nil),
-                registrationOrder: target.registrationOrder
+                registrationOrder: target.registrationOrder,
+                acceptsPressure: target.acceptsPressure()
             )
         }
         return ForceClickPreviewTargetResolver.targetID(
@@ -155,6 +160,7 @@ private final class ForceClickPreviewMonitor {
 final class ForceClickPreviewAttachmentView: NSView {}
 
 private struct ForceClickPreviewAttachment: NSViewRepresentable {
+    let acceptsPressure: @MainActor () -> Bool
     let showPreview: @MainActor () -> Void
     let pressureEnded: @MainActor () -> Void
 
@@ -167,6 +173,7 @@ private struct ForceClickPreviewAttachment: NSViewRepresentable {
         ForceClickPreviewMonitor.shared.register(
             id: context.coordinator.id,
             attachmentView: view,
+            acceptsPressure: acceptsPressure,
             showPreview: showPreview,
             pressureEnded: pressureEnded
         )
@@ -177,6 +184,7 @@ private struct ForceClickPreviewAttachment: NSViewRepresentable {
         ForceClickPreviewMonitor.shared.register(
             id: context.coordinator.id,
             attachmentView: view,
+            acceptsPressure: acceptsPressure,
             showPreview: showPreview,
             pressureEnded: pressureEnded
         )
@@ -191,17 +199,21 @@ private struct ForceClickPreviewAttachment: NSViewRepresentable {
     }
 }
 
-/// Presents complete result content from a native trackpad Force Click while preserving ordinary row actions.
+/// Presents complete result content only while its visible row is hovered, preserving ordinary row actions.
 private struct ForceClickPreviewModifier<Preview: View>: ViewModifier {
     let size: CGSize
+    let isEnabled: Bool
     let suppressesPrimaryAction: Binding<Bool>?
     @ViewBuilder let preview: () -> Preview
     @State private var isPreviewPresented = false
+    @State private var isHovered = false
 
     func body(content: Content) -> some View {
         content
+            .onHover { isHovered = $0 }
             .background {
                 ForceClickPreviewAttachment(
+                    acceptsPressure: { isEnabled && isHovered },
                     showPreview: {
                         suppressesPrimaryAction?.wrappedValue = true
                         isPreviewPresented = true
@@ -222,11 +234,13 @@ extension View {
     /// Adds the standard result preview without changing the view's normal click behavior.
     func forceClickPreview<Preview: View>(
         size: CGSize,
+        isEnabled: Bool = true,
         suppressesPrimaryAction: Binding<Bool>? = nil,
         @ViewBuilder preview: @escaping () -> Preview
     ) -> some View {
         modifier(ForceClickPreviewModifier(
             size: size,
+            isEnabled: isEnabled,
             suppressesPrimaryAction: suppressesPrimaryAction,
             preview: preview
         ))
