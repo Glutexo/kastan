@@ -493,12 +493,12 @@ final class KastanAppTests: XCTestCase {
         ))!
     }
 
-    func testServiceDetailToolbarOffersFourSeparateLocalizedActions() throws {
+    func testResultDetailToolbarAndFileMenuShareFourLocalizedActions() throws {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
 
         XCTAssertEqual(
-            ServiceDetailToolbarAction.allCases,
+            ResultDetailAction.allCases,
             [.addToCalendar, .saveAsPDF, .shareLink, .openInIDOS]
         )
         let keys = ["Add to Calendar", "Save as PDF", "Share Link", "Open in IDOS"]
@@ -522,21 +522,48 @@ final class KastanAppTests: XCTestCase {
 
     func testConnectionDetailToolbarOffersEveryAvailableActionSeparately() {
         XCTAssertEqual(
-            ConnectionDetailToolbarAction.allCases,
-            [.addToCalendar, .saveAsPDF, .shareLink, .openInIDOS]
-        )
-        XCTAssertEqual(
-            ConnectionDetailToolbarAction.allCases.map(\.systemImage),
+            ResultDetailAction.allCases.map(\.systemImage),
             ["calendar.badge.plus", "arrow.down.doc", "square.and.arrow.up", "arrow.up.right.square"]
         )
         XCTAssertEqual(
-            ConnectionDetailToolbarAction.availableActions(hasPermanentLink: true),
-            ConnectionDetailToolbarAction.allCases
+            ResultDetailAction.availableActions(hasPermanentLink: true),
+            ResultDetailAction.allCases
         )
         XCTAssertEqual(
-            ConnectionDetailToolbarAction.availableActions(hasPermanentLink: false),
+            ResultDetailAction.availableActions(hasPermanentLink: false),
             [.addToCalendar, .saveAsPDF]
         )
+    }
+
+    func testResultDetailCommandsFollowTheFocusedWindowState() {
+        let ready = ResultDetailCommandContext(
+            hasLoadedResult: true,
+            isPerformingExport: false,
+            permanentLink: URL(string: "https://idos.cz/"),
+            addToCalendar: {},
+            saveAsPDF: {},
+            openInIDOS: {}
+        )
+        let loading = ResultDetailCommandContext(
+            hasLoadedResult: false,
+            isPerformingExport: false,
+            permanentLink: nil,
+            addToCalendar: {},
+            saveAsPDF: {},
+            openInIDOS: {}
+        )
+        let exporting = ResultDetailCommandContext(
+            hasLoadedResult: true,
+            isPerformingExport: true,
+            permanentLink: URL(string: "https://idos.cz/"),
+            addToCalendar: {},
+            saveAsPDF: {},
+            openInIDOS: {}
+        )
+
+        XCTAssertTrue(ResultDetailAction.allCases.allSatisfy(ready.isEnabled))
+        XCTAssertTrue(ResultDetailAction.allCases.allSatisfy { !loading.isEnabled($0) })
+        XCTAssertTrue(ResultDetailAction.allCases.allSatisfy { !exporting.isEnabled($0) })
     }
 
     func testDetailLayoutStacksControlsAtCompactWidths() {

@@ -244,6 +244,122 @@ enum AppCommandMenu: Equatable {
     case window
 }
 
+/// Defines the result-detail actions shared by the active window's toolbar and the File menu.
+enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
+    case addToCalendar
+    case saveAsPDF
+    case shareLink
+    case openInIDOS
+
+    var id: Self { self }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .addToCalendar:
+            "Add to Calendar"
+        case .saveAsPDF:
+            "Save as PDF"
+        case .shareLink:
+            "Share Link"
+        case .openInIDOS:
+            "Open in IDOS"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .addToCalendar:
+            "calendar.badge.plus"
+        case .saveAsPDF:
+            "arrow.down.doc"
+        case .shareLink:
+            "square.and.arrow.up"
+        case .openInIDOS:
+            "arrow.up.right.square"
+        }
+    }
+
+    static func availableActions(hasPermanentLink: Bool) -> [Self] {
+        hasPermanentLink ? allCases : [.addToCalendar, .saveAsPDF]
+    }
+}
+
+/// Connects commands in the macOS main menu to the currently focused connection or service detail.
+struct ResultDetailCommandContext {
+    let hasLoadedResult: Bool
+    let isPerformingExport: Bool
+    let permanentLink: URL?
+    let addToCalendar: () -> Void
+    let saveAsPDF: () -> Void
+    let openInIDOS: () -> Void
+
+    func isEnabled(_ action: ResultDetailAction) -> Bool {
+        guard !isPerformingExport else { return false }
+
+        switch action {
+        case .addToCalendar, .saveAsPDF:
+            return hasLoadedResult
+        case .shareLink, .openInIDOS:
+            return permanentLink != nil
+        }
+    }
+}
+
+struct ResultDetailCommandContextKey: FocusedValueKey {
+    typealias Value = ResultDetailCommandContext
+}
+
+extension FocusedValues {
+    var resultDetailCommandContext: ResultDetailCommandContext? {
+        get { self[ResultDetailCommandContextKey.self] }
+        set { self[ResultDetailCommandContextKey.self] = newValue }
+    }
+}
+
+/// Mirrors every result-detail toolbar action in the standard File menu.
+struct ResultDetailCommands: Commands {
+    @FocusedValue(\.resultDetailCommandContext) private var context
+
+    var body: some Commands {
+        CommandGroup(after: .importExport) {
+            actionButton(.addToCalendar) {
+                context?.addToCalendar()
+            }
+            actionButton(.saveAsPDF) {
+                context?.saveAsPDF()
+            }
+
+            Divider()
+
+            if let url = context?.permanentLink {
+                ShareLink(item: url) {
+                    actionLabel(.shareLink)
+                }
+                .disabled(context?.isEnabled(.shareLink) != true)
+            } else {
+                actionButton(.shareLink) {}
+            }
+            actionButton(.openInIDOS) {
+                context?.openInIDOS()
+            }
+        }
+    }
+
+    private func actionButton(
+        _ action: ResultDetailAction,
+        perform: @escaping () -> Void
+    ) -> some View {
+        Button(action: perform) {
+            actionLabel(action)
+        }
+        .disabled(context?.isEnabled(action) != true)
+    }
+
+    private func actionLabel(_ action: ResultDetailAction) -> some View {
+        Label(action.title, systemImage: action.systemImage)
+    }
+}
+
 /// Opens the independent favorites manager from the standard Window menu in every app window.
 struct FavoriteTimetablesCommands: Commands {
     static let menu = AppCommandMenu.window
@@ -367,6 +483,7 @@ struct KastanApp: App {
         }
         .defaultSize(width: ServiceDetailView.defaultWindowWidth, height: 640)
         .commands {
+            ResultDetailCommands()
             FavoriteTimetablesCommands()
             AppInformationCommands()
             AppHelpCommands()
@@ -379,6 +496,7 @@ struct KastanApp: App {
         }
         .defaultSize(width: ConnectionDetailView.defaultWindowWidth, height: 640)
         .commands {
+            ResultDetailCommands()
             FavoriteTimetablesCommands()
             AppInformationCommands()
             AppHelpCommands()

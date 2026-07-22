@@ -268,42 +268,6 @@ enum ServiceRouteInitialScroll {
     }
 }
 
-/// Defines the four service actions that remain directly visible in the detail window toolbar.
-enum ServiceDetailToolbarAction: CaseIterable, Hashable, Identifiable {
-    case addToCalendar
-    case saveAsPDF
-    case shareLink
-    case openInIDOS
-
-    var id: Self { self }
-
-    var title: LocalizedStringKey {
-        switch self {
-        case .addToCalendar:
-            "Add to Calendar"
-        case .saveAsPDF:
-            "Save as PDF"
-        case .shareLink:
-            "Share Link"
-        case .openInIDOS:
-            "Open in IDOS"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .addToCalendar:
-            "calendar.badge.plus"
-        case .saveAsPDF:
-            "arrow.down.doc"
-        case .shareLink:
-            "square.and.arrow.up"
-        case .openInIDOS:
-            "arrow.up.right.square"
-        }
-    }
-}
-
 /// Shows every stop and piece of service information supplied by IDOS in its own window.
 struct ServiceDetailView: View {
     /// Keeps new service windows compact while leaving room for the adaptive route and information layout.
@@ -359,12 +323,13 @@ struct ServiceDetailView: View {
         .toolbar {
             if presentation == .window, let serviceActionURL {
                 ToolbarItemGroup(placement: .primaryAction) {
-                    ForEach(ServiceDetailToolbarAction.allCases) { action in
+                    ForEach(ResultDetailAction.allCases) { action in
                         serviceActionControl(action, url: serviceActionURL)
                     }
                 }
             }
         }
+        .focusedSceneValue(\.resultDetailCommandContext, resultDetailCommandContext)
         .task {
             await model.load()
         }
@@ -381,9 +346,28 @@ struct ServiceDetailView: View {
         model.service?.shareURL.flatMap(AppLanguagePreference.localizedIDOSURL)
     }
 
+    private var resultDetailCommandContext: ResultDetailCommandContext {
+        ResultDetailCommandContext(
+            hasLoadedResult: model.service != nil,
+            isPerformingExport: model.isPerformingExport,
+            permanentLink: serviceActionURL,
+            addToCalendar: {
+                Task { await model.addToCalendar() }
+            },
+            saveAsPDF: {
+                Task { await model.saveAsPDF() }
+            },
+            openInIDOS: {
+                if let serviceActionURL {
+                    openURL(serviceActionURL)
+                }
+            }
+        )
+    }
+
     /// Renders each service action as an independent native toolbar control.
     @ViewBuilder
-    private func serviceActionControl(_ action: ServiceDetailToolbarAction, url: URL) -> some View {
+    private func serviceActionControl(_ action: ResultDetailAction, url: URL) -> some View {
         switch action {
         case .addToCalendar:
             Button {
@@ -423,7 +407,7 @@ struct ServiceDetailView: View {
 
     @ViewBuilder
     private func exportActionLabel(
-        _ action: ServiceDetailToolbarAction,
+        _ action: ResultDetailAction,
         isPerforming: Bool
     ) -> some View {
         if isPerforming {
@@ -434,7 +418,7 @@ struct ServiceDetailView: View {
         }
     }
 
-    private func serviceActionLabel(_ action: ServiceDetailToolbarAction) -> some View {
+    private func serviceActionLabel(_ action: ResultDetailAction) -> some View {
         Label(action.title, systemImage: action.systemImage)
             .labelStyle(.iconOnly)
     }

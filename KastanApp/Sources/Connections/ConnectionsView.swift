@@ -625,46 +625,6 @@ struct ConnectionCard: View {
     }
 }
 
-/// Defines the actions shown as individual controls in an independent connection window's toolbar.
-enum ConnectionDetailToolbarAction: CaseIterable, Hashable, Identifiable {
-    case addToCalendar
-    case saveAsPDF
-    case shareLink
-    case openInIDOS
-
-    var id: Self { self }
-
-    var title: LocalizedStringKey {
-        switch self {
-        case .addToCalendar:
-            "Add to Calendar"
-        case .saveAsPDF:
-            "Save as PDF"
-        case .shareLink:
-            "Share Link"
-        case .openInIDOS:
-            "Open in IDOS"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .addToCalendar:
-            "calendar.badge.plus"
-        case .saveAsPDF:
-            "arrow.down.doc"
-        case .shareLink:
-            "square.and.arrow.up"
-        case .openInIDOS:
-            "arrow.up.right.square"
-        }
-    }
-
-    static func availableActions(hasPermanentLink: Bool) -> [Self] {
-        hasPermanentLink ? allCases : [.addToCalendar, .saveAsPDF]
-    }
-}
-
 /// Shows one complete connection in its own window with result actions in the native toolbar.
 struct ConnectionDetailView: View {
     /// Opens complete connections at their compact supported width while retaining room for journey details.
@@ -737,7 +697,7 @@ struct ConnectionDetailView: View {
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 ForEach(
-                    ConnectionDetailToolbarAction.availableActions(
+                    ResultDetailAction.availableActions(
                         hasPermanentLink: connectionActionURL != nil
                     )
                 ) { action in
@@ -745,6 +705,7 @@ struct ConnectionDetailView: View {
                 }
             }
         }
+        .focusedSceneValue(\.resultDetailCommandContext, resultDetailCommandContext)
     }
 
     private var windowTitle: String {
@@ -763,10 +724,29 @@ struct ConnectionDetailView: View {
             actionsModel.exportingPDFConnectionID == selection.connection.id
     }
 
+    private var resultDetailCommandContext: ResultDetailCommandContext {
+        ResultDetailCommandContext(
+            hasLoadedResult: true,
+            isPerformingExport: isPerformingExport,
+            permanentLink: connectionActionURL,
+            addToCalendar: {
+                Task { await actionsModel.addToCalendar(selection.connection) }
+            },
+            saveAsPDF: {
+                Task { await actionsModel.saveAsPDF(selection.connection) }
+            },
+            openInIDOS: {
+                if let connectionActionURL {
+                    openURL(connectionActionURL)
+                }
+            }
+        )
+    }
+
     /// Renders each connection action as an independent native toolbar control.
     @ViewBuilder
     private func connectionActionControl(
-        _ action: ConnectionDetailToolbarAction,
+        _ action: ResultDetailAction,
         url: URL?
     ) -> some View {
         switch action {
@@ -818,7 +798,7 @@ struct ConnectionDetailView: View {
 
     @ViewBuilder
     private func exportActionLabel(
-        _ action: ConnectionDetailToolbarAction,
+        _ action: ResultDetailAction,
         isPerforming: Bool
     ) -> some View {
         if isPerforming {
@@ -829,7 +809,7 @@ struct ConnectionDetailView: View {
         }
     }
 
-    private func connectionActionLabel(_ action: ConnectionDetailToolbarAction) -> some View {
+    private func connectionActionLabel(_ action: ResultDetailAction) -> some View {
         Label(action.title, systemImage: action.systemImage)
             .labelStyle(.iconOnly)
     }
