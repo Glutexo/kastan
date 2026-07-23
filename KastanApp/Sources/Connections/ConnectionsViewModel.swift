@@ -44,6 +44,12 @@ struct JourneyOptionEntry: Identifiable, Equatable {
     }
 }
 
+/// Identifies which connection endpoint should receive an explicitly requested current location.
+enum ConnectionEndpoint: Equatable {
+    case from
+    case to
+}
+
 /// Owns one connection search and exposes only UI-ready state to the SwiftUI view.
 @MainActor
 final class ConnectionsViewModel: ObservableObject {
@@ -71,8 +77,12 @@ final class ConnectionsViewModel: ObservableObject {
     @Published var timetable = AppTimetableDefaults.search {
         didSet {
             guard timetable.slug != oldValue.slug else { return }
-            fromSelection = nil
-            toSelection = nil
+            if fromSelection?.isCurrentLocation != true {
+                fromSelection = nil
+            }
+            if toSelection?.isCurrentLocation != true {
+                toSelection = nil
+            }
         }
     }
     @Published var date = Date()
@@ -84,21 +94,25 @@ final class ConnectionsViewModel: ObservableObject {
     @Published private(set) var isLoadingLater = false
     @Published private(set) var importingConnectionID: String?
     @Published private(set) var exportingPDFConnectionID: String?
+    @Published private(set) var locatingEndpoint: ConnectionEndpoint?
     @Published var errorMessage: String?
 
     let client: any IDOSClienting
     private let calendarImporter: any CalendarImporting
     private let pdfExporter: any PDFExporting
+    private let currentLocationProvider: any CurrentLocationProviding
     private var resultPage: IDOSConnectionPage?
 
     init(
         client: any IDOSClienting,
         calendarImporter: any CalendarImporting = WorkspaceCalendarImporter(),
-        pdfExporter: any PDFExporting = WorkspacePDFExporter()
+        pdfExporter: any PDFExporting = WorkspacePDFExporter(),
+        currentLocationProvider: any CurrentLocationProviding = SystemCurrentLocationProvider()
     ) {
         self.client = client
         self.calendarImporter = calendarImporter
         self.pdfExporter = pdfExporter
+        self.currentLocationProvider = currentLocationProvider
     }
 
     var canSearch: Bool {
@@ -143,6 +157,39 @@ final class ConnectionsViewModel: ObservableObject {
         fromSelection = toSelection
         to = previousFrom
         toSelection = previousFromSelection
+    }
+
+    /// Fills one endpoint with the localized IDOS `My location` object after an explicit user action.
+    func fillCurrentLocation(in endpoint: ConnectionEndpoint) async {
+        guard locatingEndpoint == nil else { return }
+
+        locatingEndpoint = endpoint
+        errorMessage = nil
+        defer { locatingEndpoint = nil }
+
+        do {
+            let coordinate = try await currentLocationProvider.currentLocation()
+            let text = AppLocalization.string("My location")
+            let selection = PlaceFieldSelection(
+                idosSelection: IDOSPlaceSelection.currentLocation(
+                    text: text,
+                    latitude: coordinate.latitude,
+                    longitude: coordinate.longitude
+                ),
+                kind: nil
+            )
+
+            switch endpoint {
+            case .from:
+                from = text
+                fromSelection = selection
+            case .to:
+                to = text
+                toSelection = selection
+            }
+        } catch {
+            errorMessage = CurrentLocationErrorPresentation.message(for: error)
+        }
     }
 
     /// Keeps each picker limited to repeatable conditions and currently unused singleton conditions.

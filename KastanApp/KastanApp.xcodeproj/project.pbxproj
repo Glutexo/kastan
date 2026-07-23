@@ -28,9 +28,11 @@
 		A00000000000000000000222 /* MainWindowToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000122 /* MainWindowToolbar.swift */; };
 		A00000000000000000000223 /* StationTimetableServiceCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000123 /* StationTimetableServiceCalendar.swift */; };
 		A00000000000000000000224 /* ForceClickPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000124 /* ForceClickPreview.swift */; };
+		A00000000000000000000225 /* CurrentLocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000125 /* CurrentLocationProvider.swift */; };
 		A00000000000000000000230 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000132 /* Localizable.strings */; };
 		A00000000000000000000231 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000133 /* Assets.xcassets */; };
 		A00000000000000000000232 /* Localizable.stringsdict in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000136 /* Localizable.stringsdict */; };
+		A00000000000000000000233 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000138 /* InfoPlist.strings */; };
 		A00000000000000000000241 /* Kastan in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000601 /* Kastan */; };
 		A00000000000000000000242 /* Kastan in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000602 /* Kastan */; };
 		A00000000000000000000250 /* KastanAppTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000150 /* KastanAppTests.swift */; };
@@ -70,11 +72,15 @@
 		A00000000000000000000122 /* MainWindowToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainWindowToolbar.swift; sourceTree = "<group>"; };
 		A00000000000000000000123 /* StationTimetableServiceCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationTimetableServiceCalendar.swift; sourceTree = "<group>"; };
 		A00000000000000000000124 /* ForceClickPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForceClickPreview.swift; sourceTree = "<group>"; };
+		A00000000000000000000125 /* CurrentLocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentLocationProvider.swift; sourceTree = "<group>"; };
 		A00000000000000000000130 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A00000000000000000000131 /* cs */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = cs; path = cs.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A00000000000000000000133 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A00000000000000000000134 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = en; path = en.lproj/Localizable.stringsdict; sourceTree = "<group>"; };
 		A00000000000000000000135 /* cs */ = {isa = PBXFileReference; lastKnownFileType = text.plist.stringsdict; name = cs; path = cs.lproj/Localizable.stringsdict; sourceTree = "<group>"; };
+		A00000000000000000000137 /* KastanApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KastanApp.entitlements; sourceTree = "<group>"; };
+		A00000000000000000000139 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		A0000000000000000000013A /* cs */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = cs; path = cs.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		A00000000000000000000150 /* KastanAppTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KastanAppTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -103,6 +109,7 @@
 			children = (
 				A00000000000000000000004 /* Sources */,
 				A00000000000000000000009 /* Resources */,
+				A00000000000000000000137 /* KastanApp.entitlements */,
 				A0000000000000000000000A /* Tests */,
 				A00000000000000000000003 /* Products */,
 			);
@@ -177,6 +184,7 @@
 			children = (
 				A00000000000000000000119 /* AppFormatting.swift */,
 				A0000000000000000000011A /* CalendarImporter.swift */,
+				A00000000000000000000125 /* CurrentLocationProvider.swift */,
 				A00000000000000000000124 /* ForceClickPreview.swift */,
 				A0000000000000000000011E /* PDFExporter.swift */,
 				A00000000000000000000121 /* SearchResultPullMonitor.swift */,
@@ -189,6 +197,7 @@
 			isa = PBXGroup;
 			children = (
 				A00000000000000000000133 /* Assets.xcassets */,
+				A00000000000000000000138 /* InfoPlist.strings */,
 				A00000000000000000000132 /* Localizable.strings */,
 				A00000000000000000000136 /* Localizable.stringsdict */,
 			);
@@ -259,6 +268,11 @@
 				TargetAttributes = {
 					A00000000000000000000401 = {
 						CreatedOnToolsVersion = 26.6;
+						SystemCapabilities = {
+							com.apple.Location = {
+								enabled = 1;
+							};
+						};
 					};
 					A00000000000000000000402 = {
 						CreatedOnToolsVersion = 26.6;
@@ -295,6 +309,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A00000000000000000000231 /* Assets.xcassets in Resources */,
+				A00000000000000000000233 /* InfoPlist.strings in Resources */,
 				A00000000000000000000230 /* Localizable.strings in Resources */,
 				A00000000000000000000232 /* Localizable.stringsdict in Resources */,
 			);
@@ -335,6 +350,7 @@
 				A00000000000000000000222 /* MainWindowToolbar.swift in Sources */,
 				A00000000000000000000223 /* StationTimetableServiceCalendar.swift in Sources */,
 				A00000000000000000000224 /* ForceClickPreview.swift in Sources */,
+				A00000000000000000000225 /* CurrentLocationProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -373,6 +389,15 @@
 				A00000000000000000000135 /* cs */,
 			);
 			name = Localizable.stringsdict;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000138 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A00000000000000000000139 /* en */,
+				A0000000000000000000013A /* cs */,
+			);
+			name = InfoPlist.strings;
 			sourceTree = "<group>";
 		};
 /* End PBXVariantGroup section */
@@ -418,6 +443,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = KastanApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = YES;
@@ -429,6 +455,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Kaštan";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
+				INFOPLIST_KEY_NSLocationUsageDescription = "Kaštan uses your location only when you choose My location for a journey endpoint.";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = cz.glutexo.kastan;
@@ -442,6 +469,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = KastanApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_APP_SANDBOX = YES;
@@ -452,6 +480,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "Kaštan";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
+				INFOPLIST_KEY_NSLocationUsageDescription = "Kaštan uses your location only when you choose My location for a journey endpoint.";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = cz.glutexo.kastan;

@@ -57,6 +57,7 @@
 "Favorites" = "Oblíbené";
 "Favorite timetables" = "Oblíbené jízdní řády";
 "From" = "Odkud";
+"Here" = "Tady";
 "IDOS could not generate a station timetable for this line, direction, and date." = "IDOS nemohl pro tuto linku, směr a datum vytvořit zastávkový jízdní řád.";
 "IDOS could not load this service detail." = "IDOS nedokázal načíst detail tohoto spoje.";
 "IDOS could not load this service detail. %@" = "IDOS nedokázal načíst detail tohoto spoje. %@";
@@ -74,6 +75,7 @@
 "Maximum number of transfers" = "Nejvyšší počet přestupů";
 "Kaštan on GitHub" = "Kaštan na GitHubu";
 "Kaštan retrieves journey information from publicly accessible IDOS web pages. It is not an official IDOS or CHAPS application." = "Kaštan načítá informace o spojení z veřejně přístupných webových stránek IDOSu. Nejde o oficiální aplikaci IDOSu ani společnosti CHAPS.";
+"Kaštan is already determining your current location." = "Kaštan už zjišťuje vaši aktuální polohu.";
 "Independent macOS client for occasional personal IDOS searches." = "Nezávislý klient pro macOS určený k občasnému osobnímu vyhledávání v IDOSu.";
 "Integrated transport systems" = "Integrované dopravní systémy";
 "Loading earlier results…" = "Načítání dřívějších výsledků…";
@@ -82,10 +84,13 @@
 "Loading suggestions" = "Načítání návrhů";
 "Loading station board…" = "Načítání odjezdové tabule…";
 "Loading station timetable…" = "Načítání zastávkového jízdního řádu…";
+"Location access was denied. Allow Kaštan to use your location in System Settings." = "Přístup k poloze byl zamítnut. Povolte Kaštanu používat polohu v Nastavení systému.";
+"Location Services are turned off. Enable them in System Settings to use My location." = "Polohové služby jsou vypnuté. Zapněte je v Nastavení systému, chcete-li použít volbu Moje poloha.";
 "Lockout timetable" = "Výlukový jízdní řád";
 "New Tab" = "Nový panel";
 "Now" = "Nyní";
 "municipality" = "obec";
+"My location" = "Moje poloha";
 "No application could open the calendar event." = "Událost kalendáře se nepodařilo otevřít v žádné aplikaci.";
 "No connections yet" = "Zatím žádné spojení";
 "No station board yet" = "Zatím žádná odjezdová tabule";
@@ -163,5 +168,6 @@
 "Via" = "Přes";
 "Via place" = "Místo přes";
 "Zone %@" = "zóna %@";
+"Your current location could not be determined. Try again." = "Aktuální polohu se nepodařilo zjistit. Zkuste to znovu.";
 "via %@" = "přes %@";
 "→ %@" = "→ %@";

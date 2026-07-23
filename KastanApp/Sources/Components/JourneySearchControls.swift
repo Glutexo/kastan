@@ -2,8 +2,8 @@ import AppKit
 import Kastan
 import SwiftUI
 
-/// Decides whether the date and time shortcuts should accompany their field labels.
-enum SearchDateTimeShortcutPresentation {
+/// Decides whether compact search-field shortcuts should accompany their labels.
+enum SearchShortcutPresentation {
     static func isVisible(for modifierFlags: NSEvent.ModifierFlags) -> Bool {
         modifierFlags.contains(.option)
     }
@@ -26,7 +26,7 @@ struct JourneySearchControls: View {
     @Binding private var date: Date
     @Binding private var time: Date
     @Binding private var isArrival: Bool
-    @State private var showsDateTimeShortcuts = SearchDateTimeShortcutPresentation.isVisible(
+    @State private var showsDateTimeShortcuts = SearchShortcutPresentation.isVisible(
         for: NSEvent.modifierFlags
     )
 
@@ -234,7 +234,25 @@ struct SearchFieldHeader: View {
     let title: LocalizedStringKey
     let shortcutTitle: LocalizedStringKey
     let showsShortcut: Bool
+    let isPerformingShortcut: Bool
+    let isShortcutDisabled: Bool
     let action: () -> Void
+
+    init(
+        title: LocalizedStringKey,
+        shortcutTitle: LocalizedStringKey,
+        showsShortcut: Bool,
+        isPerformingShortcut: Bool = false,
+        isShortcutDisabled: Bool = false,
+        action: @escaping () -> Void
+    ) {
+        self.title = title
+        self.shortcutTitle = shortcutTitle
+        self.showsShortcut = showsShortcut
+        self.isPerformingShortcut = isPerformingShortcut
+        self.isShortcutDisabled = isShortcutDisabled
+        self.action = action
+    }
 
     var body: some View {
         Text(title)
@@ -249,10 +267,20 @@ struct SearchFieldHeader: View {
                         .hidden()
 
                     if showsShortcut {
-                        Button(shortcutTitle, action: action)
+                        Button(action: action) {
+                            Text(shortcutTitle)
+                                .opacity(isPerformingShortcut ? 0 : 1)
+                                .overlay {
+                                    if isPerformingShortcut {
+                                        ProgressView()
+                                            .controlSize(.mini)
+                                    }
+                                }
+                        }
                             .buttonStyle(.bordered)
                             .controlSize(.mini)
                             .fixedSize()
+                            .disabled(isShortcutDisabled)
                             .transition(.opacity)
                     }
                 }
@@ -263,7 +291,7 @@ struct SearchFieldHeader: View {
 }
 
 /// Mirrors the live Option state into SwiftUI while the editable search form is visible.
-private struct OptionModifierMonitor: NSViewRepresentable {
+struct OptionModifierMonitor: NSViewRepresentable {
     @Binding var isPressed: Bool
 
     func makeCoordinator() -> Coordinator {
@@ -297,7 +325,7 @@ private struct OptionModifierMonitor: NSViewRepresentable {
             eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) {
                 [weak self] event in
                 self?.update(
-                    SearchDateTimeShortcutPresentation.isVisible(for: event.modifierFlags)
+                    SearchShortcutPresentation.isVisible(for: event.modifierFlags)
                 )
                 return event
             }
@@ -325,7 +353,7 @@ private struct OptionModifierMonitor: NSViewRepresentable {
         }
 
         @objc private func applicationDidBecomeActive() {
-            update(SearchDateTimeShortcutPresentation.isVisible(for: NSEvent.modifierFlags))
+            update(SearchShortcutPresentation.isVisible(for: NSEvent.modifierFlags))
         }
 
         @objc private func applicationDidResignActive() {

@@ -659,14 +659,14 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: false), -8)
     }
 
-    func testDateAndTimeShortcutsFollowTheOptionModifier() {
-        XCTAssertTrue(SearchDateTimeShortcutPresentation.isVisible(for: [.option]))
-        XCTAssertTrue(SearchDateTimeShortcutPresentation.isVisible(for: [.option, .shift]))
-        XCTAssertFalse(SearchDateTimeShortcutPresentation.isVisible(for: []))
-        XCTAssertFalse(SearchDateTimeShortcutPresentation.isVisible(for: [.command]))
+    func testSearchFieldShortcutsFollowTheOptionModifier() {
+        XCTAssertTrue(SearchShortcutPresentation.isVisible(for: [.option]))
+        XCTAssertTrue(SearchShortcutPresentation.isVisible(for: [.option, .shift]))
+        XCTAssertFalse(SearchShortcutPresentation.isVisible(for: []))
+        XCTAssertFalse(SearchShortcutPresentation.isVisible(for: [.command]))
     }
 
-    func testDateAndTimeShortcutDoesNotResizeItsHeader() {
+    func testSearchFieldShortcutDoesNotResizeItsHeader() {
         let hiddenHeader = NSHostingView(rootView: SearchFieldHeader(
             title: "Time",
             shortcutTitle: "Now",
@@ -1185,6 +1185,71 @@ final class KastanAppTests: XCTestCase {
             keys.map { english.localizedString(forKey: $0, value: nil, table: nil) },
             ["municipality", "train", "bus"]
         )
+    }
+
+    func testCurrentLocationFillsEitherConnectionEndpointAndSurvivesTimetableChanges() async {
+        let provider = StubCurrentLocationProvider(result: .success(CurrentLocationCoordinate(
+            latitude: 49.197391,
+            longitude: 16.619124
+        )))
+        let client = MockIDOSClient()
+        let model = ConnectionsViewModel(
+            client: client,
+            calendarImporter: RecordingCalendarImporter(),
+            currentLocationProvider: provider
+        )
+        let locationText = AppLocalization.string("My location")
+
+        await model.fillCurrentLocation(in: .from)
+
+        XCTAssertEqual(model.from, locationText)
+        XCTAssertTrue(model.fromSelection?.isCurrentLocation == true)
+        XCTAssertNil(model.fromSelection?.kind)
+
+        model.timetable = IDOSTimetable(slug: "pid", displayName: "Prague + PID")
+        XCTAssertTrue(model.fromSelection?.isCurrentLocation == true)
+
+        model.from = "Praha"
+        model.to = "Brno"
+        await model.fillCurrentLocation(in: .to)
+        await model.search()
+
+        let request = await client.lastConnectionRequest
+        XCTAssertEqual(model.to, locationText)
+        XCTAssertTrue(model.toSelection?.isCurrentLocation == true)
+        XCTAssertEqual(request?.toSelection, model.toSelection?.idosSelection)
+        XCTAssertEqual(provider.requestCount, 2)
+    }
+
+    func testCurrentLocationPermissionFailureIsActionable() async {
+        let provider = StubCurrentLocationProvider(
+            result: .failure(CurrentLocationError.permissionDenied)
+        )
+        let model = ConnectionsViewModel(
+            client: MockIDOSClient(),
+            calendarImporter: RecordingCalendarImporter(),
+            currentLocationProvider: provider
+        )
+
+        await model.fillCurrentLocation(in: .from)
+
+        XCTAssertNil(model.fromSelection)
+        XCTAssertNil(model.locatingEndpoint)
+        XCTAssertEqual(
+            model.errorMessage,
+            AppLocalization.string(
+                "Location access was denied. Allow Kaštan to use your location in System Settings."
+            )
+        )
+    }
+
+    func testLocationPermissionPromptIsLocalized() throws {
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        let key = "NSLocationUsageDescription"
+
+        XCTAssertNotEqual(czech.localizedString(forKey: key, value: nil, table: "InfoPlist"), key)
+        XCTAssertNotEqual(english.localizedString(forKey: key, value: nil, table: "InfoPlist"), key)
     }
 
     func testSelectedPlaceTypeMarkerStaysWithinACompactInput() {
@@ -2075,6 +2140,21 @@ private final class RecordingPDFExporter: PDFExporting {
     func save(pdfData: Data, suggestedFileName: String) async throws {
         self.pdfData = pdfData
         self.suggestedFileName = suggestedFileName
+    }
+}
+
+@MainActor
+private final class StubCurrentLocationProvider: CurrentLocationProviding {
+    let result: Result<CurrentLocationCoordinate, CurrentLocationError>
+    private(set) var requestCount = 0
+
+    init(result: Result<CurrentLocationCoordinate, CurrentLocationError>) {
+        self.result = result
+    }
+
+    func currentLocation() async throws -> CurrentLocationCoordinate {
+        requestCount += 1
+        return try result.get()
     }
 }
 

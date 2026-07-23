@@ -804,16 +804,17 @@ public struct IDOSClient: IDOSClienting {
     }
 }
 
-/// The exact IDOS object selected from place suggestions, including its catalog identity.
+/// An exact IDOS place selected from suggestions or represented by geographic coordinates.
 ///
 /// Supplying this value with a request distinguishes a station or stop from a municipality
-/// with the same visible name. Omitting it keeps the corresponding request field as free text.
+/// with the same visible name and lets IDOS route from or to the user's current location.
+/// Omitting it keeps the corresponding request field as free text.
 public struct IDOSPlaceSelection: Codable, Equatable, Sendable {
     /// The text IDOS places into the visible search field after selection.
     public var text: String
-    /// The IDOS catalog containing the selected municipality, station, or stop.
+    /// The IDOS catalog or coordinate marker describing the selected place.
     public var listID: String
-    /// The selected object's identifier inside its IDOS catalog.
+    /// The selected catalog object or coordinate mode identifier.
     public var itemID: String
 
     public init(text: String, listID: String, itemID: String) {
@@ -836,8 +837,25 @@ public struct IDOSPlaceSelection: Codable, Equatable, Sendable {
         )
     }
 
+    /// Builds IDOS's exact `My location` value from a WGS-84 coordinate.
+    public static func currentLocation(
+        text: String,
+        latitude: Double,
+        longitude: Double
+    ) -> Self {
+        Self(
+            text: text,
+            listID: "loc: \(coordinate(latitude)); \(coordinate(longitude))",
+            itemID: "myPosition=true"
+        )
+    }
+
     fileprivate var formValue: String {
         "\(text)%\(listID)%\(itemID)"
+    }
+
+    private static func coordinate(_ value: Double) -> String {
+        String(format: "%.6f", locale: Locale(identifier: "en_US_POSIX"), value)
     }
 }
 

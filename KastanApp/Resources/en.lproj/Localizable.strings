@@ -57,6 +57,7 @@
 "Favorites" = "Favorites";
 "Favorite timetables" = "Favorite timetables";
 "From" = "From";
+"Here" = "Here";
 "IDOS could not generate a station timetable for this line, direction, and date." = "IDOS could not generate a station timetable for this line, direction, and date.";
 "IDOS could not load this service detail." = "IDOS could not load this service detail.";
 "IDOS could not load this service detail. %@" = "IDOS could not load this service detail. %@";
@@ -74,6 +75,7 @@
 "Maximum number of transfers" = "Maximum number of transfers";
 "Kaštan on GitHub" = "Kaštan on GitHub";
 "Kaštan retrieves journey information from publicly accessible IDOS web pages. It is not an official IDOS or CHAPS application." = "Kaštan retrieves journey information from publicly accessible IDOS web pages. It is not an official IDOS or CHAPS application.";
+"Kaštan is already determining your current location." = "Kaštan is already determining your current location.";
 "Independent macOS client for occasional personal IDOS searches." = "Independent macOS client for occasional personal IDOS searches.";
 "Integrated transport systems" = "Integrated transport systems";
 "Loading earlier results…" = "Loading earlier results…";
@@ -82,10 +84,13 @@
 "Loading suggestions" = "Loading suggestions";
 "Loading station board…" = "Loading station board…";
 "Loading station timetable…" = "Loading station timetable…";
+"Location access was denied. Allow Kaštan to use your location in System Settings." = "Location access was denied. Allow Kaštan to use your location in System Settings.";
+"Location Services are turned off. Enable them in System Settings to use My location." = "Location Services are turned off. Enable them in System Settings to use My location.";
 "Lockout timetable" = "Lockout timetable";
 "New Tab" = "New Tab";
 "Now" = "Now";
 "municipality" = "municipality";
+"My location" = "My location";
 "No application could open the calendar event." = "No application could open the calendar event.";
 "No connections yet" = "No connections yet";
 "No station board yet" = "No station board yet";
@@ -163,5 +168,6 @@
 "Via" = "Via";
 "Via place" = "Via place";
 "Zone %@" = "Zone %@";
+"Your current location could not be determined. Try again." = "Your current location could not be determined. Try again.";
 "via %@" = "via %@";
 "→ %@" = "→ %@";

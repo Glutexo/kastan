@@ -189,12 +189,12 @@ enum PlaceSuggestionKind: Equatable {
     }
 }
 
-/// Keeps the exact IDOS object and its user-facing type together while the field remains unchanged.
+/// Keeps the exact IDOS object and any applicable user-facing type while the field remains unchanged.
 struct PlaceFieldSelection: Equatable {
     let idosSelection: IDOSPlaceSelection
-    let kind: PlaceSuggestionKind
+    let kind: PlaceSuggestionKind?
 
-    init(idosSelection: IDOSPlaceSelection, kind: PlaceSuggestionKind) {
+    init(idosSelection: IDOSPlaceSelection, kind: PlaceSuggestionKind?) {
         self.idosSelection = idosSelection
         self.kind = kind
     }
@@ -211,6 +211,10 @@ struct PlaceFieldSelection: Equatable {
 
     var text: String {
         idosSelection.text
+    }
+
+    var isCurrentLocation: Bool {
+        kind == nil && idosSelection.itemID == "myPosition=true"
     }
 }
 
@@ -335,6 +339,11 @@ struct PlaceAutocompleteField: View {
     let timetable: IDOSTimetable
     let stationTimetableLine: String?
     let onSelection: ((IDOSSuggestion) -> Void)?
+    let headerShortcutTitle: LocalizedStringKey?
+    let showsHeaderShortcut: Bool
+    let isPerformingHeaderShortcut: Bool
+    let isHeaderShortcutDisabled: Bool
+    let headerShortcutAction: (() -> Void)?
 
     @StateObject private var model: PlaceSuggestionsModel
     @FocusState private var isFocused: Bool
@@ -349,7 +358,12 @@ struct PlaceAutocompleteField: View {
         scope: PlaceSuggestionScope,
         stationTimetableLine: String? = nil,
         client: any IDOSClienting,
-        onSelection: ((IDOSSuggestion) -> Void)? = nil
+        onSelection: ((IDOSSuggestion) -> Void)? = nil,
+        headerShortcutTitle: LocalizedStringKey? = nil,
+        showsHeaderShortcut: Bool = false,
+        isPerformingHeaderShortcut: Bool = false,
+        isHeaderShortcutDisabled: Bool = false,
+        headerShortcutAction: (() -> Void)? = nil
     ) {
         self.title = title
         self.prompt = prompt
@@ -358,14 +372,17 @@ struct PlaceAutocompleteField: View {
         self.timetable = timetable
         self.stationTimetableLine = stationTimetableLine
         self.onSelection = onSelection
+        self.headerShortcutTitle = headerShortcutTitle
+        self.showsHeaderShortcut = showsHeaderShortcut
+        self.isPerformingHeaderShortcut = isPerformingHeaderShortcut
+        self.isHeaderShortcutDisabled = isHeaderShortcutDisabled
+        self.headerShortcutAction = headerShortcutAction
         _model = StateObject(wrappedValue: PlaceSuggestionsModel(client: client, scope: scope))
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            fieldHeader
 
             TextField(prompt, text: $text)
                 .textFieldStyle(.roundedBorder)
@@ -378,7 +395,9 @@ struct PlaceAutocompleteField: View {
                     model.update(query: value, timetable: timetable, line: stationTimetableLine)
                 }
                 .onChange(of: timetable.slug) { _ in
-                    selection?.wrappedValue = nil
+                    if selection?.wrappedValue?.isCurrentLocation != true {
+                        selection?.wrappedValue = nil
+                    }
                     model.update(query: text, timetable: timetable, line: stationTimetableLine)
                 }
                 .onChange(of: stationTimetableLine ?? "") { _ in
@@ -395,11 +414,12 @@ struct PlaceAutocompleteField: View {
                 }
                 .overlay(alignment: .leading) {
                     if let selectedPlace = selection?.wrappedValue,
+                       let kind = selectedPlace.kind,
                        selectedPlace.text == text {
                         GeometryReader { geometry in
                             SelectedPlaceTypeMarker(
                                 text: text,
-                                kind: selectedPlace.kind,
+                                kind: kind,
                                 fieldSize: geometry.size
                             )
                         }
@@ -427,6 +447,24 @@ struct PlaceAutocompleteField: View {
                     suggestionsList
                         .frame(width: inputWidth)
                 }
+        }
+    }
+
+    @ViewBuilder
+    private var fieldHeader: some View {
+        if let headerShortcutTitle, let headerShortcutAction {
+            SearchFieldHeader(
+                title: title,
+                shortcutTitle: headerShortcutTitle,
+                showsShortcut: showsHeaderShortcut,
+                isPerformingShortcut: isPerformingHeaderShortcut,
+                isShortcutDisabled: isHeaderShortcutDisabled,
+                action: headerShortcutAction
+            )
+        } else {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 

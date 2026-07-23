@@ -26,6 +26,9 @@ struct ConnectionsView: View {
     let client: any IDOSClienting
     @State private var isJourneyOptionsExpanded = false
     @State private var isSearchFormCollapsed = false
+    @State private var showsEndpointShortcuts = SearchShortcutPresentation.isVisible(
+        for: NSEvent.modifierFlags
+    )
 
     var body: some View {
         GeometryReader { geometry in
@@ -61,6 +64,10 @@ struct ConnectionsView: View {
                 alignment: .topLeading
             )
             .animation(.easeInOut(duration: 0.18), value: isSearchFormCollapsed)
+        }
+        .background {
+            OptionModifierMonitor(isPressed: $showsEndpointShortcuts)
+                .frame(width: 0, height: 0)
         }
     }
 
@@ -122,8 +129,14 @@ struct ConnectionsView: View {
             selection: $model.fromSelection,
             timetable: model.timetable,
             scope: .places,
-            client: client
-        )
+            client: client,
+            headerShortcutTitle: "Here",
+            showsHeaderShortcut: showsEndpointShortcuts,
+            isPerformingHeaderShortcut: model.locatingEndpoint == .from,
+            isHeaderShortcutDisabled: model.locatingEndpoint != nil
+        ) {
+            Task { await model.fillCurrentLocation(in: .from) }
+        }
     }
 
     private var toField: some View {
@@ -134,8 +147,14 @@ struct ConnectionsView: View {
             selection: $model.toSelection,
             timetable: model.timetable,
             scope: .places,
-            client: client
-        )
+            client: client,
+            headerShortcutTitle: "Here",
+            showsHeaderShortcut: showsEndpointShortcuts,
+            isPerformingHeaderShortcut: model.locatingEndpoint == .to,
+            isHeaderShortcutDisabled: model.locatingEndpoint != nil
+        ) {
+            Task { await model.fillCurrentLocation(in: .to) }
+        }
     }
 
     private var swapButton: some View {

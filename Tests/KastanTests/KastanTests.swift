@@ -1312,6 +1312,24 @@ import Testing
     #expect(freeTextRequest.formItems.contains(URLQueryItem(name: "ToHidden", value: "%0")))
 }
 
+@Test func connectionRequestCarriesCurrentWGS84Location() {
+    let location = IDOSPlaceSelection.currentLocation(
+        text: "My location",
+        latitude: 49.1973914,
+        longitude: 16.6191237
+    )
+    let request = IDOSConnectionRequest(
+        from: location.text,
+        to: "Brno",
+        fromSelection: location
+    )
+
+    #expect(request.formItems.contains(URLQueryItem(
+        name: "FromHidden",
+        value: "My location%loc: 49.197391; 16.619124%myPosition=true"
+    )))
+}
+
 @Test func connectionRequestUsesIDOSMaximumTransfersParameter() {
     let limitedRequest = IDOSConnectionRequest(from: "Praha", to: "Brno", maxTransfers: 0)
     let normalRequest = IDOSConnectionRequest(from: "Praha", to: "Brno")

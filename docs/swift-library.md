@@ -128,6 +128,11 @@ Create an `IDOSPlaceSelection` from a chosen `IDOSSuggestion` and pass it as `fr
 station from a municipality with the same visible name. Leave the selection unset for the same free-text
 interpretation as typing into the IDOS form without choosing a suggestion.
 
+For a connection endpoint obtained from a device's WGS-84 coordinates, use
+`IDOSPlaceSelection.currentLocation(text:latitude:longitude:)` and pass the returned value together with its `text`
+as `fromSelection` or `toSelection`. The caller supplies the localized visible text, such as `My location`; Kaštan
+formats the coordinate identity expected by IDOS.
+
 `connectionCalendar` returns IDOS iCalendar text for a search result. `serviceCalendar` and `servicePDF`
 resolve a dated service's permanent result link and return the corresponding native IDOS export.
 `connectionPDF` and `servicePDF` accept an explicit language for the document text.
