@@ -136,11 +136,13 @@ final class ApplicationMainMenu: NSObject {
         DispatchQueue.main.async { [self] in
             cleanupScheduled = false
             for menu in NSApplication.shared.mainMenu?.items.compactMap(\.submenu) ?? [] {
+                let isWindowsMenu = menu === NSApplication.shared.windowsMenu
                 removeGenericCloseCommands(from: menu)
                 removeRedundantAppInformationCommand(
                     from: menu,
-                    isWindowsMenu: menu === NSApplication.shared.windowsMenu
+                    isWindowsMenu: isWindowsMenu
                 )
+                applyFavoriteTimetablesIcon(to: menu, isWindowsMenu: isWindowsMenu)
                 removeRedundantSeparators(from: menu)
             }
         }
@@ -173,6 +175,15 @@ final class ApplicationMainMenu: NSObject {
 
     static func isRedundantAppInformationItem(title: String, isWindowsMenu: Bool) -> Bool {
         isWindowsMenu && title == AppLocalization.string("About Kaštan")
+    }
+
+    /// Marks the favorites-manager command like its toolbar counterpart without decorating window-list entries.
+    private func applyFavoriteTimetablesIcon(to menu: NSMenu, isWindowsMenu: Bool) {
+        guard isWindowsMenu else { return }
+
+        let title = AppLocalization.string("Favorite timetables")
+        guard let command = menu.items.first(where: { $0.title == title }) else { return }
+        command.image = NSImage(systemSymbolName: "star", accessibilityDescription: title)
     }
 
     private func removeRedundantSeparators(from menu: NSMenu) {

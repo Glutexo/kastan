@@ -47,6 +47,15 @@ final class KastanAppTests: XCTestCase {
         }
     }
 
+    func testFavoriteTimetablesWindowCommandUsesAnIcon() throws {
+        let title = AppLocalization.string("Favorite timetables")
+        let command = try XCTUnwrap(
+            NSApplication.shared.windowsMenu?.items.first { $0.title == title }
+        )
+
+        XCTAssertNotNil(command.image)
+    }
+
     func testResultDetailMenuActionsStayInOneGroup() throws {
         let expectedTitles = [
             "Add to Calendar",
