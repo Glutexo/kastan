@@ -47,6 +47,28 @@ final class KastanAppTests: XCTestCase {
         }
     }
 
+    func testResultDetailMenuActionsStayInOneGroup() throws {
+        let expectedTitles = [
+            "Add to Calendar",
+            "Save as PDF",
+            "Share Link",
+            "Open in IDOS",
+        ].map { AppLocalization.string($0) }
+        let fileMenu = try XCTUnwrap(
+            NSApplication.shared.mainMenu?.items
+                .compactMap(\.submenu)
+                .first { menu in menu.items.contains { $0.title == expectedTitles[0] } }
+        )
+        let firstActionIndex = try XCTUnwrap(
+            fileMenu.items.firstIndex { $0.title == expectedTitles[0] }
+        )
+
+        XCTAssertEqual(
+            Array(fileMenu.items.dropFirst(firstActionIndex).prefix(expectedTitles.count).map(\.title)),
+            expectedTitles
+        )
+    }
+
     func testCloseWindowTargetsEveryTabInTheSelectedWindow() {
         XCTAssertEqual(
             AppWindowActions.closeTargets(selected: "selected", tabGroup: ["first", "selected"]),

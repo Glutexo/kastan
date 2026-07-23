@@ -332,8 +332,6 @@ struct ResultDetailCommands: Commands {
                 context?.saveAsPDF()
             }
 
-            Divider()
-
             if let url = context?.permanentLink {
                 ShareLink(item: url) {
                     actionLabel(.shareLink)
