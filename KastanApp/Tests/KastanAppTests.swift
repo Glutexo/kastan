@@ -26,6 +26,27 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(imageView.imageScaling, .scaleProportionallyUpOrDown)
     }
 
+    func testProductMenuActionsAppearOnlyOnce() throws {
+        let mainMenu = try XCTUnwrap(NSApplication.shared.mainMenu)
+        let menuItems = mainMenu.items.compactMap(\.submenu).flatMap(\.items)
+        let actionKeys = [
+            "Add to Calendar",
+            "Save as PDF",
+            "Share Link",
+            "Open in IDOS",
+            "Favorite timetables",
+        ]
+
+        for key in actionKeys {
+            let title = AppLocalization.string(key)
+            XCTAssertEqual(
+                menuItems.filter { $0.title == title }.count,
+                1,
+                "Expected exactly one \(title) command in the application menu"
+            )
+        }
+    }
+
     func testCloseWindowTargetsEveryTabInTheSelectedWindow() {
         XCTAssertEqual(
             AppWindowActions.closeTargets(selected: "selected", tabGroup: ["first", "selected"]),
@@ -805,10 +826,6 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(AppSection.allCases, [.connections, .departures, .stationTimetables])
         XCTAssertEqual(AppWindow.favoriteTimetables, "favorite-timetables")
         XCTAssertEqual(AppWindow.connectionDetail, "connection-detail")
-    }
-
-    func testFavoriteTimetablesCommandBelongsToWindowMenu() {
-        XCTAssertEqual(FavoriteTimetablesCommands.menu, .window)
     }
 
     func testForceClickPreviewPrefersTheSmallestLatestTargetUnderThePointer() throws {

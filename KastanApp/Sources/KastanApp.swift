@@ -247,12 +247,6 @@ struct AppHelpCommands: Commands {
     }
 }
 
-/// Identifies the native menu that owns an app-level command.
-enum AppCommandMenu: Equatable {
-    case view
-    case window
-}
-
 /// Defines the result-detail actions shared by the active window's toolbar and the File menu.
 enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
     case addToCalendar
@@ -325,7 +319,7 @@ extension FocusedValues {
     }
 }
 
-/// Mirrors every result-detail toolbar action in the standard File menu.
+/// Mirrors every result-detail toolbar action in the application's single File menu command group.
 struct ResultDetailCommands: Commands {
     @FocusedValue(\.resultDetailCommandContext) private var context
 
@@ -366,37 +360,6 @@ struct ResultDetailCommands: Commands {
 
     private func actionLabel(_ action: ResultDetailAction) -> some View {
         Label(action.title, systemImage: action.systemImage)
-    }
-}
-
-/// Opens the independent favorites manager from the standard Window menu in every app window.
-struct FavoriteTimetablesCommands: Commands {
-    static let menu = AppCommandMenu.window
-
-    @Environment(\.openWindow) private var openWindow
-
-    @CommandsBuilder
-    var body: some Commands {
-        switch Self.menu {
-        case .view:
-            CommandGroup(after: .toolbar) {
-                favoriteTimetablesButton
-                Divider()
-            }
-        case .window:
-            CommandGroup(before: .windowList) {
-                favoriteTimetablesButton
-                Divider()
-            }
-        }
-    }
-
-    private var favoriteTimetablesButton: some View {
-        Button {
-            openWindow(id: AppWindow.favoriteTimetables)
-        } label: {
-            Label("Favorite timetables", systemImage: "star")
-        }
     }
 }
 
@@ -454,7 +417,7 @@ struct KastanApp: App {
         .defaultSize(width: 1080, height: 720)
         .commands {
             AppWindowCommands()
-            FavoriteTimetablesCommands()
+            ResultDetailCommands()
             AppSectionCommands()
             AppInformationCommands()
             AppHelpCommands()
@@ -468,22 +431,12 @@ struct KastanApp: App {
         }
         .defaultSize(width: 520, height: 620)
         .defaultPosition(.center)
-        .commands {
-            FavoriteTimetablesCommands()
-            AppInformationCommands()
-            AppHelpCommands()
-        }
 
         Window("About Kaštan", id: AppWindow.information) {
             AppInformationView()
         }
         .windowResizability(.contentSize)
         .defaultPosition(.center)
-        .commands {
-            FavoriteTimetablesCommands()
-            AppInformationCommands()
-            AppHelpCommands()
-        }
 
         WindowGroup("Service route", id: AppWindow.serviceDetail, for: ServiceSelection.self) { selection in
             if let selection = selection.wrappedValue {
@@ -491,12 +444,6 @@ struct KastanApp: App {
             }
         }
         .defaultSize(width: ServiceDetailView.defaultWindowWidth, height: 640)
-        .commands {
-            ResultDetailCommands()
-            FavoriteTimetablesCommands()
-            AppInformationCommands()
-            AppHelpCommands()
-        }
 
         WindowGroup("Connection detail", id: AppWindow.connectionDetail, for: ConnectionSelection.self) { selection in
             if let selection = selection.wrappedValue {
@@ -504,11 +451,5 @@ struct KastanApp: App {
             }
         }
         .defaultSize(width: ConnectionDetailView.defaultWindowWidth, height: 640)
-        .commands {
-            ResultDetailCommands()
-            FavoriteTimetablesCommands()
-            AppInformationCommands()
-            AppHelpCommands()
-        }
     }
 }
