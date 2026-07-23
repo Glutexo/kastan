@@ -1,5 +1,13 @@
+import AppKit
 import Kastan
 import SwiftUI
+
+/// Decides whether the date and time shortcuts should accompany their field labels.
+enum SearchDateTimeShortcutPresentation {
+    static func isVisible(for modifierFlags: NSEvent.ModifierFlags) -> Bool {
+        modifierFlags.contains(.option)
+    }
+}
 
 /// Keeps timetable, date, time, mode, and search actions visually identical across app searches.
 struct JourneySearchControls: View {
@@ -18,6 +26,9 @@ struct JourneySearchControls: View {
     @Binding private var date: Date
     @Binding private var time: Date
     @Binding private var isArrival: Bool
+    @State private var showsDateTimeShortcuts = SearchDateTimeShortcutPresentation.isVisible(
+        for: NSEvent.modifierFlags
+    )
 
     private let modeLabel: LocalizedStringKey
     private let departureLabel: LocalizedStringKey
@@ -54,47 +65,53 @@ struct JourneySearchControls: View {
     }
 
     var body: some View {
-        if usesStackedLayout {
-            VStack(alignment: .leading, spacing: 12) {
-                timetablePicker
-                    .frame(maxWidth: 360, alignment: .leading)
+        Group {
+            if usesStackedLayout {
+                VStack(alignment: .leading, spacing: 12) {
+                    timetablePicker
+                        .frame(maxWidth: 360, alignment: .leading)
 
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .bottom, spacing: 12) {
-                        datePicker
-                        timePicker
-                        modePicker
-                            .fixedSize(horizontal: true, vertical: false)
-                        Spacer(minLength: 8)
-                        searchButton
-                    }
-
-                    VStack(alignment: .leading, spacing: 12) {
+                    ViewThatFits(in: .horizontal) {
                         HStack(alignment: .bottom, spacing: 12) {
                             datePicker
                             timePicker
-                            Spacer(minLength: 0)
-                        }
-                        HStack(spacing: 12) {
                             modePicker
                                 .fixedSize(horizontal: true, vertical: false)
-                            Spacer(minLength: 0)
+                            Spacer(minLength: 8)
                             searchButton
+                        }
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack(alignment: .bottom, spacing: 12) {
+                                datePicker
+                                timePicker
+                                Spacer(minLength: 0)
+                            }
+                            HStack(spacing: 12) {
+                                modePicker
+                                    .fixedSize(horizontal: true, vertical: false)
+                                Spacer(minLength: 0)
+                                searchButton
+                            }
                         }
                     }
                 }
+            } else {
+                HStack(alignment: .bottom, spacing: 12) {
+                    timetablePicker
+                        .frame(width: 240)
+                    datePicker
+                    timePicker
+                    modePicker
+                        .frame(width: 175)
+                    Spacer(minLength: 0)
+                    searchButton
+                }
             }
-        } else {
-            HStack(alignment: .bottom, spacing: 12) {
-                timetablePicker
-                    .frame(width: 240)
-                datePicker
-                timePicker
-                modePicker
-                    .frame(width: 175)
-                Spacer(minLength: 0)
-                searchButton
-            }
+        }
+        .background {
+            OptionModifierMonitor(isPressed: $showsDateTimeShortcuts)
+                .frame(width: 0, height: 0)
         }
     }
 
@@ -156,9 +173,9 @@ struct JourneySearchControls: View {
 
     private var datePicker: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Date")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            fieldHeader("Date", shortcutTitle: "Today") {
+                date = .now
+            }
             DatePicker("Date", selection: $date, displayedComponents: .date)
                 .labelsHidden()
                 .datePickerStyle(.field)
@@ -167,12 +184,34 @@ struct JourneySearchControls: View {
 
     private var timePicker: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Time")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            fieldHeader("Time", shortcutTitle: "Now") {
+                time = .now
+            }
             DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
                 .labelsHidden()
         }
+    }
+
+    private func fieldHeader(
+        _ title: LocalizedStringKey,
+        shortcutTitle: LocalizedStringKey,
+        action: @escaping () -> Void
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if showsDateTimeShortcuts {
+                Button(shortcutTitle, action: action)
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                    .fixedSize()
+                    .transition(.opacity)
+            }
+        }
+        .frame(height: 16, alignment: .leading)
+        .animation(.easeInOut(duration: 0.1), value: showsDateTimeShortcuts)
     }
 
     private var modePicker: some View {
@@ -201,6 +240,83 @@ struct JourneySearchControls: View {
         .controlSize(.large)
         .keyboardShortcut(.defaultAction)
         .disabled(!canSearch)
+    }
+}
+
+/// Mirrors the live Option state into SwiftUI while the editable search form is visible.
+private struct OptionModifierMonitor: NSViewRepresentable {
+    @Binding var isPressed: Bool
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(isPressed: $isPressed)
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        context.coordinator.startMonitoring()
+        return NSView(frame: .zero)
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.isPressed = $isPressed
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.stopMonitoring()
+    }
+
+    final class Coordinator: NSObject {
+        var isPressed: Binding<Bool>
+        private var eventMonitor: Any?
+
+        init(isPressed: Binding<Bool>) {
+            self.isPressed = isPressed
+        }
+
+        func startMonitoring() {
+            guard eventMonitor == nil else { return }
+
+            eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) {
+                [weak self] event in
+                self?.update(
+                    SearchDateTimeShortcutPresentation.isVisible(for: event.modifierFlags)
+                )
+                return event
+            }
+
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(applicationDidBecomeActive),
+                name: NSApplication.didBecomeActiveNotification,
+                object: nil
+            )
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(applicationDidResignActive),
+                name: NSApplication.didResignActiveNotification,
+                object: nil
+            )
+        }
+
+        func stopMonitoring() {
+            if let eventMonitor {
+                NSEvent.removeMonitor(eventMonitor)
+                self.eventMonitor = nil
+            }
+            NotificationCenter.default.removeObserver(self)
+        }
+
+        @objc private func applicationDidBecomeActive() {
+            update(SearchDateTimeShortcutPresentation.isVisible(for: NSEvent.modifierFlags))
+        }
+
+        @objc private func applicationDidResignActive() {
+            update(false)
+        }
+
+        private func update(_ newValue: Bool) {
+            guard isPressed.wrappedValue != newValue else { return }
+            isPressed.wrappedValue = newValue
+        }
     }
 }
 

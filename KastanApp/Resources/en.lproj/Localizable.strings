@@ -84,6 +84,7 @@
 "Loading station timetable…" = "Loading station timetable…";
 "Lockout timetable" = "Lockout timetable";
 "New Tab" = "New Tab";
+"Now" = "Now";
 "municipality" = "municipality";
 "No application could open the calendar event." = "No application could open the calendar event.";
 "No connections yet" = "No connections yet";
@@ -141,6 +142,7 @@
 "Swap departure and arrival" = "Swap departure and arrival";
 "Swap direction stops" = "Swap direction stops";
 "The calendar data could not be saved." = "The calendar data could not be saved.";
+"Today" = "Today";
 "Time" = "Time";
 "Time means" = "Time means";
 "Timetable" = "Timetable";

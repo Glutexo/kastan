@@ -84,6 +84,7 @@
 "Loading station timetable…" = "Načítání zastávkového jízdního řádu…";
 "Lockout timetable" = "Výlukový jízdní řád";
 "New Tab" = "Nový panel";
+"Now" = "Nyní";
 "municipality" = "obec";
 "No application could open the calendar event." = "Událost kalendáře se nepodařilo otevřít v žádné aplikaci.";
 "No connections yet" = "Zatím žádné spojení";
@@ -141,6 +142,7 @@
 "Swap departure and arrival" = "Prohodit výchozí a cílové místo";
 "Swap direction stops" = "Prohodit zastávky směru";
 "The calendar data could not be saved." = "Data kalendáře se nepodařilo uložit.";
+"Today" = "Dnes";
 "Time" = "Čas";
 "Time means" = "Význam času";
 "Timetable" = "Jízdní řád";

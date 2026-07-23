@@ -659,6 +659,13 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: false), -8)
     }
 
+    func testDateAndTimeShortcutsFollowTheOptionModifier() {
+        XCTAssertTrue(SearchDateTimeShortcutPresentation.isVisible(for: [.option]))
+        XCTAssertTrue(SearchDateTimeShortcutPresentation.isVisible(for: [.option, .shift]))
+        XCTAssertFalse(SearchDateTimeShortcutPresentation.isVisible(for: []))
+        XCTAssertFalse(SearchDateTimeShortcutPresentation.isVisible(for: [.command]))
+    }
+
     func testDetailLayoutUsesHorizontalControlsWhenEnoughSpaceIsAvailable() {
         let layout = DetailLayout(availableWidth: 900)
 

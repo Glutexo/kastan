@@ -13,6 +13,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   municipality. The selected field marks that identity with a subdued localized type such as municipality,
   train, or bus; editing the field removes the marker and returns it to a free-text search. Searches also support
   date, time, arrival mode, and an extensible journey-options builder modeled after native macOS rule editors.
+  Holding Option reveals compact Today and Now buttons beside the date and time labels for resetting either value
+  without reopening its picker.
   Each condition first selects either Via or Maximum number of transfers, then presents the corresponding text
   or compact, left-aligned number field with native stepper arrows. Both editors share one row height and follow the
   condition menu sized from the longest supported localized option at standard control spacing; fixed-size controls
