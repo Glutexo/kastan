@@ -666,6 +666,24 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(SearchDateTimeShortcutPresentation.isVisible(for: [.command]))
     }
 
+    func testDateAndTimeShortcutDoesNotResizeItsHeader() {
+        let hiddenHeader = NSHostingView(rootView: SearchFieldHeader(
+            title: "Time",
+            shortcutTitle: "Now",
+            showsShortcut: false,
+            action: {}
+        ))
+        let visibleHeader = NSHostingView(rootView: SearchFieldHeader(
+            title: "Time",
+            shortcutTitle: "Now",
+            showsShortcut: true,
+            action: {}
+        ))
+
+        XCTAssertEqual(hiddenHeader.fittingSize.width, visibleHeader.fittingSize.width, accuracy: 0.5)
+        XCTAssertEqual(hiddenHeader.fittingSize.height, visibleHeader.fittingSize.height, accuracy: 0.5)
+    }
+
     func testDetailLayoutUsesHorizontalControlsWhenEnoughSpaceIsAvailable() {
         let layout = DetailLayout(availableWidth: 900)
 

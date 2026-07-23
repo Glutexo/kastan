@@ -173,7 +173,11 @@ struct JourneySearchControls: View {
 
     private var datePicker: some View {
         VStack(alignment: .leading, spacing: 6) {
-            fieldHeader("Date", shortcutTitle: "Today") {
+            SearchFieldHeader(
+                title: "Date",
+                shortcutTitle: "Today",
+                showsShortcut: showsDateTimeShortcuts
+            ) {
                 date = .now
             }
             DatePicker("Date", selection: $date, displayedComponents: .date)
@@ -184,34 +188,16 @@ struct JourneySearchControls: View {
 
     private var timePicker: some View {
         VStack(alignment: .leading, spacing: 6) {
-            fieldHeader("Time", shortcutTitle: "Now") {
+            SearchFieldHeader(
+                title: "Time",
+                shortcutTitle: "Now",
+                showsShortcut: showsDateTimeShortcuts
+            ) {
                 time = .now
             }
             DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
                 .labelsHidden()
         }
-    }
-
-    private func fieldHeader(
-        _ title: LocalizedStringKey,
-        shortcutTitle: LocalizedStringKey,
-        action: @escaping () -> Void
-    ) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 5) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            if showsDateTimeShortcuts {
-                Button(shortcutTitle, action: action)
-                    .buttonStyle(.bordered)
-                    .controlSize(.mini)
-                    .fixedSize()
-                    .transition(.opacity)
-            }
-        }
-        .frame(height: 16, alignment: .leading)
-        .animation(.easeInOut(duration: 0.1), value: showsDateTimeShortcuts)
     }
 
     private var modePicker: some View {
@@ -240,6 +226,39 @@ struct JourneySearchControls: View {
         .controlSize(.large)
         .keyboardShortcut(.defaultAction)
         .disabled(!canSearch)
+    }
+}
+
+/// Reveals a compact field shortcut without changing the search row's measured layout.
+struct SearchFieldHeader: View {
+    let title: LocalizedStringKey
+    let shortcutTitle: LocalizedStringKey
+    let showsShortcut: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Text(title)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .frame(height: 16, alignment: .leading)
+            .overlay(alignment: .leading) {
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    Text(title)
+                        .font(.caption)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .hidden()
+
+                    if showsShortcut {
+                        Button(shortcutTitle, action: action)
+                            .buttonStyle(.bordered)
+                            .controlSize(.mini)
+                            .fixedSize()
+                            .transition(.opacity)
+                    }
+                }
+                .frame(height: 16, alignment: .leading)
+                .animation(.easeInOut(duration: 0.1), value: showsShortcut)
+            }
     }
 }
 
