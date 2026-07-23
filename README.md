@@ -49,3 +49,7 @@ xcodebuild test -project KastanApp/KastanApp.xcodeproj -scheme KastanApp -destin
 ```
 
 GitHub Actions runs all three test suites for changes to `main` and for pull requests.
+
+## Why Kaštan?
+
+*Kaštan* means *chestnut* in Czech. In Czech public-transport slang, the same word is also used for a passenger.
