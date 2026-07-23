@@ -422,9 +422,9 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(ServiceNotesView.informationLineSpacing, 8)
     }
 
-    func testSelectableServiceNoteFlowRetainsCalendarAndPhoneLinks() {
+    func testSelectableServiceNoteFlowRetainsCalendarPhoneAndWebLinks() {
         let view = ServiceNotesView(
-            notes: ["jede v 1-5", "Informace: +420 123 456 789"],
+            notes: ["jede v 1-5", "Informace: +420 123 456 789", "Web: www.KODIS.cz"],
             timetableValidity: IDOSTimetableValidity(
                 validFrom: serviceDate(2026, 1, 1),
                 validThrough: serviceDate(2026, 12, 31)
@@ -434,6 +434,7 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertTrue(links.contains(ServiceNotesView.calendarDestination(for: 0)))
         XCTAssertTrue(links.contains(URL(string: "tel:+420123456789")!))
+        XCTAssertTrue(links.contains(URL(string: "http://www.KODIS.cz")!))
     }
 
     func testNonDatedAndOutOfValidityNotesDoNotOfferServiceCalendars() {
@@ -459,6 +460,17 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(
             content.runs.compactMap { $0.link?.absoluteString },
             ["tel:+420123456789", "tel:800123456"]
+        )
+    }
+
+    func testNoteTextTurnsWebAddressesIntoLinksWithoutChangingTheNote() {
+        let value = "Více na www.KODIS.cz nebo https://idos.cz/en/."
+        let content = NoteText.linkedContent(value)
+
+        XCTAssertEqual(String(content.characters), value)
+        XCTAssertEqual(
+            content.runs.compactMap { $0.link?.absoluteString },
+            ["http://www.KODIS.cz", "https://idos.cz/en/"]
         )
     }
 

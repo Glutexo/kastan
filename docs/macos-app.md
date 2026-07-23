@@ -31,7 +31,7 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   Notes whose subject applies only on numbered weekdays, such as refreshments `v 1-5,7`, open a separate note
   calendar whose legend says whether the note applies instead of implying that the service itself runs. Only the
   numbered-weekday clause is linked in these notes; notes describing whether a service runs remain linked in full.
-  Phone numbers in timetable notes, service information, and route-stop notes open as `tel:` links.
+  Web addresses and phone numbers in timetable notes, service information, and route-stop notes open as links.
 - A genuine AppKit toolbar centers a complete mode control for switching between Connections, Departures, and
   Station Timetables while preserving each search's state. Stable toolbar identifiers and visibility priorities
   keep that control intact, and its natural width follows the localized labels without stretching the final
@@ -83,7 +83,7 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   structure instead of an operator-name list. Dining and bistro cars are visually distinct from lighter
   refreshment trolley or vending-machine service, while tickets accepted from integrated transport systems
   are distinct from carrier fares and broader fare conditions. A single selection can span multiple rows while
-  retaining clickable phone-number links and the standard macOS copy command. Dated operating
+  retaining clickable web-address and phone-number links and the standard macOS copy command. Dated operating
   exceptions, including abbreviated ranges such as `17. to 20.VIII.` and
   same-month lists such as `18.,19.IX.`, open the same running/non-running calendar using the exact validity
   interval published by the current IDOS timetable. When opened, the calendar scrolls to the current month or

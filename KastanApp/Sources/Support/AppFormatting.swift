@@ -453,7 +453,7 @@ enum ResultMetadata {
     }
 }
 
-/// Preserves note text while turning system-recognized telephone numbers into `tel:` links.
+/// Preserves note text while turning system-recognized web addresses and telephone numbers into links.
 struct NoteText: View {
     let value: String
 
@@ -468,7 +468,8 @@ struct NoteText: View {
     /// Builds testable attributed content without interpreting timetable dates as phone numbers.
     static func linkedContent(_ value: String) -> AttributedString {
         guard let detector = try? NSDataDetector(
-            types: NSTextCheckingResult.CheckingType.phoneNumber.rawValue
+            types: NSTextCheckingResult.CheckingType.link.rawValue
+                | NSTextCheckingResult.CheckingType.phoneNumber.rawValue
         ) else {
             return AttributedString(value)
         }
@@ -482,18 +483,18 @@ struct NoteText: View {
         var result = AttributedString()
         var currentIndex = value.startIndex
         for match in matches {
-            guard let phoneNumber = match.phoneNumber,
+            let destination = match.url ?? match.phoneNumber.flatMap(telephoneURL)
+            guard let destination,
                   let range = Range(match.range, in: value),
-                  range.lowerBound >= currentIndex,
-                  let url = telephoneURL(for: phoneNumber)
+                  range.lowerBound >= currentIndex
             else {
                 continue
             }
 
             result += AttributedString(value[currentIndex..<range.lowerBound])
-            var linkedNumber = AttributedString(value[range])
-            linkedNumber.link = url
-            result += linkedNumber
+            var linkedText = AttributedString(value[range])
+            linkedText.link = destination
+            result += linkedText
             currentIndex = range.upperBound
         }
         result += AttributedString(value[currentIndex...])
