@@ -851,7 +851,11 @@ public struct IDOSPlaceSelection: Codable, Equatable, Sendable {
     }
 
     fileprivate var formValue: String {
-        "\(text)%\(listID)%\(itemID)"
+        // IDOS omits the visible label only for its coordinate-backed `My location` object.
+        if itemID == "myPosition=true", listID.hasPrefix("loc:") {
+            return "\(listID)%\(itemID)"
+        }
+        return "\(text)%\(listID)%\(itemID)"
     }
 
     private static func coordinate(_ value: Double) -> String {

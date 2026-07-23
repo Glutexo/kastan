@@ -1326,7 +1326,7 @@ import Testing
 
     #expect(request.formItems.contains(URLQueryItem(
         name: "FromHidden",
-        value: "My location%loc: 49.197391; 16.619124%myPosition=true"
+        value: "loc: 49.197391; 16.619124%myPosition=true"
     )))
 }
 
