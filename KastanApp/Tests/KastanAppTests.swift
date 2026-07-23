@@ -17,6 +17,15 @@ private final class ElasticTestClipView: NSClipView {
 
 @MainActor
 final class KastanAppTests: XCTestCase {
+    func testDockIconUsesUnframedArtwork() throws {
+        ApplicationArtwork.installAsDockIcon()
+
+        let imageView = try XCTUnwrap(NSApplication.shared.dockTile.contentView as? NSImageView)
+        XCTAssertIdentical(imageView.image, ApplicationArtwork.icon)
+        XCTAssertEqual(imageView.imageFrameStyle, .none)
+        XCTAssertEqual(imageView.imageScaling, .scaleProportionallyUpOrDown)
+    }
+
     func testCloseWindowTargetsEveryTabInTheSelectedWindow() {
         XCTAssertEqual(
             AppWindowActions.closeTargets(selected: "selected", tabGroup: ["first", "selected"]),

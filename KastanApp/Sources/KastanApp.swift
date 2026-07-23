@@ -2,7 +2,7 @@ import AppKit
 import Kastan
 import SwiftUI
 
-/// Keeps Kaštan's compiled artwork consistent between the Dock and in-app identity elements.
+/// Keeps Kaštan's transparent artwork consistent between the Dock and in-app identity elements.
 @MainActor
 enum ApplicationArtwork {
     static let icon: NSImage = {
@@ -14,8 +14,17 @@ enum ApplicationArtwork {
         return image
     }()
 
-    static func installAsSystemIcon() {
-        NSApplication.shared.applicationIconImage = icon
+    /// Bypasses macOS's legacy-icon frame while retaining the original freeform chestnut in the Dock.
+    static func installAsDockIcon() {
+        let imageView = NSImageView(
+            frame: NSRect(origin: .zero, size: NSSize(width: 128, height: 128))
+        )
+        imageView.image = icon
+        imageView.imageFrameStyle = .none
+        imageView.imageScaling = .scaleProportionallyUpOrDown
+
+        NSApplication.shared.dockTile.contentView = imageView
+        NSApplication.shared.dockTile.display()
     }
 }
 
@@ -433,7 +442,7 @@ struct KastanApp: App {
     private let client = IDOSClient()
 
     init() {
-        ApplicationArtwork.installAsSystemIcon()
+        ApplicationArtwork.installAsDockIcon()
         ApplicationMainMenu.shared.install()
     }
 
