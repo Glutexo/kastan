@@ -11,7 +11,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   stations and stops. Suggestion metadata, including foreign country names, follows the app language.
   Choosing a suggestion also preserves its exact IDOS identity, so a station is not broadened to a same-named
   municipality. The selected field marks that identity with a subdued localized type such as municipality,
-  train, or bus; editing the field removes the marker and returns it to a free-text search. Searches also support
+  train, or bus, clipped to the input when space is limited; editing the field removes the marker and returns it
+  to a free-text search. Searches also support
   date, time, arrival mode, and an extensible journey-options builder modeled after native macOS rule editors.
   Holding Option reveals compact Today and Now buttons beside the date and time labels for resetting either value
   without reopening its picker.

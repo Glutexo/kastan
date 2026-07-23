@@ -396,7 +396,13 @@ struct PlaceAutocompleteField: View {
                 .overlay(alignment: .leading) {
                     if let selectedPlace = selection?.wrappedValue,
                        selectedPlace.text == text {
-                        selectedTypeMarker(selectedPlace.kind)
+                        GeometryReader { geometry in
+                            SelectedPlaceTypeMarker(
+                                text: text,
+                                kind: selectedPlace.kind,
+                                fieldSize: geometry.size
+                            )
+                        }
                     }
                 }
                 .alignmentGuide(.placeInputCenter) { dimensions in
@@ -454,21 +460,32 @@ struct PlaceAutocompleteField: View {
         }
         .background(.background)
     }
+}
 
-    private func selectedTypeMarker(_ kind: PlaceSuggestionKind) -> some View {
+/// Keeps a selected place's localized type within the exact bounds of its native input.
+struct SelectedPlaceTypeMarker: View {
+    let text: String
+    let kind: PlaceSuggestionKind
+    let fieldSize: CGSize
+
+    var body: some View {
         HStack(spacing: 4) {
             Text(text)
                 .fixedSize(horizontal: true, vertical: false)
                 .hidden()
             Text(kind.localizedSuffix)
                 .foregroundStyle(.tertiary)
-                .fixedSize(horizontal: true, vertical: false)
+                .truncationMode(.tail)
             Spacer(minLength: 0)
         }
         .font(.body)
         .lineLimit(1)
         .padding(.horizontal, 6)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(
+            width: max(0, fieldSize.width),
+            height: max(0, fieldSize.height),
+            alignment: .leading
+        )
         .clipped()
         .allowsHitTesting(false)
         .accessibilityHidden(true)

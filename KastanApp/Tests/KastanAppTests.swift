@@ -1169,6 +1169,19 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testSelectedPlaceTypeMarkerStaysWithinACompactInput() {
+        let fieldSize = CGSize(width: 160, height: 28)
+        let marker = SelectedPlaceTypeMarker(
+            text: "Frenštát pod Radhoštěm,,u škol",
+            kind: .bus,
+            fieldSize: fieldSize
+        )
+        let hostingView = NSHostingView(rootView: marker)
+
+        XCTAssertEqual(hostingView.fittingSize.width, fieldSize.width, accuracy: 0.5)
+        XCTAssertEqual(hostingView.fittingSize.height, fieldSize.height, accuracy: 0.5)
+    }
+
     func testSuggestionButtonAcceptsClicksAcrossTheFullRow() {
         var didSelect = false
         let row = PlaceSuggestionButton(
