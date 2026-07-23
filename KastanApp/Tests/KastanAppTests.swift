@@ -655,7 +655,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(layout.usesStackedSearchControls)
         XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: true), 120)
         XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: false), 140)
-        XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: true), 4)
+        XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: true), 0)
         XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: false), 0)
     }
 
