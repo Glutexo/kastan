@@ -1086,6 +1086,25 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testFastestConnectionBadgesMirrorCLIDurationComparison() {
+        let connections = [
+            connection(id: "slower", duration: "3 h 40 min"),
+            connection(id: "fastest-hours", duration: "3 hod 15 min"),
+            connection(id: "fastest-minutes", duration: "195 min"),
+            connection(id: "unknown", duration: "unknown"),
+        ]
+
+        XCTAssertEqual(
+            ConnectionResultsPresentation.shortestConnectionIDs(in: connections),
+            Set(["fastest-hours", "fastest-minutes"])
+        )
+        XCTAssertTrue(
+            ConnectionResultsPresentation.shortestConnectionIDs(
+                in: [connection(id: "unknown", duration: "unknown")]
+            ).isEmpty
+        )
+    }
+
     func testCollapsedSearchSummariesPreserveSubmittedQueryContext() {
         let connection = SearchSummaryPresentation.connection(
             from: " Praha ",
@@ -1198,6 +1217,7 @@ final class KastanAppTests: XCTestCase {
             number: 1,
             connection: displayedConnection,
             client: MockIDOSClient(),
+            isShortest: true,
             isPerformingExport: false,
             showsActionMenu: true,
             timeFrameCoordinateSpace: nil,
@@ -2459,14 +2479,14 @@ final class KastanAppTests: XCTestCase {
     }
 }
 
-private func connection(id: String) -> IDOSConnection {
+private func connection(id: String, duration: String = "2 h 30 min") -> IDOSConnection {
     IDOSConnection(
         id: id,
         departureTime: "12:00",
         departureStation: "Praha hl.n.",
         arrivalTime: "14:30",
         arrivalStation: "Brno hl.n.",
-        duration: "2 h 30 min",
+        duration: duration,
         legs: []
     )
 }
@@ -2479,6 +2499,7 @@ private func connectionCardOpenCount(afterDoubleClickAt location: NSPoint) -> In
         number: 1,
         connection: connection(id: "connection-double-click"),
         client: MockIDOSClient(),
+        isShortest: false,
         isPerformingExport: false,
         showsActionMenu: false,
         timeFrameCoordinateSpace: nil,

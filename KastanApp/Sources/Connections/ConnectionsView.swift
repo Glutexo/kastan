@@ -17,6 +17,58 @@ enum ConnectionResultsPresentation: Equatable {
         if !hasConnections, !hasError { return .empty }
         return .connections
     }
+
+    /// Mirrors the CLI by marking every displayed connection tied for the shortest parsed duration.
+    static func shortestConnectionIDs(in connections: [IDOSConnection]) -> Set<String> {
+        let comparableConnections = connections.compactMap { connection -> (id: String, minutes: Int)? in
+            guard let minutes = durationInMinutes(connection.duration) else { return nil }
+            return (connection.id, minutes)
+        }
+        guard let shortestDuration = comparableConnections.map(\.minutes).min() else { return [] }
+
+        return Set(
+            comparableConnections
+                .filter { $0.minutes == shortestDuration }
+                .map(\.id)
+        )
+    }
+
+    /// Converts the localized duration units emitted by IDOS into one comparable minute value.
+    private static func durationInMinutes(_ duration: String) -> Int? {
+        guard let expression = try? NSRegularExpression(pattern: #"(\d+)\s*([[:alpha:]]+)"#) else {
+            return nil
+        }
+
+        let matches = expression.matches(
+            in: duration,
+            range: NSRange(duration.startIndex..<duration.endIndex, in: duration)
+        )
+        var total = 0
+        var foundSupportedUnit = false
+
+        for match in matches {
+            guard let valueRange = Range(match.range(at: 1), in: duration),
+                  let unitRange = Range(match.range(at: 2), in: duration),
+                  let value = Int(duration[valueRange])
+            else {
+                continue
+            }
+
+            let unit = duration[unitRange].lowercased()
+            if unit == "d" || unit.hasPrefix("day") {
+                total += value * 24 * 60
+                foundSupportedUnit = true
+            } else if unit == "h" || unit.hasPrefix("hour") || unit.hasPrefix("hod") {
+                total += value * 60
+                foundSupportedUnit = true
+            } else if unit == "m" || unit.hasPrefix("min") {
+                total += value
+                foundSupportedUnit = true
+            }
+        }
+
+        return foundSupportedUnit ? total : nil
+    }
 }
 
 /// Combines a compact macOS search workspace with expandable journey results.
@@ -364,6 +416,9 @@ struct ConnectionsView: View {
                 description: "Enter a route and start a search."
             )
         case .connections:
+            let shortestConnectionIDs = ConnectionResultsPresentation.shortestConnectionIDs(
+                in: model.connections
+            )
             LazyVStack(alignment: .leading, spacing: 12) {
                 ForEach(Array(model.connections.enumerated()), id: \.element.id) { index, connection in
                     let selection = ConnectionSelection(
@@ -374,6 +429,7 @@ struct ConnectionsView: View {
                         number: index + 1,
                         connection: connection,
                         client: client,
+                        isShortest: shortestConnectionIDs.contains(connection.id),
                         isPerformingExport: model.importingConnectionID == connection.id ||
                             model.exportingPDFConnectionID == connection.id,
                         showsActionMenu: true,
@@ -560,6 +616,7 @@ struct ConnectionCard: View {
     let number: Int?
     let connection: IDOSConnection
     let client: any IDOSClienting
+    let isShortest: Bool
     let isPerformingExport: Bool
     let showsActionMenu: Bool
     let timeFrameCoordinateSpace: String?
@@ -599,6 +656,13 @@ struct ConnectionCard: View {
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 3)
                                 .background(.green.opacity(0.14), in: Capsule())
+                        }
+                        if isShortest {
+                            Text("⚡ \(AppLocalization.string("Shortest"))")
+                                .font(.caption.bold())
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 3)
+                                .background(.yellow.opacity(0.18), in: Capsule())
                         }
                         Spacer()
                     }
@@ -745,6 +809,7 @@ struct ConnectionDetailView: View {
                     number: nil,
                     connection: selection.connection,
                     client: client,
+                    isShortest: false,
                     isPerformingExport: actionsModel.importingConnectionID == selection.connection.id ||
                         actionsModel.exportingPDFConnectionID == selection.connection.id,
                     showsActionMenu: false,

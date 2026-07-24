@@ -74,8 +74,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   text follows the app language and the CLI's default human-readable layout, including its semantic emoji and the
   complete route for a service, while omitting terminal-only ANSI color and emphasis codes. Copy remains available
   when IDOS does not supply a permanent result link.
-- Connection cards with line colors, transport symbols, platforms, tariff zones, carriers, and localized Czech
-  or English IDOS states for on-time or delayed arrivals and departures. A trackpad Force Click on a service row,
+- Connection cards mark every connection tied for the shortest displayed duration, alongside direct journeys, and
+  retain line colors, transport symbols, platforms, tariff zones, carriers, and localized Czech or English IDOS
+  states for on-time or delayed arrivals and departures. A trackpad Force Click on a service row,
   either in the result list or an opened connection detail, previews that service's complete route. Force Click on
   a station-board row behaves the same way. Connection cards themselves do not duplicate their visible content in
   a preview. Double-clicking anywhere across a connection's time or route summary opens that complete connection
