@@ -1221,6 +1221,60 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(provider.requestCount, 2)
     }
 
+    func testTypedCurrentLocationResolvesBothEndpointsWithOneLocationRequest() async {
+        let provider = StubCurrentLocationProvider(result: .success(CurrentLocationCoordinate(
+            latitude: 49.197391,
+            longitude: 16.619124
+        )))
+        let client = MockIDOSClient()
+        let model = ConnectionsViewModel(
+            client: client,
+            calendarImporter: RecordingCalendarImporter(),
+            currentLocationProvider: provider
+        )
+        let locationText = AppLocalization.string("My location")
+        model.from = "  \(locationText.uppercased())  "
+        model.to = locationText.lowercased()
+
+        await model.search()
+
+        let request = await client.lastConnectionRequest
+        XCTAssertEqual(model.from, locationText)
+        XCTAssertEqual(model.to, locationText)
+        XCTAssertTrue(model.fromSelection?.isCurrentLocation == true)
+        XCTAssertTrue(model.toSelection?.isCurrentLocation == true)
+        XCTAssertEqual(request?.fromSelection, model.fromSelection?.idosSelection)
+        XCTAssertEqual(request?.toSelection, model.toSelection?.idosSelection)
+        XCTAssertEqual(provider.requestCount, 1)
+    }
+
+    func testTypedCurrentLocationFailureStopsTheConnectionSearch() async {
+        let provider = StubCurrentLocationProvider(
+            result: .failure(CurrentLocationError.permissionDenied)
+        )
+        let client = MockIDOSClient()
+        let model = ConnectionsViewModel(
+            client: client,
+            calendarImporter: RecordingCalendarImporter(),
+            currentLocationProvider: provider
+        )
+        model.from = AppLocalization.string("My location")
+        model.to = "Brno"
+
+        await model.search()
+
+        let request = await client.lastConnectionRequest
+        XCTAssertNil(request)
+        XCTAssertNil(model.locatingEndpoint)
+        XCTAssertFalse(model.isSearching)
+        XCTAssertEqual(
+            model.errorMessage,
+            AppLocalization.string(
+                "Location access was denied. Allow Kaštan to use your location in System Settings."
+            )
+        )
+    }
+
     func testCurrentLocationPermissionFailureIsActionable() async {
         let provider = StubCurrentLocationProvider(
             result: .failure(CurrentLocationError.permissionDenied)

@@ -13,9 +13,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   municipality. The selected field marks that identity with a subdued localized type such as municipality,
   train, or bus, clipped to the input when space is limited; editing the field removes the marker and returns it
   to a free-text search. Holding Option reveals compact field shortcuts: Here beside From and To requests the Mac's
-  current location only when clicked and fills that endpoint with IDOS's exact My location object, while Today and
-  Now reset the date or time without reopening its picker or moving the surrounding search controls. Searches also
-  support arrival mode and an extensible journey-options builder modeled after native macOS rule editors.
+  current location only when clicked and fills that endpoint with IDOS's exact My location object. Typing the exact
+  localized My location phrase into either field does the same when the search starts. Today and Now reset the date
+  or time without reopening its picker or moving the surrounding search controls. Searches also support arrival
+  mode and an extensible journey-options builder modeled after native macOS rule editors.
   Each condition first selects either Via or Maximum number of transfers, then presents the corresponding text
   or compact, left-aligned number field with native stepper arrows. Both editors share one row height and follow the
   condition menu sized from the longest supported localized option at standard control spacing; fixed-size controls
@@ -125,9 +126,9 @@ xcodebuild test \
 ```
 
 The app target is sandboxed and permits outgoing network connections for IDOS. Location access is requested only
-after the user clicks a Here shortcut and can be changed in System Settings. Calendar files are written to a
-temporary app directory before macOS opens them; PDF exports can be written only to a location explicitly selected
-by the user.
+after the user clicks a Here shortcut or searches with the exact localized My location phrase, and can be changed in
+System Settings. Calendar files are written to a temporary app directory before macOS opens them; PDF exports can
+be written only to a location explicitly selected by the user.
 
 ## Data Source
 

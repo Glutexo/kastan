@@ -118,7 +118,7 @@ final class ConnectionsViewModel: ObservableObject {
     var canSearch: Bool {
         !from.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
             !to.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-            !isSearching && !isLoadingEarlier && !isLoadingLater
+            !isSearching && !isLoadingEarlier && !isLoadingLater && locatingEndpoint == nil
     }
 
     var canLoadEarlier: Bool {
@@ -159,37 +159,9 @@ final class ConnectionsViewModel: ObservableObject {
         toSelection = previousFromSelection
     }
 
-    /// Fills one endpoint with the localized IDOS `My location` object after an explicit user action.
+    /// Fills one endpoint with the localized IDOS `My location` object after an explicit shortcut action.
     func fillCurrentLocation(in endpoint: ConnectionEndpoint) async {
-        guard locatingEndpoint == nil else { return }
-
-        locatingEndpoint = endpoint
-        errorMessage = nil
-        defer { locatingEndpoint = nil }
-
-        do {
-            let coordinate = try await currentLocationProvider.currentLocation()
-            let text = AppLocalization.string("My location")
-            let selection = PlaceFieldSelection(
-                idosSelection: IDOSPlaceSelection.currentLocation(
-                    text: text,
-                    latitude: coordinate.latitude,
-                    longitude: coordinate.longitude
-                ),
-                kind: nil
-            )
-
-            switch endpoint {
-            case .from:
-                from = text
-                fromSelection = selection
-            case .to:
-                to = text
-                toSelection = selection
-            }
-        } catch {
-            errorMessage = CurrentLocationErrorPresentation.message(for: error)
-        }
+        _ = await resolveCurrentLocation(for: [endpoint])
     }
 
     /// Keeps each picker limited to repeatable conditions and currently unused singleton conditions.
@@ -218,9 +190,9 @@ final class ConnectionsViewModel: ObservableObject {
     }
 
     func search() async {
-        let departure = from.trimmingCharacters(in: .whitespacesAndNewlines)
-        let arrival = to.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !departure.isEmpty, !arrival.isEmpty else {
+        guard !from.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !to.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
             errorMessage = AppLocalization.string("Enter both a departure and an arrival place.")
             return
         }
@@ -230,6 +202,15 @@ final class ConnectionsViewModel: ObservableObject {
         resultPage = nil
         defer { isSearching = false }
 
+        let typedCurrentLocationEndpoints = manuallyEnteredCurrentLocationEndpoints
+        if !typedCurrentLocationEndpoints.isEmpty,
+           !(await resolveCurrentLocation(for: typedCurrentLocationEndpoints)) {
+            connections = []
+            return
+        }
+
+        let departure = from.trimmingCharacters(in: .whitespacesAndNewlines)
+        let arrival = to.trimmingCharacters(in: .whitespacesAndNewlines)
         let requestedViaPlaces = viaPlaceNames
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -256,6 +237,62 @@ final class ConnectionsViewModel: ObservableObject {
         } catch {
             connections = []
             errorMessage = AppErrorPresentation.message(for: error)
+        }
+    }
+
+    /// Treats the exact localized `My location` phrase as an explicit location request when searching.
+    private var manuallyEnteredCurrentLocationEndpoints: [ConnectionEndpoint] {
+        let locationText = AppLocalization.string("My location")
+        var endpoints: [ConnectionEndpoint] = []
+
+        if fromSelection == nil, matchesCurrentLocationText(from, localizedText: locationText) {
+            endpoints.append(.from)
+        }
+        if toSelection == nil, matchesCurrentLocationText(to, localizedText: locationText) {
+            endpoints.append(.to)
+        }
+        return endpoints
+    }
+
+    private func matchesCurrentLocationText(_ value: String, localizedText: String) -> Bool {
+        value.trimmingCharacters(in: .whitespacesAndNewlines)
+            .localizedCaseInsensitiveCompare(localizedText) == .orderedSame
+    }
+
+    /// Resolves one coordinate once and applies it to every endpoint requested by the same user action.
+    private func resolveCurrentLocation(for endpoints: [ConnectionEndpoint]) async -> Bool {
+        guard let firstEndpoint = endpoints.first, locatingEndpoint == nil else { return false }
+
+        locatingEndpoint = firstEndpoint
+        errorMessage = nil
+        defer { locatingEndpoint = nil }
+
+        do {
+            let coordinate = try await currentLocationProvider.currentLocation()
+            let text = AppLocalization.string("My location")
+            let selection = PlaceFieldSelection(
+                idosSelection: IDOSPlaceSelection.currentLocation(
+                    text: text,
+                    latitude: coordinate.latitude,
+                    longitude: coordinate.longitude
+                ),
+                kind: nil
+            )
+
+            for endpoint in endpoints {
+                switch endpoint {
+                case .from:
+                    from = text
+                    fromSelection = selection
+                case .to:
+                    to = text
+                    toSelection = selection
+                }
+            }
+            return true
+        } catch {
+            errorMessage = CurrentLocationErrorPresentation.message(for: error)
+            return false
         }
     }
 
