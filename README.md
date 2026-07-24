@@ -5,7 +5,7 @@
 Kaštan is an open-source companion for occasional personal [IDOS](https://idos.cz/en/) searches. Use it as a
 native macOS app or from a terminal, or integrate its search engine as a Swift library or local MCP server.
 
-![Kaštan for macOS showing train connections from Prague to Brno](docs/images/kastan-macos-connections.png)
+![Kaštan for macOS showing train connections from Prague to Plzeň](docs/images/kastan-macos-connections.png)
 
 Kaštan reads publicly reachable IDOS web pages. It is intended for personal, low-frequency use rather than as
 a stable or guaranteed data API.
