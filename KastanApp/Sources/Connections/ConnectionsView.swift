@@ -104,6 +104,17 @@ struct ConnectionsView: View {
         VStack(alignment: .leading, spacing: 14) {
             endpointControls
 
+            if let endpointValidationMessage = model.endpointValidationMessage {
+                Label(endpointValidationMessage, systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                    .transition(.opacity)
+            }
+
             Divider()
 
             searchControls(stacked: layout.usesStackedSearchControls)
@@ -111,6 +122,7 @@ struct ConnectionsView: View {
             journeyOptions
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .animation(.easeInOut(duration: 0.1), value: model.endpointValidationMessage)
     }
 
     private var endpointControls: some View {

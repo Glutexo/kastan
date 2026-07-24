@@ -1832,6 +1832,12 @@ final class KastanAppTests: XCTestCase {
         model.from = "  Frenštát pod Radhoštěm,,u škol  "
         model.to = "frenštát pod radhoštěm,,u škol"
 
+        XCTAssertEqual(
+            model.endpointValidationMessage,
+            AppLocalization.string("Choose a different departure or arrival place.")
+        )
+        XCTAssertFalse(model.canSearch)
+
         await model.search()
 
         let request = await client.lastConnectionRequest
@@ -1860,6 +1866,12 @@ final class KastanAppTests: XCTestCase {
         model.to = stop.text
         model.toSelection = stop
 
+        XCTAssertEqual(
+            model.endpointValidationMessage,
+            AppLocalization.string("Choose a different departure or arrival place.")
+        )
+        XCTAssertFalse(model.canSearch)
+
         await model.search()
 
         let request = await client.lastConnectionRequest
@@ -1886,6 +1898,9 @@ final class KastanAppTests: XCTestCase {
         model.fromSelection = municipality
         model.to = station.text
         model.toSelection = station
+
+        XCTAssertNil(model.endpointValidationMessage)
+        XCTAssertTrue(model.canSearch)
 
         await model.search()
 

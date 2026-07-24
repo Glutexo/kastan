@@ -118,7 +118,8 @@ final class ConnectionsViewModel: ObservableObject {
     var canSearch: Bool {
         !from.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
             !to.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-            !isSearching && !isLoadingEarlier && !isLoadingLater && locatingEndpoint == nil
+            endpointValidationMessage == nil && !isSearching && !isLoadingEarlier &&
+            !isLoadingLater && locatingEndpoint == nil
     }
 
     var canLoadEarlier: Bool {
@@ -129,13 +130,22 @@ final class ConnectionsViewModel: ObservableObject {
         !connections.isEmpty && resultPage?.canLoadLater == true && !isSearching && !isLoadingEarlier
     }
 
+    /// Gives the editable form immediate guidance before an invalid route can start searching.
+    var endpointValidationMessage: String? {
+        let departure = from.trimmingCharacters(in: .whitespacesAndNewlines)
+        let arrival = to.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !departure.isEmpty, !arrival.isEmpty,
+              endpointsReferToSamePlace(departure: departure, arrival: arrival)
+        else {
+            return nil
+        }
+        return AppLocalization.string("Choose a different departure or arrival place.")
+    }
+
     /// Keeps the retry action off input guidance that can only be resolved by editing the route.
     var showsRefreshActionForError: Bool {
         guard errorMessage != nil else { return false }
-        let departure = from.trimmingCharacters(in: .whitespacesAndNewlines)
-        let arrival = to.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !departure.isEmpty, !arrival.isEmpty else { return false }
-        return !endpointsReferToSamePlace(departure: departure, arrival: arrival)
+        return endpointValidationMessage == nil
     }
 
     /// Returns intermediate places in their visible row order for the request and collapsed summary.
@@ -205,13 +215,10 @@ final class ConnectionsViewModel: ObservableObject {
             errorMessage = AppLocalization.string("Enter both a departure and an arrival place.")
             return
         }
-        guard !endpointsReferToSamePlace(
-            departure: enteredDeparture,
-            arrival: enteredArrival
-        ) else {
+        if let endpointValidationMessage {
             connections = []
             resultPage = nil
-            errorMessage = AppLocalization.string("Choose a different departure or arrival place.")
+            errorMessage = endpointValidationMessage
             return
         }
 
