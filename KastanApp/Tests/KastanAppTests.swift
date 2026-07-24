@@ -635,7 +635,16 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             ResultContextAction.availableActions(for: .service),
-            [.preview, .openInNewWindow]
+            [
+                .preview,
+                .openInNewWindow,
+                .separator,
+                .detail(.copyToClipboard),
+                .detail(.addToCalendar),
+                .detail(.saveAsPDF),
+                .detail(.shareLink),
+                .detail(.openInIDOS),
+            ]
         )
 
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
@@ -653,6 +662,38 @@ final class KastanAppTests: XCTestCase {
             keys.map { english.localizedString(forKey: $0, value: nil, table: nil) },
             keys
         )
+    }
+
+    func testServiceContextMenuLoadsItsCompleteActionsWhenPresented() async throws {
+        let client = MockIDOSClient()
+        let model = ServiceDetailViewModel(id: "service-context-menu", client: client)
+        XCTAssertNil(model.service)
+
+        let hostingView = NSHostingView(
+            rootView: ServiceContextMenuContent(
+                model: model,
+                showPreview: {},
+                openInNewWindow: {}
+            )
+            .frame(width: 320)
+        )
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 300),
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.orderFront(nil)
+        defer { window.orderOut(nil) }
+
+        for _ in 0..<100 where model.service == nil {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+
+        XCTAssertEqual(model.service?.id, "service-context-menu")
+        let requestCount = await client.serviceDetailRequestCount
+        XCTAssertEqual(requestCount, 1)
     }
 
     func testResultDetailCommandsFollowTheFocusedWindowState() {
@@ -2731,6 +2772,7 @@ private actor MockIDOSClient: IDOSClienting {
     var connectionPageDirections: [IDOSPageDirection] = []
     var departurePageDirections: [IDOSPageDirection] = []
     var connectionSearchCount = 0
+    var serviceDetailRequestCount = 0
     private var connectionPages: [IDOSPageDirection: [IDOSConnection]] = [:]
     private var departurePages: [IDOSPageDirection: [IDOSDeparture]] = [:]
     private var connectionPagingSessionExpired = false
@@ -2914,7 +2956,8 @@ private actor MockIDOSClient: IDOSClienting {
     }
 
     func serviceDetail(id: String, timetable: IDOSTimetable) async throws -> IDOSServiceDetail {
-        IDOSServiceDetail(
+        serviceDetailRequestCount += 1
+        return IDOSServiceDetail(
             id: id,
             timetable: timetable,
             name: "S2",

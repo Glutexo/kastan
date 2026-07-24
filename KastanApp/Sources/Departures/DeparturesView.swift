@@ -166,8 +166,24 @@ private struct DepartureRow: View {
     let selection: ServiceSelection
     let client: any IDOSClienting
     let openService: () -> Void
+    @StateObject private var contextMenuModel: ServiceDetailViewModel
     @State private var suppressesPrimaryAction = false
     @State private var isPreviewPresented = false
+
+    init(
+        departure: IDOSDeparture,
+        selection: ServiceSelection,
+        client: any IDOSClienting,
+        openService: @escaping () -> Void
+    ) {
+        self.departure = departure
+        self.selection = selection
+        self.client = client
+        self.openService = openService
+        _contextMenuModel = StateObject(
+            wrappedValue: ServiceDetailViewModel(id: selection.id, client: client)
+        )
+    }
 
     var body: some View {
         Button {
@@ -217,6 +233,7 @@ private struct DepartureRow: View {
         .buttonStyle(.plain)
         .contextMenu {
             ServiceContextMenuContent(
+                model: contextMenuModel,
                 showPreview: { isPreviewPresented = true },
                 openInNewWindow: openService
             )

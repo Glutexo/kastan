@@ -81,11 +81,13 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   English IDOS states for on-time or delayed arrivals and departures. Right-clicking anywhere on a connection card
   opens the same complete action menu as its ellipsis button, with Open connection in new window ahead of copy,
   calendar, PDF, sharing, and IDOS actions. Right-clicking a particular service row stays scoped to that service and
-  offers its own preview and new-window actions rather than falling through to the enclosing connection. The same
-  service-specific menu is available on station-board rows. A trackpad Force Click on either kind of service row
-  opens the identical complete-route preview. Double-clicking anywhere across a connection's time or route summary
-  opens that complete connection in an independent window; the visible window button remains available as an
-  alternative. An ordinary service click opens its detail window.
+  offers its own preview and new-window actions followed by copy, calendar, PDF, sharing, and IDOS actions rather
+  than falling through to the enclosing connection. Complete service data starts loading only when that menu opens;
+  its five detail actions become available as soon as the route and permanent link arrive. The same service-specific
+  menu is available on station-board rows. A trackpad Force Click on either kind of service row opens the identical
+  complete-route preview. Double-clicking anywhere across a connection's time or route summary opens that complete
+  connection in an independent window; the visible window button remains available as an alternative. An ordinary
+  service click opens its detail window.
 - Long service routes open with the departure stop from the originating search fully visible at the top, with a
   small visual clearance below the window toolbar. When the departure is already the first stop or the complete
   route fits in the viewport, the natural position is preserved without artificial trailing space. The

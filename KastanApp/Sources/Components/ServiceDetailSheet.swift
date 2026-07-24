@@ -1,7 +1,7 @@
 import Kastan
 import SwiftUI
 
-/// Loads a service lazily when the user opens its complete route.
+/// Loads a service lazily when its complete route or contextual detail actions need data.
 @MainActor
 final class ServiceDetailViewModel: ObservableObject {
     @Published private(set) var service: IDOSServiceDetail?

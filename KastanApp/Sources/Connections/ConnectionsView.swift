@@ -839,6 +839,7 @@ struct ConnectionCard: View {
                                 client: client,
                                 openService: openService
                             )
+                            .id("\(index):\(leg.id ?? "unavailable")")
                             if index < connection.legs.count - 1 {
                                 Divider()
                                     .padding(.leading, 30)
@@ -1091,8 +1092,22 @@ private struct ConnectionLegRow: View {
     let leg: IDOSConnectionLeg
     let client: any IDOSClienting
     let openService: (ServiceSelection) -> Void
+    @StateObject private var contextMenuModel: ServiceDetailViewModel
     @State private var suppressesPrimaryAction = false
     @State private var isPreviewPresented = false
+
+    init(
+        leg: IDOSConnectionLeg,
+        client: any IDOSClienting,
+        openService: @escaping (ServiceSelection) -> Void
+    ) {
+        self.leg = leg
+        self.client = client
+        self.openService = openService
+        _contextMenuModel = StateObject(
+            wrappedValue: ServiceDetailViewModel(id: leg.id ?? "", client: client)
+        )
+    }
 
     @ViewBuilder
     var body: some View {
@@ -1100,6 +1115,7 @@ private struct ConnectionLegRow: View {
             rowButton(selection: selection)
                 .contextMenu {
                     ServiceContextMenuContent(
+                        model: contextMenuModel,
                         showPreview: { isPreviewPresented = true },
                         openInNewWindow: { openService(selection) }
                     )

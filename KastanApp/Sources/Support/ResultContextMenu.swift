@@ -24,18 +24,24 @@ enum ResultContextAction: Hashable, Identifiable {
 
     var id: Self { self }
 
-    /// Services retain a compact preview, while complete connections open directly in a full window with export actions.
+    /// Services retain a compact preview and expose every detail action once their complete route has loaded.
     static func availableActions(
         for target: ResultContextTarget,
         hasPermanentLink: Bool = false
     ) -> [Self] {
-        guard target == .connection else {
-            return [.preview, .openInNewWindow]
+        let navigation: [Self]
+        let details: [ResultDetailAction]
+
+        switch target {
+        case .connection:
+            navigation = [.openInNewWindow]
+            details = ResultDetailAction.availableActions(hasPermanentLink: hasPermanentLink)
+        case .service:
+            navigation = [.preview, .openInNewWindow]
+            details = ResultDetailAction.allCases
         }
 
-        return [.openInNewWindow, .separator] + ResultDetailAction
-            .availableActions(hasPermanentLink: hasPermanentLink)
-            .map(Self.detail)
+        return navigation + [.separator] + details.map(Self.detail)
     }
 }
 
@@ -123,25 +129,95 @@ struct ConnectionContextMenuContent: View {
     }
 }
 
-/// Keeps a service row's own navigation from falling through to its enclosing connection menu.
+/// Keeps a service row's complete action set from falling through to its enclosing connection menu.
 struct ServiceContextMenuContent: View {
+    @Environment(\.openURL) private var openURL
+    @ObservedObject var model: ServiceDetailViewModel
     let showPreview: () -> Void
     let openInNewWindow: () -> Void
 
     var body: some View {
         ForEach(ResultContextAction.availableActions(for: .service)) { action in
-            switch action {
-            case .preview:
-                Button(action: showPreview) {
-                    ResultContextActionLabel(action: action, target: .service)
-                }
-            case .openInNewWindow:
-                Button(action: openInNewWindow) {
-                    ResultContextActionLabel(action: action, target: .service)
-                }
-            case .separator, .detail:
-                EmptyView()
+            control(action)
+        }
+        .onAppear {
+            Task {
+                await model.load()
             }
         }
+    }
+
+    private var permanentLink: URL? {
+        model.service?.shareURL.flatMap(AppLanguagePreference.localizedIDOSURL)
+    }
+
+    private var detailActionIsDisabled: Bool {
+        model.service == nil || model.isPerformingExport
+    }
+
+    @ViewBuilder
+    private func control(_ action: ResultContextAction) -> some View {
+        switch action {
+        case .preview:
+            Button(action: showPreview) {
+                ResultContextActionLabel(action: action, target: .service)
+            }
+        case .openInNewWindow:
+            Button(action: openInNewWindow) {
+                ResultContextActionLabel(action: action, target: .service)
+            }
+        case .separator:
+            Divider()
+        case .detail(.copyToClipboard):
+            Button {
+                if let service = model.service {
+                    ResultClipboard.copy(service: service)
+                }
+            } label: {
+                ResultContextActionLabel(action: action, target: .service)
+            }
+            .disabled(detailActionIsDisabled)
+        case .detail(.addToCalendar):
+            Button {
+                Task { await model.addToCalendar() }
+            } label: {
+                ResultContextActionLabel(action: action, target: .service)
+            }
+            .disabled(detailActionIsDisabled)
+        case .detail(.saveAsPDF):
+            Button {
+                Task { await model.saveAsPDF() }
+            } label: {
+                ResultContextActionLabel(action: action, target: .service)
+            }
+            .disabled(detailActionIsDisabled)
+        case .detail(.shareLink):
+            if let permanentLink {
+                ShareLink(item: permanentLink) {
+                    ResultContextActionLabel(action: action, target: .service)
+                }
+                .disabled(model.isPerformingExport)
+            } else {
+                unavailableControl(action)
+            }
+        case .detail(.openInIDOS):
+            if let permanentLink {
+                Button {
+                    openURL(permanentLink)
+                } label: {
+                    ResultContextActionLabel(action: action, target: .service)
+                }
+                .disabled(model.isPerformingExport)
+            } else {
+                unavailableControl(action)
+            }
+        }
+    }
+
+    private func unavailableControl(_ action: ResultContextAction) -> some View {
+        Button {} label: {
+            ResultContextActionLabel(action: action, target: .service)
+        }
+        .disabled(true)
     }
 }
