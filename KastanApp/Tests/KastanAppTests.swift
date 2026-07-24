@@ -1105,6 +1105,16 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testConnectionBadgeTitlesUseConsistentSemanticEmoji() throws {
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+
+        XCTAssertEqual(ConnectionBadgePresentation.direct(bundle: english), "➡️ Direct")
+        XCTAssertEqual(ConnectionBadgePresentation.shortest(bundle: english), "⚡ Shortest")
+        XCTAssertEqual(ConnectionBadgePresentation.direct(bundle: czech), "➡️ Přímé")
+        XCTAssertEqual(ConnectionBadgePresentation.shortest(bundle: czech), "⚡ Nejrychlejší")
+    }
+
     func testCollapsedSearchSummariesPreserveSubmittedQueryContext() {
         let connection = SearchSummaryPresentation.connection(
             from: " Praha ",

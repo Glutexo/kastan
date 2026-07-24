@@ -71,6 +71,21 @@ enum ConnectionResultsPresentation: Equatable {
     }
 }
 
+/// Keeps both connection-result badges visibly semantic and aligned with their CLI counterparts.
+enum ConnectionBadgePresentation {
+    static func direct(bundle: Bundle = .main) -> String {
+        title(symbol: "➡️", key: "Direct", bundle: bundle)
+    }
+
+    static func shortest(bundle: Bundle = .main) -> String {
+        title(symbol: "⚡", key: "Shortest", bundle: bundle)
+    }
+
+    private static func title(symbol: String, key: String, bundle: Bundle) -> String {
+        "\(symbol) \(bundle.localizedString(forKey: key, value: key, table: nil))"
+    }
+}
+
 /// Combines a compact macOS search workspace with expandable journey results.
 struct ConnectionsView: View {
     @Environment(\.openWindow) private var openWindow
@@ -651,14 +666,14 @@ struct ConnectionCard: View {
                         Text(connection.duration)
                             .foregroundStyle(.secondary)
                         if connection.legs.count <= 1 {
-                            Text("Direct")
+                            Text(ConnectionBadgePresentation.direct())
                                 .font(.caption.bold())
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 3)
                                 .background(.green.opacity(0.14), in: Capsule())
                         }
                         if isShortest {
-                            Text("⚡ \(AppLocalization.string("Shortest"))")
+                            Text(ConnectionBadgePresentation.shortest())
                                 .font(.caption.bold())
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 3)
