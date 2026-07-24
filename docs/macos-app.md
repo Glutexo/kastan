@@ -75,7 +75,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   complete route for a service, while omitting terminal-only ANSI color and emphasis codes. Copy remains available
   when IDOS does not supply a permanent result link.
 - Connection cards use semantic emoji to mark direct journeys and every connection tied for the shortest displayed
-  duration, and retain line colors, transport symbols, platforms, tariff zones, carriers, and localized Czech or
+  duration. Badge text never wraps or forces the connection time and duration onto extra lines: each badge collapses
+  to its semantic emoji when the complete localized title does not fit, and hovering that compact badge reveals the
+  title. Cards also retain line colors, transport symbols, platforms, tariff zones, carriers, and localized Czech or
   English IDOS states for on-time or delayed arrivals and departures. Right-clicking anywhere on a connection card
   opens the same complete action menu as its ellipsis button, with Preview connection and Open connection in new
   window ahead of copy, calendar, PDF, sharing, and IDOS actions. The connection preview reuses the compact complete

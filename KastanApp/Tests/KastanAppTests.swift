@@ -1205,10 +1205,29 @@ final class KastanAppTests: XCTestCase {
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
 
+        XCTAssertEqual(ConnectionBadgeKind.direct.symbol, "➡️")
+        XCTAssertEqual(ConnectionBadgeKind.shortest.symbol, "⚡")
+        XCTAssertEqual(ConnectionBadgeKind.direct.label(bundle: czech), "Přímé")
+        XCTAssertEqual(ConnectionBadgeKind.shortest.label(bundle: czech), "Nejrychlejší")
         XCTAssertEqual(ConnectionBadgePresentation.direct(bundle: english), "➡️ Direct")
         XCTAssertEqual(ConnectionBadgePresentation.shortest(bundle: english), "⚡ Shortest")
         XCTAssertEqual(ConnectionBadgePresentation.direct(bundle: czech), "➡️ Přímé")
         XCTAssertEqual(ConnectionBadgePresentation.shortest(bundle: czech), "⚡ Nejrychlejší")
+    }
+
+    func testAdaptiveConnectionBadgeStaysOneLineAtCompactWidth() throws {
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let full = NSHostingView(
+            rootView: AdaptiveConnectionBadge(kind: .shortest, bundle: czech)
+                .frame(width: 130)
+        )
+        let compact = NSHostingView(
+            rootView: AdaptiveConnectionBadge(kind: .shortest, bundle: czech)
+                .frame(width: 32)
+        )
+
+        XCTAssertEqual(compact.fittingSize.height, full.fittingSize.height, accuracy: 0.5)
+        XCTAssertLessThan(compact.fittingSize.height, 30)
     }
 
     func testCollapsedSearchSummariesPreserveSubmittedQueryContext() {

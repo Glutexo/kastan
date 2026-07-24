@@ -71,18 +71,86 @@ enum ConnectionResultsPresentation: Equatable {
     }
 }
 
+/// Identifies a connection badge's stable symbol, passenger wording, and visual category.
+enum ConnectionBadgeKind {
+    case direct
+    case shortest
+
+    var symbol: String {
+        switch self {
+        case .direct:
+            "➡️"
+        case .shortest:
+            "⚡"
+        }
+    }
+
+    var localizationKey: String {
+        switch self {
+        case .direct:
+            "Direct"
+        case .shortest:
+            "Shortest"
+        }
+    }
+
+    var backgroundColor: Color {
+        switch self {
+        case .direct:
+            .green.opacity(0.14)
+        case .shortest:
+            .yellow.opacity(0.18)
+        }
+    }
+
+    func label(bundle: Bundle = .main) -> String {
+        bundle.localizedString(forKey: localizationKey, value: localizationKey, table: nil)
+    }
+
+    func title(bundle: Bundle = .main) -> String {
+        "\(symbol) \(label(bundle: bundle))"
+    }
+}
+
 /// Keeps both connection-result badges visibly semantic and aligned with their CLI counterparts.
 enum ConnectionBadgePresentation {
     static func direct(bundle: Bundle = .main) -> String {
-        title(symbol: "➡️", key: "Direct", bundle: bundle)
+        ConnectionBadgeKind.direct.title(bundle: bundle)
     }
 
     static func shortest(bundle: Bundle = .main) -> String {
-        title(symbol: "⚡", key: "Shortest", bundle: bundle)
+        ConnectionBadgeKind.shortest.title(bundle: bundle)
+    }
+}
+
+/// Shows a complete single-line badge when it fits and otherwise preserves only its semantic emoji.
+struct AdaptiveConnectionBadge: View {
+    let kind: ConnectionBadgeKind
+    private let bundle: Bundle
+
+    init(kind: ConnectionBadgeKind, bundle: Bundle = .main) {
+        self.kind = kind
+        self.bundle = bundle
     }
 
-    private static func title(symbol: String, key: String, bundle: Bundle) -> String {
-        "\(symbol) \(bundle.localizedString(forKey: key, value: key, table: nil))"
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            badgeText(kind.title(bundle: bundle))
+            badgeText(kind.symbol)
+                .help(kind.label(bundle: bundle))
+        }
+        .accessibilityLabel(kind.label(bundle: bundle))
+        .layoutPriority(-1)
+    }
+
+    private func badgeText(_ text: String) -> some View {
+        Text(text)
+            .font(.caption.bold())
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(kind.backgroundColor, in: Capsule())
     }
 }
 
@@ -693,9 +761,13 @@ struct ConnectionCard: View {
                             Text(AppLocalization.string("Connection %lld", number))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: true, vertical: false)
                         }
                         Text("\(connection.departureTime) → \(connection.arrivalTime)")
                             .font(.title2.bold().monospacedDigit())
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .layoutPriority(2)
                             .background {
                                 if let timeFrameCoordinateSpace {
                                     GeometryReader { geometry in
@@ -708,21 +780,16 @@ struct ConnectionCard: View {
                             }
                         Text(connection.duration)
                             .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                            .layoutPriority(1)
                         if connection.legs.count <= 1 {
-                            Text(ConnectionBadgePresentation.direct())
-                                .font(.caption.bold())
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 3)
-                                .background(.green.opacity(0.14), in: Capsule())
+                            AdaptiveConnectionBadge(kind: .direct)
                         }
                         if isShortest {
-                            Text(ConnectionBadgePresentation.shortest())
-                                .font(.caption.bold())
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 3)
-                                .background(.yellow.opacity(0.18), in: Capsule())
+                            AdaptiveConnectionBadge(kind: .shortest)
                         }
-                        Spacer()
+                        Spacer(minLength: 0)
                     }
                     .contentShape(Rectangle())
                     .onTapGesture(count: 2) {
