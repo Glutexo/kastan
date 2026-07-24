@@ -79,10 +79,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   to its semantic emoji when the complete localized title does not fit, and hovering that compact badge reveals the
   title. Cards also retain line colors, transport symbols, platforms, tariff zones, carriers, and localized Czech or
   English IDOS states for on-time or delayed arrivals and departures. Right-clicking anywhere on a connection card
-  opens the same complete action menu as its ellipsis button, with Preview connection and Open connection in new
-  window ahead of copy, calendar, PDF, sharing, and IDOS actions. The connection preview reuses the compact complete
-  detail instead of navigating away. Right-clicking a particular service row stays scoped to that service and offers
-  its own preview and new-window actions rather than falling through to the enclosing connection. The same
+  opens the same complete action menu as its ellipsis button, with Open connection in new window ahead of copy,
+  calendar, PDF, sharing, and IDOS actions. Right-clicking a particular service row stays scoped to that service and
+  offers its own preview and new-window actions rather than falling through to the enclosing connection. The same
   service-specific menu is available on station-board rows. A trackpad Force Click on either kind of service row
   opens the identical complete-route preview. Double-clicking anywhere across a connection's time or route summary
   opens that complete connection in an independent window; the visible window button remains available as an

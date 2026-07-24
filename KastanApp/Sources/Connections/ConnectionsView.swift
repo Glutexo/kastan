@@ -723,7 +723,6 @@ struct ConnectionCard: View {
     let copyToClipboard: () -> Void
     let addToCalendar: () -> Void
     let saveAsPDF: () -> Void
-    @State private var isPreviewPresented = false
 
     @ViewBuilder
     var body: some View {
@@ -732,20 +731,6 @@ struct ConnectionCard: View {
                 .contentShape(Rectangle())
                 .contextMenu {
                     actionMenuContent(openInNewWindow: openConnection)
-                }
-                .popover(isPresented: $isPreviewPresented, arrowEdge: .trailing) {
-                    ConnectionDetailView(
-                        selection: ConnectionSelection(
-                            connection: connection,
-                            timetable: timetable
-                        ),
-                        client: client,
-                        presentation: .preview
-                    )
-                    .frame(
-                        width: connectionPreviewSize.width,
-                        height: connectionPreviewSize.height
-                    )
                 }
         } else {
             cardContent
@@ -871,15 +856,10 @@ struct ConnectionCard: View {
         connection.shareURL.flatMap(AppLanguagePreference.localizedIDOSURL)
     }
 
-    private var connectionPreviewSize: CGSize {
-        ResultPreviewLayout.connectionSize(legCount: connection.legs.count)
-    }
-
     private func actionMenuContent(openInNewWindow: @escaping () -> Void) -> some View {
         ConnectionContextMenuContent(
             permanentLink: connectionActionURL,
             isPerformingExport: isPerformingExport,
-            showPreview: { isPreviewPresented = true },
             openInNewWindow: openInNewWindow,
             copyToClipboard: copyToClipboard,
             addToCalendar: addToCalendar,
@@ -902,16 +882,13 @@ struct ConnectionDetailView: View {
     @State private var timeIsUnderTitle = false
     private let selection: ConnectionSelection
     private let client: any IDOSClienting
-    private let presentation: ResultDetailPresentation
 
     init(
         selection: ConnectionSelection,
-        client: any IDOSClienting,
-        presentation: ResultDetailPresentation = .window
+        client: any IDOSClienting
     ) {
         self.selection = selection
         self.client = client
-        self.presentation = presentation
         let actionsModel = ConnectionsViewModel(client: client)
         actionsModel.timetable = selection.timetable
         _actionsModel = StateObject(wrappedValue: actionsModel)
@@ -968,19 +945,17 @@ struct ConnectionDetailView: View {
         }
         .frame(
             minWidth: Self.minimumWindowWidth,
-            minHeight: presentation == .preview ? 0 : 420
+            minHeight: 420
         )
         .navigationTitle(windowTitle)
         .toolbar {
-            if presentation == .window {
-                ToolbarItemGroup(placement: .primaryAction) {
-                    ForEach(
-                        ResultDetailAction.availableActions(
-                            hasPermanentLink: connectionActionURL != nil
-                        )
-                    ) { action in
-                        connectionActionControl(action, url: connectionActionURL)
-                    }
+            ToolbarItemGroup(placement: .primaryAction) {
+                ForEach(
+                    ResultDetailAction.availableActions(
+                        hasPermanentLink: connectionActionURL != nil
+                    )
+                ) { action in
+                    connectionActionControl(action, url: connectionActionURL)
                 }
             }
         }

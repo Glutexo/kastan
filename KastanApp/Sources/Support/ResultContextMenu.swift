@@ -5,15 +5,6 @@ enum ResultContextTarget: CaseIterable {
     case connection
     case service
 
-    var previewTitleKey: String {
-        switch self {
-        case .connection:
-            "Preview connection"
-        case .service:
-            "Preview service"
-        }
-    }
-
     var openInNewWindowTitleKey: String {
         switch self {
         case .connection:
@@ -33,17 +24,16 @@ enum ResultContextAction: Hashable, Identifiable {
 
     var id: Self { self }
 
-    /// Connections already carry their export data, while a service row can navigate before its detail is loaded.
+    /// Services retain a compact preview, while complete connections open directly in a full window with export actions.
     static func availableActions(
         for target: ResultContextTarget,
         hasPermanentLink: Bool = false
     ) -> [Self] {
-        let navigation: [Self] = [.preview, .openInNewWindow]
         guard target == .connection else {
-            return navigation
+            return [.preview, .openInNewWindow]
         }
 
-        return navigation + [.separator] + ResultDetailAction
+        return [.openInNewWindow, .separator] + ResultDetailAction
             .availableActions(hasPermanentLink: hasPermanentLink)
             .map(Self.detail)
     }
@@ -58,7 +48,7 @@ private struct ResultContextActionLabel: View {
     var body: some View {
         switch action {
         case .preview:
-            Label(LocalizedStringKey(target.previewTitleKey), systemImage: "eye")
+            Label("Preview service", systemImage: "eye")
         case .openInNewWindow:
             Label(LocalizedStringKey(target.openInNewWindowTitleKey), systemImage: "macwindow")
         case .detail(let action):
@@ -73,7 +63,6 @@ private struct ResultContextActionLabel: View {
 struct ConnectionContextMenuContent: View {
     let permanentLink: URL?
     let isPerformingExport: Bool
-    let showPreview: () -> Void
     let openInNewWindow: () -> Void
     let copyToClipboard: () -> Void
     let addToCalendar: () -> Void
@@ -94,9 +83,7 @@ struct ConnectionContextMenuContent: View {
     private func control(_ action: ResultContextAction) -> some View {
         switch action {
         case .preview:
-            Button(action: showPreview) {
-                ResultContextActionLabel(action: action, target: .connection)
-            }
+            EmptyView()
         case .openInNewWindow:
             Button(action: openInNewWindow) {
                 ResultContextActionLabel(action: action, target: .connection)
