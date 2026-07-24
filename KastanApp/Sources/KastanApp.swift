@@ -260,6 +260,7 @@ struct AppHelpCommands: Commands {
 
 /// Defines the result-detail actions shared by the active window's toolbar and the File menu.
 enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
+    case copyToClipboard
     case addToCalendar
     case saveAsPDF
     case shareLink
@@ -269,6 +270,8 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
 
     var title: LocalizedStringKey {
         switch self {
+        case .copyToClipboard:
+            "Copy to Clipboard"
         case .addToCalendar:
             "Add to Calendar"
         case .saveAsPDF:
@@ -282,6 +285,8 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
 
     var systemImage: String {
         switch self {
+        case .copyToClipboard:
+            "doc.on.doc"
         case .addToCalendar:
             "calendar.badge.plus"
         case .saveAsPDF:
@@ -294,7 +299,7 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
     }
 
     static func availableActions(hasPermanentLink: Bool) -> [Self] {
-        hasPermanentLink ? allCases : [.addToCalendar, .saveAsPDF]
+        hasPermanentLink ? allCases : [.copyToClipboard, .addToCalendar, .saveAsPDF]
     }
 }
 
@@ -303,6 +308,7 @@ struct ResultDetailCommandContext {
     let hasLoadedResult: Bool
     let isPerformingExport: Bool
     let permanentLink: URL?
+    let copyToClipboard: () -> Void
     let addToCalendar: () -> Void
     let saveAsPDF: () -> Void
     let openInIDOS: () -> Void
@@ -311,7 +317,7 @@ struct ResultDetailCommandContext {
         guard !isPerformingExport else { return false }
 
         switch action {
-        case .addToCalendar, .saveAsPDF:
+        case .copyToClipboard, .addToCalendar, .saveAsPDF:
             return hasLoadedResult
         case .shareLink, .openInIDOS:
             return permanentLink != nil
@@ -336,6 +342,9 @@ struct ResultDetailCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .importExport) {
+            actionButton(.copyToClipboard) {
+                context?.copyToClipboard()
+            }
             actionButton(.addToCalendar) {
                 context?.addToCalendar()
             }

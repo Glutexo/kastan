@@ -321,9 +321,13 @@ struct ServiceDetailView: View {
         .frame(minWidth: Self.minimumWindowWidth, minHeight: 520)
         .navigationTitle(windowTitle)
         .toolbar {
-            if presentation == .window, let serviceActionURL {
+            if presentation == .window, model.service != nil {
                 ToolbarItemGroup(placement: .primaryAction) {
-                    ForEach(ResultDetailAction.allCases) { action in
+                    ForEach(
+                        ResultDetailAction.availableActions(
+                            hasPermanentLink: serviceActionURL != nil
+                        )
+                    ) { action in
                         serviceActionControl(action, url: serviceActionURL)
                     }
                 }
@@ -351,6 +355,11 @@ struct ServiceDetailView: View {
             hasLoadedResult: model.service != nil,
             isPerformingExport: model.isPerformingExport,
             permanentLink: serviceActionURL,
+            copyToClipboard: {
+                if let service = model.service {
+                    ResultClipboard.copy(service: service)
+                }
+            },
             addToCalendar: {
                 Task { await model.addToCalendar() }
             },
@@ -367,8 +376,19 @@ struct ServiceDetailView: View {
 
     /// Renders each service action as an independent native toolbar control.
     @ViewBuilder
-    private func serviceActionControl(_ action: ResultDetailAction, url: URL) -> some View {
+    private func serviceActionControl(_ action: ResultDetailAction, url: URL?) -> some View {
         switch action {
+        case .copyToClipboard:
+            Button {
+                if let service = model.service {
+                    ResultClipboard.copy(service: service)
+                }
+            } label: {
+                serviceActionLabel(action)
+            }
+            .disabled(model.isPerformingExport)
+            .accessibilityLabel(action.title)
+            .help(action.title)
         case .addToCalendar:
             Button {
                 Task { await model.addToCalendar() }
@@ -388,20 +408,24 @@ struct ServiceDetailView: View {
             .accessibilityLabel(action.title)
             .help(action.title)
         case .shareLink:
-            ShareLink(item: url) {
-                serviceActionLabel(action)
+            if let url {
+                ShareLink(item: url) {
+                    serviceActionLabel(action)
+                }
+                .disabled(model.isPerformingExport)
+                .help(action.title)
             }
-            .disabled(model.isPerformingExport)
-            .help(action.title)
         case .openInIDOS:
-            Button {
-                openURL(url)
-            } label: {
-                serviceActionLabel(action)
+            if let url {
+                Button {
+                    openURL(url)
+                } label: {
+                    serviceActionLabel(action)
+                }
+                .disabled(model.isPerformingExport)
+                .accessibilityLabel(action.title)
+                .help(action.title)
             }
-            .disabled(model.isPerformingExport)
-            .accessibilityLabel(action.title)
-            .help(action.title)
         }
     }
 

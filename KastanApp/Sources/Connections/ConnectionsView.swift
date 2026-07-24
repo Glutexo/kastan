@@ -385,6 +385,9 @@ struct ConnectionsView: View {
                             )
                         },
                         openService: { openWindow(id: AppWindow.serviceDetail, value: $0) },
+                        copyToClipboard: {
+                            ResultClipboard.copy(connection: connection, timetable: model.timetable)
+                        },
                         addToCalendar: { Task { await model.addToCalendar(connection) } },
                         saveAsPDF: { Task { await model.saveAsPDF(connection) } }
                     )
@@ -562,6 +565,7 @@ struct ConnectionCard: View {
     let timeFrameCoordinateSpace: String?
     let openConnection: (() -> Void)?
     let openService: (ServiceSelection) -> Void
+    let copyToClipboard: () -> Void
     let addToCalendar: () -> Void
     let saveAsPDF: () -> Void
 
@@ -612,6 +616,11 @@ struct ConnectionCard: View {
                     }
                     if showsActionMenu {
                         Menu {
+                            Button {
+                                copyToClipboard()
+                            } label: {
+                                Label("Copy to Clipboard", systemImage: "doc.on.doc")
+                            }
                             Button {
                                 addToCalendar()
                             } label: {
@@ -742,6 +751,12 @@ struct ConnectionDetailView: View {
                     timeFrameCoordinateSpace: Self.scrollCoordinateSpace,
                     openConnection: nil,
                     openService: { openWindow(id: AppWindow.serviceDetail, value: $0) },
+                    copyToClipboard: {
+                        ResultClipboard.copy(
+                            connection: selection.connection,
+                            timetable: selection.timetable
+                        )
+                    },
                     addToCalendar: {
                         Task { await actionsModel.addToCalendar(selection.connection) }
                     },
@@ -799,6 +814,12 @@ struct ConnectionDetailView: View {
             hasLoadedResult: true,
             isPerformingExport: isPerformingExport,
             permanentLink: connectionActionURL,
+            copyToClipboard: {
+                ResultClipboard.copy(
+                    connection: selection.connection,
+                    timetable: selection.timetable
+                )
+            },
             addToCalendar: {
                 Task { await actionsModel.addToCalendar(selection.connection) }
             },
@@ -820,6 +841,18 @@ struct ConnectionDetailView: View {
         url: URL?
     ) -> some View {
         switch action {
+        case .copyToClipboard:
+            Button {
+                ResultClipboard.copy(
+                    connection: selection.connection,
+                    timetable: selection.timetable
+                )
+            } label: {
+                connectionActionLabel(action)
+            }
+            .disabled(isPerformingExport)
+            .accessibilityLabel(action.title)
+            .help(action.title)
         case .addToCalendar:
             Button {
                 Task { await actionsModel.addToCalendar(selection.connection) }

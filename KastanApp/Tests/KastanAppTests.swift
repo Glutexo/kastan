@@ -30,6 +30,7 @@ final class KastanAppTests: XCTestCase {
         let mainMenu = try XCTUnwrap(NSApplication.shared.mainMenu)
         let menuItems = mainMenu.items.compactMap(\.submenu).flatMap(\.items)
         let actionKeys = [
+            "Copy to Clipboard",
             "Add to Calendar",
             "Save as PDF",
             "Share Link",
@@ -58,6 +59,7 @@ final class KastanAppTests: XCTestCase {
 
     func testResultDetailMenuActionsStayInOneGroup() throws {
         let expectedTitles = [
+            "Copy to Clipboard",
             "Add to Calendar",
             "Save as PDF",
             "Share Link",
@@ -566,18 +568,18 @@ final class KastanAppTests: XCTestCase {
         ))!
     }
 
-    func testResultDetailToolbarAndFileMenuShareFourLocalizedActions() throws {
+    func testResultDetailToolbarAndFileMenuShareFiveLocalizedActions() throws {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
 
         XCTAssertEqual(
             ResultDetailAction.allCases,
-            [.addToCalendar, .saveAsPDF, .shareLink, .openInIDOS]
+            [.copyToClipboard, .addToCalendar, .saveAsPDF, .shareLink, .openInIDOS]
         )
-        let keys = ["Add to Calendar", "Save as PDF", "Share Link", "Open in IDOS"]
+        let keys = ["Copy to Clipboard", "Add to Calendar", "Save as PDF", "Share Link", "Open in IDOS"]
         XCTAssertEqual(
             keys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
-            ["Přidat do Kalendáře", "Uložit jako PDF", "Sdílet odkaz", "Otevřít v IDOSu"]
+            ["Zkopírovat do schránky", "Přidat do Kalendáře", "Uložit jako PDF", "Sdílet odkaz", "Otevřít v IDOSu"]
         )
         XCTAssertEqual(
             keys.map { english.localizedString(forKey: $0, value: nil, table: nil) },
@@ -596,7 +598,7 @@ final class KastanAppTests: XCTestCase {
     func testConnectionDetailToolbarOffersEveryAvailableActionSeparately() {
         XCTAssertEqual(
             ResultDetailAction.allCases.map(\.systemImage),
-            ["calendar.badge.plus", "arrow.down.doc", "square.and.arrow.up", "arrow.up.right.square"]
+            ["doc.on.doc", "calendar.badge.plus", "arrow.down.doc", "square.and.arrow.up", "arrow.up.right.square"]
         )
         XCTAssertEqual(
             ResultDetailAction.availableActions(hasPermanentLink: true),
@@ -604,7 +606,7 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             ResultDetailAction.availableActions(hasPermanentLink: false),
-            [.addToCalendar, .saveAsPDF]
+            [.copyToClipboard, .addToCalendar, .saveAsPDF]
         )
     }
 
@@ -613,6 +615,7 @@ final class KastanAppTests: XCTestCase {
             hasLoadedResult: true,
             isPerformingExport: false,
             permanentLink: URL(string: "https://idos.cz/"),
+            copyToClipboard: {},
             addToCalendar: {},
             saveAsPDF: {},
             openInIDOS: {}
@@ -621,6 +624,7 @@ final class KastanAppTests: XCTestCase {
             hasLoadedResult: false,
             isPerformingExport: false,
             permanentLink: nil,
+            copyToClipboard: {},
             addToCalendar: {},
             saveAsPDF: {},
             openInIDOS: {}
@@ -629,6 +633,7 @@ final class KastanAppTests: XCTestCase {
             hasLoadedResult: true,
             isPerformingExport: true,
             permanentLink: URL(string: "https://idos.cz/"),
+            copyToClipboard: {},
             addToCalendar: {},
             saveAsPDF: {},
             openInIDOS: {}
@@ -637,6 +642,110 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(ResultDetailAction.allCases.allSatisfy(ready.isEnabled))
         XCTAssertTrue(ResultDetailAction.allCases.allSatisfy { !loading.isEnabled($0) })
         XCTAssertTrue(ResultDetailAction.allCases.allSatisfy { !exporting.isEnabled($0) })
+    }
+
+    func testConnectionClipboardTextMatchesTheLocalizedPlainCLIShape() throws {
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let connection = IDOSConnection(
+            id: "connection-1",
+            departureTime: "12:00",
+            departureStation: "Praha hl.n.",
+            arrivalTime: "14:30",
+            arrivalStation: "Brno hl.n.",
+            duration: "2 h 30 min",
+            legs: [
+                IDOSConnectionLeg(
+                    name: "R 879 Svitava",
+                    transportMode: .train,
+                    departureTime: "12:00",
+                    fromStation: "Praha hl.n.",
+                    arrivalTime: "14:30",
+                    toStation: "Brno hl.n."
+                ),
+            ]
+        )
+        let timetable = IDOSTimetable(slug: "vlaky", displayName: "Trains")
+
+        let englishText = CLIPlainTextPresentation(bundle: english).connection(
+            connection,
+            timetable: timetable
+        )
+        let czechText = CLIPlainTextPresentation(bundle: czech).connection(
+            connection,
+            timetable: timetable
+        )
+
+        XCTAssertEqual(
+            englishText,
+            """
+            🧭 Connections Praha hl.n. → Brno hl.n. (Trains):
+            1. ➡️  Direct · ⚡ Shortest — 🕒 12:00 Praha hl.n. → 14:30 Brno hl.n. (2 h 30 min)
+               🚆 R 879 Svitava Praha hl.n. 12:00 → 14:30 Brno hl.n.
+            """
+        )
+        XCTAssertTrue(czechText.hasPrefix("🧭 Spojení Praha hl.n. → Brno hl.n. (Vlaky):"))
+        XCTAssertTrue(czechText.contains("➡️  Přímý · ⚡ Nejrychlejší"))
+        XCTAssertFalse(englishText.contains("\u{001B}"))
+        XCTAssertFalse(englishText.contains(connection.id))
+    }
+
+    func testServiceClipboardTextIncludesTheCompleteCLIStyleRoute() throws {
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        let service = IDOSServiceDetail(
+            id: "vlaky:service-1",
+            timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
+            name: "R 879 Svitava",
+            transportMode: .train,
+            date: "24.7.2026",
+            stops: [
+                IDOSServiceStop(
+                    name: "Praha hl.n.",
+                    departureTime: "12:00",
+                    tariffZone: "P",
+                    platform: "4",
+                    track: "2",
+                    distance: "0 km",
+                    notes: ["wheelchair accessible station"]
+                ),
+                IDOSServiceStop(
+                    name: "Brno hl.n.",
+                    arrivalTime: "14:30",
+                    platformTrack: "3/1",
+                    distance: "255 km",
+                    notes: ["request stop"]
+                ),
+            ],
+            information: ["České dráhy, a.s."]
+        )
+
+        let text = CLIPlainTextPresentation(bundle: english).service(service)
+
+        XCTAssertEqual(
+            text,
+            """
+            🚆 R 879 Svitava · Service (Trains)
+               🆔 Service ID: vlaky:service-1
+               📅 Date: 24.7.2026
+            🛤️ Route:
+            1. 📍 Praha hl.n. — Departure 12:00 · tariff zone P · platform 4 · track 2 · 0 km
+                  ♿ wheelchair accessible station
+            2. 📍 Brno hl.n. — Arrival 14:30 · platform/track 3/1 · 255 km
+                  🔔 request stop
+
+            ℹ️ Information:
+               🏢 České dráhy, a.s.
+            """
+        )
+        XCTAssertFalse(text.contains("\u{001B}"))
+    }
+
+    func testResultClipboardReplacesExistingPlainText() {
+        let pasteboard = NSPasteboard.withUniqueName()
+        pasteboard.setString("stale", forType: .string)
+
+        XCTAssertTrue(ResultClipboard.copy("new result", to: pasteboard))
+        XCTAssertEqual(pasteboard.string(forType: .string), "new result")
     }
 
     func testDetailLayoutStacksControlsAtCompactWidths() {
@@ -1094,6 +1203,7 @@ final class KastanAppTests: XCTestCase {
             timeFrameCoordinateSpace: nil,
             openConnection: {},
             openService: { _ in },
+            copyToClipboard: {},
             addToCalendar: {},
             saveAsPDF: {}
         )
@@ -2374,6 +2484,7 @@ private func connectionCardOpenCount(afterDoubleClickAt location: NSPoint) -> In
         timeFrameCoordinateSpace: nil,
         openConnection: { openCount += 1 },
         openService: { _ in },
+        copyToClipboard: {},
         addToCalendar: {},
         saveAsPDF: {}
     )

@@ -25,6 +25,7 @@
 "Close Tab" = "Zavřít panel";
 "Close Window" = "Zavřít okno";
 "Could not build the IDOS URL." = "Adresu URL pro IDOS se nepodařilo sestavit.";
+"Copy to Clipboard" = "Zkopírovat do schránky";
 "Currently no delay" = "Aktuálně bez zpoždění";
 "Connection %lld" = "Spojení %lld";
 "Connection %@ – %@" = "Spojení %@ – %@";
@@ -38,6 +39,7 @@
 "Departures" = "Odjezdy";
 "Departures and arrivals" = "Odjezdy a příjezdy";
 "Direct" = "Přímé";
+"Direct connection" = "Přímý";
 "Direct connections only" = "Pouze přímá spojení";
 "Direct only" = "Jen přímé";
 "Does not run" = "Nejede";
@@ -80,6 +82,7 @@
 "Kaštan is already determining your current location." = "Kaštan už zjišťuje vaši aktuální polohu.";
 "Independent macOS client for occasional personal IDOS searches." = "Nezávislý klient pro macOS určený k občasnému osobnímu vyhledávání v IDOSu.";
 "Integrated transport systems" = "Integrované dopravní systémy";
+"Information" = "Informace";
 "Loading earlier results…" = "Načítání dřívějších výsledků…";
 "Loading later results…" = "Načítání následujících výsledků…";
 "Loading service route…" = "Načítání trasy spoje…";
@@ -107,6 +110,8 @@
 "Opens in the default web browser" = "Otevře se ve výchozím webovém prohlížeči";
 "Outside timetable validity" = "Mimo platnost jízdního řádu";
 "Platform %@" = "nástupiště %@";
+"platform %@" = "nástupiště %@";
+"platform/track %@" = "nástupiště/kolej %@";
 "place" = "místo";
 "Powered by public IDOS web data" = "Využívá veřejná webová data IDOSu";
 "public transport" = "MHD";
@@ -123,17 +128,21 @@
 "Runs on days %@ within the listed date range" = "Jede ve dnech %@ v uvedeném rozsahu";
 "Runs on working days except the listed dates" = "Jede v pracovní dny kromě uvedených dat";
 "Runs throughout timetable validity except the listed dates" = "Jede po celou platnost jízdního řádu kromě uvedených dat";
+"Route" = "Trasa";
 "Search" = "Hledat";
 "Search mode" = "Režim vyhledávání";
 "Save as PDF" = "Uložit jako PDF";
 "Searches" = "Vyhledávání";
 "Searching connections…" = "Vyhledávání spojení…";
 "Share Link" = "Sdílet odkaz";
+"Shortest" = "Nejrychlejší";
 "Show note calendar" = "Zobrazit kalendář platnosti poznámky";
 "Show note calendar; hold Option for recognized conditions" = "Zobrazit kalendář platnosti poznámky; podržte Option pro rozpoznané podmínky";
 "Show service calendar" = "Zobrazit kalendář provozu";
 "Show service calendar; hold Option for recognized conditions" = "Zobrazit kalendář provozu; podržte Option pro rozpoznané podmínky";
 "Service calendar" = "Kalendář provozu";
+"Service" = "Spoj";
+"Service ID" = "ID spoje";
 "Service information" = "Informace o spoji";
 "Service route" = "Trasa spoje";
 "Service route unavailable" = "Trasa spoje není dostupná";
@@ -148,6 +157,7 @@
 "Stops" = "Zastávky";
 "Swap departure and arrival" = "Prohodit výchozí a cílové místo";
 "Swap direction stops" = "Prohodit zastávky směru";
+"tariff zone %@" = "tarifní zóna %@";
 "The calendar data could not be saved." = "Data kalendáře se nepodařilo uložit.";
 "Today" = "Dnes";
 "Time" = "Čas";
@@ -157,6 +167,7 @@
 "Timetables" = "Jízdní řády";
 "To" = "Kam";
 "Track %@" = "kolej %@";
+"track %@" = "kolej %@";
 "train" = "vlak";
 "Trains" = "Vlaky";
 "trains" = "vlaky";
@@ -165,6 +176,7 @@
 "Trains + Buses + Urban Public Transport" = "Vlaky + autobusy + MHD";
 "Prague + PID" = "Praha + PID";
 "Urban public transport by city" = "MHD jednotlivých měst";
+"Urban Public Transport %@" = "MHD %@";
 "Whole week" = "Celý týden";
 "Version %@" = "Verze %@";
 "Via" = "Přes";

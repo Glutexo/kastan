@@ -63,13 +63,17 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   results and removes duplicate rows. If connection paging fails after its IDOS session expires, the error banner
   can repeat the unchanged search, replace the stale list with progress, and establish a fresh paging session.
 - Native tabs and windows, including independent favorite-timetable, complete-connection, and resizable
-  service-route windows. A connection opened in its own window presents its export and sharing actions as
+  service-route windows. A connection opened in its own window presents its copy, export, and sharing actions as
   individually visible controls in the native toolbar instead of repeating the result-card action menu, and
   each of its services can still open a separate complete route. The active connection or service detail repeats
   every toolbar action in the File menu, with all commands disabled while an export is running and link commands
   disabled until IDOS supplies a permanent link. Complete connections open at 620 points wide, while
   service routes open at a compact 540-point width and remain usable down to 480 points. When scrolling hides the
   connection's main time range, that range moves into the window title until its content label is visible again.
+- Connection cards, complete connections, and complete service routes offer Copy to Clipboard. The copied plain
+  text follows the app language and the CLI's default human-readable layout, including its semantic emoji and the
+  complete route for a service, while omitting terminal-only ANSI color and emphasis codes. Copy remains available
+  when IDOS does not supply a permanent result link.
 - Connection cards with line colors, transport symbols, platforms, tariff zones, carriers, and localized Czech
   or English IDOS states for on-time or delayed arrivals and departures. A trackpad Force Click on a service row,
   either in the result list or an opened connection detail, previews that service's complete route. Force Click on

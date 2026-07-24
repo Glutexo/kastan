@@ -29,6 +29,7 @@
 		A00000000000000000000223 /* StationTimetableServiceCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000123 /* StationTimetableServiceCalendar.swift */; };
 		A00000000000000000000224 /* ForceClickPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000124 /* ForceClickPreview.swift */; };
 		A00000000000000000000225 /* CurrentLocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000125 /* CurrentLocationProvider.swift */; };
+		A00000000000000000000226 /* ResultClipboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000126 /* ResultClipboard.swift */; };
 		A00000000000000000000230 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000132 /* Localizable.strings */; };
 		A00000000000000000000231 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000133 /* Assets.xcassets */; };
 		A00000000000000000000232 /* Localizable.stringsdict in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000136 /* Localizable.stringsdict */; };
@@ -73,6 +74,7 @@
 		A00000000000000000000123 /* StationTimetableServiceCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationTimetableServiceCalendar.swift; sourceTree = "<group>"; };
 		A00000000000000000000124 /* ForceClickPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForceClickPreview.swift; sourceTree = "<group>"; };
 		A00000000000000000000125 /* CurrentLocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentLocationProvider.swift; sourceTree = "<group>"; };
+		A00000000000000000000126 /* ResultClipboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultClipboard.swift; sourceTree = "<group>"; };
 		A00000000000000000000130 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A00000000000000000000131 /* cs */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = cs; path = cs.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A00000000000000000000133 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -187,6 +189,7 @@
 				A00000000000000000000125 /* CurrentLocationProvider.swift */,
 				A00000000000000000000124 /* ForceClickPreview.swift */,
 				A0000000000000000000011E /* PDFExporter.swift */,
+				A00000000000000000000126 /* ResultClipboard.swift */,
 				A00000000000000000000121 /* SearchResultPullMonitor.swift */,
 				A00000000000000000000122 /* MainWindowToolbar.swift */,
 			);
@@ -351,6 +354,7 @@
 				A00000000000000000000223 /* StationTimetableServiceCalendar.swift in Sources */,
 				A00000000000000000000224 /* ForceClickPreview.swift in Sources */,
 				A00000000000000000000225 /* CurrentLocationProvider.swift in Sources */,
+				A00000000000000000000226 /* ResultClipboard.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

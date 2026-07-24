@@ -25,6 +25,7 @@
 "Close Tab" = "Close Tab";
 "Close Window" = "Close Window";
 "Could not build the IDOS URL." = "Could not build the IDOS URL.";
+"Copy to Clipboard" = "Copy to Clipboard";
 "Currently no delay" = "Currently no delay";
 "Connection %lld" = "Connection %lld";
 "Connection %@ – %@" = "Connection %@ – %@";
@@ -38,6 +39,7 @@
 "Departures" = "Departures";
 "Departures and arrivals" = "Departures and arrivals";
 "Direct" = "Direct";
+"Direct connection" = "Direct";
 "Direct connections only" = "Direct connections only";
 "Direct only" = "Direct only";
 "Does not run" = "Does not run";
@@ -80,6 +82,7 @@
 "Kaštan is already determining your current location." = "Kaštan is already determining your current location.";
 "Independent macOS client for occasional personal IDOS searches." = "Independent macOS client for occasional personal IDOS searches.";
 "Integrated transport systems" = "Integrated transport systems";
+"Information" = "Information";
 "Loading earlier results…" = "Loading earlier results…";
 "Loading later results…" = "Loading later results…";
 "Loading service route…" = "Loading service route…";
@@ -107,6 +110,8 @@
 "Opens in the default web browser" = "Opens in the default web browser";
 "Outside timetable validity" = "Outside timetable validity";
 "Platform %@" = "Platform %@";
+"platform %@" = "platform %@";
+"platform/track %@" = "platform/track %@";
 "place" = "place";
 "Powered by public IDOS web data" = "Powered by public IDOS web data";
 "public transport" = "public transport";
@@ -123,17 +128,21 @@
 "Runs on days %@ within the listed date range" = "Runs on days %@ within the listed date range";
 "Runs on working days except the listed dates" = "Runs on working days except the listed dates";
 "Runs throughout timetable validity except the listed dates" = "Runs throughout timetable validity except the listed dates";
+"Route" = "Route";
 "Search" = "Search";
 "Search mode" = "Search mode";
 "Save as PDF" = "Save as PDF";
 "Searches" = "Search";
 "Searching connections…" = "Searching connections…";
 "Share Link" = "Share Link";
+"Shortest" = "Shortest";
 "Show note calendar" = "Show note calendar";
 "Show note calendar; hold Option for recognized conditions" = "Show note calendar; hold Option for recognized conditions";
 "Show service calendar" = "Show service calendar";
 "Show service calendar; hold Option for recognized conditions" = "Show service calendar; hold Option for recognized conditions";
 "Service calendar" = "Service calendar";
+"Service" = "Service";
+"Service ID" = "Service ID";
 "Service information" = "Service information";
 "Service route" = "Service route";
 "Service route unavailable" = "Service route unavailable";
@@ -148,6 +157,7 @@
 "Stops" = "Stops";
 "Swap departure and arrival" = "Swap departure and arrival";
 "Swap direction stops" = "Swap direction stops";
+"tariff zone %@" = "tariff zone %@";
 "The calendar data could not be saved." = "The calendar data could not be saved.";
 "Today" = "Today";
 "Time" = "Time";
@@ -157,6 +167,7 @@
 "Timetables" = "Timetables";
 "To" = "To";
 "Track %@" = "Track %@";
+"track %@" = "track %@";
 "train" = "train";
 "Trains" = "Trains";
 "trains" = "trains";
@@ -165,6 +176,7 @@
 "Trains + Buses + Urban Public Transport" = "Trains + Buses + Urban Public Transport";
 "Prague + PID" = "Prague + PID";
 "Urban public transport by city" = "Urban public transport by city";
+"Urban Public Transport %@" = "Urban Public Transport %@";
 "Whole week" = "Whole week";
 "Version %@" = "Version %@";
 "Via" = "Via";
