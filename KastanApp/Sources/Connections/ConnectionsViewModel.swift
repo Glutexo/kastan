@@ -160,6 +160,11 @@ final class ConnectionsViewModel: ObservableObject {
         journeyOptions.first { $0.kind == .maximumTransfers }?.maximumTransfers
     }
 
+    /// Mirrors the direct-connection shortcut with the equivalent zero-transfer journey condition.
+    var onlyDirect: Bool {
+        maximumTransfers == 0
+    }
+
     /// Presents the explicit transfer ceiling, or IDOS's four-transfer default, in the summary.
     var transferLimitLabel: String {
         let transferLimit = maximumTransfers ?? Self.defaultMaximumTransfers
@@ -205,6 +210,23 @@ final class ConnectionsViewModel: ObservableObject {
             journeyOptions[0] = JourneyOptionEntry(id: id)
         } else {
             journeyOptions.remove(at: index)
+        }
+    }
+
+    /// Applies the direct shortcut without exposing the journey-options editor or creating duplicate limits.
+    func setOnlyDirect(_ onlyDirect: Bool) {
+        if onlyDirect {
+            if let index = journeyOptions.firstIndex(where: { $0.kind == .maximumTransfers }) {
+                journeyOptions[index].maximumTransfers = 0
+            } else {
+                journeyOptions.append(
+                    JourneyOptionEntry(kind: .maximumTransfers, maximumTransfers: 0)
+                )
+            }
+        } else if let option = journeyOptions.first(where: {
+            $0.kind == .maximumTransfers && $0.maximumTransfers == 0
+        }) {
+            removeJourneyOption(id: option.id)
         }
     }
 

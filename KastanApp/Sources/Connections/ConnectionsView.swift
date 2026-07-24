@@ -118,8 +118,6 @@ struct ConnectionsView: View {
             Divider()
 
             searchControls(stacked: layout.usesStackedSearchControls)
-
-            journeyOptions
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .animation(.easeInOut(duration: 0.1), value: model.endpointValidationMessage)
@@ -193,10 +191,24 @@ struct ConnectionsView: View {
             arrivalLabel: "Arrival",
             isSearching: model.isSearching,
             canSearch: model.canSearch,
-            usesStackedLayout: stacked
+            usesStackedLayout: stacked,
+            supplement: JourneySearchControlsSupplement(
+                leading: journeyOptions,
+                modeAligned: directConnectionsOnlyToggle
+            )
         ) {
             performSearch()
         }
+    }
+
+    /// Keeps the common direct-only shortcut synchronized with its explicit journey condition.
+    private var directConnectionsOnlyToggle: some View {
+        Toggle("Direct connections only", isOn: Binding(
+            get: { model.onlyDirect },
+            set: { model.setOnlyDirect($0) }
+        ))
+        .toggleStyle(.checkbox)
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private var searchSummary: SearchSummaryPresentation {

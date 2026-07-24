@@ -1748,12 +1748,61 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(model.availableJourneyOptionKinds(for: secondID), [.via, .maximumTransfers])
     }
 
+    func testDirectOnlyShortcutAddsAndRemovesAZeroTransferCondition() {
+        let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
+        let placeholderID = model.journeyOptions[0].id
+
+        XCTAssertFalse(model.onlyDirect)
+
+        model.setOnlyDirect(true)
+        model.setOnlyDirect(true)
+
+        XCTAssertTrue(model.onlyDirect)
+        XCTAssertEqual(model.journeyOptions.count, 2)
+        XCTAssertEqual(model.journeyOptions[0].id, placeholderID)
+        XCTAssertEqual(
+            model.journeyOptions.filter { $0.kind == .maximumTransfers }.map(\.maximumTransfers),
+            [0]
+        )
+
+        model.setOnlyDirect(false)
+
+        XCTAssertFalse(model.onlyDirect)
+        XCTAssertEqual(model.journeyOptions, [JourneyOptionEntry(id: placeholderID)])
+    }
+
+    func testDirectOnlyShortcutUpdatesAnExistingTransferConditionInPlace() {
+        let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
+        let transferOption = JourneyOptionEntry(kind: .maximumTransfers, maximumTransfers: 3)
+        model.journeyOptions = [
+            JourneyOptionEntry(viaPlace: "Pardubice"),
+            transferOption,
+            JourneyOptionEntry(viaPlace: "Olomouc"),
+        ]
+
+        model.setOnlyDirect(true)
+
+        XCTAssertTrue(model.onlyDirect)
+        XCTAssertEqual(model.journeyOptions.count, 3)
+        XCTAssertEqual(model.journeyOptions[1].id, transferOption.id)
+        XCTAssertEqual(model.journeyOptions[1].maximumTransfers, 0)
+        XCTAssertEqual(model.viaPlaceNames, ["Pardubice", "Olomouc"])
+    }
+
     func testJourneyOptionValuePlaceholderDiffersFromViaConditionName() throws {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
 
         XCTAssertEqual(czech.localizedString(forKey: "Via place", value: nil, table: nil), "Místo přes")
         XCTAssertEqual(english.localizedString(forKey: "Via place", value: nil, table: nil), "Via place")
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Direct connections only", value: nil, table: nil),
+            "Pouze přímá spojení"
+        )
+        XCTAssertEqual(
+            english.localizedString(forKey: "Direct connections only", value: nil, table: nil),
+            "Direct connections only"
+        )
     }
 
     func testJourneyOptionPickerUsesCompactStableCatalogWidthWhenOnlyViaIsAvailable() throws {

@@ -9,6 +9,17 @@ enum SearchShortcutPresentation {
     }
 }
 
+/// Adds connection-specific controls to the shared search layout without losing its column alignment.
+struct JourneySearchControlsSupplement {
+    let leading: AnyView
+    let modeAligned: AnyView
+
+    init<Leading: View, ModeAligned: View>(leading: Leading, modeAligned: ModeAligned) {
+        self.leading = AnyView(leading)
+        self.modeAligned = AnyView(modeAligned)
+    }
+}
+
 /// Keeps timetable, date, time, mode, and search actions visually identical across app searches.
 struct JourneySearchControls: View {
     /// Overlaps the controls' empty edge insets so the favorite sits beside the visible picker.
@@ -36,6 +47,7 @@ struct JourneySearchControls: View {
     private let isSearching: Bool
     private let canSearch: Bool
     private let usesStackedLayout: Bool
+    private let supplement: JourneySearchControlsSupplement?
     private let search: () -> Void
 
     init(
@@ -49,6 +61,7 @@ struct JourneySearchControls: View {
         isSearching: Bool,
         canSearch: Bool,
         usesStackedLayout: Bool,
+        supplement: JourneySearchControlsSupplement? = nil,
         search: @escaping () -> Void
     ) {
         _timetable = timetable
@@ -61,6 +74,7 @@ struct JourneySearchControls: View {
         self.isSearching = isSearching
         self.canSearch = canSearch
         self.usesStackedLayout = usesStackedLayout
+        self.supplement = supplement
         self.search = search
     }
 
@@ -72,30 +86,13 @@ struct JourneySearchControls: View {
                         .frame(maxWidth: 360, alignment: .leading)
 
                     ViewThatFits(in: .horizontal) {
-                        HStack(alignment: .bottom, spacing: 12) {
-                            datePicker
-                            timePicker
-                            modePicker
-                                .fixedSize(horizontal: true, vertical: false)
-                            Spacer(minLength: 8)
-                            searchButton
-                        }
+                        stackedHorizontalControls
 
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack(alignment: .bottom, spacing: 12) {
-                                datePicker
-                                timePicker
-                                Spacer(minLength: 0)
-                            }
-                            HStack(spacing: 12) {
-                                modePicker
-                                    .fixedSize(horizontal: true, vertical: false)
-                                Spacer(minLength: 0)
-                                searchButton
-                            }
-                        }
+                        compactStackedControls
                     }
                 }
+            } else if let supplement {
+                horizontalControls(supplement: supplement)
             } else {
                 HStack(alignment: .bottom, spacing: 12) {
                     timetablePicker
@@ -112,6 +109,139 @@ struct JourneySearchControls: View {
         .background {
             OptionModifierMonitor(isPressed: $showsDateTimeShortcuts)
                 .frame(width: 0, height: 0)
+        }
+    }
+
+    /// Uses the same grid column for the time mode and its supplemental shortcut.
+    private func horizontalControls(supplement: JourneySearchControlsSupplement) -> some View {
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 14) {
+            GridRow(alignment: .bottom) {
+                timetablePicker
+                    .frame(width: 240)
+                datePicker
+                timePicker
+                modePicker
+                    .frame(width: 175)
+                Spacer(minLength: 0)
+                searchButton
+            }
+
+            supplementalRow(supplement: supplement, leadingColumnCount: 3, modeWidth: 175)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Keeps the supplemental shortcut below the mode picker while all controls still fit on one row.
+    @ViewBuilder
+    private var stackedHorizontalControls: some View {
+        if let supplement {
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 14) {
+                GridRow(alignment: .bottom) {
+                    datePicker
+                    timePicker
+                    modePicker
+                        .fixedSize(horizontal: true, vertical: false)
+                    Spacer(minLength: 8)
+                    searchButton
+                }
+
+                supplementalRow(supplement: supplement, leadingColumnCount: 2, modeWidth: nil)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            HStack(alignment: .bottom, spacing: 12) {
+                datePicker
+                timePicker
+                modePicker
+                    .fixedSize(horizontal: true, vertical: false)
+                Spacer(minLength: 8)
+                searchButton
+            }
+        }
+    }
+
+    /// Preserves a readable side-by-side options row when the mode itself moves to a compact row.
+    private var compactStackedControls: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .bottom, spacing: 12) {
+                datePicker
+                timePicker
+                Spacer(minLength: 0)
+            }
+
+            if let supplement {
+                ViewThatFits(in: .horizontal) {
+                    compactAlignedControls(supplement: supplement)
+                    compactNaturalControls(supplement: supplement)
+                }
+            } else {
+                HStack(spacing: 12) {
+                    modePicker
+                        .fixedSize(horizontal: true, vertical: false)
+                    Spacer(minLength: 0)
+                    searchButton
+                }
+            }
+        }
+    }
+
+    /// Reserves the collapsed journey-options width so the checkbox remains directly below the time mode.
+    private func compactAlignedControls(supplement: JourneySearchControlsSupplement) -> some View {
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {
+            GridRow {
+                Color.clear
+                    .frame(height: 0)
+                modePicker
+                    .fixedSize(horizontal: true, vertical: false)
+                Spacer(minLength: 0)
+                searchButton
+            }
+
+            GridRow {
+                supplement.leading
+                supplement.modeAligned
+                Color.clear
+                    .frame(height: 0)
+                Color.clear
+                    .frame(height: 0)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Lets an expanded journey editor use the compact width even when its fields outgrow the aligned columns.
+    private func compactNaturalControls(supplement: JourneySearchControlsSupplement) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                modePicker
+                    .fixedSize(horizontal: true, vertical: false)
+                Spacer(minLength: 0)
+                searchButton
+            }
+
+            HStack(spacing: 12) {
+                supplement.leading
+                Spacer(minLength: 0)
+                supplement.modeAligned
+            }
+        }
+    }
+
+    /// Spans the controls before the mode column and retains the trailing flexible and search columns.
+    private func supplementalRow(
+        supplement: JourneySearchControlsSupplement,
+        leadingColumnCount: Int,
+        modeWidth: CGFloat?
+    ) -> some View {
+        GridRow {
+            supplement.leading
+                .gridCellColumns(leadingColumnCount)
+            supplement.modeAligned
+                .frame(width: modeWidth, alignment: .leading)
+            Color.clear
+                .frame(height: 0)
+            Color.clear
+                .frame(height: 0)
         }
     }
 

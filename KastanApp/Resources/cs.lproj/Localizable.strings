@@ -38,6 +38,7 @@
 "Departures" = "Odjezdy";
 "Departures and arrivals" = "Odjezdy a příjezdy";
 "Direct" = "Přímé";
+"Direct connections only" = "Pouze přímá spojení";
 "Direct only" = "Jen přímé";
 "Does not run" = "Nejede";
 "Does not run %@" = "Nejede %@";

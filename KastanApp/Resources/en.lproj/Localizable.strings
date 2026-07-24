@@ -38,6 +38,7 @@
 "Departures" = "Departures";
 "Departures and arrivals" = "Departures and arrivals";
 "Direct" = "Direct";
+"Direct connections only" = "Direct connections only";
 "Direct only" = "Direct only";
 "Does not run" = "Does not run";
 "Does not run %@" = "Does not run %@";
