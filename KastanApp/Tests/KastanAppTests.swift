@@ -659,6 +659,52 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: false), -8)
     }
 
+    func testExpandedSearchSupplementKeepsShortcutTopAligned() throws {
+        let controls = JourneySearchControls(
+            timetable: .constant(IDOSTimetable.defaultTimetable),
+            date: .constant(.now),
+            time: .constant(.now),
+            isArrival: .constant(false),
+            modeLabel: "Time means",
+            departureLabel: "Departure",
+            arrivalLabel: "Arrival",
+            isSearching: false,
+            canSearch: true,
+            usesStackedLayout: true,
+            supplement: JourneySearchControlsSupplement(
+                leading: SearchSupplementLayoutProbe(name: "options")
+                    .frame(width: 440, height: 120),
+                modeAligned: SearchSupplementLayoutProbe(name: "shortcut")
+                    .frame(width: 150, height: 22)
+            ),
+            search: {}
+        )
+        .frame(width: 650, alignment: .leading)
+        let hostingView = NSHostingView(rootView: controls)
+        hostingView.frame = NSRect(x: 0, y: 0, width: 650, height: 320)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        let probes = hostingView.allDescendantViews.compactMap { $0 as? SearchSupplementLayoutProbeView }
+        let options = try XCTUnwrap(probes.first { $0.name == "options" })
+        let shortcut = try XCTUnwrap(probes.first { $0.name == "shortcut" })
+        let optionsFrame = hostingView.convert(options.bounds, from: options)
+        let shortcutFrame = hostingView.convert(shortcut.bounds, from: shortcut)
+        let optionsTop = hostingView.isFlipped ? optionsFrame.minY : optionsFrame.maxY
+        let shortcutTop = hostingView.isFlipped ? shortcutFrame.minY : shortcutFrame.maxY
+
+        XCTAssertGreaterThan(optionsFrame.height, shortcutFrame.height)
+        XCTAssertEqual(optionsTop, shortcutTop, accuracy: 1)
+    }
+
     func testSearchFieldShortcutsFollowTheOptionModifier() {
         XCTAssertTrue(SearchShortcutPresentation.isVisible(for: [.option]))
         XCTAssertTrue(SearchShortcutPresentation.isVisible(for: [.option, .shift]))
@@ -2552,6 +2598,31 @@ private actor MockIDOSClient: IDOSClienting {
 private struct SuggestionQuery: Sendable {
     let prefix: String
     let timetableSlug: String
+}
+
+/// Marks both sides of a supplemental search row so its rendered alignment can be verified.
+private struct SearchSupplementLayoutProbe: NSViewRepresentable {
+    let name: String
+
+    func makeNSView(context: Context) -> SearchSupplementLayoutProbeView {
+        SearchSupplementLayoutProbeView(name: name)
+    }
+
+    func updateNSView(_ nsView: SearchSupplementLayoutProbeView, context: Context) {}
+}
+
+private final class SearchSupplementLayoutProbeView: NSView {
+    let name: String
+
+    init(name: String) {
+        self.name = name
+        super.init(frame: .zero)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is unavailable")
+    }
 }
 
 private extension NSView {

@@ -197,7 +197,7 @@ struct JourneySearchControls: View {
                 searchButton
             }
 
-            GridRow {
+            GridRow(alignment: .top) {
                 supplement.leading
                 supplement.modeAligned
                 Color.clear
@@ -219,7 +219,7 @@ struct JourneySearchControls: View {
                 searchButton
             }
 
-            HStack(spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
                 supplement.leading
                 Spacer(minLength: 0)
                 supplement.modeAligned
@@ -233,7 +233,7 @@ struct JourneySearchControls: View {
         leadingColumnCount: Int,
         modeWidth: CGFloat?
     ) -> some View {
-        GridRow {
+        GridRow(alignment: .top) {
             supplement.leading
                 .gridCellColumns(leadingColumnCount)
             supplement.modeAligned
