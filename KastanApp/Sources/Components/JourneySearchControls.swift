@@ -28,9 +28,9 @@ struct JourneySearchControlsSupplement {
 
 /// Keeps timetable, date, time, mode, and search actions visually identical across app searches.
 struct JourneySearchControls: View {
-    /// Leaves the favorite visibly separate from the native picker without wasting compact search space.
+    /// Overlaps the controls' empty edge insets so the favorite sits beside the visible picker.
     static func timetableFavoriteSpacing(usesStackedLayout _: Bool) -> CGFloat {
-        2
+        -8
     }
 
     /// Leaves enough room for the localized time mode to stay on the compact search row.
