@@ -167,6 +167,7 @@ private struct DepartureRow: View {
     let client: any IDOSClienting
     let openService: () -> Void
     @State private var suppressesPrimaryAction = false
+    @State private var isPreviewPresented = false
 
     var body: some View {
         Button {
@@ -214,9 +215,16 @@ private struct DepartureRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            ServiceContextMenuContent(
+                showPreview: { isPreviewPresented = true },
+                openInNewWindow: openService
+            )
+        }
         .forceClickPreview(
             size: ResultPreviewLayout.serviceSize,
-            suppressesPrimaryAction: $suppressesPrimaryAction
+            suppressesPrimaryAction: $suppressesPrimaryAction,
+            isPresented: $isPreviewPresented
         ) {
             ServiceDetailView(
                 selection: selection,

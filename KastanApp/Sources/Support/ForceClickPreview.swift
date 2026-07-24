@@ -4,6 +4,12 @@ import SwiftUI
 /// Keeps service previews large enough to show useful route context without becoming another full window.
 enum ResultPreviewLayout {
     static let serviceSize = CGSize(width: 600, height: 560)
+
+    /// Gives direct journeys a compact preview while allowing transfer legs to grow up to the service-preview size.
+    static func connectionSize(legCount: Int) -> CGSize {
+        let contentHeight = 180 + CGFloat(max(legCount, 1) * 116)
+        return CGSize(width: 620, height: min(560, contentHeight))
+    }
 }
 
 /// Distinguishes an independent service window from the same route embedded in a preview.
@@ -204,8 +210,8 @@ private struct ForceClickPreviewModifier<Preview: View>: ViewModifier {
     let size: CGSize
     let isEnabled: Bool
     let suppressesPrimaryAction: Binding<Bool>?
+    @Binding var isPreviewPresented: Bool
     @ViewBuilder let preview: () -> Preview
-    @State private var isPreviewPresented = false
     @State private var isHovered = false
 
     func body(content: Content) -> some View {
@@ -236,12 +242,14 @@ extension View {
         size: CGSize,
         isEnabled: Bool = true,
         suppressesPrimaryAction: Binding<Bool>? = nil,
+        isPresented: Binding<Bool>,
         @ViewBuilder preview: @escaping () -> Preview
     ) -> some View {
         modifier(ForceClickPreviewModifier(
             size: size,
             isEnabled: isEnabled,
             suppressesPrimaryAction: suppressesPrimaryAction,
+            isPreviewPresented: isPresented,
             preview: preview
         ))
     }

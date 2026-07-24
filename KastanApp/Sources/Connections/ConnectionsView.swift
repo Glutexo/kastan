@@ -456,6 +456,7 @@ struct ConnectionsView: View {
                     ConnectionCard(
                         number: index + 1,
                         connection: connection,
+                        timetable: model.timetable,
                         client: client,
                         isShortest: shortestConnectionIDs.contains(connection.id),
                         isPerformingExport: model.importingConnectionID == connection.id ||
@@ -643,6 +644,7 @@ private struct ConnectionTimeFramePreferenceKey: PreferenceKey {
 struct ConnectionCard: View {
     let number: Int?
     let connection: IDOSConnection
+    let timetable: IDOSTimetable
     let client: any IDOSClienting
     let isShortest: Bool
     let isPerformingExport: Bool
@@ -653,8 +655,36 @@ struct ConnectionCard: View {
     let copyToClipboard: () -> Void
     let addToCalendar: () -> Void
     let saveAsPDF: () -> Void
+    @State private var isPreviewPresented = false
 
+    @ViewBuilder
     var body: some View {
+        if showsActionMenu, let openConnection {
+            cardContent
+                .contentShape(Rectangle())
+                .contextMenu {
+                    actionMenuContent(openInNewWindow: openConnection)
+                }
+                .popover(isPresented: $isPreviewPresented, arrowEdge: .trailing) {
+                    ConnectionDetailView(
+                        selection: ConnectionSelection(
+                            connection: connection,
+                            timetable: timetable
+                        ),
+                        client: client,
+                        presentation: .preview
+                    )
+                    .frame(
+                        width: connectionPreviewSize.width,
+                        height: connectionPreviewSize.height
+                    )
+                }
+        } else {
+            cardContent
+        }
+    }
+
+    private var cardContent: some View {
         GroupBox {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -706,33 +736,9 @@ struct ConnectionCard: View {
                         .buttonStyle(.borderless)
                         .help("Open connection in new window")
                     }
-                    if showsActionMenu {
+                    if showsActionMenu, let openConnection {
                         Menu {
-                            Button {
-                                copyToClipboard()
-                            } label: {
-                                Label("Copy to Clipboard", systemImage: "doc.on.doc")
-                            }
-                            Button {
-                                addToCalendar()
-                            } label: {
-                                Label("Add to Calendar", systemImage: "calendar.badge.plus")
-                            }
-                            Button {
-                                saveAsPDF()
-                            } label: {
-                                Label("Save as PDF", systemImage: "arrow.down.doc")
-                            }
-                            if let value = connection.shareURL,
-                               let url = AppLanguagePreference.localizedIDOSURL(from: value)
-                            {
-                                ShareLink(item: url) {
-                                    Label("Share Link", systemImage: "square.and.arrow.up")
-                                }
-                                Link(destination: url) {
-                                    Label("Open in IDOS", systemImage: "arrow.up.right.square")
-                                }
-                            }
+                            actionMenuContent(openInNewWindow: openConnection)
                         } label: {
                             if isPerformingExport {
                                 ProgressView()
@@ -742,7 +748,6 @@ struct ConnectionCard: View {
                             }
                         }
                         .menuStyle(.borderlessButton)
-                        .disabled(isPerformingExport)
                     }
                 }
 
@@ -794,6 +799,26 @@ struct ConnectionCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
+
+    private var connectionActionURL: URL? {
+        connection.shareURL.flatMap(AppLanguagePreference.localizedIDOSURL)
+    }
+
+    private var connectionPreviewSize: CGSize {
+        ResultPreviewLayout.connectionSize(legCount: connection.legs.count)
+    }
+
+    private func actionMenuContent(openInNewWindow: @escaping () -> Void) -> some View {
+        ConnectionContextMenuContent(
+            permanentLink: connectionActionURL,
+            isPerformingExport: isPerformingExport,
+            showPreview: { isPreviewPresented = true },
+            openInNewWindow: openInNewWindow,
+            copyToClipboard: copyToClipboard,
+            addToCalendar: addToCalendar,
+            saveAsPDF: saveAsPDF
+        )
+    }
 }
 
 /// Shows one complete connection in its own window with result actions in the native toolbar.
@@ -810,13 +835,16 @@ struct ConnectionDetailView: View {
     @State private var timeIsUnderTitle = false
     private let selection: ConnectionSelection
     private let client: any IDOSClienting
+    private let presentation: ResultDetailPresentation
 
     init(
         selection: ConnectionSelection,
-        client: any IDOSClienting
+        client: any IDOSClienting,
+        presentation: ResultDetailPresentation = .window
     ) {
         self.selection = selection
         self.client = client
+        self.presentation = presentation
         let actionsModel = ConnectionsViewModel(client: client)
         actionsModel.timetable = selection.timetable
         _actionsModel = StateObject(wrappedValue: actionsModel)
@@ -836,6 +864,7 @@ struct ConnectionDetailView: View {
                 ConnectionCard(
                     number: nil,
                     connection: selection.connection,
+                    timetable: selection.timetable,
                     client: client,
                     isShortest: false,
                     isPerformingExport: actionsModel.importingConnectionID == selection.connection.id ||
@@ -870,16 +899,21 @@ struct ConnectionDetailView: View {
         .onAppear {
             timeIsUnderTitle = false
         }
-        .frame(minWidth: Self.minimumWindowWidth, minHeight: 420)
+        .frame(
+            minWidth: Self.minimumWindowWidth,
+            minHeight: presentation == .preview ? 0 : 420
+        )
         .navigationTitle(windowTitle)
         .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                ForEach(
-                    ResultDetailAction.availableActions(
-                        hasPermanentLink: connectionActionURL != nil
-                    )
-                ) { action in
-                    connectionActionControl(action, url: connectionActionURL)
+            if presentation == .window {
+                ToolbarItemGroup(placement: .primaryAction) {
+                    ForEach(
+                        ResultDetailAction.availableActions(
+                            hasPermanentLink: connectionActionURL != nil
+                        )
+                    ) { action in
+                        connectionActionControl(action, url: connectionActionURL)
+                    }
                 }
             }
         }
@@ -1016,11 +1050,18 @@ private struct ConnectionLegRow: View {
     let client: any IDOSClienting
     let openService: (ServiceSelection) -> Void
     @State private var suppressesPrimaryAction = false
+    @State private var isPreviewPresented = false
 
     @ViewBuilder
     var body: some View {
         if let selection {
             rowButton(selection: selection)
+                .contextMenu {
+                    ServiceContextMenuContent(
+                        showPreview: { isPreviewPresented = true },
+                        openInNewWindow: { openService(selection) }
+                    )
+                }
         } else {
             rowButton(selection: nil)
                 .disabled(true)
@@ -1104,7 +1145,8 @@ private struct ConnectionLegRow: View {
             .forceClickPreview(
                 size: ResultPreviewLayout.serviceSize,
                 isEnabled: selection != nil,
-                suppressesPrimaryAction: $suppressesPrimaryAction
+                suppressesPrimaryAction: $suppressesPrimaryAction,
+                isPresented: $isPreviewPresented
             ) {
                 if let selection {
                     ServiceDetailView(

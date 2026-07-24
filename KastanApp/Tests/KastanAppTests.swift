@@ -610,6 +610,63 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testResultContextMenusKeepConnectionAndServiceActionsDistinct() throws {
+        XCTAssertEqual(
+            ResultContextAction.availableActions(for: .connection, hasPermanentLink: true),
+            [
+                .preview,
+                .openInNewWindow,
+                .separator,
+                .detail(.copyToClipboard),
+                .detail(.addToCalendar),
+                .detail(.saveAsPDF),
+                .detail(.shareLink),
+                .detail(.openInIDOS),
+            ]
+        )
+        XCTAssertEqual(
+            ResultContextAction.availableActions(for: .connection),
+            [
+                .preview,
+                .openInNewWindow,
+                .separator,
+                .detail(.copyToClipboard),
+                .detail(.addToCalendar),
+                .detail(.saveAsPDF),
+            ]
+        )
+        XCTAssertEqual(
+            ResultContextAction.availableActions(for: .service),
+            [.preview, .openInNewWindow]
+        )
+
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        let keys = ResultContextTarget.allCases.flatMap {
+            [$0.previewTitleKey, $0.openInNewWindowTitleKey]
+        }
+        XCTAssertEqual(
+            keys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
+            ["Náhled spojení", "Otevřít spojení v novém okně", "Náhled spoje", "Otevřít spoj v novém okně"]
+        )
+        XCTAssertEqual(
+            keys.map { english.localizedString(forKey: $0, value: nil, table: nil) },
+            keys
+        )
+        XCTAssertEqual(
+            ResultPreviewLayout.connectionSize(legCount: 1),
+            CGSize(width: 620, height: 296)
+        )
+        XCTAssertEqual(
+            ResultPreviewLayout.connectionSize(legCount: 2),
+            CGSize(width: 620, height: 412)
+        )
+        XCTAssertEqual(
+            ResultPreviewLayout.connectionSize(legCount: 8),
+            CGSize(width: 620, height: 560)
+        )
+    }
+
     func testResultDetailCommandsFollowTheFocusedWindowState() {
         let ready = ResultDetailCommandContext(
             hasLoadedResult: true,
@@ -1265,6 +1322,7 @@ final class KastanAppTests: XCTestCase {
         let card = ConnectionCard(
             number: 1,
             connection: displayedConnection,
+            timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
             client: MockIDOSClient(),
             isShortest: true,
             isPerformingExport: false,
@@ -2547,6 +2605,7 @@ private func connectionCardOpenCount(afterDoubleClickAt location: NSPoint) -> In
     let card = ConnectionCard(
         number: 1,
         connection: connection(id: "connection-double-click"),
+        timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
         client: MockIDOSClient(),
         isShortest: false,
         isPerformingExport: false,

@@ -106,6 +106,7 @@
 "Network request failed. Check your internet connection. %@" = "Network request failed. Check your internet connection. %@";
 "Open in IDOS" = "Open in IDOS";
 "Open connection in new window" = "Open connection in new window";
+"Open service in new window" = "Open service in new window";
 "IDOS website" = "IDOS website";
 "Opens in the default web browser" = "Opens in the default web browser";
 "Outside timetable validity" = "Outside timetable validity";
@@ -114,6 +115,8 @@
 "platform/track %@" = "platform/track %@";
 "place" = "place";
 "Powered by public IDOS web data" = "Powered by public IDOS web data";
+"Preview connection" = "Preview connection";
+"Preview service" = "Preview service";
 "public transport" = "public transport";
 "Recognized conditions" = "Recognized conditions";
 "Refresh connections" = "Refresh connections";

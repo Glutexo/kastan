@@ -76,12 +76,15 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   when IDOS does not supply a permanent result link.
 - Connection cards use semantic emoji to mark direct journeys and every connection tied for the shortest displayed
   duration, and retain line colors, transport symbols, platforms, tariff zones, carriers, and localized Czech or
-  English IDOS states for on-time or delayed arrivals and departures. A trackpad Force Click on a service row,
-  either in the result list or an opened connection detail, previews that service's complete route. Force Click on
-  a station-board row behaves the same way. Connection cards themselves do not duplicate their visible content in
-  a preview. Double-clicking anywhere across a connection's time or route summary opens that complete connection
-  in an independent window; the visible window button remains available as an alternative. An ordinary service
-  click opens its detail window.
+  English IDOS states for on-time or delayed arrivals and departures. Right-clicking anywhere on a connection card
+  opens the same complete action menu as its ellipsis button, with Preview connection and Open connection in new
+  window ahead of copy, calendar, PDF, sharing, and IDOS actions. The connection preview reuses the compact complete
+  detail instead of navigating away. Right-clicking a particular service row stays scoped to that service and offers
+  its own preview and new-window actions rather than falling through to the enclosing connection. The same
+  service-specific menu is available on station-board rows. A trackpad Force Click on either kind of service row
+  opens the identical complete-route preview. Double-clicking anywhere across a connection's time or route summary
+  opens that complete connection in an independent window; the visible window button remains available as an
+  alternative. An ordinary service click opens its detail window.
 - Long service routes open with the departure stop from the originating search fully visible at the top, with a
   small visual clearance below the window toolbar. When the departure is already the first stop or the complete
   route fits in the viewport, the natural position is preserved without artificial trailing space. The
