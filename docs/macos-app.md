@@ -22,9 +22,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   or compact, left-aligned number field with native stepper arrows. Both editors share one row height and follow the
   condition menu sized from the longest supported localized option at standard control spacing; fixed-size controls
   add and remove rows while summaries retain locale-aware transfer wording. A Direct connections only checkbox sits
-  beside the builder and below the Departure/Arrival control, remaining aligned with the builder heading as conditions
-  expand. Selecting it keeps the builder collapsed and adds a zero-transfer condition or updates the existing transfer
-  limit; clearing it removes that condition.
+  beside the builder and below the Departure/Arrival control when space permits. At compact widths, an expanded builder
+  wraps below the checkbox so every condition retains the full available width. Selecting the checkbox keeps a collapsed
+  builder closed and adds a zero-transfer condition or updates the existing transfer limit; clearing it removes that
+  condition.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, tariff zones, platforms or stands, lockout labels, explanatory notes, and links back to the

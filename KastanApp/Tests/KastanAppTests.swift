@@ -659,7 +659,10 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: false), -8)
     }
 
-    func testExpandedSearchSupplementKeepsShortcutTopAligned() throws {
+    func testNarrowExpandedSearchSupplementWrapsShortcutAboveOptions() throws {
+        let compactWidth = DetailLayout(
+            availableWidth: KastanApp.minimumMainWindowWidth
+        ).contentWidth
         let controls = JourneySearchControls(
             timetable: .constant(IDOSTimetable.defaultTimetable),
             date: .constant(.now),
@@ -679,9 +682,9 @@ final class KastanAppTests: XCTestCase {
             ),
             search: {}
         )
-        .frame(width: 650, alignment: .leading)
+        .frame(width: compactWidth, alignment: .leading)
         let hostingView = NSHostingView(rootView: controls)
-        hostingView.frame = NSRect(x: 0, y: 0, width: 650, height: 320)
+        hostingView.frame = NSRect(x: 0, y: 0, width: compactWidth, height: 360)
         let window = NSWindow(
             contentRect: hostingView.frame,
             styleMask: .borderless,
@@ -698,11 +701,17 @@ final class KastanAppTests: XCTestCase {
         let shortcut = try XCTUnwrap(probes.first { $0.name == "shortcut" })
         let optionsFrame = hostingView.convert(options.bounds, from: options)
         let shortcutFrame = hostingView.convert(shortcut.bounds, from: shortcut)
-        let optionsTop = hostingView.isFlipped ? optionsFrame.minY : optionsFrame.maxY
-        let shortcutTop = hostingView.isFlipped ? shortcutFrame.minY : shortcutFrame.maxY
+        let optionsTop = hostingView.isFlipped
+            ? optionsFrame.minY
+            : hostingView.bounds.height - optionsFrame.maxY
+        let shortcutBottom = hostingView.isFlipped
+            ? shortcutFrame.maxY
+            : hostingView.bounds.height - shortcutFrame.minY
 
-        XCTAssertGreaterThan(optionsFrame.height, shortcutFrame.height)
-        XCTAssertEqual(optionsTop, shortcutTop, accuracy: 1)
+        XCTAssertLessThanOrEqual(shortcutBottom, optionsTop)
+        XCTAssertEqual(shortcutFrame.minX, optionsFrame.minX, accuracy: 1)
+        XCTAssertLessThanOrEqual(optionsFrame.maxX, hostingView.bounds.maxX + 1)
+        XCTAssertLessThanOrEqual(shortcutFrame.maxX, hostingView.bounds.maxX + 1)
     }
 
     func testSearchFieldShortcutsFollowTheOptionModifier() {

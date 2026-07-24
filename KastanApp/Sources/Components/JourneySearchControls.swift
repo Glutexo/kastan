@@ -209,7 +209,7 @@ struct JourneySearchControls: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Lets an expanded journey editor use the compact width even when its fields outgrow the aligned columns.
+    /// Gives an expanded journey editor the full compact width after its shortcut wraps below the time mode.
     private func compactNaturalControls(supplement: JourneySearchControlsSupplement) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
@@ -219,11 +219,8 @@ struct JourneySearchControls: View {
                 searchButton
             }
 
-            HStack(alignment: .top, spacing: 12) {
-                supplement.leading
-                Spacer(minLength: 0)
-                supplement.modeAligned
-            }
+            supplement.modeAligned
+            supplement.leading
         }
     }
 
