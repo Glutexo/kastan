@@ -762,10 +762,49 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(KastanApp.minimumMainWindowWidth, 522)
         XCTAssertEqual(layout.contentWidth, 490)
         XCTAssertTrue(layout.usesStackedSearchControls)
-        XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: true), 120)
+        XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: true), 80)
         XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: false), 140)
-        XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: true), -8)
-        XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: false), -8)
+        XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: true), 2)
+        XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: false), 2)
+        let endpointFieldWidth = ConnectionEndpointLayout.fieldWidth(contentWidth: layout.contentWidth)
+        XCTAssertEqual(endpointFieldWidth, 218)
+        XCTAssertEqual(
+            (2 * endpointFieldWidth) + ConnectionEndpointLayout.swapButtonWidth +
+                (2 * ConnectionEndpointLayout.spacing),
+            layout.contentWidth
+        )
+    }
+
+    func testCompactConnectionFormKeepsNativeControlsInsideWindow() {
+        let width = KastanApp.minimumMainWindowWidth
+        let client = MockIDOSClient()
+        let model = ConnectionsViewModel(client: client)
+        let hostingView = NSHostingView(
+            rootView: ConnectionsView(model: model, client: client)
+                .frame(width: width, height: 600)
+        )
+        hostingView.frame = NSRect(x: 0, y: 0, width: width, height: 600)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        let visibleControls = hostingView.allDescendantViews
+            .compactMap { $0 as? NSControl }
+            .filter { !$0.isHidden && $0.alphaValue > 0 && !$0.visibleRect.isEmpty }
+
+        XCTAssertFalse(visibleControls.isEmpty)
+        for control in visibleControls {
+            let frame = hostingView.convert(control.bounds, from: control)
+            XCTAssertGreaterThanOrEqual(frame.minX, -1, "\(type(of: control)) exceeds the left edge")
+            XCTAssertLessThanOrEqual(frame.maxX, width + 1, "\(type(of: control)) exceeds the right edge")
+        }
     }
 
     func testExpandedSearchSupplementKeepsModeAndLabelsInPlace() throws {

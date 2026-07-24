@@ -52,11 +52,11 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   with Trains selected initially in every search mode. Station Timetables offer that shared rail default together
   with integrated systems and city networks while omitting unsupported broad combinations such as All timetables.
   Persistent favorites repeat in their own first section without disappearing from the catalog, and the favorite
-  button's small visible gap adapts to the compact and wide search layouts.
+  button keeps a small visible gap from its picker in both compact and wide search layouts.
 - Search forms fixed above independently scrollable result areas, then collapsed into low query summaries after
   submission with an explicit action for returning to the editable form. The main window remains usable down to
   a compact 522-point width without moving the connection or station-board time mode below the date and time
-  controls.
+  controls or clipping fields and actions at the window edge.
 - Submitting changed connection criteria replaces the previous result list with a progress indicator until the
   fresh response arrives. Connection and station-board paging still extends results chronologically without
   replacement: pulling past the top loads earlier results, while pulling past the bottom loads the following

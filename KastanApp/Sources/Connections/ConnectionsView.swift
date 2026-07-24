@@ -86,6 +86,16 @@ enum ConnectionBadgePresentation {
     }
 }
 
+/// Fits both route fields and their swap action exactly inside the padded search width.
+enum ConnectionEndpointLayout {
+    static let spacing: CGFloat = 10
+    static let swapButtonWidth: CGFloat = 34
+
+    static func fieldWidth(contentWidth: CGFloat) -> CGFloat {
+        max((contentWidth - swapButtonWidth - (2 * spacing)) / 2, 0)
+    }
+}
+
 /// Combines a compact macOS search workspace with expandable journey results.
 struct ConnectionsView: View {
     @Environment(\.openWindow) private var openWindow
@@ -169,7 +179,7 @@ struct ConnectionsView: View {
 
     private func searchPanel(layout: DetailLayout) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            endpointControls
+            endpointControls(contentWidth: layout.contentWidth)
 
             if let endpointValidationMessage = model.endpointValidationMessage {
                 Label(endpointValidationMessage, systemImage: "exclamationmark.triangle.fill")
@@ -190,13 +200,16 @@ struct ConnectionsView: View {
         .animation(.easeInOut(duration: 0.1), value: model.endpointValidationMessage)
     }
 
-    private var endpointControls: some View {
-        HStack(alignment: .placeInputCenter, spacing: 10) {
+    private func endpointControls(contentWidth: CGFloat) -> some View {
+        let fieldWidth = ConnectionEndpointLayout.fieldWidth(contentWidth: contentWidth)
+
+        return HStack(alignment: .placeInputCenter, spacing: ConnectionEndpointLayout.spacing) {
             fromField
-                .frame(minWidth: 160, maxWidth: .infinity)
+                .frame(width: fieldWidth)
             swapButton
+                .frame(width: ConnectionEndpointLayout.swapButtonWidth)
             toField
-                .frame(minWidth: 160, maxWidth: .infinity)
+                .frame(width: fieldWidth)
         }
     }
 
