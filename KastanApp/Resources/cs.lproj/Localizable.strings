@@ -19,6 +19,7 @@
 "Buses" = "Autobusy";
 "buses" = "autobusy";
 "Check a station board and open complete service routes." = "Prohlédněte si odjezdovou tabuli a otevřete celou trasu spoje.";
+"Choose a different departure or arrival place." = "Zvolte jiné výchozí nebo cílové místo.";
 "Choose a station and start a search." = "Vyberte stanici a spusťte hledání.";
 "Choose an MHD line and direction, then start a search." = "Vyberte linku MHD a směr a spusťte hledání.";
 "Close Tab" = "Zavřít panel";

@@ -1221,7 +1221,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(provider.requestCount, 2)
     }
 
-    func testTypedCurrentLocationResolvesBothEndpointsWithOneLocationRequest() async {
+    func testTypedCurrentLocationResolvesBeforeConnectionSearch() async {
         let provider = StubCurrentLocationProvider(result: .success(CurrentLocationCoordinate(
             latitude: 49.197391,
             longitude: 16.619124
@@ -1234,17 +1234,16 @@ final class KastanAppTests: XCTestCase {
         )
         let locationText = AppLocalization.string("My location")
         model.from = "  \(locationText.uppercased())  "
-        model.to = locationText.lowercased()
+        model.to = "Brno"
 
         await model.search()
 
         let request = await client.lastConnectionRequest
         XCTAssertEqual(model.from, locationText)
-        XCTAssertEqual(model.to, locationText)
+        XCTAssertEqual(model.to, "Brno")
         XCTAssertTrue(model.fromSelection?.isCurrentLocation == true)
-        XCTAssertTrue(model.toSelection?.isCurrentLocation == true)
         XCTAssertEqual(request?.fromSelection, model.fromSelection?.idosSelection)
-        XCTAssertEqual(request?.toSelection, model.toSelection?.idosSelection)
+        XCTAssertNil(request?.toSelection)
         XCTAssertEqual(provider.requestCount, 1)
     }
 
@@ -1825,6 +1824,75 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNotNil(model.errorMessage)
         let request = await client.lastConnectionRequest
         XCTAssertNil(request)
+    }
+
+    func testConnectionSearchRejectsMatchingFreeTextEndpointsWithoutCallingIDOS() async {
+        let client = MockIDOSClient()
+        let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())
+        model.from = "  Frenštát pod Radhoštěm,,u škol  "
+        model.to = "frenštát pod radhoštěm,,u škol"
+
+        await model.search()
+
+        let request = await client.lastConnectionRequest
+        XCTAssertNil(request)
+        XCTAssertTrue(model.connections.isEmpty)
+        XCTAssertEqual(
+            model.errorMessage,
+            AppLocalization.string("Choose a different departure or arrival place.")
+        )
+        XCTAssertFalse(model.showsRefreshActionForError)
+    }
+
+    func testConnectionSearchRejectsTheSameExactSelectedPlace() async {
+        let client = MockIDOSClient()
+        let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())
+        let stop = PlaceFieldSelection(
+            idosSelection: IDOSPlaceSelection(
+                text: "Frenštát pod Radhoštěm,,u škol",
+                listID: "100003",
+                itemID: "5457076"
+            ),
+            kind: .bus
+        )
+        model.from = stop.text
+        model.fromSelection = stop
+        model.to = stop.text
+        model.toSelection = stop
+
+        await model.search()
+
+        let request = await client.lastConnectionRequest
+        XCTAssertNil(request)
+        XCTAssertEqual(
+            model.errorMessage,
+            AppLocalization.string("Choose a different departure or arrival place.")
+        )
+        XCTAssertFalse(model.showsRefreshActionForError)
+    }
+
+    func testConnectionSearchAllowsDifferentExactPlacesWithTheSameVisibleName() async {
+        let client = MockIDOSClient()
+        let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())
+        let municipality = PlaceFieldSelection(
+            idosSelection: IDOSPlaceSelection(text: "Ostrava", listID: "1", itemID: "10278"),
+            kind: .municipality
+        )
+        let station = PlaceFieldSelection(
+            idosSelection: IDOSPlaceSelection(text: "Ostrava", listID: "100003", itemID: "10288"),
+            kind: .train
+        )
+        model.from = municipality.text
+        model.fromSelection = municipality
+        model.to = station.text
+        model.toSelection = station
+
+        await model.search()
+
+        let request = await client.lastConnectionRequest
+        XCTAssertEqual(request?.fromSelection, municipality.idosSelection)
+        XCTAssertEqual(request?.toSelection, station.idosSelection)
+        XCTAssertNil(model.errorMessage)
     }
 
     func testDepartureSearchBuildsStationBoardRequestAndLimitsResults() async {

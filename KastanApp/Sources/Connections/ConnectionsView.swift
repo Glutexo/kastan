@@ -78,16 +78,18 @@ struct ConnectionsView: View {
                     Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Button {
-                        Task { await model.refresh() }
-                    } label: {
-                        Label("Refresh connections", systemImage: "arrow.clockwise")
+                    if model.showsRefreshActionForError {
+                        Button {
+                            Task { await model.refresh() }
+                        } label: {
+                            Label("Refresh connections", systemImage: "arrow.clockwise")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .fixedSize()
+                        .disabled(!model.canSearch)
+                        .help("Refresh connections")
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .fixedSize()
-                    .disabled(!model.canSearch)
-                    .help("Refresh connections")
                 }
                     .foregroundStyle(.red)
                     .padding(12)

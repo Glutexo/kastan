@@ -16,7 +16,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   current location only when clicked and fills that endpoint with IDOS's exact My location object. Typing the exact
   localized My location phrase into either field does the same when the search starts. Today and Now reset the date
   or time without reopening its picker or moving the surrounding search controls. Searches also support arrival
-  mode and an extensible journey-options builder modeled after native macOS rule editors.
+  mode and an extensible journey-options builder modeled after native macOS rule editors. Selecting the same exact
+  departure and arrival is rejected locally with guidance instead of being sent as an empty IDOS search.
   Each condition first selects either Via or Maximum number of transfers, then presents the corresponding text
   or compact, left-aligned number field with native stepper arrows. Both editors share one row height and follow the
   condition menu sized from the longest supported localized option at standard control spacing; fixed-size controls
