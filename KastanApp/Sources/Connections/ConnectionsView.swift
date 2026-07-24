@@ -193,8 +193,9 @@ struct ConnectionsView: View {
             canSearch: model.canSearch,
             usesStackedLayout: stacked,
             supplement: JourneySearchControlsSupplement(
-                leading: journeyOptions,
-                modeAligned: directConnectionsOnlyToggle
+                leading: journeyOptionsHeader,
+                modeAligned: directConnectionsOnlyToggle,
+                details: journeyOptionsDetails
             )
         ) {
             performSearch()
@@ -238,8 +239,23 @@ struct ConnectionsView: View {
         }
     }
 
-    private var journeyOptions: some View {
+    /// Keeps the disclosure affordance in the stable supplemental row while its content expands below the grid.
+    private var journeyOptionsHeader: some View {
         DisclosureGroup(isExpanded: $isJourneyOptionsExpanded) {
+            EmptyView()
+        } label: {
+            Text("Journey options")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Journey options")
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Uses the complete search width without changing the measured positions of the controls above it.
+    @ViewBuilder
+    private var journeyOptionsDetails: some View {
+        if isJourneyOptionsExpanded {
             VStack(alignment: .leading, spacing: 0) {
                 Divider()
 
@@ -251,18 +267,8 @@ struct ConnectionsView: View {
                 }
             }
             .padding(.top, 8)
-        } label: {
-            Text("Journey options")
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    withAnimation {
-                        isJourneyOptionsExpanded.toggle()
-                    }
-                }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .accessibilityLabel("Journey options")
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func journeyOptionRow(option: Binding<JourneyOptionEntry>) -> some View {

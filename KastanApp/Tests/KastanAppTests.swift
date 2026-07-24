@@ -659,59 +659,91 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: false), -8)
     }
 
-    func testNarrowExpandedSearchSupplementWrapsShortcutAboveOptions() throws {
-        let compactWidth = DetailLayout(
-            availableWidth: KastanApp.minimumMainWindowWidth
-        ).contentWidth
-        let controls = JourneySearchControls(
-            timetable: .constant(IDOSTimetable.defaultTimetable),
-            date: .constant(.now),
-            time: .constant(.now),
-            isArrival: .constant(false),
-            modeLabel: "Time means",
-            departureLabel: "Departure",
-            arrivalLabel: "Arrival",
-            isSearching: false,
-            canSearch: true,
-            usesStackedLayout: true,
-            supplement: JourneySearchControlsSupplement(
-                leading: SearchSupplementLayoutProbe(name: "options")
-                    .frame(width: 440, height: 120),
-                modeAligned: SearchSupplementLayoutProbe(name: "shortcut")
-                    .frame(width: 150, height: 22)
-            ),
-            search: {}
-        )
-        .frame(width: compactWidth, alignment: .leading)
-        let hostingView = NSHostingView(rootView: controls)
-        hostingView.frame = NSRect(x: 0, y: 0, width: compactWidth, height: 360)
-        let window = NSWindow(
-            contentRect: hostingView.frame,
-            styleMask: .borderless,
-            backing: .buffered,
-            defer: false
-        )
-        window.contentView = hostingView
-        window.makeKeyAndOrderFront(nil)
-        hostingView.layoutSubtreeIfNeeded()
-        defer { window.orderOut(nil) }
+    func testExpandedSearchSupplementKeepsModeAndLabelsInPlace() throws {
+        struct Frames {
+            let mode: CGRect
+            let options: CGRect
+            let shortcut: CGRect
+            let details: CGRect
+        }
 
-        let probes = hostingView.allDescendantViews.compactMap { $0 as? SearchSupplementLayoutProbeView }
-        let options = try XCTUnwrap(probes.first { $0.name == "options" })
-        let shortcut = try XCTUnwrap(probes.first { $0.name == "shortcut" })
-        let optionsFrame = hostingView.convert(options.bounds, from: options)
-        let shortcutFrame = hostingView.convert(shortcut.bounds, from: shortcut)
-        let optionsTop = hostingView.isFlipped
-            ? optionsFrame.minY
-            : hostingView.bounds.height - optionsFrame.maxY
-        let shortcutBottom = hostingView.isFlipped
-            ? shortcutFrame.maxY
-            : hostingView.bounds.height - shortcutFrame.minY
+        func renderedFrames(width: CGFloat, detailsHeight: CGFloat) throws -> Frames {
+            let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
+            let controls = JourneySearchControls(
+                timetable: .constant(IDOSTimetable.defaultTimetable),
+                date: .constant(fixedDate),
+                time: .constant(fixedDate),
+                isArrival: .constant(false),
+                modeLabel: "Time means",
+                departureLabel: "Departure",
+                arrivalLabel: "Arrival",
+                isSearching: false,
+                canSearch: true,
+                usesStackedLayout: true,
+                supplement: JourneySearchControlsSupplement(
+                    leading: SearchSupplementLayoutProbe(name: "options")
+                        .frame(width: 180, height: 22),
+                    modeAligned: SearchSupplementLayoutProbe(name: "shortcut")
+                        .frame(width: 150, height: 22),
+                    details: SearchSupplementLayoutProbe(name: "details")
+                        .frame(height: detailsHeight)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                ),
+                search: {}
+            )
+            .frame(width: width, height: 420, alignment: .topLeading)
+            let hostingView = NSHostingView(rootView: controls)
+            hostingView.frame = NSRect(x: 0, y: 0, width: width, height: 420)
+            let window = NSWindow(
+                contentRect: hostingView.frame,
+                styleMask: .borderless,
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = hostingView
+            window.makeKeyAndOrderFront(nil)
+            hostingView.layoutSubtreeIfNeeded()
+            defer { window.orderOut(nil) }
 
-        XCTAssertLessThanOrEqual(shortcutBottom, optionsTop)
-        XCTAssertEqual(shortcutFrame.minX, optionsFrame.minX, accuracy: 1)
-        XCTAssertLessThanOrEqual(optionsFrame.maxX, hostingView.bounds.maxX + 1)
-        XCTAssertLessThanOrEqual(shortcutFrame.maxX, hostingView.bounds.maxX + 1)
+            let descendants = hostingView.allDescendantViews
+            let probes = descendants.compactMap { $0 as? SearchSupplementLayoutProbeView }
+            let mode = try XCTUnwrap(descendants.compactMap { $0 as? NSSegmentedControl }.first)
+            let options = try XCTUnwrap(probes.first { $0.name == "options" })
+            let shortcut = try XCTUnwrap(probes.first { $0.name == "shortcut" })
+            let details = try XCTUnwrap(probes.first { $0.name == "details" })
+
+            return Frames(
+                mode: hostingView.convert(mode.bounds, from: mode),
+                options: hostingView.convert(options.bounds, from: options),
+                shortcut: hostingView.convert(shortcut.bounds, from: shortcut),
+                details: hostingView.convert(details.bounds, from: details)
+            )
+        }
+
+        let widths = [
+            DetailLayout(availableWidth: 652).contentWidth,
+            DetailLayout(availableWidth: KastanApp.minimumMainWindowWidth).contentWidth,
+        ]
+        for width in widths {
+            let collapsed = try renderedFrames(width: width, detailsHeight: 0)
+            let expanded = try renderedFrames(width: width, detailsHeight: 120)
+
+            XCTAssertEqual(collapsed.mode.minX, expanded.mode.minX, accuracy: 1)
+            XCTAssertEqual(collapsed.shortcut.minX, expanded.shortcut.minX, accuracy: 1)
+            XCTAssertEqual(
+                collapsed.mode.minY - collapsed.options.minY,
+                expanded.mode.minY - expanded.options.minY,
+                accuracy: 1
+            )
+            XCTAssertEqual(
+                collapsed.shortcut.minY - collapsed.options.minY,
+                expanded.shortcut.minY - expanded.options.minY,
+                accuracy: 1
+            )
+            XCTAssertEqual(collapsed.options.midY, collapsed.shortcut.midY, accuracy: 1)
+            XCTAssertEqual(expanded.options.midY, expanded.shortcut.midY, accuracy: 1)
+            XCTAssertLessThanOrEqual(expanded.details.maxX, width + 1)
+        }
     }
 
     func testSearchFieldShortcutsFollowTheOptionModifier() {

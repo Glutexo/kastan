@@ -9,14 +9,20 @@ enum SearchShortcutPresentation {
     }
 }
 
-/// Adds connection-specific controls to the shared search layout without losing its column alignment.
+/// Adds stable connection-specific controls and full-width details to the shared search layout.
 struct JourneySearchControlsSupplement {
     let leading: AnyView
     let modeAligned: AnyView
+    let details: AnyView
 
-    init<Leading: View, ModeAligned: View>(leading: Leading, modeAligned: ModeAligned) {
+    init<Leading: View, ModeAligned: View, Details: View>(
+        leading: Leading,
+        modeAligned: ModeAligned,
+        details: Details
+    ) {
         self.leading = AnyView(leading)
         self.modeAligned = AnyView(modeAligned)
+        self.details = AnyView(details)
     }
 }
 
@@ -79,31 +85,37 @@ struct JourneySearchControls: View {
     }
 
     var body: some View {
-        Group {
-            if usesStackedLayout {
-                VStack(alignment: .leading, spacing: 12) {
-                    timetablePicker
-                        .frame(maxWidth: 360, alignment: .leading)
+        VStack(alignment: .leading, spacing: 0) {
+            Group {
+                if usesStackedLayout {
+                    VStack(alignment: .leading, spacing: 12) {
+                        timetablePicker
+                            .frame(maxWidth: 360, alignment: .leading)
 
-                    ViewThatFits(in: .horizontal) {
-                        stackedHorizontalControls
+                        ViewThatFits(in: .horizontal) {
+                            stackedHorizontalControls
 
-                        compactStackedControls
+                            compactStackedControls
+                        }
+                    }
+                } else if let supplement {
+                    horizontalControls(supplement: supplement)
+                } else {
+                    HStack(alignment: .bottom, spacing: 12) {
+                        timetablePicker
+                            .frame(width: 240)
+                        datePicker
+                        timePicker
+                        modePicker
+                            .frame(width: 175)
+                        Spacer(minLength: 0)
+                        searchButton
                     }
                 }
-            } else if let supplement {
-                horizontalControls(supplement: supplement)
-            } else {
-                HStack(alignment: .bottom, spacing: 12) {
-                    timetablePicker
-                        .frame(width: 240)
-                    datePicker
-                    timePicker
-                    modePicker
-                        .frame(width: 175)
-                    Spacer(minLength: 0)
-                    searchButton
-                }
+            }
+
+            if let supplement {
+                supplement.details
             }
         }
         .background {
@@ -197,7 +209,7 @@ struct JourneySearchControls: View {
                 searchButton
             }
 
-            GridRow(alignment: .top) {
+            GridRow(alignment: .firstTextBaseline) {
                 supplement.leading
                 supplement.modeAligned
                 Color.clear
@@ -209,7 +221,7 @@ struct JourneySearchControls: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Gives an expanded journey editor the full compact width after its shortcut wraps below the time mode.
+    /// Keeps both supplemental labels side by side when aligned grid columns no longer fit.
     private func compactNaturalControls(supplement: JourneySearchControlsSupplement) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
@@ -219,8 +231,11 @@ struct JourneySearchControls: View {
                 searchButton
             }
 
-            supplement.modeAligned
-            supplement.leading
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                supplement.leading
+                Spacer(minLength: 0)
+                supplement.modeAligned
+            }
         }
     }
 
@@ -230,7 +245,7 @@ struct JourneySearchControls: View {
         leadingColumnCount: Int,
         modeWidth: CGFloat?
     ) -> some View {
-        GridRow(alignment: .top) {
+        GridRow(alignment: .firstTextBaseline) {
             supplement.leading
                 .gridCellColumns(leadingColumnCount)
             supplement.modeAligned
