@@ -746,6 +746,46 @@ final class KastanAppTests: XCTestCase {
         }
     }
 
+    func testJourneyOptionsHeadingTogglesDisclosureAwayFromArrow() {
+        var isExpanded = false
+        let header = JourneyOptionsDisclosureHeader(isExpanded: Binding(
+            get: { isExpanded },
+            set: { isExpanded = $0 }
+        ))
+        .frame(width: 300, height: 28, alignment: .leading)
+        let hostingView = NSHostingView(rootView: header)
+        hostingView.frame = NSRect(x: 0, y: 0, width: 300, height: 28)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        for eventType in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            let event = NSEvent.mouseEvent(
+                with: eventType,
+                location: NSPoint(x: 180, y: hostingView.bounds.midY),
+                modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                clickCount: 1,
+                pressure: eventType == .leftMouseDown ? 1 : 0
+            )
+            if let event {
+                window.sendEvent(event)
+            }
+        }
+
+        XCTAssertTrue(isExpanded)
+    }
+
     func testSearchFieldShortcutsFollowTheOptionModifier() {
         XCTAssertTrue(SearchShortcutPresentation.isVisible(for: [.option]))
         XCTAssertTrue(SearchShortcutPresentation.isVisible(for: [.option, .shift]))

@@ -241,15 +241,7 @@ struct ConnectionsView: View {
 
     /// Keeps the disclosure affordance in the stable supplemental row while its content expands below the grid.
     private var journeyOptionsHeader: some View {
-        DisclosureGroup(isExpanded: $isJourneyOptionsExpanded) {
-            EmptyView()
-        } label: {
-            Text("Journey options")
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-        }
-        .accessibilityLabel("Journey options")
-        .frame(maxWidth: .infinity, alignment: .leading)
+        JourneyOptionsDisclosureHeader(isExpanded: $isJourneyOptionsExpanded)
     }
 
     /// Uses the complete search width without changing the measured positions of the controls above it.
@@ -399,6 +391,28 @@ struct ConnectionsView: View {
                 }
             }
         }
+    }
+}
+
+/// Expands journey conditions from either the native arrow or the full heading text.
+struct JourneyOptionsDisclosureHeader: View {
+    @Binding var isExpanded: Bool
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            EmptyView()
+        } label: {
+            Text("Journey options")
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation {
+                        isExpanded.toggle()
+                    }
+                }
+        }
+        .accessibilityLabel("Journey options")
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
