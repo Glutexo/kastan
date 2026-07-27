@@ -28,6 +28,9 @@ struct JourneySearchControlsSupplement {
 
 /// Keeps timetable, date, time, mode, and search actions visually identical across app searches.
 struct JourneySearchControls: View {
+    /// Balances the large native search button's trailing chrome with the visible leading control inset.
+    static let wideSearchButtonTrailingPadding: CGFloat = 5
+
     /// Keeps the favorite close in compact forms and visibly separate when the full search row has room.
     static func timetableFavoriteSpacing(usesStackedLayout: Bool) -> CGFloat {
         usesStackedLayout ? -8 : 2
@@ -108,9 +111,10 @@ struct JourneySearchControls: View {
                         datePicker
                         timePicker
                         modePicker
-                            .frame(width: 175)
+                            .frame(width: 175, alignment: .leading)
                         Spacer(minLength: 0)
                         searchButton
+                            .padding(.trailing, Self.wideSearchButtonTrailingPadding)
                     }
                 }
             }
@@ -119,6 +123,7 @@ struct JourneySearchControls: View {
                 supplement.details
             }
         }
+        .fixedSize(horizontal: false, vertical: true)
         .background {
             OptionModifierMonitor(isPressed: $showsDateTimeShortcuts)
                 .frame(width: 0, height: 0)
@@ -134,9 +139,10 @@ struct JourneySearchControls: View {
                 datePicker
                 timePicker
                 modePicker
-                    .frame(width: 175)
+                    .frame(width: 175, alignment: .leading)
                 Spacer(minLength: 0)
                 searchButton
+                    .padding(.trailing, Self.wideSearchButtonTrailingPadding)
             }
 
             supplementalRow(supplement: supplement, leadingColumnCount: 3, modeWidth: 175)
@@ -252,9 +258,9 @@ struct JourneySearchControls: View {
             supplement.modeAligned
                 .frame(width: modeWidth, alignment: .leading)
             Color.clear
-                .frame(height: 0)
+                .frame(width: 0, height: 0)
             Color.clear
-                .frame(height: 0)
+                .frame(width: 0, height: 0)
         }
     }
 

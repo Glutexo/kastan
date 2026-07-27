@@ -850,6 +850,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(layout.usesStackedSearchControls)
         XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: true), 80)
         XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: false), 140)
+        XCTAssertEqual(JourneySearchControls.wideSearchButtonTrailingPadding, 5)
         XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: true), -8)
         XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: false), 2)
         let endpointFieldWidth = ConnectionEndpointLayout.fieldWidth(contentWidth: layout.contentWidth)
@@ -891,6 +892,59 @@ final class KastanAppTests: XCTestCase {
             XCTAssertGreaterThanOrEqual(frame.minX, -1, "\(type(of: control)) exceeds the left edge")
             XCTAssertLessThanOrEqual(frame.maxX, width + 1, "\(type(of: control)) exceeds the right edge")
         }
+    }
+
+    func testWideSearchControlsUseIntrinsicHeightAndAlignSupplementalShortcut() throws {
+        let width: CGFloat = 880
+        let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
+        let controls = JourneySearchControls(
+            timetable: .constant(IDOSTimetable.defaultTimetable),
+            date: .constant(fixedDate),
+            time: .constant(fixedDate),
+            isArrival: .constant(false),
+            modeLabel: "Time means",
+            departureLabel: "Departure",
+            arrivalLabel: "Arrival",
+            isSearching: false,
+            canSearch: true,
+            usesStackedLayout: false,
+            supplement: JourneySearchControlsSupplement(
+                leading: SearchSupplementLayoutProbe(name: "options")
+                    .frame(width: 180, height: 22),
+                modeAligned: SearchSupplementLayoutProbe(name: "shortcut")
+                    .frame(width: 150, height: 22),
+                details: SearchSupplementLayoutProbe(name: "details")
+                    .frame(height: 0)
+            ),
+            search: {}
+        )
+        .background(SearchSupplementLayoutProbe(name: "controls"))
+        .frame(width: width, height: 420, alignment: .topLeading)
+        let hostingView = NSHostingView(rootView: controls)
+        hostingView.frame = NSRect(x: 0, y: 0, width: width, height: 420)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        let descendants = hostingView.allDescendantViews
+        let probes = descendants.compactMap { $0 as? SearchSupplementLayoutProbeView }
+        let controlsProbe = try XCTUnwrap(probes.first { $0.name == "controls" })
+        let shortcut = try XCTUnwrap(probes.first { $0.name == "shortcut" })
+        let mode = try XCTUnwrap(descendants.compactMap { $0 as? NSSegmentedControl }.first)
+
+        let controlsFrame = hostingView.convert(controlsProbe.bounds, from: controlsProbe)
+        let shortcutFrame = hostingView.convert(shortcut.bounds, from: shortcut)
+        let modeFrame = hostingView.convert(mode.bounds, from: mode)
+
+        XCTAssertLessThan(controlsFrame.height, 120)
+        XCTAssertEqual(modeFrame.minX, shortcutFrame.minX, accuracy: 1)
     }
 
     func testExpandedSearchSupplementKeepsModeAndLabelsInPlace() throws {

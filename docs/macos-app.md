@@ -21,11 +21,11 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   Each condition first selects either Via or Maximum number of transfers, then presents the corresponding text
   or compact, left-aligned number field with native stepper arrows. Both editors share one row height and follow the
   condition menu sized from the longest supported localized option at standard control spacing; fixed-size controls
-  add and remove rows while summaries retain locale-aware transfer wording. A Direct connections only checkbox sits
-  beside the builder, aligned with its heading and below the Departure/Arrival control. Expanding the builder adds its
-  full-width conditions below this stable control grid without moving the time mode or checkbox; either its arrow or
-  heading toggles the conditions. Selecting the checkbox keeps a collapsed builder closed and adds a zero-transfer
-  condition or updates the existing transfer limit; clearing it removes that condition.
+  add and remove rows while summaries retain locale-aware transfer wording. A Direct connections only checkbox starts
+  directly below the Departure/Arrival control at the same leading edge, beside the builder heading. Expanding the
+  builder adds its full-width conditions below this stable control grid without moving the time mode or checkbox;
+  either its arrow or heading toggles the conditions. Selecting the checkbox keeps a collapsed builder closed and adds
+  a zero-transfer condition or updates the existing transfer limit; clearing it removes that condition.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, tariff zones, platforms or stands, lockout labels, explanatory notes, and links back to the
@@ -53,7 +53,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   with integrated systems and city networks while omitting unsupported broad combinations such as All timetables.
   Persistent favorites repeat in their own first section without disappearing from the catalog, and the favorite
   button stays close to its picker in compact forms while gaining a small visible gap in the wide search layout.
-- Search forms fixed above independently scrollable result areas, then collapsed into low query summaries after
+- Search forms stay only as tall as their current controls above independently scrollable result areas, with matching
+  visible insets for their leading controls and trailing Search action, then collapse into low query summaries after
   submission with an explicit action for returning to the editable form. The main window remains usable down to
   a compact 522-point width without moving the connection or station-board time mode below the date and time
   controls or clipping fields and actions at the window edge.
