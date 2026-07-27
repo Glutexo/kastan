@@ -419,6 +419,8 @@ struct AppSectionCommands: Commands {
 struct KastanApp: App {
     /// Retains usable compact search forms and toolbar actions at the narrowest supported main-window size.
     static let minimumMainWindowWidth: CGFloat = 522
+    /// Opens new main windows directly in the fully supported compact layout.
+    static let defaultMainWindowWidth = minimumMainWindowWidth
 
     private let client = IDOSClient()
 
@@ -432,7 +434,7 @@ struct KastanApp: App {
             ContentView(client: client)
                 .frame(minWidth: Self.minimumMainWindowWidth, minHeight: 520)
         }
-        .defaultSize(width: 1080, height: 720)
+        .defaultSize(width: Self.defaultMainWindowWidth, height: 720)
         .commands {
             AppWindowCommands()
             ResultDetailCommands()
