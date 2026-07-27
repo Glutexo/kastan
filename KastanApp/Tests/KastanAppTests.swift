@@ -851,7 +851,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: true), 80)
         XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: false), 140)
         XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: true), -8)
-        XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: false), -8)
+        XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: false), 2)
         let endpointFieldWidth = ConnectionEndpointLayout.fieldWidth(contentWidth: layout.contentWidth)
         XCTAssertEqual(endpointFieldWidth, 218)
         XCTAssertEqual(
