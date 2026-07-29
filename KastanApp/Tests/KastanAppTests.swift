@@ -2535,6 +2535,8 @@ final class KastanAppTests: XCTestCase {
         await model.addToCalendar(connection)
 
         XCTAssertEqual(importer.calendarText, "BEGIN:VCALENDAR\nEND:VCALENDAR")
+        let language = await client.lastConnectionCalendarLanguage
+        XCTAssertEqual(language, AppLanguagePreference.idosLanguage)
         XCTAssertNil(model.errorMessage)
     }
 
@@ -2552,7 +2554,9 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertEqual(importer.calendarText, "BEGIN:VCALENDAR\nEND:VCALENDAR")
         let serviceID = await client.lastCalendarServiceID
+        let language = await client.lastServiceCalendarLanguage
         XCTAssertEqual(serviceID, "service-1")
+        XCTAssertEqual(language, AppLanguagePreference.idosLanguage)
         XCTAssertFalse(model.isAddingToCalendar)
         XCTAssertNil(model.actionErrorMessage)
     }
@@ -2819,7 +2823,9 @@ private actor MockIDOSClient: IDOSClienting {
     var lastDeparturesRequest: IDOSDeparturesRequest?
     var lastSuggestionQuery: SuggestionQuery?
     var lastPDFLanguage: IDOSLanguage?
+    var lastConnectionCalendarLanguage: IDOSLanguage?
     var lastCalendarServiceID: String?
+    var lastServiceCalendarLanguage: IDOSLanguage?
     var lastPDFServiceID: String?
     var lastServicePDFLanguage: IDOSLanguage?
     var lastStationTimetableRequest: IDOSStationTimetableRequest?
@@ -2958,8 +2964,23 @@ private actor MockIDOSClient: IDOSClienting {
         "BEGIN:VCALENDAR\nEND:VCALENDAR"
     }
 
+    func connectionCalendar(
+        for connection: IDOSConnection,
+        timetable: IDOSTimetable,
+        language: IDOSLanguage
+    ) async throws -> String {
+        lastConnectionCalendarLanguage = language
+        return "BEGIN:VCALENDAR\nEND:VCALENDAR"
+    }
+
     func serviceCalendar(for service: IDOSServiceDetail) async throws -> String {
         lastCalendarServiceID = service.id
+        return "BEGIN:VCALENDAR\nEND:VCALENDAR"
+    }
+
+    func serviceCalendar(for service: IDOSServiceDetail, language: IDOSLanguage) async throws -> String {
+        lastCalendarServiceID = service.id
+        lastServiceCalendarLanguage = language
         return "BEGIN:VCALENDAR\nEND:VCALENDAR"
     }
 

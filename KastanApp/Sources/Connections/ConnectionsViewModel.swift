@@ -404,7 +404,11 @@ final class ConnectionsViewModel: ObservableObject {
         defer { importingConnectionID = nil }
 
         do {
-            let calendar = try await client.connectionCalendar(for: connection, timetable: timetable)
+            let calendar = try await client.connectionCalendar(
+                for: connection,
+                timetable: timetable,
+                language: AppLanguagePreference.idosLanguage
+            )
             try calendarImporter.open(calendarText: calendar)
         } catch {
             errorMessage = AppErrorPresentation.message(for: error)

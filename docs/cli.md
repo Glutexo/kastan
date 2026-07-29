@@ -204,7 +204,7 @@ Uncategorized information keeps its full text and uses a generic information mar
 
 Data and alias commands support `text`, `markdown`, and `json`; text is the default. Connections also support
 `ics` for the first returned connection. On macOS, `--add-to-calendar` opens that IDOS calendar file in the
-system calendar application.
+system calendar application. Human-readable text in either calendar form follows the selected CLI language.
 
 ```sh
 swift run kastan suggest Praha --format json
@@ -250,8 +250,8 @@ swift run kastan connections Praha Brno --lang en
 ```
 
 Regional identifiers such as `en-US`, `cs-CZ`, and `cs_CZ.UTF-8` are accepted. Command and option names, JSON
-keys and domain values, and iCalendar data remain language-independent. Names and status details received from
-IDOS remain in the form supplied by IDOS.
+keys, and domain values remain language-independent. Human-readable iCalendar text follows the selected language;
+other names and status details received from IDOS remain in the form supplied by IDOS.
 
 ## Stop Aliases
 

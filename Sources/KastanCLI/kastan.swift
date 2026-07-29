@@ -299,7 +299,11 @@ struct CommandRunner {
                 throw CommandError.usage(.idosNoConnections)
             }
 
-            let calendar = try await client.connectionCalendar(for: connection, timetable: request.timetable)
+            let calendar = try await client.connectionCalendar(
+                for: connection,
+                timetable: request.timetable,
+                language: localization.language.idosLanguage
+            )
             if addToCalendar {
                 let output = CalendarImportOutput(
                     request: request,

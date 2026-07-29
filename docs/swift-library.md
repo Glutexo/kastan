@@ -53,7 +53,11 @@ let request = IDOSConnectionRequest(
 )
 
 let connections = try await client.findConnections(request: request)
-let calendar = try await client.connectionCalendar(for: connections[0], timetable: timetable)
+let calendar = try await client.connectionCalendar(
+    for: connections[0],
+    timetable: timetable,
+    language: .czech
+)
 let pdf = try await client.connectionPDF(
     for: connections[0],
     timetable: timetable,
@@ -72,7 +76,7 @@ let serviceInformation = service.serviceInformation
 let firstInformationCategory = serviceInformation.first?.category
 let firstInformationText = serviceInformation.first?.displayText
 let validity = try await client.timetableValidity(for: service.timetable, language: .czech)
-let serviceCalendar = try await client.serviceCalendar(for: service)
+let serviceCalendar = try await client.serviceCalendar(for: service, language: .czech)
 let servicePDF = try await client.servicePDF(for: service, language: .czech)
 
 let pid = try IDOSTimetable.resolve("pid")
@@ -134,8 +138,9 @@ as `fromSelection` or `toSelection`. The caller supplies the localized visible t
 formats the coordinate identity expected by IDOS.
 
 `connectionCalendar` returns IDOS iCalendar text for a search result. `serviceCalendar` and `servicePDF`
-resolve a dated service's permanent result link and return the corresponding native IDOS export.
-`connectionPDF` and `servicePDF` accept an explicit language for the document text.
+resolve a dated service's permanent result link and return the corresponding native IDOS export. Calendar and PDF
+exports accept an explicit language for their human-readable text; calendar calls without one retain the historical
+English default for source compatibility.
 `timetableValidity` returns the inclusive first and last dates published by the selected IDOS timetable.
 
 `searchStationTimetableLines` returns the terminal pair for every matching MHD line direction.

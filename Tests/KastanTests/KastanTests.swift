@@ -552,6 +552,19 @@ import Testing
     #expect(output.contains("END:VCALENDAR"))
 }
 
+@Test func connectionCommandPrintsIDOSCalendarInSelectedLanguage() async {
+    let output = await englishCommandRunner(
+        client: MockIDOSClient(expectedCalendarLanguage: .czech)
+    ).output(
+        for: [
+            "connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky",
+            "--format", "ics", "--language", "cs",
+        ]
+    )
+
+    #expect(output.contains("SUMMARY:Spojení Praha hl.n. >> Brno hl.n."))
+}
+
 @Test func connectionCommandAddsIDOSCalendar() async {
     let output = await englishCommandRunner(
         client: MockIDOSClient(),
@@ -1933,7 +1946,7 @@ import Testing
     #expect(legacy.id == "odis:1-4286-18.06.2026 16:03:00")
 }
 
-@Test func idosLanguageBuildsLocalizedServiceDetailPaths() {
+@Test func idosLanguageBuildsLocalizedEndpointPaths() {
     let timetable = IDOSTimetable(slug: "vlaky", displayName: "Trains")
 
     #expect(IDOSLanguage.english.path(
@@ -1944,6 +1957,14 @@ import Testing
         timetable: timetable,
         endpoint: "Ajax/TrainDetail"
     ) == "/vlaky/Ajax/TrainDetail")
+    #expect(IDOSLanguage.english.path(
+        timetable: timetable,
+        endpoint: "spojeni/kalendar"
+    ) == "/en/vlaky/spojeni/kalendar")
+    #expect(IDOSLanguage.czech.path(
+        timetable: timetable,
+        endpoint: "spojeni/kalendar"
+    ) == "/vlaky/spojeni/kalendar")
 }
 
 @Test func timetableValidityParserReadsInclusiveIDOSSearchRange() throws {
@@ -2045,6 +2066,7 @@ private struct MockIDOSClient: IDOSClienting {
     var stationResultsByPrefix: [String: [IDOSSuggestion]] = [:]
     var expectedServiceLanguage: IDOSLanguage = .english
     var expectedStationTimetableLanguage: IDOSLanguage = .english
+    var expectedCalendarLanguage: IDOSLanguage = .english
 
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
         if let suggestions = suggestionResultsByPrefix[prefix] {
@@ -2131,13 +2153,34 @@ private struct MockIDOSClient: IDOSClienting {
     }
 
     func connectionCalendar(for connection: IDOSConnection, timetable: IDOSTimetable) async throws -> String {
+        calendar(for: connection, timetable: timetable, language: .english)
+    }
+
+    func connectionCalendar(
+        for connection: IDOSConnection,
+        timetable: IDOSTimetable,
+        language: IDOSLanguage
+    ) async throws -> String {
+        calendar(for: connection, timetable: timetable, language: language)
+    }
+
+    private func calendar(
+        for connection: IDOSConnection,
+        timetable: IDOSTimetable,
+        language: IDOSLanguage
+    ) -> String {
         #expect(timetable.slug == expectedConnectionTimetable)
         #expect(connection.id == "396829589")
+        #expect(language == expectedCalendarLanguage)
+
+        let summary = language == .czech
+            ? "Spojení Praha hl.n. >> Brno hl.n."
+            : "Connection Praha hl.n. >> Brno hl.n."
 
         return """
         BEGIN:VCALENDAR
         VERSION:2.0
-        SUMMARY:Connection Praha hl.n. >> Brno hl.n.
+        SUMMARY:\(summary)
         END:VCALENDAR
         """
     }

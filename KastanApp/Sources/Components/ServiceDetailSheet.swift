@@ -64,7 +64,10 @@ final class ServiceDetailViewModel: ObservableObject {
         defer { isAddingToCalendar = false }
 
         do {
-            let calendar = try await client.serviceCalendar(for: service)
+            let calendar = try await client.serviceCalendar(
+                for: service,
+                language: AppLanguagePreference.idosLanguage
+            )
             try calendarImporter.open(calendarText: calendar)
         } catch {
             actionErrorMessage = AppErrorPresentation.message(for: error)
