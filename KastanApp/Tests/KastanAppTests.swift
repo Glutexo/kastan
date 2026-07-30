@@ -1765,8 +1765,12 @@ final class KastanAppTests: XCTestCase {
     func testLocationPermissionPromptIsLocalized() throws {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
-        let key = "NSLocationUsageDescription"
+        let key = "NSLocationWhenInUseUsageDescription"
+        let configuredDescription = try XCTUnwrap(
+            Bundle.main.object(forInfoDictionaryKey: key) as? String
+        )
 
+        XCTAssertFalse(configuredDescription.isEmpty)
         XCTAssertNotEqual(czech.localizedString(forKey: key, value: nil, table: "InfoPlist"), key)
         XCTAssertNotEqual(english.localizedString(forKey: key, value: nil, table: "InfoPlist"), key)
     }

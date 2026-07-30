@@ -143,9 +143,10 @@ xcodebuild test \
 ```
 
 The app target is sandboxed and permits outgoing network connections for IDOS. Location access is requested only
-after the user clicks a Here shortcut or searches with the exact localized My location phrase, and can be changed in
-System Settings. Calendar files are written to a temporary app directory before macOS opens them; PDF exports can
-be written only to a location explicitly selected by the user.
+after the user clicks a Here shortcut or searches with the exact localized My location phrase. The first request
+opens the localized macOS permission prompt, and the decision can later be changed in System Settings. Calendar files
+are written to a temporary app directory before macOS opens them; PDF exports can be written only to a location
+explicitly selected by the user.
 
 ## Data Source
 
