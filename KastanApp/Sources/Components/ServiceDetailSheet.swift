@@ -663,9 +663,9 @@ struct ServiceDetailView: View {
         )
         if abs(initialRouteBottomClearance - bottomClearance) > 0.5 {
             initialRouteBottomClearance = bottomClearance
-            return
         }
 
+        // The trailing spacer does not change these measured frames, so a preview may not emit another preference.
         hasScheduledInitialRoutePosition = true
         let scrollAnchor = ServiceRouteInitialScroll.anchor(
             viewportHeight: viewportHeight,

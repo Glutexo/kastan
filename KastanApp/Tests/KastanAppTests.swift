@@ -1958,6 +1958,60 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testServicePreviewInitiallyScrollsToTheSearchedDepartureStop() async throws {
+        let client = MockIDOSClient()
+        let service = IDOSServiceDetail(
+            id: "service-preview-scroll",
+            timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
+            name: "R 879 Svitava",
+            transportMode: .train,
+            date: "30.7.2026",
+            stops: (0..<18).map { index in
+                IDOSServiceStop(
+                    name: "Stop \(index)",
+                    departureTime: String(format: "12:%02d", index)
+                )
+            }
+        )
+        await client.configureServiceDetail(service)
+
+        let hostingView = NSHostingView(rootView: PresentedServicePreviewTestHost(
+            selection: ServiceSelection(
+                id: service.id,
+                highlight: ServiceRouteHighlight(fromStop: "Stop 10", toStop: "Stop 14")
+            ),
+            client: client
+        ))
+        hostingView.frame = NSRect(x: 0, y: 0, width: 180, height: 80)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        defer {
+            window.childWindows?.forEach { $0.close() }
+            window.orderOut(nil)
+        }
+
+        let pendingScrollView = await waitForServicePreviewScrollView(in: window)
+        let scrollView = try XCTUnwrap(pendingScrollView)
+        defer { scrollView.window?.close() }
+        let didReachDeparture = await waitForServicePreviewInitialScroll(in: scrollView)
+        let requestCount = await client.serviceDetailRequestCount
+        let documentHeight = try XCTUnwrap(scrollView.documentView).frame.height
+
+        XCTAssertEqual(requestCount, 1)
+        XCTAssertGreaterThan(documentHeight, scrollView.documentVisibleRect.height)
+        XCTAssertTrue(
+            didReachDeparture,
+            "The preview should skip the route stops preceding the searched departure " +
+                "(visible minY: \(scrollView.documentVisibleRect.minY), document height: \(documentHeight))."
+        )
+    }
+
     func testServiceSelectionRoundTripsThroughWindowState() throws {
         let selection = ServiceSelection(
             id: "service-301",
@@ -2780,6 +2834,64 @@ private func forceClickPreviewAttachmentCount(in view: NSView) -> Int {
         view.subviews.reduce(0) { $0 + forceClickPreviewAttachmentCount(in: $1) }
 }
 
+@MainActor
+private struct PresentedServicePreviewTestHost: View {
+    let selection: ServiceSelection
+    let client: any IDOSClienting
+    @State private var isPreviewPresented = false
+
+    var body: some View {
+        Text("Preview anchor")
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .forceClickPreview(
+                size: ResultPreviewLayout.serviceSize,
+                isPresented: $isPreviewPresented
+            ) {
+                ServiceDetailView(
+                    selection: selection,
+                    client: client,
+                    presentation: .preview
+                )
+            }
+            .onAppear {
+                isPreviewPresented = true
+            }
+    }
+}
+
+@MainActor
+private func waitForServicePreviewScrollView(
+    in sourceWindow: NSWindow
+) async -> NSScrollView? {
+    for _ in 0..<100 {
+        let previewContentViews = (sourceWindow.childWindows ?? [])
+            .compactMap(\.contentView)
+        let scrollViews = previewContentViews
+            .flatMap { [$0] + $0.allDescendantViews }
+            .compactMap { $0 as? NSScrollView }
+            .filter { $0.frame.width >= ResultPreviewLayout.serviceSize.width - 20 }
+            .filter { scrollView in
+                (scrollView.documentView?.frame.height ?? 0) > scrollView.documentVisibleRect.height
+            }
+        if let scrollView = scrollViews.first {
+            return scrollView
+        }
+        try? await Task.sleep(for: .milliseconds(10))
+    }
+    return nil
+}
+
+@MainActor
+private func waitForServicePreviewInitialScroll(in scrollView: NSScrollView) async -> Bool {
+    for _ in 0..<100 {
+        if scrollView.documentVisibleRect.minY > 100 {
+            return true
+        }
+        try? await Task.sleep(for: .milliseconds(10))
+    }
+    return false
+}
+
 private func localizationBundle(languageCode: String) -> Bundle? {
     guard let url = Bundle.main.url(forResource: languageCode, withExtension: "lproj") else {
         return nil
@@ -2839,6 +2951,7 @@ private actor MockIDOSClient: IDOSClienting {
     var connectionSearchCount = 0
     var serviceDetailRequestCount = 0
     private var serviceShareURL: String?
+    private var configuredServiceDetail: IDOSServiceDetail?
     private var connectionPages: [IDOSPageDirection: [IDOSConnection]] = [:]
     private var departurePages: [IDOSPageDirection: [IDOSDeparture]] = [:]
     private var connectionPagingSessionExpired = false
@@ -2863,6 +2976,10 @@ private actor MockIDOSClient: IDOSClienting {
 
     func configureServiceShareURL(_ value: String?) {
         serviceShareURL = value
+    }
+
+    func configureServiceDetail(_ service: IDOSServiceDetail) {
+        configuredServiceDetail = service
     }
 
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
@@ -3042,6 +3159,9 @@ private actor MockIDOSClient: IDOSClienting {
 
     func serviceDetail(id: String, timetable: IDOSTimetable) async throws -> IDOSServiceDetail {
         serviceDetailRequestCount += 1
+        if let configuredServiceDetail {
+            return configuredServiceDetail
+        }
         return IDOSServiceDetail(
             id: id,
             timetable: timetable,
