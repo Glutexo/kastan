@@ -11,6 +11,20 @@ extension NSToolbarItem.Identifier {
     static let appInformation = NSToolbarItem.Identifier("cz.glutexo.kastan.app-information")
 }
 
+/// Replaces a previously saved wide frame with Kaštan's compact main-window opening width.
+@MainActor
+enum MainWindowOpeningPresentation {
+    static func apply(to window: NSWindow, contentWidth: CGFloat) {
+        let contentSize = window.contentRect(forFrameRect: window.frame).size
+        let topLeft = NSPoint(x: window.frame.minX, y: window.frame.maxY)
+
+        // A restored AppKit frame otherwise takes precedence over the SwiftUI scene's default size.
+        window.setFrameAutosaveName("")
+        window.setContentSize(NSSize(width: contentWidth, height: contentSize.height))
+        window.setFrameTopLeftPoint(topLeft)
+    }
+}
+
 /// Installs one stable AppKit toolbar instead of relying on SwiftUI's transient toolbar-item identities.
 struct MainWindowToolbarInstaller: NSViewRepresentable {
     @Binding var selection: AppSection
@@ -108,6 +122,10 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
             window.titleVisibility = .hidden
             window.toolbarStyle = .unified
             window.toolbar = toolbar
+            MainWindowOpeningPresentation.apply(
+                to: window,
+                contentWidth: KastanApp.defaultMainWindowWidth
+            )
         }
 
         func uninstall() {
