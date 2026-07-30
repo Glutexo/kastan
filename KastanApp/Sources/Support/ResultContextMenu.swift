@@ -1,4 +1,6 @@
+import CoreTransferable
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Identifies the passenger result whose contextual actions must stay under the pointer.
 enum ResultContextTarget: CaseIterable {
@@ -129,6 +131,29 @@ struct ConnectionContextMenuContent: View {
     }
 }
 
+/// Gives the system share picker a URL item immediately while resolving the service link only if sharing is chosen.
+struct DeferredServicePermanentLink: Transferable {
+    let model: ServiceDetailViewModel
+
+    static var transferRepresentation: some TransferRepresentation {
+        DataRepresentation(exportedContentType: .url) { item in
+            try await item.exportedData()
+        }
+    }
+
+    /// Encodes the same localized permanent URL that the loaded service toolbar shares directly.
+    func exportedData() async throws -> Data {
+        guard let url = await model.localizedPermanentLink() else {
+            throw ExportError.unavailable
+        }
+        return Data(url.absoluteString.utf8)
+    }
+
+    private enum ExportError: Error {
+        case unavailable
+    }
+}
+
 /// Keeps a service row's complete action set from falling through to its enclosing connection menu.
 struct ServiceContextMenuContent: View {
     @Environment(\.openURL) private var openURL
@@ -140,19 +165,11 @@ struct ServiceContextMenuContent: View {
         ForEach(ResultContextAction.availableActions(for: .service)) { action in
             control(action)
         }
-        .onAppear {
-            Task {
-                await model.load()
-            }
-        }
     }
 
-    private var permanentLink: URL? {
-        model.service?.shareURL.flatMap(AppLanguagePreference.localizedIDOSURL)
-    }
-
-    private var detailActionIsDisabled: Bool {
-        model.service == nil || model.isPerformingExport
+    /// Keeps first-open actions selectable; the chosen action performs the shared lazy detail load itself.
+    var detailActionsAreDisabled: Bool {
+        model.isPerformingExport
     }
 
     @ViewBuilder
@@ -170,54 +187,48 @@ struct ServiceContextMenuContent: View {
             Divider()
         case .detail(.copyToClipboard):
             Button {
-                if let service = model.service {
-                    ResultClipboard.copy(service: service)
+                Task {
+                    if let service = await model.loadedService() {
+                        ResultClipboard.copy(service: service)
+                    }
                 }
             } label: {
                 ResultContextActionLabel(action: action, target: .service)
             }
-            .disabled(detailActionIsDisabled)
+            .disabled(detailActionsAreDisabled)
         case .detail(.addToCalendar):
             Button {
                 Task { await model.addToCalendar() }
             } label: {
                 ResultContextActionLabel(action: action, target: .service)
             }
-            .disabled(detailActionIsDisabled)
+            .disabled(detailActionsAreDisabled)
         case .detail(.saveAsPDF):
             Button {
                 Task { await model.saveAsPDF() }
             } label: {
                 ResultContextActionLabel(action: action, target: .service)
             }
-            .disabled(detailActionIsDisabled)
+            .disabled(detailActionsAreDisabled)
         case .detail(.shareLink):
-            if let permanentLink {
-                ShareLink(item: permanentLink) {
-                    ResultContextActionLabel(action: action, target: .service)
-                }
-                .disabled(model.isPerformingExport)
-            } else {
-                unavailableControl(action)
+            ShareLink(
+                item: DeferredServicePermanentLink(model: model),
+                preview: SharePreview("Share Link")
+            ) {
+                ResultContextActionLabel(action: action, target: .service)
             }
+            .disabled(detailActionsAreDisabled)
         case .detail(.openInIDOS):
-            if let permanentLink {
-                Button {
-                    openURL(permanentLink)
-                } label: {
-                    ResultContextActionLabel(action: action, target: .service)
+            Button {
+                Task {
+                    if let permanentLink = await model.localizedPermanentLink() {
+                        openURL(permanentLink)
+                    }
                 }
-                .disabled(model.isPerformingExport)
-            } else {
-                unavailableControl(action)
+            } label: {
+                ResultContextActionLabel(action: action, target: .service)
             }
+            .disabled(detailActionsAreDisabled)
         }
-    }
-
-    private func unavailableControl(_ action: ResultContextAction) -> some View {
-        Button {} label: {
-            ResultContextActionLabel(action: action, target: .service)
-        }
-        .disabled(true)
     }
 }

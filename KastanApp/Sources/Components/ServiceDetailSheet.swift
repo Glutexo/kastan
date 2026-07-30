@@ -16,6 +16,8 @@ final class ServiceDetailViewModel: ObservableObject {
     private let client: any IDOSClienting
     private let calendarImporter: any CalendarImporting
     private let pdfExporter: any PDFExporting
+    private var activeLoadTask: Task<IDOSServiceDetail, Error>?
+    private var activeLoadIdentifier: UUID?
 
     init(
         id: String,
@@ -34,14 +36,34 @@ final class ServiceDetailViewModel: ObservableObject {
     }
 
     func load() async {
-        guard service == nil, !isLoading else {
-            return
+        guard service == nil else { return }
+
+        let loadTask: Task<IDOSServiceDetail, Error>
+        let loadIdentifier: UUID
+        if let activeLoadTask, let activeLoadIdentifier {
+            loadTask = activeLoadTask
+            loadIdentifier = activeLoadIdentifier
+        } else {
+            isLoading = true
+            errorMessage = nil
+
+            let id = self.id
+            let client = self.client
+            let language = AppLanguagePreference.idosLanguage
+            loadTask = Task {
+                try await client.serviceDetail(id: id, language: language)
+            }
+            loadIdentifier = UUID()
+            activeLoadTask = loadTask
+            activeLoadIdentifier = loadIdentifier
         }
-        isLoading = true
-        errorMessage = nil
 
         do {
-            let service = try await client.serviceDetail(id: id, language: AppLanguagePreference.idosLanguage)
+            let service = try await loadTask.value
+            guard self.service == nil, activeLoadIdentifier == loadIdentifier else { return }
+
+            activeLoadTask = nil
+            activeLoadIdentifier = nil
             self.service = service
             isLoading = false
             timetableValidity = try? await client.timetableValidity(
@@ -49,16 +71,32 @@ final class ServiceDetailViewModel: ObservableObject {
                 language: AppLanguagePreference.idosLanguage
             )
         } catch {
+            guard activeLoadIdentifier == loadIdentifier else { return }
+
+            activeLoadTask = nil
+            activeLoadIdentifier = nil
             isLoading = false
             errorMessage = AppErrorPresentation.message(for: error)
         }
     }
 
+    /// Supplies a complete service to an action, joining an existing request instead of requiring a second menu opening.
+    func loadedService() async -> IDOSServiceDetail? {
+        await load()
+        return service
+    }
+
+    /// Resolves the permanent IDOS result link only when an action actually needs it.
+    func localizedPermanentLink() async -> URL? {
+        (await loadedService())?.shareURL.flatMap(AppLanguagePreference.localizedIDOSURL)
+    }
+
     /// Opens the dated service's native IDOS calendar export in the user's calendar application.
     func addToCalendar() async {
-        guard let service, !isPerformingExport else {
-            return
-        }
+        guard !isPerformingExport,
+              let service = await loadedService(),
+              !isPerformingExport
+        else { return }
         isAddingToCalendar = true
         actionErrorMessage = nil
         defer { isAddingToCalendar = false }
@@ -76,9 +114,10 @@ final class ServiceDetailViewModel: ObservableObject {
 
     /// Saves the dated service's native IDOS PDF to a location chosen by the user.
     func saveAsPDF() async {
-        guard let service, !isPerformingExport else {
-            return
-        }
+        guard !isPerformingExport,
+              let service = await loadedService(),
+              !isPerformingExport
+        else { return }
         isSavingPDF = true
         actionErrorMessage = nil
         defer { isSavingPDF = false }

@@ -664,34 +664,33 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testServiceContextMenuLoadsItsCompleteActionsWhenPresented() async throws {
+    func testServiceContextMenuKeepsDetailActionsAvailableBeforeServiceLoads() async {
         let client = MockIDOSClient()
         let model = ServiceDetailViewModel(id: "service-context-menu", client: client)
+        let menu = ServiceContextMenuContent(
+            model: model,
+            showPreview: {},
+            openInNewWindow: {}
+        )
+
         XCTAssertNil(model.service)
+        XCTAssertFalse(menu.detailActionsAreDisabled)
+        let requestCount = await client.serviceDetailRequestCount
+        XCTAssertEqual(requestCount, 0)
+    }
 
-        let hostingView = NSHostingView(
-            rootView: ServiceContextMenuContent(
-                model: model,
-                showPreview: {},
-                openInNewWindow: {}
-            )
-            .frame(width: 320)
+    func testDeferredServiceShareLinkLoadsAndLocalizesItsPermanentURL() async throws {
+        let sourceURL = "https://idos.cz/en/vlaky/spojeni/prehled/?p=context-menu"
+        let client = MockIDOSClient()
+        await client.configureServiceShareURL(sourceURL)
+        let model = ServiceDetailViewModel(id: "service-share", client: client)
+
+        let data = try await DeferredServicePermanentLink(model: model).exportedData()
+
+        XCTAssertEqual(
+            String(decoding: data, as: UTF8.self),
+            AppLanguagePreference.localizedIDOSURL(from: sourceURL)?.absoluteString
         )
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 320, height: 300),
-            styleMask: .borderless,
-            backing: .buffered,
-            defer: false
-        )
-        window.contentView = hostingView
-        window.orderFront(nil)
-        defer { window.orderOut(nil) }
-
-        for _ in 0..<100 where model.service == nil {
-            try await Task.sleep(nanoseconds: 10_000_000)
-        }
-
-        XCTAssertEqual(model.service?.id, "service-context-menu")
         let requestCount = await client.serviceDetailRequestCount
         XCTAssertEqual(requestCount, 1)
     }
@@ -2549,7 +2548,6 @@ final class KastanAppTests: XCTestCase {
             calendarImporter: importer
         )
 
-        await model.load()
         await model.addToCalendar()
 
         XCTAssertEqual(importer.calendarText, "BEGIN:VCALENDAR\nEND:VCALENDAR")
@@ -2557,6 +2555,8 @@ final class KastanAppTests: XCTestCase {
         let language = await client.lastServiceCalendarLanguage
         XCTAssertEqual(serviceID, "service-1")
         XCTAssertEqual(language, AppLanguagePreference.idosLanguage)
+        let requestCount = await client.serviceDetailRequestCount
+        XCTAssertEqual(requestCount, 1)
         XCTAssertFalse(model.isAddingToCalendar)
         XCTAssertNil(model.actionErrorMessage)
     }
@@ -2834,6 +2834,7 @@ private actor MockIDOSClient: IDOSClienting {
     var departurePageDirections: [IDOSPageDirection] = []
     var connectionSearchCount = 0
     var serviceDetailRequestCount = 0
+    private var serviceShareURL: String?
     private var connectionPages: [IDOSPageDirection: [IDOSConnection]] = [:]
     private var departurePages: [IDOSPageDirection: [IDOSDeparture]] = [:]
     private var connectionPagingSessionExpired = false
@@ -2854,6 +2855,10 @@ private actor MockIDOSClient: IDOSClienting {
 
     func expireConnectionPagingSession() {
         connectionPagingSessionExpired = true
+    }
+
+    func configureServiceShareURL(_ value: String?) {
+        serviceShareURL = value
     }
 
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
@@ -3037,7 +3042,8 @@ private actor MockIDOSClient: IDOSClienting {
             id: id,
             timetable: timetable,
             name: "S2",
-            stops: [IDOSServiceStop(name: "Ostrava-Svinov")]
+            stops: [IDOSServiceStop(name: "Ostrava-Svinov")],
+            shareURL: serviceShareURL
         )
     }
 }
