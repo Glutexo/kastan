@@ -1504,7 +1504,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(selection, .departures)
     }
 
-    func testMainWindowOpeningReplacesSavedWideFrameOnlyOnce() {
+    func testMainWindowToolbarPreservesSavedWindowFrame() {
         var selection = AppSection.connections
         let coordinator = MainWindowToolbarInstaller.Coordinator(
             selection: Binding(
@@ -1520,7 +1520,6 @@ final class KastanAppTests: XCTestCase {
             backing: .buffered,
             defer: false
         )
-        let openingTopLeft = NSPoint(x: window.frame.minX, y: window.frame.maxY)
         let savedFrameName = "KastanAppTests-main-window-\(UUID().uuidString)"
         XCTAssertTrue(window.setFrameAutosaveName(savedFrameName))
         defer {
@@ -1530,19 +1529,8 @@ final class KastanAppTests: XCTestCase {
 
         coordinator.install(on: window)
 
-        XCTAssertEqual(
-            window.contentRect(forFrameRect: window.frame).width,
-            KastanApp.defaultMainWindowWidth,
-            accuracy: 0.5
-        )
-        XCTAssertEqual(window.frame.minX, openingTopLeft.x, accuracy: 0.5)
-        XCTAssertEqual(window.frame.maxY, openingTopLeft.y, accuracy: 0.5)
-        XCTAssertEqual(window.frameAutosaveName, "")
-
-        window.setContentSize(NSSize(width: 760, height: 720))
-        coordinator.install(on: window)
-
-        XCTAssertEqual(window.contentRect(forFrameRect: window.frame).width, 760, accuracy: 0.5)
+        XCTAssertEqual(window.contentRect(forFrameRect: window.frame).width, 1_080, accuracy: 0.5)
+        XCTAssertEqual(window.frameAutosaveName, savedFrameName)
     }
 
     func testAppInformationToolbarTitleNamesItsContentWithoutAnActionVerb() throws {
