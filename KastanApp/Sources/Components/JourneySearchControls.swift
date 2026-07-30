@@ -26,23 +26,101 @@ struct JourneySearchControlsSupplement {
     }
 }
 
-/// Keeps timetable, date, time, mode, and search actions visually identical across app searches.
+/// Presents the transport catalog before place-specific input so users choose the search context first.
+struct SearchTimetablePicker: View {
+    static let pickerWidth: CGFloat = 240
+
+    /// Keeps the favorite close in compact forms and visibly separate when the form has more room.
+    static func favoriteSpacing(usesCompactLayout: Bool) -> CGFloat {
+        usesCompactLayout ? -8 : 2
+    }
+
+    @AppStorage(TimetableFavorites.storageKey) private var serializedTimetableFavorites = "[]"
+    @Binding private var timetable: IDOSTimetable
+
+    private let allowedTimetables: [IDOSTimetable]
+    private let usesCompactLayout: Bool
+
+    init(
+        timetable: Binding<IDOSTimetable>,
+        allowedTimetables: [IDOSTimetable] = IDOSTimetable.known,
+        usesCompactLayout: Bool
+    ) {
+        _timetable = timetable
+        self.allowedTimetables = allowedTimetables
+        self.usesCompactLayout = usesCompactLayout
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Timetable")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            HStack(spacing: Self.favoriteSpacing(usesCompactLayout: usesCompactLayout)) {
+                Picker("Timetable", selection: timetableSlug) {
+                    AppTimetablePickerOptions(
+                        favoriteSlugs: timetableFavorites.slugs,
+                        allowedTimetables: allowedTimetables
+                    )
+                }
+                .labelsHidden()
+                .frame(width: Self.pickerWidth, alignment: .leading)
+
+                Button {
+                    toggleTimetableFavorite()
+                } label: {
+                    Image(systemName: isTimetableFavorite ? "star.fill" : "star")
+                        .foregroundStyle(isTimetableFavorite ? Color.accentColor : Color.secondary)
+                        .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(Text(favoriteButtonLabel))
+                .help(Text(favoriteButtonLabel))
+            }
+            .fixedSize(horizontal: true, vertical: false)
+        }
+    }
+
+    private var timetableFavorites: TimetableFavorites {
+        TimetableFavorites(serialized: serializedTimetableFavorites)
+    }
+
+    private var isTimetableFavorite: Bool {
+        timetableFavorites.contains(timetable)
+    }
+
+    private var favoriteButtonLabel: LocalizedStringKey {
+        isTimetableFavorite ? "Remove timetable from favorites" : "Add timetable to favorites"
+    }
+
+    private func toggleTimetableFavorite() {
+        var favorites = timetableFavorites
+        favorites.toggle(timetable)
+        serializedTimetableFavorites = favorites.serialized
+    }
+
+    private var timetableSlug: Binding<String> {
+        Binding(
+            get: { timetable.slug },
+            set: { slug in
+                if let selected = allowedTimetables.first(where: { $0.slug == slug }) {
+                    timetable = selected
+                }
+            }
+        )
+    }
+}
+
+/// Keeps date, time, mode, and search actions visually identical across app searches.
 struct JourneySearchControls: View {
     /// Balances the large native search button's trailing chrome with the visible leading control inset.
     static let wideSearchButtonTrailingPadding: CGFloat = 5
-
-    /// Keeps the favorite close in compact forms and visibly separate when the full search row has room.
-    static func timetableFavoriteSpacing(usesStackedLayout: Bool) -> CGFloat {
-        usesStackedLayout ? -8 : 2
-    }
 
     /// Leaves enough room for the localized time mode to stay on the compact search row.
     static func searchButtonContentWidth(usesStackedLayout: Bool) -> CGFloat {
         usesStackedLayout ? 80 : 140
     }
 
-    @AppStorage(TimetableFavorites.storageKey) private var serializedTimetableFavorites = "[]"
-    @Binding private var timetable: IDOSTimetable
     @Binding private var date: Date
     @Binding private var time: Date
     @Binding private var isArrival: Bool
@@ -60,7 +138,6 @@ struct JourneySearchControls: View {
     private let search: () -> Void
 
     init(
-        timetable: Binding<IDOSTimetable>,
         date: Binding<Date>,
         time: Binding<Date>,
         isArrival: Binding<Bool>,
@@ -73,7 +150,6 @@ struct JourneySearchControls: View {
         supplement: JourneySearchControlsSupplement? = nil,
         search: @escaping () -> Void
     ) {
-        _timetable = timetable
         _date = date
         _time = time
         _isArrival = isArrival
@@ -91,23 +167,16 @@ struct JourneySearchControls: View {
         VStack(alignment: .leading, spacing: 0) {
             Group {
                 if usesStackedLayout {
-                    VStack(alignment: .leading, spacing: 12) {
-                        timetablePicker
-                            .frame(maxWidth: 360, alignment: .leading)
+                    ViewThatFits(in: .horizontal) {
+                        stackedHorizontalControls
+                            .fixedSize(horizontal: true, vertical: false)
 
-                        ViewThatFits(in: .horizontal) {
-                            stackedHorizontalControls
-                                .fixedSize(horizontal: true, vertical: false)
-
-                            compactStackedControls
-                        }
+                        compactStackedControls
                     }
                 } else if let supplement {
                     horizontalControls(supplement: supplement)
                 } else {
                     HStack(alignment: .bottom, spacing: 12) {
-                        timetablePicker
-                            .frame(width: 240)
                         datePicker
                         timePicker
                         modePicker
@@ -134,8 +203,6 @@ struct JourneySearchControls: View {
     private func horizontalControls(supplement: JourneySearchControlsSupplement) -> some View {
         Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 14) {
             GridRow(alignment: .bottom) {
-                timetablePicker
-                    .frame(width: 240)
                 datePicker
                 timePicker
                 modePicker
@@ -145,7 +212,7 @@ struct JourneySearchControls: View {
                     .padding(.trailing, Self.wideSearchButtonTrailingPadding)
             }
 
-            supplementalRow(supplement: supplement, leadingColumnCount: 3, modeWidth: 175)
+            supplementalRow(supplement: supplement, leadingColumnCount: 2, modeWidth: 175)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -262,62 +329,6 @@ struct JourneySearchControls: View {
             Color.clear
                 .frame(width: 0, height: 0)
         }
-    }
-
-    private var timetablePicker: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Timetable")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            HStack(spacing: Self.timetableFavoriteSpacing(usesStackedLayout: usesStackedLayout)) {
-                Picker("Timetable", selection: timetableSlug) {
-                    AppTimetablePickerOptions(favoriteSlugs: timetableFavorites.slugs)
-                }
-                .labelsHidden()
-                .frame(width: usesStackedLayout ? 240 : 204, alignment: .leading)
-
-                Button {
-                    toggleTimetableFavorite()
-                } label: {
-                    Image(systemName: isTimetableFavorite ? "star.fill" : "star")
-                        .foregroundStyle(isTimetableFavorite ? Color.accentColor : Color.secondary)
-                        .frame(width: 24, height: 24)
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel(Text(favoriteButtonLabel))
-                .help(Text(favoriteButtonLabel))
-            }
-            .fixedSize(horizontal: true, vertical: false)
-        }
-    }
-
-    private var timetableFavorites: TimetableFavorites {
-        TimetableFavorites(serialized: serializedTimetableFavorites)
-    }
-
-    private var isTimetableFavorite: Bool {
-        timetableFavorites.contains(timetable)
-    }
-
-    private var favoriteButtonLabel: LocalizedStringKey {
-        isTimetableFavorite ? "Remove timetable from favorites" : "Add timetable to favorites"
-    }
-
-    private func toggleTimetableFavorite() {
-        var favorites = timetableFavorites
-        favorites.toggle(timetable)
-        serializedTimetableFavorites = favorites.serialized
-    }
-
-    private var timetableSlug: Binding<String> {
-        Binding(
-            get: { timetable.slug },
-            set: { slug in
-                if let selected = IDOSTimetable.known.first(where: { $0.slug == slug }) {
-                    timetable = selected
-                }
-            }
-        )
     }
 
     private var datePicker: some View {

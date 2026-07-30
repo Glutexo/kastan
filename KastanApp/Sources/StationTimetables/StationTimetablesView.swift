@@ -3,7 +3,6 @@ import SwiftUI
 
 /// Searches and presents IDOS station timetables for MHD and integrated transport systems.
 struct StationTimetablesView: View {
-    @AppStorage(TimetableFavorites.storageKey) private var serializedTimetableFavorites = "[]"
     @ObservedObject var model: StationTimetablesViewModel
     let client: any IDOSClienting
     @State private var isSearchFormCollapsed = false
@@ -24,7 +23,7 @@ struct StationTimetablesView: View {
                     )
                     .transition(.opacity)
                 } else {
-                    searchPanel
+                    searchPanel(usesCompactLayout: layout.usesStackedSearchControls)
                         .transition(.opacity)
                 }
             } resultsContent: {
@@ -52,8 +51,14 @@ struct StationTimetablesView: View {
         }
     }
 
-    private var searchPanel: some View {
+    private func searchPanel(usesCompactLayout: Bool) -> some View {
         VStack(alignment: .leading, spacing: 14) {
+            SearchTimetablePicker(
+                timetable: timetableBinding,
+                allowedTimetables: AppTimetableGroup.stationTimetables,
+                usesCompactLayout: usesCompactLayout
+            )
+
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .placeInputCenter, spacing: 12) {
                     lineField
@@ -73,23 +78,11 @@ struct StationTimetablesView: View {
 
             Divider()
 
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .bottom, spacing: 12) {
-                    timetablePicker
-                    datePicker
-                    wholeWeekToggle
-                    Spacer(minLength: 8)
-                    searchButton
-                }
-                VStack(alignment: .leading, spacing: 12) {
-                    timetablePicker
-                    HStack(alignment: .bottom, spacing: 12) {
-                        datePicker
-                        wholeWeekToggle
-                        Spacer(minLength: 8)
-                        searchButton
-                    }
-                }
+            HStack(alignment: .bottom, spacing: 12) {
+                datePicker
+                wholeWeekToggle
+                Spacer(minLength: 8)
+                searchButton
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -151,37 +144,6 @@ struct StationTimetablesView: View {
         .help("Swap direction stops")
     }
 
-    private var timetablePicker: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Timetable")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            HStack(spacing: 2) {
-                Picker("Timetable", selection: timetableSlug) {
-                    AppTimetablePickerOptions(
-                        favoriteSlugs: favorites.slugs,
-                        allowedTimetables: AppTimetableGroup.stationTimetables
-                    )
-                }
-                .labelsHidden()
-                .frame(width: 240)
-
-                Button {
-                    var updated = favorites
-                    updated.toggle(model.timetable)
-                    serializedTimetableFavorites = updated.serialized
-                } label: {
-                    Image(systemName: favorites.contains(model.timetable) ? "star.fill" : "star")
-                        .foregroundStyle(favorites.contains(model.timetable) ? Color.accentColor : Color.secondary)
-                        .frame(width: 24, height: 24)
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel(favoriteButtonLabel)
-                .help(favoriteButtonLabel)
-            }
-        }
-    }
-
     private var datePicker: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Date")
@@ -232,20 +194,10 @@ struct StationTimetablesView: View {
         )
     }
 
-    private var favorites: TimetableFavorites {
-        TimetableFavorites(serialized: serializedTimetableFavorites)
-    }
-
-    private var favoriteButtonLabel: LocalizedStringKey {
-        favorites.contains(model.timetable)
-            ? "Remove timetable from favorites"
-            : "Add timetable to favorites"
-    }
-
-    private var timetableSlug: Binding<String> {
+    private var timetableBinding: Binding<IDOSTimetable> {
         Binding(
-            get: { model.timetable.slug },
-            set: { slug in model.selectTimetable(slug: slug) }
+            get: { model.timetable },
+            set: { timetable in model.selectTimetable(slug: timetable.slug) }
         )
     }
 

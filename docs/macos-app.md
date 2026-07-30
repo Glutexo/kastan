@@ -53,6 +53,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   with integrated systems and city networks while omitting unsupported broad combinations such as All timetables.
   Persistent favorites repeat in their own first section without disappearing from the catalog, and the favorite
   button stays close to its picker in compact forms while gaining a small visible gap in the wide search layout.
+  Every editable search presents this timetable choice first, above its route or station fields, so the transport
+  context is visible as part of the basic query before any place is entered.
 - Search forms stay only as tall as their current controls above independently scrollable result areas, with matching
   visible insets for their leading controls and trailing Search action, then collapse into low query summaries after
   submission with an explicit action for returning to the editable form. A main window without a saved size defaults

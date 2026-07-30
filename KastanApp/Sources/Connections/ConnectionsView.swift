@@ -247,6 +247,11 @@ struct ConnectionsView: View {
 
     private func searchPanel(layout: DetailLayout) -> some View {
         VStack(alignment: .leading, spacing: 14) {
+            SearchTimetablePicker(
+                timetable: $model.timetable,
+                usesCompactLayout: layout.usesStackedSearchControls
+            )
+
             endpointControls(contentWidth: layout.contentWidth)
 
             if let endpointValidationMessage = model.endpointValidationMessage {
@@ -330,7 +335,6 @@ struct ConnectionsView: View {
 
     private func searchControls(stacked: Bool) -> some View {
         JourneySearchControls(
-            timetable: $model.timetable,
             date: $model.date,
             time: $model.time,
             isArrival: $model.isArrival,

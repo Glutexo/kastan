@@ -851,8 +851,9 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: true), 80)
         XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: false), 140)
         XCTAssertEqual(JourneySearchControls.wideSearchButtonTrailingPadding, 5)
-        XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: true), -8)
-        XCTAssertEqual(JourneySearchControls.timetableFavoriteSpacing(usesStackedLayout: false), 2)
+        XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: true), -8)
+        XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: false), 2)
+        XCTAssertEqual(SearchTimetablePicker.pickerWidth, 240)
         let endpointFieldWidth = ConnectionEndpointLayout.fieldWidth(contentWidth: layout.contentWidth)
         XCTAssertEqual(endpointFieldWidth, 218)
         XCTAssertEqual(
@@ -894,11 +895,88 @@ final class KastanAppTests: XCTestCase {
         }
     }
 
+    func testTimetablePickerAppearsAbovePrimaryInputInEverySearchMode() throws {
+        let width = KastanApp.minimumMainWindowWidth
+        func assertTimetablePrecedesInput<Content: View>(
+            _ content: Content,
+            prompts: [String],
+            mode: String
+        ) throws {
+            let hostingView = NSHostingView(
+                rootView: content.frame(width: width, height: 600)
+            )
+            hostingView.frame = NSRect(x: 0, y: 0, width: width, height: 600)
+            let window = NSWindow(
+                contentRect: hostingView.frame,
+                styleMask: .borderless,
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = hostingView
+            window.makeKeyAndOrderFront(nil)
+            hostingView.layoutSubtreeIfNeeded()
+            defer { window.orderOut(nil) }
+
+            let descendants = hostingView.allDescendantViews
+            let timetablePicker = try XCTUnwrap(
+                descendants.compactMap { $0 as? NSPopUpButton }.first,
+                "\(mode) is missing its timetable picker"
+            )
+            let inputFields = try prompts.map { prompt in
+                try XCTUnwrap(
+                    descendants.compactMap { $0 as? NSTextField }.first {
+                        $0.placeholderString == AppLocalization.string(prompt)
+                    },
+                    "\(mode) is missing its \(prompt) field"
+                )
+            }
+
+            let timetableFrame = hostingView.convert(timetablePicker.bounds, from: timetablePicker)
+            let inputFrames = inputFields.map { hostingView.convert($0.bounds, from: $0) }
+            for inputFrame in inputFrames {
+                if hostingView.isFlipped {
+                    XCTAssertLessThan(timetableFrame.maxY, inputFrame.minY, mode)
+                } else {
+                    XCTAssertGreaterThan(timetableFrame.minY, inputFrame.maxY, mode)
+                }
+            }
+        }
+
+        let connectionsClient = MockIDOSClient()
+        try assertTimetablePrecedesInput(
+            ConnectionsView(
+                model: ConnectionsViewModel(client: connectionsClient),
+                client: connectionsClient
+            ),
+            prompts: ["Departure place", "Arrival place"],
+            mode: "Connections"
+        )
+
+        let departuresClient = MockIDOSClient()
+        try assertTimetablePrecedesInput(
+            DeparturesView(
+                model: DeparturesViewModel(client: departuresClient),
+                client: departuresClient
+            ),
+            prompts: ["Station or stop"],
+            mode: "Departures"
+        )
+
+        let stationTimetablesClient = MockIDOSClient()
+        try assertTimetablePrecedesInput(
+            StationTimetablesView(
+                model: StationTimetablesViewModel(client: stationTimetablesClient),
+                client: stationTimetablesClient
+            ),
+            prompts: ["Line number or name", "Direction from", "Direction to"],
+            mode: "Station Timetables"
+        )
+    }
+
     func testWideSearchControlsUseIntrinsicHeightAndAlignSupplementalShortcut() throws {
         let width: CGFloat = 880
         let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
         let controls = JourneySearchControls(
-            timetable: .constant(IDOSTimetable.defaultTimetable),
             date: .constant(fixedDate),
             time: .constant(fixedDate),
             isArrival: .constant(false),
@@ -958,7 +1036,6 @@ final class KastanAppTests: XCTestCase {
         func renderedFrames(width: CGFloat, detailsHeight: CGFloat) throws -> Frames {
             let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
             let controls = JourneySearchControls(
-                timetable: .constant(IDOSTimetable.defaultTimetable),
                 date: .constant(fixedDate),
                 time: .constant(fixedDate),
                 isArrival: .constant(false),

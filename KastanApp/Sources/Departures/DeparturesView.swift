@@ -61,6 +61,11 @@ struct DeparturesView: View {
 
     private func searchPanel(stacked: Bool) -> some View {
         VStack(alignment: .leading, spacing: 14) {
+            SearchTimetablePicker(
+                timetable: $model.timetable,
+                usesCompactLayout: stacked
+            )
+
             PlaceAutocompleteField(
                 title: "Station",
                 prompt: "Station or stop",
@@ -81,7 +86,6 @@ struct DeparturesView: View {
 
     private func searchControls(stacked: Bool) -> some View {
         JourneySearchControls(
-            timetable: $model.timetable,
             date: $model.date,
             time: $model.time,
             isArrival: $model.isArrival,
