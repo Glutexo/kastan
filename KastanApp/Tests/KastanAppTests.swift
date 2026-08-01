@@ -611,6 +611,20 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testConnectionEmailPlaceholderUsesLocaleAppropriateExampleAddress() throws {
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+
+        XCTAssertEqual(
+            czech.localizedString(forKey: "name@example.com", value: nil, table: nil),
+            "jmeno@priklad.cz"
+        )
+        XCTAssertEqual(
+            english.localizedString(forKey: "name@example.com", value: nil, table: nil),
+            "name@example.com"
+        )
+    }
+
     func testConnectionDetailToolbarOffersEveryAvailableActionSeparately() {
         XCTAssertEqual(
             ResultDetailAction.allCases.map(\.systemImage),
