@@ -107,6 +107,7 @@
 "Now" = "Nyní";
 "municipality" = "obec";
 "My location" = "Moje poloha";
+"No application could open the attachment." = "Přílohu se nepodařilo otevřít v žádné aplikaci.";
 "No application could open the calendar event." = "Událost kalendáře se nepodařilo otevřít v žádné aplikaci.";
 "No connections yet" = "Zatím žádné spojení";
 "No station board yet" = "Zatím žádná odjezdová tabule";
@@ -116,9 +117,11 @@
 "Network request failed. Check your internet connection." = "Síťový požadavek selhal. Zkontrolujte připojení k internetu.";
 "Network request failed. Check your internet connection. %@" = "Síťový požadavek selhal. Zkontrolujte připojení k internetu. %@";
 "Open in IDOS" = "Otevřít v IDOSu";
+"Open attachment %@" = "Otevřít přílohu %@";
 "Open connection in new window" = "Otevřít spojení v novém okně";
 "Open service in new window" = "Otevřít spoj v novém okně";
 "IDOS website" = "Web IDOSu";
+"Opens in the default application" = "Otevře se ve výchozí aplikaci";
 "Opens in the default web browser" = "Otevře se ve výchozím webovém prohlížeči";
 "Outside timetable validity" = "Mimo platnost jízdního řádu";
 "Platform %@" = "nástupiště %@";

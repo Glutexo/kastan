@@ -2979,6 +2979,44 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(model.messageIsTooLong)
         XCTAssertFalse(model.canSend)
     }
+
+    func testConnectionEmailAttachmentsOpenGeneratedPDFAndCalendarWithoutSending() async {
+        let client = MockIDOSClient()
+        let opener = RecordingConnectionEmailAttachmentOpener()
+        let model = ConnectionEmailViewModel(
+            connection: connection(id: "connection-email-attachments"),
+            timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
+            client: client,
+            attachmentOpener: opener
+        )
+        await model.load()
+
+        await model.openAttachment(named: "connection.pdf")
+        await model.openAttachment(named: "connection.ics")
+
+        XCTAssertEqual(opener.attachments.map(\.fileName), ["connection.pdf", "connection.ics"])
+        XCTAssertEqual(String(data: opener.attachments[0].data, encoding: .utf8), "%PDF-1.4\nKaštan")
+        XCTAssertEqual(
+            String(data: opener.attachments[1].data, encoding: .utf8),
+            "BEGIN:VCALENDAR\nEND:VCALENDAR"
+        )
+        let pdfLanguage = await client.lastPDFLanguage
+        let calendarLanguage = await client.lastConnectionCalendarLanguage
+        let recipient = await client.lastEmailRecipient
+        XCTAssertEqual(pdfLanguage, AppLanguagePreference.idosLanguage)
+        XCTAssertEqual(calendarLanguage, AppLanguagePreference.idosLanguage)
+        XCTAssertNil(recipient)
+        XCTAssertNil(model.openingAttachmentFileName)
+        XCTAssertNil(model.errorMessage)
+    }
+
+    func testConnectionEmailAttachmentFileNameCannotEscapeItsTemporaryDirectory() {
+        XCTAssertEqual(
+            ConnectionEmailAttachmentFileName.safeValue("../private/Connection: Prague – Brno.pdf"),
+            "Connection- Prague – Brno.pdf"
+        )
+        XCTAssertEqual(ConnectionEmailAttachmentFileName.safeValue(".."), "attachment")
+    }
 }
 
 private func connection(id: String, duration: String = "2 h 30 min") -> IDOSConnection {
@@ -3147,6 +3185,20 @@ private final class RecordingPDFExporter: PDFExporting {
     func save(pdfData: Data, suggestedFileName: String) async throws {
         self.pdfData = pdfData
         self.suggestedFileName = suggestedFileName
+    }
+}
+
+@MainActor
+private final class RecordingConnectionEmailAttachmentOpener: ConnectionEmailAttachmentOpening {
+    struct Attachment {
+        let data: Data
+        let fileName: String
+    }
+
+    private(set) var attachments: [Attachment] = []
+
+    func open(data: Data, fileName: String) throws {
+        attachments.append(Attachment(data: data, fileName: fileName))
     }
 }
 

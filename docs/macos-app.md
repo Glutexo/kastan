@@ -80,9 +80,11 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   when IDOS does not supply a permanent result link.
 - Connection cards and complete connections offer Send by Email when IDOS supplies the data needed for that result.
   The confirmation sheet loads IDOS's localized default message and generated PDF and calendar attachment names,
-  accepts one or more recipient addresses separated by commas or semicolons, and lets the user edit the message before
-  sending. Kaštan sends the address list and message to IDOS only after explicit confirmation and does not retain them
-  after the sheet closes. IDOS generates and delivers the attachments; delivery errors stay in the sheet for retry.
+  and each attachment opens independently in the default macOS application when selected, without sending the email.
+  The sheet accepts one or more recipient addresses separated by commas or semicolons and lets the user edit the message
+  before sending. Kaštan sends the address list and message to IDOS only after explicit confirmation and does not retain
+  them after the sheet closes. IDOS generates and delivers the attachments; delivery and attachment-opening errors stay
+  in the sheet for retry.
 - Connection cards use semantic emoji to mark direct journeys and every connection tied for the shortest displayed
   duration. Badge text never wraps or forces the connection time and duration onto extra lines: each badge collapses
   to its semantic emoji when the complete localized title does not fit, and hovering that compact badge reveals the

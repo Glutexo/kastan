@@ -107,6 +107,7 @@
 "Now" = "Now";
 "municipality" = "municipality";
 "My location" = "My location";
+"No application could open the attachment." = "No application could open the attachment.";
 "No application could open the calendar event." = "No application could open the calendar event.";
 "No connections yet" = "No connections yet";
 "No station board yet" = "No station board yet";
@@ -116,9 +117,11 @@
 "Network request failed. Check your internet connection." = "Network request failed. Check your internet connection.";
 "Network request failed. Check your internet connection. %@" = "Network request failed. Check your internet connection. %@";
 "Open in IDOS" = "Open in IDOS";
+"Open attachment %@" = "Open attachment %@";
 "Open connection in new window" = "Open connection in new window";
 "Open service in new window" = "Open service in new window";
 "IDOS website" = "IDOS website";
+"Opens in the default application" = "Opens in the default application";
 "Opens in the default web browser" = "Opens in the default web browser";
 "Outside timetable validity" = "Outside timetable validity";
 "Platform %@" = "Platform %@";
