@@ -284,9 +284,8 @@ struct ConnectionEmailView: View {
 
     private var emailEditor: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text("Recipient Email")
-                    .frame(width: 105, alignment: .trailing)
                 TextField("name@example.com", text: $model.recipient)
                     .textFieldStyle(.roundedBorder)
                     .focused($recipientIsFocused)
@@ -294,18 +293,18 @@ struct ConnectionEmailView: View {
                         guard model.canSend else { return }
                         Task { await model.send() }
                     }
-            }
-
-            if model.recipientIsTooLong {
-                Label("Email address can contain at most 320 characters.", systemImage: "exclamationmark.triangle.fill")
+                if model.recipientIsTooLong {
+                    Label(
+                        "Email address can contain at most 320 characters.",
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
                     .font(.caption)
                     .foregroundStyle(.red)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            } else if model.recipientHasInvalidAddress {
-                Label("Enter a valid email address.", systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.red)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                } else if model.recipientHasInvalidAddress {
+                    Label("Enter a valid email address.", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             }
 
             VStack(alignment: .leading, spacing: 6) {
