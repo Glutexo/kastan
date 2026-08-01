@@ -367,7 +367,8 @@ struct ServiceDetailView: View {
                 ToolbarItemGroup(placement: .primaryAction) {
                     ForEach(
                         ResultDetailAction.availableActions(
-                            hasPermanentLink: serviceActionURL != nil
+                            hasPermanentLink: serviceActionURL != nil,
+                            canSendByEmail: false
                         )
                     ) { action in
                         serviceActionControl(action, url: serviceActionURL)
@@ -431,6 +432,8 @@ struct ServiceDetailView: View {
             .disabled(model.isPerformingExport)
             .accessibilityLabel(action.title)
             .help(action.title)
+        case .sendByEmail:
+            EmptyView()
         case .addToCalendar:
             Button {
                 Task { await model.addToCalendar() }

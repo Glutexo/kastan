@@ -171,6 +171,7 @@ struct ConnectionsView: View {
     let client: any IDOSClienting
     @State private var isJourneyOptionsExpanded = false
     @State private var isSearchFormCollapsed = false
+    @State private var emailSelection: ConnectionSelection?
     @State private var showsEndpointShortcuts = SearchShortcutPresentation.isVisible(
         for: NSEvent.modifierFlags
     )
@@ -213,6 +214,13 @@ struct ConnectionsView: View {
         .background {
             OptionModifierMonitor(isPressed: $showsEndpointShortcuts)
                 .frame(width: 0, height: 0)
+        }
+        .sheet(item: $emailSelection) { selection in
+            ConnectionEmailView(
+                connection: selection.connection,
+                timetable: selection.timetable,
+                client: client
+            )
         }
     }
 
@@ -545,6 +553,9 @@ struct ConnectionsView: View {
                         copyToClipboard: {
                             ResultClipboard.copy(connection: connection, timetable: model.timetable)
                         },
+                        sendByEmail: {
+                            emailSelection = selection
+                        },
                         addToCalendar: { Task { await model.addToCalendar(connection) } },
                         saveAsPDF: { Task { await model.saveAsPDF(connection) } }
                     )
@@ -725,6 +736,7 @@ struct ConnectionCard: View {
     let openConnection: (() -> Void)?
     let openService: (ServiceSelection) -> Void
     let copyToClipboard: () -> Void
+    let sendByEmail: () -> Void
     let addToCalendar: () -> Void
     let saveAsPDF: () -> Void
 
@@ -867,6 +879,7 @@ struct ConnectionCard: View {
             isPerformingExport: isPerformingExport,
             openInNewWindow: openInNewWindow,
             copyToClipboard: copyToClipboard,
+            sendByEmail: sendByEmail,
             addToCalendar: addToCalendar,
             saveAsPDF: saveAsPDF
         )
@@ -885,6 +898,7 @@ struct ConnectionDetailView: View {
     @Environment(\.openURL) private var openURL
     @StateObject private var actionsModel: ConnectionsViewModel
     @State private var timeIsUnderTitle = false
+    @State private var isEmailPresented = false
     private let selection: ConnectionSelection
     private let client: any IDOSClienting
 
@@ -928,6 +942,9 @@ struct ConnectionDetailView: View {
                             timetable: selection.timetable
                         )
                     },
+                    sendByEmail: {
+                        isEmailPresented = true
+                    },
                     addToCalendar: {
                         Task { await actionsModel.addToCalendar(selection.connection) }
                     },
@@ -957,7 +974,8 @@ struct ConnectionDetailView: View {
             ToolbarItemGroup(placement: .primaryAction) {
                 ForEach(
                     ResultDetailAction.availableActions(
-                        hasPermanentLink: connectionActionURL != nil
+                        hasPermanentLink: connectionActionURL != nil,
+                        canSendByEmail: true
                     )
                 ) { action in
                     connectionActionControl(action, url: connectionActionURL)
@@ -965,6 +983,13 @@ struct ConnectionDetailView: View {
             }
         }
         .focusedSceneValue(\.resultDetailCommandContext, resultDetailCommandContext)
+        .sheet(isPresented: $isEmailPresented) {
+            ConnectionEmailView(
+                connection: selection.connection,
+                timetable: selection.timetable,
+                client: client
+            )
+        }
     }
 
     private var windowTitle: String {
@@ -993,6 +1018,9 @@ struct ConnectionDetailView: View {
                     connection: selection.connection,
                     timetable: selection.timetable
                 )
+            },
+            sendByEmail: {
+                isEmailPresented = true
             },
             addToCalendar: {
                 Task { await actionsModel.addToCalendar(selection.connection) }
@@ -1025,6 +1053,15 @@ struct ConnectionDetailView: View {
                 connectionActionLabel(action)
             }
             .disabled(isPerformingExport)
+            .accessibilityLabel(action.title)
+            .help(action.title)
+        case .sendByEmail:
+            Button {
+                isEmailPresented = true
+            } label: {
+                connectionActionLabel(action)
+            }
+            .disabled(isPerformingExport || url == nil)
             .accessibilityLabel(action.title)
             .help(action.title)
         case .addToCalendar:

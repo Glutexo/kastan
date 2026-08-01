@@ -169,6 +169,13 @@ struct CommandRunner {
                 return detail.isEmpty
                     ? localization.text(.networkUnavailable)
                     : localization.text(.networkUnavailableWithDetail, detail)
+            case .emailUnavailable:
+                return localization.text(.emailUnavailable)
+            case .emailSendingFailed(let detail):
+                let detail = detail.trimmingCharacters(in: .whitespacesAndNewlines)
+                return detail.isEmpty
+                    ? localization.text(.emailSendingFailed)
+                    : localization.text(.emailSendingFailedWithDetail, detail)
             case .calendarUnavailable:
                 return localization.text(.calendarUnavailable)
             case .pdfUnavailable:

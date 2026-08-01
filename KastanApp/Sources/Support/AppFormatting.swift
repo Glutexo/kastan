@@ -195,6 +195,13 @@ enum AppErrorPresentation {
             return detail.isEmpty
                 ? AppLocalization.string("Network request failed. Check your internet connection.")
                 : AppLocalization.string("Network request failed. Check your internet connection. %@", detail)
+        case .emailUnavailable:
+            return AppLocalization.string("IDOS did not provide email data for this connection.")
+        case .emailSendingFailed(let detail):
+            let detail = detail.trimmingCharacters(in: .whitespacesAndNewlines)
+            return detail.isEmpty
+                ? AppLocalization.string("IDOS could not send the connection by email.")
+                : AppLocalization.string("IDOS could not send the connection by email. %@", detail)
         case .calendarUnavailable:
             return AppLocalization.string("IDOS did not provide calendar export data for this connection.")
         case .pdfUnavailable:

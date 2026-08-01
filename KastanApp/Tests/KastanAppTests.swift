@@ -31,6 +31,7 @@ final class KastanAppTests: XCTestCase {
         let menuItems = mainMenu.items.compactMap(\.submenu).flatMap(\.items)
         let actionKeys = [
             "Copy to Clipboard",
+            "Send by Email",
             "Add to Calendar",
             "Save as PDF",
             "Share Link",
@@ -60,6 +61,7 @@ final class KastanAppTests: XCTestCase {
     func testResultDetailMenuActionsStayInOneGroup() throws {
         let expectedTitles = [
             "Copy to Clipboard",
+            "Send by Email",
             "Add to Calendar",
             "Save as PDF",
             "Share Link",
@@ -568,18 +570,32 @@ final class KastanAppTests: XCTestCase {
         ))!
     }
 
-    func testResultDetailToolbarAndFileMenuShareFiveLocalizedActions() throws {
+    func testResultDetailToolbarAndFileMenuShareSixLocalizedActions() throws {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
 
         XCTAssertEqual(
             ResultDetailAction.allCases,
-            [.copyToClipboard, .addToCalendar, .saveAsPDF, .shareLink, .openInIDOS]
+            [.copyToClipboard, .sendByEmail, .addToCalendar, .saveAsPDF, .shareLink, .openInIDOS]
         )
-        let keys = ["Copy to Clipboard", "Add to Calendar", "Save as PDF", "Share Link", "Open in IDOS"]
+        let keys = [
+            "Copy to Clipboard",
+            "Send by Email",
+            "Add to Calendar",
+            "Save as PDF",
+            "Share Link",
+            "Open in IDOS",
+        ]
         XCTAssertEqual(
             keys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
-            ["Zkopírovat do schránky", "Přidat do Kalendáře", "Uložit jako PDF", "Sdílet odkaz", "Otevřít v IDOSu"]
+            [
+                "Zkopírovat do schránky",
+                "Poslat na e-mail",
+                "Přidat do Kalendáře",
+                "Uložit jako PDF",
+                "Sdílet odkaz",
+                "Otevřít v IDOSu",
+            ]
         )
         XCTAssertEqual(
             keys.map { english.localizedString(forKey: $0, value: nil, table: nil) },
@@ -598,15 +614,26 @@ final class KastanAppTests: XCTestCase {
     func testConnectionDetailToolbarOffersEveryAvailableActionSeparately() {
         XCTAssertEqual(
             ResultDetailAction.allCases.map(\.systemImage),
-            ["doc.on.doc", "calendar.badge.plus", "arrow.down.doc", "square.and.arrow.up", "arrow.up.right.square"]
+            [
+                "doc.on.doc",
+                "envelope",
+                "calendar.badge.plus",
+                "arrow.down.doc",
+                "square.and.arrow.up",
+                "arrow.up.right.square",
+            ]
         )
         XCTAssertEqual(
-            ResultDetailAction.availableActions(hasPermanentLink: true),
+            ResultDetailAction.availableActions(hasPermanentLink: true, canSendByEmail: true),
             ResultDetailAction.allCases
         )
         XCTAssertEqual(
-            ResultDetailAction.availableActions(hasPermanentLink: false),
+            ResultDetailAction.availableActions(hasPermanentLink: false, canSendByEmail: true),
             [.copyToClipboard, .addToCalendar, .saveAsPDF]
+        )
+        XCTAssertEqual(
+            ResultDetailAction.availableActions(hasPermanentLink: true, canSendByEmail: false),
+            [.copyToClipboard, .addToCalendar, .saveAsPDF, .shareLink, .openInIDOS]
         )
     }
 
@@ -617,6 +644,7 @@ final class KastanAppTests: XCTestCase {
                 .openInNewWindow,
                 .separator,
                 .detail(.copyToClipboard),
+                .detail(.sendByEmail),
                 .detail(.addToCalendar),
                 .detail(.saveAsPDF),
                 .detail(.shareLink),
@@ -701,6 +729,7 @@ final class KastanAppTests: XCTestCase {
             isPerformingExport: false,
             permanentLink: URL(string: "https://idos.cz/"),
             copyToClipboard: {},
+            sendByEmail: {},
             addToCalendar: {},
             saveAsPDF: {},
             openInIDOS: {}
@@ -1510,6 +1539,7 @@ final class KastanAppTests: XCTestCase {
             openConnection: {},
             openService: { _ in },
             copyToClipboard: {},
+            sendByEmail: {},
             addToCalendar: {},
             saveAsPDF: {}
         )
@@ -2855,6 +2885,63 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(message.contains("The connection was reset."))
         XCTAssertTrue(AppLocalization.string("Connection %lld", 3).contains("3"))
     }
+
+    func testConnectionEmailLoadsIDOSDraftAndSendsNormalizedRecipients() async {
+        let client = MockIDOSClient()
+        let timetable = IDOSTimetable(slug: "vlaky", displayName: "Trains")
+        let model = ConnectionEmailViewModel(
+            connection: connection(id: "connection-email"),
+            timetable: timetable,
+            client: client
+        )
+
+        await model.load()
+
+        XCTAssertEqual(model.message, "Prepared by IDOS")
+        XCTAssertEqual(model.draft?.attachmentFileNames, ["connection.pdf", "connection.ics"])
+        XCTAssertFalse(model.canSend)
+        model.recipient = " alice@example.com; bob@example.org "
+        XCTAssertTrue(model.canSend)
+
+        await model.send()
+
+        let recipient = await client.lastEmailRecipient
+        let message = await client.lastEmailMessage
+        let sentTimetable = await client.lastEmailTimetable
+        let language = await client.lastEmailLanguage
+        XCTAssertEqual(recipient, "alice@example.com, bob@example.org")
+        XCTAssertEqual(message, "Prepared by IDOS")
+        XCTAssertEqual(sentTimetable, timetable)
+        XCTAssertEqual(language, AppLanguagePreference.idosLanguage)
+        XCTAssertEqual(model.sentRecipient, recipient)
+        XCTAssertFalse(model.canSend)
+    }
+
+    func testConnectionEmailRejectsInvalidAddressesAndOversizedInput() async {
+        let model = ConnectionEmailViewModel(
+            connection: connection(id: "connection-email-validation"),
+            timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
+            client: MockIDOSClient()
+        )
+        await model.load()
+
+        model.recipient = "not-an-email"
+        XCTAssertTrue(model.recipientHasInvalidAddress)
+        XCTAssertFalse(model.canSend)
+
+        model.recipient = String(repeating: "a", count: ConnectionEmailViewModel.maximumRecipientLength + 1)
+        XCTAssertTrue(model.recipientIsTooLong)
+        XCTAssertFalse(model.canSend)
+
+        model.recipient = "passenger@example.com"
+        model.message = String(repeating: "x", count: ConnectionEmailViewModel.maximumMessageLength + 1)
+        XCTAssertTrue(model.messageIsTooLong)
+        XCTAssertFalse(model.canSend)
+
+        model.message = String(repeating: "😀", count: ConnectionEmailViewModel.maximumMessageLength / 2 + 1)
+        XCTAssertTrue(model.messageIsTooLong)
+        XCTAssertFalse(model.canSend)
+    }
 }
 
 private func connection(id: String, duration: String = "2 h 30 min") -> IDOSConnection {
@@ -2885,6 +2972,7 @@ private func connectionCardOpenCount(afterDoubleClickAt location: NSPoint) -> In
         openConnection: { openCount += 1 },
         openService: { _ in },
         copyToClipboard: {},
+        sendByEmail: {},
         addToCalendar: {},
         saveAsPDF: {}
     )
@@ -3052,6 +3140,10 @@ private actor MockIDOSClient: IDOSClienting {
     var lastServicePDFLanguage: IDOSLanguage?
     var lastStationTimetableRequest: IDOSStationTimetableRequest?
     var lastStationTimetableLanguage: IDOSLanguage?
+    var lastEmailRecipient: String?
+    var lastEmailMessage: String?
+    var lastEmailTimetable: IDOSTimetable?
+    var lastEmailLanguage: IDOSLanguage?
     var connectionPageDirections: [IDOSPageDirection] = []
     var departurePageDirections: [IDOSPageDirection] = []
     var connectionSearchCount = 0
@@ -3194,6 +3286,33 @@ private actor MockIDOSClient: IDOSClienting {
 
     func connectionCalendar(for connection: IDOSConnection, timetable: IDOSTimetable) async throws -> String {
         "BEGIN:VCALENDAR\nEND:VCALENDAR"
+    }
+
+    func connectionEmailDraft(
+        for connection: IDOSConnection,
+        timetable: IDOSTimetable,
+        language: IDOSLanguage
+    ) async throws -> IDOSConnectionEmailDraft {
+        lastEmailTimetable = timetable
+        lastEmailLanguage = language
+        return IDOSConnectionEmailDraft(
+            message: "Prepared by IDOS",
+            description: "Connection detail",
+            attachmentFileNames: ["connection.pdf", "connection.ics"]
+        )
+    }
+
+    func sendConnectionByEmail(
+        _ connection: IDOSConnection,
+        to recipient: String,
+        message: String,
+        timetable: IDOSTimetable,
+        language: IDOSLanguage
+    ) async throws {
+        lastEmailRecipient = recipient
+        lastEmailMessage = message
+        lastEmailTimetable = timetable
+        lastEmailLanguage = language
     }
 
     func connectionCalendar(

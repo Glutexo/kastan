@@ -112,7 +112,7 @@ The main public types are:
 - Client and errors: `IDOSClient`, `IDOSClienting`, and `IDOSError`.
 - Requests and timetables: `IDOSConnectionRequest`, `IDOSDeparturesRequest`, `IDOSStationTimetableRequest`,
   `IDOSPlaceSelection`, `IDOSTimetable`, and `IDOSTimetableValidity`.
-- Results: `IDOSSuggestion`, `IDOSConnection`, `IDOSConnectionLeg`, `IDOSDeparture`, `IDOSServiceDetail`,
+- Results: `IDOSSuggestion`, `IDOSConnection`, `IDOSConnectionEmailDraft`, `IDOSConnectionLeg`, `IDOSDeparture`, `IDOSServiceDetail`,
   `IDOSServiceInformation`, `IDOSServiceStop`, `IDOSStationTimetable`, `IDOSStationTimetableStop`,
   `IDOSStationTimetableSchedule`, `IDOSStationTimetableHour`, and `IDOSTransportMode`.
 - Personal aliases: `StopAlias`, `StopAliasDatabase`, `StopAliasFile`, and `StopAliasError`.
@@ -142,6 +142,32 @@ resolve a dated service's permanent result link and return the corresponding nat
 exports accept an explicit language for their human-readable text; calendar calls without one retain the historical
 English default for source compatibility.
 `timetableValidity` returns the inclusive first and last dates published by the selected IDOS timetable.
+
+`connectionEmailDraft` loads IDOS's localized default message and the PDF and calendar attachment names for one
+connection result. After an application has collected one or more recipient addresses and received explicit user
+confirmation, `sendConnectionByEmail` asks IDOS to generate and deliver those attachments:
+
+```swift
+let draft = try await client.connectionEmailDraft(
+    for: connections[0],
+    timetable: timetable,
+    language: .czech
+)
+
+// Call only after the user confirms both the recipients and editable message.
+try await client.sendConnectionByEmail(
+    connections[0],
+    to: "passenger@example.com",
+    message: draft.message,
+    timetable: timetable,
+    language: .czech
+)
+```
+
+The recipient string may contain comma- or semicolon-separated addresses accepted by IDOS. The library sends that
+string and the message directly to IDOS and does not persist either value. Email preparation requires the opaque
+sharing data carried by a connection returned from an IDOS search; clients that construct or decode a connection
+without that transient data receive `IDOSError.emailUnavailable`.
 
 `searchStationTimetableLines` returns the terminal pair for every matching MHD line direction.
 `searchStationTimetableStops` limits suggestions to one selected line, and `findStationTimetable` returns the

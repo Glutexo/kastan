@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(CoreFoundation)
+import CoreFoundation
+#endif
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
@@ -104,6 +107,20 @@ public protocol IDOSClienting: Sendable {
         from page: IDOSConnectionPage,
         direction: IDOSPageDirection
     ) async throws -> IDOSConnectionPage
+    /// Loads IDOS's localized message and attachment names before a connection email is sent.
+    func connectionEmailDraft(
+        for connection: IDOSConnection,
+        timetable: IDOSTimetable,
+        language: IDOSLanguage
+    ) async throws -> IDOSConnectionEmailDraft
+    /// Sends one connection as IDOS-generated PDF and calendar attachments to confirmed recipients.
+    func sendConnectionByEmail(
+        _ connection: IDOSConnection,
+        to recipient: String,
+        message: String,
+        timetable: IDOSTimetable,
+        language: IDOSLanguage
+    ) async throws
     /// Loads IDOS's native calendar export using the historical English default.
     func connectionCalendar(for connection: IDOSConnection, timetable: IDOSTimetable) async throws -> String
     /// Loads IDOS's native calendar export in the selected language.
@@ -153,6 +170,26 @@ public extension IDOSClienting {
         direction: IDOSPageDirection
     ) async throws -> IDOSConnectionPage {
         IDOSConnectionPage(connections: [])
+    }
+
+    /// Preserves compatibility for custom clients that do not provide connection email delivery yet.
+    func connectionEmailDraft(
+        for connection: IDOSConnection,
+        timetable: IDOSTimetable,
+        language: IDOSLanguage
+    ) async throws -> IDOSConnectionEmailDraft {
+        throw IDOSError.emailUnavailable
+    }
+
+    /// Preserves compatibility for custom clients that do not provide connection email delivery yet.
+    func sendConnectionByEmail(
+        _ connection: IDOSConnection,
+        to recipient: String,
+        message: String,
+        timetable: IDOSTimetable,
+        language: IDOSLanguage
+    ) async throws {
+        throw IDOSError.emailUnavailable
     }
 
     /// Adapts clients without paging support to the first twenty station-board entries.
@@ -535,6 +572,115 @@ public struct IDOSClient: IDOSClienting {
         return IDOSConnectionPage(connections: connections, pagingContext: updatedPaging)
     }
 
+    /// Loads the wording and attachment names IDOS will use for one connection email.
+    public func connectionEmailDraft(
+        for connection: IDOSConnection,
+        timetable: IDOSTimetable = .defaultTimetable,
+        language: IDOSLanguage = .english
+    ) async throws -> IDOSConnectionEmailDraft {
+        let body = try connectionEmailFormData(
+            for: connection,
+            rootName: "pdfModel"
+        )
+        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        components.path = language.path(timetable: timetable, endpoint: "Ajax/GetShareLabels")
+
+        var urlRequest = URLRequest(url: try components.requiredURL)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = body
+
+        let data = try await data(for: urlRequest)
+        return try Self.connectionEmailDraft(from: data)
+    }
+
+    /// Validates and maps the small JSON document returned while IDOS prepares email attachments.
+    static func connectionEmailDraft(from data: Data) throws -> IDOSConnectionEmailDraft {
+        guard let response = try? JSONDecoder().decode(IDOSShareLabelsResponse.self, from: data),
+              response.error?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false,
+              let pdfFileName = response.filename?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !pdfFileName.isEmpty
+        else {
+            throw IDOSError.emailUnavailable
+        }
+
+        let calendarFileName = response.filename2?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return IDOSConnectionEmailDraft(
+            message: response.message ?? "",
+            description: response.description ?? "",
+            attachmentFileNames: [pdfFileName, calendarFileName]
+                .compactMap { $0 }
+                .filter { !$0.isEmpty }
+        )
+    }
+
+    /// Asks IDOS to deliver one connection as the same PDF and calendar attachments as its website.
+    public func sendConnectionByEmail(
+        _ connection: IDOSConnection,
+        to recipient: String,
+        message: String,
+        timetable: IDOSTimetable = .defaultTimetable,
+        language: IDOSLanguage = .english
+    ) async throws {
+        let recipient = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !recipient.isEmpty else {
+            throw IDOSError.emailSendingFailed("Enter an email address.")
+        }
+
+        let body = try connectionEmailFormData(
+            for: connection,
+            rootName: "model",
+            additionalValues: [
+                "emailAdress": recipient,
+                "message": message,
+            ]
+        )
+        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        components.path = language.path(timetable: timetable, endpoint: "Ajax/SendPdfByEmail")
+
+        var urlRequest = URLRequest(url: try components.requiredURL)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = body
+
+        let data = try await data(for: urlRequest)
+        try Self.validateConnectionEmailDelivery(from: data)
+    }
+
+    /// Converts IDOS's delivery result into either success or a user-facing delivery error.
+    static func validateConnectionEmailDelivery(from data: Data) throws {
+        guard let response = try? JSONDecoder().decode(IDOSEmailSendResponse.self, from: data),
+              let errors = response.errors
+        else {
+            throw IDOSError.invalidResponse
+        }
+        guard errors.isEmpty else {
+            throw IDOSError.emailSendingFailed(errors.joined(separator: " "))
+        }
+    }
+
+    /// Reuses the opaque sharing model parsed from the selected result without exposing IDOS internals publicly.
+    private func connectionEmailFormData(
+        for connection: IDOSConnection,
+        rootName: String,
+        additionalValues: [String: String] = [:]
+    ) throws -> Data {
+        guard let model = connection.pdfModel,
+              let source = model.data(using: .utf8),
+              var object = try? JSONSerialization.jsonObject(with: source) as? [String: Any]
+        else {
+            throw IDOSError.emailUnavailable
+        }
+
+        for (key, value) in additionalValues {
+            object[key] = value
+        }
+        guard let data = IDOSFormEncoding.nestedData(rootName: rootName, value: object) else {
+            throw IDOSError.emailUnavailable
+        }
+        return data
+    }
+
     /// Loads IDOS's native calendar export using the historical English default.
     public func connectionCalendar(
         for connection: IDOSConnection,
@@ -838,17 +984,7 @@ public struct IDOSClient: IDOSClienting {
     }
 
     private static func formURLEncodedData(_ items: [URLQueryItem]) -> Data? {
-        items.map { item in
-            "\(formEncode(item.name))=\(formEncode(item.value ?? ""))"
-        }
-        .joined(separator: "&")
-        .data(using: .utf8)
-    }
-
-    private static func formEncode(_ value: String) -> String {
-        var allowed = CharacterSet.alphanumerics
-        allowed.insert(charactersIn: "-._~")
-        return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
+        IDOSFormEncoding.data(items)
     }
 }
 
@@ -1514,6 +1650,23 @@ public struct IDOSSuggestion: Codable, Equatable, Sendable {
     }
 }
 
+/// Describes the editable message and generated attachments IDOS will send for one connection.
+public struct IDOSConnectionEmailDraft: Codable, Equatable, Sendable {
+    public var message: String
+    public var description: String
+    public var attachmentFileNames: [String]
+
+    public init(
+        message: String,
+        description: String,
+        attachmentFileNames: [String]
+    ) {
+        self.message = message
+        self.description = description
+        self.attachmentFileNames = attachmentFileNames
+    }
+}
+
 public struct IDOSConnection: Codable, Equatable, Sendable {
     public var id: String
     public var departureTime: String
@@ -1966,12 +2119,28 @@ public enum IDOSTransportMode: String, Codable, Equatable, Sendable {
     }
 }
 
+/// Mirrors the small JSON document returned while IDOS prepares its email attachments.
+private struct IDOSShareLabelsResponse: Decodable {
+    let filename: String?
+    let filename2: String?
+    let message: String?
+    let description: String?
+    let error: String?
+}
+
+/// Mirrors the delivery result returned by IDOS after an explicit send request.
+private struct IDOSEmailSendResponse: Decodable {
+    let errors: [String]?
+}
+
 public enum IDOSError: LocalizedError, Sendable {
     case invalidResponse
     case invalidURL
     case invalidJSONP
     case invalidTimetable(String)
     case networkUnavailable(String)
+    case emailUnavailable
+    case emailSendingFailed(String)
     case calendarUnavailable
     case pdfUnavailable
     case stationTimetableUnavailable
@@ -1995,6 +2164,13 @@ public enum IDOSError: LocalizedError, Sendable {
             }
 
             return "Network request failed. Check your internet connection. \(detail)"
+        case .emailUnavailable:
+            return "IDOS did not provide email data for this connection."
+        case .emailSendingFailed(let detail):
+            let detail = detail.trimmingCharacters(in: .whitespacesAndNewlines)
+            return detail.isEmpty
+                ? "IDOS could not send the connection by email."
+                : "IDOS could not send the connection by email. \(detail)"
         case .calendarUnavailable:
             return "IDOS did not provide calendar export data for this connection."
         case .pdfUnavailable:
@@ -2009,6 +2185,57 @@ public enum IDOSError: LocalizedError, Sendable {
                 ? "IDOS could not load this service detail."
                 : "IDOS could not load this service detail. \(detail)"
         }
+    }
+}
+
+/// Encodes nested IDOS sharing models with the bracketed field names used by its website.
+enum IDOSFormEncoding {
+    static func nestedData(rootName: String, value: Any) -> Data? {
+        var items: [URLQueryItem] = []
+        append(value, name: rootName, to: &items)
+        return data(items)
+    }
+
+    static func data(_ items: [URLQueryItem]) -> Data? {
+        items.map { item in
+            "\(encode(item.name))=\(encode(item.value ?? ""))"
+        }
+        .joined(separator: "&")
+        .data(using: .utf8)
+    }
+
+    private static func append(_ value: Any, name: String, to items: inout [URLQueryItem]) {
+        if let dictionary = value as? [String: Any] {
+            for key in dictionary.keys.sorted() {
+                guard let child = dictionary[key] else { continue }
+                append(child, name: "\(name)[\(key)]", to: &items)
+            }
+        } else if let array = value as? [Any] {
+            for (index, child) in array.enumerated() {
+                append(child, name: "\(name)[\(index)]", to: &items)
+            }
+        } else if value is NSNull {
+            items.append(URLQueryItem(name: name, value: ""))
+        } else if let string = value as? String {
+            items.append(URLQueryItem(name: name, value: string))
+        } else if let number = value as? NSNumber {
+            items.append(URLQueryItem(name: name, value: scalarString(from: number)))
+        }
+    }
+
+    private static func scalarString(from number: NSNumber) -> String {
+        #if canImport(CoreFoundation)
+        if CFGetTypeID(number) == CFBooleanGetTypeID() {
+            return number.boolValue ? "true" : "false"
+        }
+        #endif
+        return number.stringValue
+    }
+
+    private static func encode(_ value: String) -> String {
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "-._~")
+        return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
     }
 }
 

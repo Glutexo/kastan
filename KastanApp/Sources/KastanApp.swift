@@ -261,6 +261,7 @@ struct AppHelpCommands: Commands {
 /// Defines the result-detail actions shared by the active window's toolbar and the File menu.
 enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
     case copyToClipboard
+    case sendByEmail
     case addToCalendar
     case saveAsPDF
     case shareLink
@@ -272,6 +273,8 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
         switch self {
         case .copyToClipboard:
             "Copy to Clipboard"
+        case .sendByEmail:
+            "Send by Email"
         case .addToCalendar:
             "Add to Calendar"
         case .saveAsPDF:
@@ -287,6 +290,8 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
         switch self {
         case .copyToClipboard:
             "doc.on.doc"
+        case .sendByEmail:
+            "envelope"
         case .addToCalendar:
             "calendar.badge.plus"
         case .saveAsPDF:
@@ -298,8 +303,21 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
         }
     }
 
-    static func availableActions(hasPermanentLink: Bool) -> [Self] {
-        hasPermanentLink ? allCases : [.copyToClipboard, .addToCalendar, .saveAsPDF]
+    /// Filters link-backed actions for the selected result while keeping email connection-specific.
+    static func availableActions(
+        hasPermanentLink: Bool,
+        canSendByEmail: Bool
+    ) -> [Self] {
+        allCases.filter { action in
+            switch action {
+            case .copyToClipboard, .addToCalendar, .saveAsPDF:
+                true
+            case .sendByEmail:
+                hasPermanentLink && canSendByEmail
+            case .shareLink, .openInIDOS:
+                hasPermanentLink
+            }
+        }
     }
 }
 
@@ -309,9 +327,30 @@ struct ResultDetailCommandContext {
     let isPerformingExport: Bool
     let permanentLink: URL?
     let copyToClipboard: () -> Void
+    let sendByEmail: (() -> Void)?
     let addToCalendar: () -> Void
     let saveAsPDF: () -> Void
     let openInIDOS: () -> Void
+
+    init(
+        hasLoadedResult: Bool,
+        isPerformingExport: Bool,
+        permanentLink: URL?,
+        copyToClipboard: @escaping () -> Void,
+        sendByEmail: (() -> Void)? = nil,
+        addToCalendar: @escaping () -> Void,
+        saveAsPDF: @escaping () -> Void,
+        openInIDOS: @escaping () -> Void
+    ) {
+        self.hasLoadedResult = hasLoadedResult
+        self.isPerformingExport = isPerformingExport
+        self.permanentLink = permanentLink
+        self.copyToClipboard = copyToClipboard
+        self.sendByEmail = sendByEmail
+        self.addToCalendar = addToCalendar
+        self.saveAsPDF = saveAsPDF
+        self.openInIDOS = openInIDOS
+    }
 
     func isEnabled(_ action: ResultDetailAction) -> Bool {
         guard !isPerformingExport else { return false }
@@ -319,6 +358,8 @@ struct ResultDetailCommandContext {
         switch action {
         case .copyToClipboard, .addToCalendar, .saveAsPDF:
             return hasLoadedResult
+        case .sendByEmail:
+            return hasLoadedResult && permanentLink != nil && sendByEmail != nil
         case .shareLink, .openInIDOS:
             return permanentLink != nil
         }
@@ -344,6 +385,9 @@ struct ResultDetailCommands: Commands {
         CommandGroup(after: .importExport) {
             actionButton(.copyToClipboard) {
                 context?.copyToClipboard()
+            }
+            actionButton(.sendByEmail) {
+                context?.sendByEmail?()
             }
             actionButton(.addToCalendar) {
                 context?.addToCalendar()

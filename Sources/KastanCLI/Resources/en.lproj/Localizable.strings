@@ -34,6 +34,9 @@
 "error.idosInvalidTimetable" = "Invalid timetable: {0}. Use an alias or a URL slug without slashes.";
 "error.networkUnavailable" = "Network request failed. Check your internet connection.";
 "error.networkUnavailableWithDetail" = "Network request failed. Check your internet connection. {0}";
+"error.emailUnavailable" = "IDOS did not provide email data for this connection.";
+"error.emailSendingFailed" = "IDOS could not send the connection by email.";
+"error.emailSendingFailedWithDetail" = "IDOS could not send the connection by email. {0}";
 "error.calendarUnavailable" = "IDOS did not provide calendar export data for this connection.";
 "error.pdfUnavailable" = "IDOS did not provide PDF export data for this connection.";
 "error.invalidServiceIdentifier" = "Invalid service ID: {0}. Copy the complete ID from verbose connection or departure output.";

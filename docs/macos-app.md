@@ -66,7 +66,7 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   results and removes duplicate rows. If connection paging fails after its IDOS session expires, the error banner
   can repeat the unchanged search, replace the stale list with progress, and establish a fresh paging session.
 - Native tabs and windows, including independent favorite-timetable, complete-connection, and resizable
-  service-route windows. A connection opened in its own window presents its copy, export, and sharing actions as
+  service-route windows. A connection opened in its own window presents its copy, email, export, and sharing actions as
   individually visible controls in the native toolbar instead of repeating the result-card action menu, and
   each of its services can still open a separate complete route. The active connection or service detail repeats
   every toolbar action in the File menu, with all commands disabled while an export is running and link commands
@@ -77,13 +77,18 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   text follows the app language and the CLI's default human-readable layout, including its semantic emoji and the
   complete route for a service, while omitting terminal-only ANSI color and emphasis codes. Copy remains available
   when IDOS does not supply a permanent result link.
+- Connection cards and complete connections offer Send by Email when IDOS supplies the data needed for that result.
+  The confirmation sheet loads IDOS's localized default message and generated PDF and calendar attachment names,
+  accepts one or more recipient addresses separated by commas or semicolons, and lets the user edit the message before
+  sending. Kaštan sends the address list and message to IDOS only after explicit confirmation and does not retain them
+  after the sheet closes. IDOS generates and delivers the attachments; delivery errors stay in the sheet for retry.
 - Connection cards use semantic emoji to mark direct journeys and every connection tied for the shortest displayed
   duration. Badge text never wraps or forces the connection time and duration onto extra lines: each badge collapses
   to its semantic emoji when the complete localized title does not fit, and hovering that compact badge reveals the
   title. Cards also retain line colors, transport symbols, platforms, tariff zones, carriers, and localized Czech or
   English IDOS states for on-time or delayed arrivals and departures. Right-clicking anywhere on a connection card
   opens the same complete action menu as its ellipsis button, with Open connection in new window ahead of copy,
-  calendar, PDF, sharing, and IDOS actions. Right-clicking a particular service row stays scoped to that service and
+  email, calendar, PDF, sharing, and IDOS actions. Right-clicking a particular service row stays scoped to that service and
   offers its own preview and new-window actions followed by copy, calendar, PDF, sharing, and IDOS actions rather
   than falling through to the enclosing connection. All five detail actions are selectable on the first menu opening;
   the chosen action loads the complete service data only when needed and then continues automatically. The same

@@ -1644,6 +1644,74 @@ import Testing
     #expect(pdfConnectionData["permanentUrl"] == nil)
 }
 
+@Test func nestedFormEncodingMatchesIDOSSharingFields() throws {
+    let model: [String: Any] = [
+        "context": 2,
+        "jsConnData": [
+            "active": true,
+            "connData": [["connId": 123, "priceOffer": NSNull()]],
+            "searchItem": ["name": "Praha hl.n."],
+        ],
+    ]
+
+    let data = try #require(IDOSFormEncoding.nestedData(rootName: "pdfModel", value: model))
+    let value = try #require(String(data: data, encoding: .utf8))
+
+    #expect(value == [
+        "pdfModel%5Bcontext%5D=2",
+        "pdfModel%5BjsConnData%5D%5Bactive%5D=true",
+        "pdfModel%5BjsConnData%5D%5BconnData%5D%5B0%5D%5BconnId%5D=123",
+        "pdfModel%5BjsConnData%5D%5BconnData%5D%5B0%5D%5BpriceOffer%5D=",
+        "pdfModel%5BjsConnData%5D%5BsearchItem%5D%5Bname%5D=Praha%20hl.n.",
+    ].joined(separator: "&"))
+}
+
+@Test func connectionEmailDraftReadsIDOSMessageAndAttachmentNames() throws {
+    let data = Data(
+        #"{"filename":"connection.pdf","filename2":"connection.ics","message":"Prepared by IDOS","description":"Connection detail","error":null}"#.utf8
+    )
+
+    let draft = try IDOSClient.connectionEmailDraft(from: data)
+
+    #expect(draft == IDOSConnectionEmailDraft(
+        message: "Prepared by IDOS",
+        description: "Connection detail",
+        attachmentFileNames: ["connection.pdf", "connection.ics"]
+    ))
+}
+
+@Test func connectionEmailDraftRejectsAnIDOSPreparationError() {
+    let data = Data(
+        #"{"filename":null,"filename2":null,"message":null,"description":null,"error":"Connection is unavailable."}"#.utf8
+    )
+
+    do {
+        _ = try IDOSClient.connectionEmailDraft(from: data)
+        Issue.record("Expected an unavailable email draft error.")
+    } catch IDOSError.emailUnavailable {
+        // The server's preparation error deliberately maps to the stable public capability error.
+    } catch {
+        Issue.record("Unexpected error: \(error).")
+    }
+}
+
+@Test func connectionEmailDeliveryValidatesIDOSResultErrors() throws {
+    try IDOSClient.validateConnectionEmailDelivery(
+        from: Data(#"{"errors":[],"showErrorModal":false}"#.utf8)
+    )
+
+    do {
+        try IDOSClient.validateConnectionEmailDelivery(
+            from: Data(#"{"errors":["Invalid recipient.","Try again."],"showErrorModal":false}"#.utf8)
+        )
+        Issue.record("Expected an email delivery error.")
+    } catch IDOSError.emailSendingFailed(let detail) {
+        #expect(detail == "Invalid recipient. Try again.")
+    } catch {
+        Issue.record("Unexpected error: \(error).")
+    }
+}
+
 @Test func connectionParserReadsPagingContextFromResultHtml() throws {
     let html = """
     <script>

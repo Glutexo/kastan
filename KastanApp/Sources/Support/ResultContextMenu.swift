@@ -37,10 +37,16 @@ enum ResultContextAction: Hashable, Identifiable {
         switch target {
         case .connection:
             navigation = [.openInNewWindow]
-            details = ResultDetailAction.availableActions(hasPermanentLink: hasPermanentLink)
+            details = ResultDetailAction.availableActions(
+                hasPermanentLink: hasPermanentLink,
+                canSendByEmail: true
+            )
         case .service:
             navigation = [.preview, .openInNewWindow]
-            details = ResultDetailAction.allCases
+            details = ResultDetailAction.availableActions(
+                hasPermanentLink: true,
+                canSendByEmail: false
+            )
         }
 
         return navigation + [.separator] + details.map(Self.detail)
@@ -73,6 +79,7 @@ struct ConnectionContextMenuContent: View {
     let isPerformingExport: Bool
     let openInNewWindow: () -> Void
     let copyToClipboard: () -> Void
+    let sendByEmail: () -> Void
     let addToCalendar: () -> Void
     let saveAsPDF: () -> Void
 
@@ -100,6 +107,11 @@ struct ConnectionContextMenuContent: View {
             Divider()
         case .detail(.copyToClipboard):
             Button(action: copyToClipboard) {
+                ResultContextActionLabel(action: action, target: .connection)
+            }
+            .disabled(isPerformingExport)
+        case .detail(.sendByEmail):
+            Button(action: sendByEmail) {
                 ResultContextActionLabel(action: action, target: .connection)
             }
             .disabled(isPerformingExport)
@@ -196,6 +208,8 @@ struct ServiceContextMenuContent: View {
                 ResultContextActionLabel(action: action, target: .service)
             }
             .disabled(detailActionsAreDisabled)
+        case .detail(.sendByEmail):
+            EmptyView()
         case .detail(.addToCalendar):
             Button {
                 Task { await model.addToCalendar() }
