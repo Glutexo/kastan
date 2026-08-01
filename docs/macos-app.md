@@ -59,7 +59,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   visible insets for their leading controls and trailing Search action, then collapse into low query summaries after
   submission with an explicit action for returning to the editable form. A main window without a saved size defaults
   to a compact 522-point width without moving the connection or station-board time mode below the date and time
-  controls or clipping fields and actions at the window edge. macOS restores the last user-selected size thereafter.
+  controls or clipping fields and actions at the window edge. macOS restores the last user-selected supported size
+  thereafter; a legacy saved width below 522 points expands to that minimum when its window opens.
 - Submitting changed connection criteria replaces the previous result list with a progress indicator until the
   fresh response arrives. Connection and station-board paging still extends results chronologically without
   replacement: pulling past the top loads earlier results, while pulling past the bottom loads the following

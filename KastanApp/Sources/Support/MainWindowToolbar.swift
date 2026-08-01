@@ -11,6 +11,21 @@ extension NSToolbarItem.Identifier {
     static let appInformation = NSToolbarItem.Identifier("cz.glutexo.kastan.app-information")
 }
 
+/// Keeps restored main windows inside the width supported by every editable search form.
+@MainActor
+enum MainWindowWidthPresentation {
+    static func apply(to window: NSWindow, minimumContentWidth: CGFloat) {
+        window.contentMinSize.width = max(window.contentMinSize.width, minimumContentWidth)
+
+        let contentSize = window.contentRect(forFrameRect: window.frame).size
+        guard contentSize.width < minimumContentWidth else { return }
+
+        let topLeft = NSPoint(x: window.frame.minX, y: window.frame.maxY)
+        window.setContentSize(NSSize(width: minimumContentWidth, height: contentSize.height))
+        window.setFrameTopLeftPoint(topLeft)
+    }
+}
+
 /// Installs one stable AppKit toolbar instead of relying on SwiftUI's transient toolbar-item identities.
 struct MainWindowToolbarInstaller: NSViewRepresentable {
     @Binding var selection: AppSection
@@ -108,6 +123,10 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
             window.titleVisibility = .hidden
             window.toolbarStyle = .unified
             window.toolbar = toolbar
+            MainWindowWidthPresentation.apply(
+                to: window,
+                minimumContentWidth: KastanApp.minimumMainWindowWidth
+            )
         }
 
         func uninstall() {

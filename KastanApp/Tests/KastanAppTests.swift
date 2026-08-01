@@ -1640,6 +1640,43 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(window.frameAutosaveName, savedFrameName)
     }
 
+    func testMainWindowToolbarExpandsUnsupportedSavedNarrowFrame() {
+        var selection = AppSection.connections
+        let coordinator = MainWindowToolbarInstaller.Coordinator(
+            selection: Binding(
+                get: { selection },
+                set: { selection = $0 }
+            ),
+            openFavoriteTimetables: {},
+            openAppInformation: {}
+        )
+        let window = NSWindow(
+            contentRect: NSRect(x: 120, y: 80, width: 390, height: 720),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        let openingTopLeft = NSPoint(x: window.frame.minX, y: window.frame.maxY)
+        let savedFrameName = "KastanAppTests-main-window-\(UUID().uuidString)"
+        XCTAssertTrue(window.setFrameAutosaveName(savedFrameName))
+        defer {
+            coordinator.uninstall()
+            NSWindow.removeFrame(usingName: savedFrameName)
+        }
+
+        coordinator.install(on: window)
+
+        XCTAssertEqual(
+            window.contentRect(forFrameRect: window.frame).width,
+            KastanApp.minimumMainWindowWidth,
+            accuracy: 0.5
+        )
+        XCTAssertEqual(window.contentMinSize.width, KastanApp.minimumMainWindowWidth)
+        XCTAssertEqual(window.frame.minX, openingTopLeft.x, accuracy: 0.5)
+        XCTAssertEqual(window.frame.maxY, openingTopLeft.y, accuracy: 0.5)
+        XCTAssertEqual(window.frameAutosaveName, savedFrameName)
+    }
+
     func testAppInformationToolbarTitleNamesItsContentWithoutAnActionVerb() throws {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
