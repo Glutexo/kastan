@@ -448,7 +448,9 @@ struct JourneyDateTimePicker: View {
 
                 GridRow {
                     Text("Time")
-                    JourneyTimeEditor(time: $time)
+                    DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
+                        .labelsHidden()
+                        .datePickerStyle(.stepperField)
                         .frame(width: Self.editorFieldWidth, alignment: .leading)
                 }
             }
@@ -468,55 +470,6 @@ struct JourneyDateTimePicker: View {
             }
         }
         .padding(16)
-    }
-}
-
-/// Retains precise text and stepper editing while offering a visual clock beside the time field.
-struct JourneyTimeEditor: View {
-    @Binding var time: Date
-    @State private var isGraphicalPickerPresented = false
-
-    var body: some View {
-        HStack(spacing: 4) {
-            DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
-                .labelsHidden()
-                .datePickerStyle(.stepperField)
-                .fixedSize(horizontal: true, vertical: false)
-
-            Button {
-                isGraphicalPickerPresented.toggle()
-            } label: {
-                Image(systemName: "clock")
-                    .frame(width: 20, height: 20)
-            }
-            .buttonStyle(.borderless)
-            .accessibilityLabel(Text("Show time picker"))
-            .help(Text("Show time picker"))
-            .popover(isPresented: $isGraphicalPickerPresented, arrowEdge: .bottom) {
-                JourneyGraphicalTimePicker(time: $time)
-            }
-        }
-        .fixedSize(horizontal: true, vertical: false)
-    }
-}
-
-/// Presents AppKit's clock-style time selection as the time counterpart to the date calendar.
-struct JourneyGraphicalTimePicker: View {
-    static let controlSize: CGFloat = 180
-
-    @Binding var time: Date
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Time")
-                .font(.headline)
-
-            DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
-                .labelsHidden()
-                .datePickerStyle(.graphical)
-                .frame(width: Self.controlSize, height: Self.controlSize)
-        }
-        .padding(12)
     }
 }
 

@@ -1798,46 +1798,6 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(JourneyDateTimePicker.editorFieldWidth, 180)
     }
 
-    func testSearchTimeRetainsStepperEditingAndOffersNativeGraphicalClock() throws {
-        let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
-        let field = NSHostingView(rootView: JourneyTimeEditor(time: .constant(fixedDate)))
-        field.frame = NSRect(x: 0, y: 0, width: 180, height: 30)
-        field.layoutSubtreeIfNeeded()
-
-        let stepper = try XCTUnwrap(
-            field.allDescendantViews.compactMap { $0 as? NSDatePicker }.first
-        )
-        XCTAssertEqual(stepper.datePickerStyle, .textFieldAndStepper)
-        XCTAssertTrue(stepper.datePickerElements.contains(.hourMinute))
-
-        let graphical = NSHostingView(
-            rootView: JourneyGraphicalTimePicker(time: .constant(fixedDate))
-        )
-        graphical.frame = NSRect(x: 0, y: 0, width: 220, height: 240)
-        graphical.layoutSubtreeIfNeeded()
-
-        let clock = try XCTUnwrap(
-            graphical.allDescendantViews.compactMap { $0 as? NSDatePicker }.first
-        )
-        XCTAssertEqual(clock.datePickerStyle, .clockAndCalendar)
-        XCTAssertTrue(clock.datePickerElements.contains(.hourMinute))
-        XCTAssertEqual(JourneyGraphicalTimePicker.controlSize, 180)
-    }
-
-    func testSearchTimePickerActionIsLocalized() throws {
-        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
-        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
-
-        XCTAssertEqual(
-            czech.localizedString(forKey: "Show time picker", value: nil, table: nil),
-            "Zobrazit výběr času"
-        )
-        XCTAssertEqual(
-            english.localizedString(forKey: "Show time picker", value: nil, table: nil),
-            "Show time picker"
-        )
-    }
-
     func testSearchFieldShortcutDoesNotResizeItsHeader() {
         let hiddenHeader = NSHostingView(rootView: SearchFieldHeader(
             title: "Time",
