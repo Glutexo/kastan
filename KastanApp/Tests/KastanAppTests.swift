@@ -708,6 +708,8 @@ final class KastanAppTests: XCTestCase {
     func testOptionChangesAddToCalendarToICSDownload() {
         XCTAssertTrue(CalendarExportButtonPlacement.menu.usesNativeAlternateWhenAvailable)
         XCTAssertFalse(CalendarExportButtonPlacement.toolbar.usesNativeAlternateWhenAvailable)
+        XCTAssertFalse(CalendarExportButtonPlacement.menu.reservesAlternateLabelWidth)
+        XCTAssertTrue(CalendarExportButtonPlacement.toolbar.reservesAlternateLabelWidth)
         XCTAssertEqual(CalendarExportAction.preferred(for: []), .addToCalendar)
         XCTAssertEqual(CalendarExportAction.preferred(for: [.command]), .addToCalendar)
         XCTAssertEqual(CalendarExportAction.preferred(for: [.option]), .download)
@@ -721,6 +723,29 @@ final class KastanAppTests: XCTestCase {
             ResultDetailAction.addToCalendar.systemImage(for: .download),
             CalendarExportAction.download.systemImage
         )
+    }
+
+    func testCalendarToolbarKeepsItsWidthWhenOptionChangesAction() {
+        let addToCalendar = NSHostingView(
+            rootView: CalendarExportButtonLabel(
+                presentedAction: .addToCalendar,
+                reservesAlternateWidth: true
+            ) { action in
+                Label(action.title, systemImage: action.systemImage)
+                    .labelStyle(.iconOnly)
+            }
+        )
+        let download = NSHostingView(
+            rootView: CalendarExportButtonLabel(
+                presentedAction: .download,
+                reservesAlternateWidth: true
+            ) { action in
+                Label(action.title, systemImage: action.systemImage)
+                    .labelStyle(.iconOnly)
+            }
+        )
+
+        XCTAssertEqual(addToCalendar.fittingSize, download.fittingSize)
     }
 
     func testResultContextMenusKeepConnectionAndServiceActionsDistinct() throws {

@@ -40,6 +40,35 @@ enum CalendarExportButtonPlacement: Equatable {
     var usesNativeAlternateWhenAvailable: Bool {
         self == .menu
     }
+
+    /// A single toolbar item keeps the wider of both symbols so neighboring actions remain stationary.
+    var reservesAlternateLabelWidth: Bool {
+        self == .toolbar
+    }
+}
+
+/// Keeps a live toolbar action as wide as either of its calendar presentations without fixed pixel sizing.
+struct CalendarExportButtonLabel<Label: View>: View {
+    let presentedAction: CalendarExportAction
+    let reservesAlternateWidth: Bool
+    let label: (CalendarExportAction) -> Label
+
+    @ViewBuilder
+    var body: some View {
+        if reservesAlternateWidth {
+            ZStack {
+                label(.addToCalendar)
+                    .hidden()
+                    .accessibilityHidden(true)
+                label(.download)
+                    .hidden()
+                    .accessibilityHidden(true)
+                label(presentedAction)
+            }
+        } else {
+            label(presentedAction)
+        }
+    }
 }
 
 /// Presents Add to Calendar as the primary action and Download ICS File while Option is held.
@@ -81,7 +110,7 @@ struct CalendarExportButton<Label: View>: View {
         Button {
             perform(action)
         } label: {
-            label(action)
+            presentedLabel(for: action)
         }
         .accessibilityLabel(action.title)
         .help(action.title)
@@ -92,10 +121,18 @@ struct CalendarExportButton<Label: View>: View {
         Button {
             perform(CalendarExportAction.preferred(for: NSEvent.modifierFlags))
         } label: {
-            label(presentedAction)
+            presentedLabel(for: presentedAction)
         }
         .accessibilityLabel(presentedAction.title)
         .help(presentedAction.title)
+    }
+
+    private func presentedLabel(for action: CalendarExportAction) -> some View {
+        CalendarExportButtonLabel(
+            presentedAction: action,
+            reservesAlternateWidth: placement.reservesAlternateLabelWidth,
+            label: label
+        )
     }
 }
 
