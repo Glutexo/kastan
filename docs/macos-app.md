@@ -84,10 +84,11 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Connection cards and complete connections offer Send by Email when IDOS supplies the data needed for that result.
   The confirmation sheet loads IDOS's localized default message and generated PDF and calendar attachment names,
   extends its IDOS website attribution with Kaštan's GitHub project URL, and keeps the complete message editable. Each
-  attachment opens independently in the default macOS application when selected, without sending the email. The sheet
-  accepts one or more recipient addresses separated by commas or semicolons. Kaštan sends the address list and message
-  to IDOS only after explicit confirmation and does not retain them after the sheet closes. IDOS generates and delivers
-  the attachments; delivery and attachment-opening errors stay in the sheet for retry.
+  attachment opens independently in the default macOS application when selected, without sending the email. Holding
+  Option changes the attachment rows to Download; selecting one then saves it through the native macOS save panel
+  instead of opening it. The sheet accepts one or more recipient addresses separated by commas or semicolons. Kaštan
+  sends the address list and message to IDOS only after explicit confirmation and does not retain them after the sheet
+  closes. IDOS generates and delivers the attachments; delivery and attachment errors stay in the sheet for retry.
 - Connection cards use semantic emoji to mark direct journeys and every connection tied for the shortest displayed
   duration. Badge text never wraps or forces the connection time and duration onto extra lines: each badge collapses
   to its semantic emoji when the complete localized title does not fit, and hovering that compact badge reveals the
@@ -158,8 +159,8 @@ xcodebuild test \
 The app target is sandboxed and permits outgoing network connections for IDOS. Location access is requested only
 after the user clicks a Here shortcut or searches with the exact localized My location phrase. The first request
 opens the localized macOS permission prompt, and the decision can later be changed in System Settings. Calendar files
-are written to a temporary app directory before macOS opens them; PDF exports can be written only to a location
-explicitly selected by the user.
+are written to a temporary app directory before macOS opens them; PDF exports and downloaded email attachments can be
+written only to a location explicitly selected by the user.
 
 ## Data Source
 

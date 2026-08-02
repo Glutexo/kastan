@@ -3100,18 +3100,21 @@ final class KastanAppTests: XCTestCase {
     func testConnectionEmailAttachmentsOpenGeneratedPDFAndCalendarWithoutSending() async {
         let client = MockIDOSClient()
         let opener = RecordingConnectionEmailAttachmentOpener()
+        let saver = RecordingConnectionEmailAttachmentSaver()
         let model = ConnectionEmailViewModel(
             connection: connection(id: "connection-email-attachments"),
             timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
             client: client,
-            attachmentOpener: opener
+            attachmentOpener: opener,
+            attachmentSaver: saver
         )
         await model.load()
 
-        await model.openAttachment(named: "connection.pdf")
-        await model.openAttachment(named: "connection.ics")
+        await model.performAttachmentAction(named: "connection.pdf", action: .open)
+        await model.performAttachmentAction(named: "connection.ics", action: .open)
 
         XCTAssertEqual(opener.attachments.map(\.fileName), ["connection.pdf", "connection.ics"])
+        XCTAssertTrue(saver.attachments.isEmpty)
         XCTAssertEqual(String(data: opener.attachments[0].data, encoding: .utf8), "%PDF-1.4\nKaštan")
         XCTAssertEqual(
             String(data: opener.attachments[1].data, encoding: .utf8),
@@ -3123,7 +3126,54 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(pdfLanguage, AppLanguagePreference.idosLanguage)
         XCTAssertEqual(calendarLanguage, AppLanguagePreference.idosLanguage)
         XCTAssertNil(recipient)
-        XCTAssertNil(model.openingAttachmentFileName)
+        XCTAssertNil(model.processingAttachmentFileName)
+        XCTAssertNil(model.errorMessage)
+    }
+
+    func testOptionChangesConnectionEmailAttachmentOpeningToDownload() throws {
+        XCTAssertEqual(ConnectionEmailAttachmentAction.preferred(for: []), .open)
+        XCTAssertEqual(ConnectionEmailAttachmentAction.preferred(for: [.command]), .open)
+        XCTAssertEqual(ConnectionEmailAttachmentAction.preferred(for: [.option]), .download)
+        XCTAssertEqual(
+            ConnectionEmailAttachmentAction.preferred(for: [.option, .shift]),
+            .download
+        )
+        XCTAssertEqual(ConnectionEmailAttachmentAction.open.systemImage, "arrow.up.right")
+        XCTAssertEqual(ConnectionEmailAttachmentAction.download.systemImage, "arrow.down.to.line")
+
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Download attachment %@", value: nil, table: nil),
+            "Stáhnout přílohu %@"
+        )
+    }
+
+    func testConnectionEmailAttachmentsDownloadToSelectedDestinationWithoutOpeningOrSending() async {
+        let client = MockIDOSClient()
+        let opener = RecordingConnectionEmailAttachmentOpener()
+        let saver = RecordingConnectionEmailAttachmentSaver()
+        let model = ConnectionEmailViewModel(
+            connection: connection(id: "connection-email-downloads"),
+            timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
+            client: client,
+            attachmentOpener: opener,
+            attachmentSaver: saver
+        )
+        await model.load()
+
+        await model.performAttachmentAction(named: "connection.pdf", action: .download)
+        await model.performAttachmentAction(named: "connection.ics", action: .download)
+
+        XCTAssertTrue(opener.attachments.isEmpty)
+        XCTAssertEqual(saver.attachments.map(\.fileName), ["connection.pdf", "connection.ics"])
+        XCTAssertEqual(String(data: saver.attachments[0].data, encoding: .utf8), "%PDF-1.4\nKaštan")
+        XCTAssertEqual(
+            String(data: saver.attachments[1].data, encoding: .utf8),
+            "BEGIN:VCALENDAR\nEND:VCALENDAR"
+        )
+        let recipient = await client.lastEmailRecipient
+        XCTAssertNil(recipient)
+        XCTAssertNil(model.processingAttachmentFileName)
         XCTAssertNil(model.errorMessage)
     }
 
@@ -3315,6 +3365,20 @@ private final class RecordingConnectionEmailAttachmentOpener: ConnectionEmailAtt
     private(set) var attachments: [Attachment] = []
 
     func open(data: Data, fileName: String) throws {
+        attachments.append(Attachment(data: data, fileName: fileName))
+    }
+}
+
+@MainActor
+private final class RecordingConnectionEmailAttachmentSaver: ConnectionEmailAttachmentSaving {
+    struct Attachment {
+        let data: Data
+        let fileName: String
+    }
+
+    private(set) var attachments: [Attachment] = []
+
+    func save(data: Data, fileName: String) throws {
         attachments.append(Attachment(data: data, fileName: fileName))
     }
 }

@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import Kastan
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Opens one generated email attachment in the user's default macOS application.
 @MainActor
@@ -27,6 +28,42 @@ struct WorkspaceConnectionEmailAttachmentOpener: ConnectionEmailAttachmentOpenin
         guard NSWorkspace.shared.open(file) else {
             throw ConnectionEmailAttachmentOpenError.cannotOpen
         }
+    }
+}
+
+/// Saves one generated email attachment only to a location chosen through the native macOS panel.
+@MainActor
+protocol ConnectionEmailAttachmentSaving {
+    func save(data: Data, fileName: String) throws
+}
+
+/// Preserves the IDOS attachment name and type while letting the user select its permanent destination.
+@MainActor
+struct WorkspaceConnectionEmailAttachmentSaver: ConnectionEmailAttachmentSaving {
+    func save(data: Data, fileName: String) throws {
+        let safeFileName = ConnectionEmailAttachmentFileName.safeValue(fileName)
+        let panel = NSSavePanel()
+        if let contentType = UTType(
+            filenameExtension: URL(fileURLWithPath: safeFileName).pathExtension
+        ) {
+            panel.allowedContentTypes = [contentType]
+        }
+        panel.canCreateDirectories = true
+        panel.isExtensionHidden = false
+        panel.nameFieldStringValue = safeFileName
+        panel.title = AppLocalization.string("Download Attachment")
+
+        guard panel.runModal() == .OK, let destination = panel.url else {
+            return
+        }
+
+        let isSecurityScoped = destination.startAccessingSecurityScopedResource()
+        defer {
+            if isSecurityScoped {
+                destination.stopAccessingSecurityScopedResource()
+            }
+        }
+        try data.write(to: destination, options: .atomic)
     }
 }
 
@@ -72,6 +109,43 @@ private enum ConnectionEmailAttachmentKind {
     }
 }
 
+/// Selects the attachment behavior and matching presentation for the current keyboard modifiers.
+enum ConnectionEmailAttachmentAction: Equatable {
+    case open
+    case download
+
+    static func preferred(for modifierFlags: NSEvent.ModifierFlags) -> Self {
+        modifierFlags.contains(.option) ? .download : .open
+    }
+
+    var systemImage: String {
+        switch self {
+        case .open:
+            "arrow.up.right"
+        case .download:
+            "arrow.down.to.line"
+        }
+    }
+
+    func localizedLabel(fileName: String) -> String {
+        switch self {
+        case .open:
+            AppLocalization.string("Open attachment %@", fileName)
+        case .download:
+            AppLocalization.string("Download attachment %@", fileName)
+        }
+    }
+
+    var localizedHint: String {
+        switch self {
+        case .open:
+            AppLocalization.string("Opens in the default application")
+        case .download:
+            AppLocalization.string("Saves to a selected location")
+        }
+    }
+}
+
 /// Credits Kaštan in IDOS's editable website attribution while keeping both destinations visible as plain URLs.
 enum ConnectionEmailMessage {
     static let projectWebsite = URL(string: "https://github.com/Glutexo/kastan")!
@@ -103,7 +177,7 @@ final class ConnectionEmailViewModel: ObservableObject {
     @Published private(set) var draft: IDOSConnectionEmailDraft?
     @Published private(set) var isLoading = false
     @Published private(set) var isSending = false
-    @Published private(set) var openingAttachmentFileName: String?
+    @Published private(set) var processingAttachmentFileName: String?
     @Published private(set) var sentRecipient: String?
     @Published private(set) var errorMessage: String?
 
@@ -111,22 +185,25 @@ final class ConnectionEmailViewModel: ObservableObject {
     let timetable: IDOSTimetable
     private let client: any IDOSClienting
     private let attachmentOpener: any ConnectionEmailAttachmentOpening
+    private let attachmentSaver: any ConnectionEmailAttachmentSaving
 
     init(
         connection: IDOSConnection,
         timetable: IDOSTimetable,
         client: any IDOSClienting,
-        attachmentOpener: any ConnectionEmailAttachmentOpening = WorkspaceConnectionEmailAttachmentOpener()
+        attachmentOpener: any ConnectionEmailAttachmentOpening = WorkspaceConnectionEmailAttachmentOpener(),
+        attachmentSaver: any ConnectionEmailAttachmentSaving = WorkspaceConnectionEmailAttachmentSaver()
     ) {
         self.connection = connection
         self.timetable = timetable
         self.client = client
         self.attachmentOpener = attachmentOpener
+        self.attachmentSaver = attachmentSaver
     }
 
     var canSend: Bool {
         draft != nil && normalizedRecipient != nil && !messageIsTooLong &&
-            !isLoading && !isSending && openingAttachmentFileName == nil && sentRecipient == nil
+            !isLoading && !isSending && processingAttachmentFileName == nil && sentRecipient == nil
     }
 
     var recipientIsTooLong: Bool {
@@ -213,20 +290,23 @@ final class ConnectionEmailViewModel: ObservableObject {
         }
     }
 
-    /// Downloads the selected generated attachment without sending or retaining any email recipient data.
-    func openAttachment(named fileName: String) async {
+    /// Fetches and opens or permanently saves one attachment without sending or retaining recipient data.
+    func performAttachmentAction(
+        named fileName: String,
+        action: ConnectionEmailAttachmentAction
+    ) async {
         guard draft?.attachmentFileNames.contains(fileName) == true,
               let kind = ConnectionEmailAttachmentKind(fileName: fileName),
-              openingAttachmentFileName == nil,
+              processingAttachmentFileName == nil,
               !isLoading,
               !isSending
         else {
             return
         }
 
-        openingAttachmentFileName = fileName
+        processingAttachmentFileName = fileName
         errorMessage = nil
-        defer { openingAttachmentFileName = nil }
+        defer { processingAttachmentFileName = nil }
 
         do {
             let data: Data
@@ -247,14 +327,19 @@ final class ConnectionEmailViewModel: ObservableObject {
             }
 
             guard !Task.isCancelled else { return }
-            try attachmentOpener.open(data: data, fileName: fileName)
+            switch action {
+            case .open:
+                try attachmentOpener.open(data: data, fileName: fileName)
+            case .download:
+                try attachmentSaver.save(data: data, fileName: fileName)
+            }
         } catch {
             guard !Task.isCancelled else { return }
             errorMessage = AppErrorPresentation.message(for: error)
         }
     }
 
-    func canOpenAttachment(named fileName: String) -> Bool {
+    func canPerformAttachmentAction(named fileName: String) -> Bool {
         ConnectionEmailAttachmentKind(fileName: fileName) != nil
     }
 }
@@ -263,6 +348,7 @@ final class ConnectionEmailViewModel: ObservableObject {
 struct ConnectionEmailView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var model: ConnectionEmailViewModel
+    @State private var optionIsPressed = NSEvent.modifierFlags.contains(.option)
     @FocusState private var recipientIsFocused: Bool
 
     init(
@@ -299,7 +385,11 @@ struct ConnectionEmailView: View {
         }
         .padding(24)
         .frame(width: 520)
-        .interactiveDismissDisabled(model.isSending || model.openingAttachmentFileName != nil)
+        .background {
+            OptionModifierMonitor(isPressed: $optionIsPressed)
+                .frame(width: 0, height: 0)
+        }
+        .interactiveDismissDisabled(model.isSending || model.processingAttachmentFileName != nil)
         .task {
             await model.load()
             if model.draft != nil {
@@ -375,7 +465,7 @@ struct ConnectionEmailView: View {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
-                .disabled(model.isSending || model.openingAttachmentFileName != nil)
+                .disabled(model.isSending || model.processingAttachmentFileName != nil)
                 Button {
                     Task { await model.send() }
                 } label: {
@@ -433,12 +523,20 @@ struct ConnectionEmailView: View {
 
     @ViewBuilder
     private func attachmentControl(fileName: String) -> some View {
-        if model.canOpenAttachment(named: fileName) {
+        if model.canPerformAttachmentAction(named: fileName) {
+            let presentedAction = optionIsPressed
+                ? ConnectionEmailAttachmentAction.download
+                : .open
             Button {
-                Task { await model.openAttachment(named: fileName) }
+                let action = ConnectionEmailAttachmentAction.preferred(
+                    for: NSEvent.modifierFlags
+                )
+                Task {
+                    await model.performAttachmentAction(named: fileName, action: action)
+                }
             } label: {
                 HStack(spacing: 9) {
-                    if model.openingAttachmentFileName == fileName {
+                    if model.processingAttachmentFileName == fileName {
                         ProgressView()
                             .controlSize(.small)
                             .frame(width: 18)
@@ -451,7 +549,7 @@ struct ConnectionEmailView: View {
                         .lineLimit(1)
                         .truncationMode(.middle)
                     Spacer(minLength: 8)
-                    Image(systemName: "arrow.up.right")
+                    Image(systemName: presentedAction.systemImage)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -462,10 +560,10 @@ struct ConnectionEmailView: View {
                 .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 7))
             }
             .buttonStyle(.plain)
-            .disabled(model.openingAttachmentFileName != nil || model.isSending)
-            .help(AppLocalization.string("Open attachment %@", fileName))
-            .accessibilityLabel(AppLocalization.string("Open attachment %@", fileName))
-            .accessibilityHint("Opens in the default application")
+            .disabled(model.processingAttachmentFileName != nil || model.isSending)
+            .help(presentedAction.localizedLabel(fileName: fileName))
+            .accessibilityLabel(presentedAction.localizedLabel(fileName: fileName))
+            .accessibilityHint(presentedAction.localizedHint)
         } else {
             Label(fileName, systemImage: attachmentSymbol(for: fileName))
                 .foregroundStyle(.secondary)

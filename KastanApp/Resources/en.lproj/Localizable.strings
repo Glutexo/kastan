@@ -44,6 +44,8 @@
 "Direct connection" = "Direct";
 "Direct connections only" = "Direct connections only";
 "Direct only" = "Direct only";
+"Download Attachment" = "Download Attachment";
+"Download attachment %@" = "Download attachment %@";
 "Done" = "Done";
 "Does not run" = "Does not run";
 "Does not run %@" = "Does not run %@";
@@ -148,6 +150,7 @@
 "Runs on days %@ within the listed date range" = "Runs on days %@ within the listed date range";
 "Runs on working days except the listed dates" = "Runs on working days except the listed dates";
 "Runs throughout timetable validity except the listed dates" = "Runs throughout timetable validity except the listed dates";
+"Saves to a selected location" = "Saves to a selected location";
 "Route" = "Route";
 "Search" = "Search";
 "Search mode" = "Search mode";

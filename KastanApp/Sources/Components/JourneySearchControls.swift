@@ -450,7 +450,7 @@ struct SearchFieldHeader: View {
     }
 }
 
-/// Mirrors the live Option state into SwiftUI while the editable search form is visible.
+/// Mirrors the live Option state into SwiftUI for controls with modifier-dependent alternate actions.
 struct OptionModifierMonitor: NSViewRepresentable {
     @Binding var isPressed: Bool
 

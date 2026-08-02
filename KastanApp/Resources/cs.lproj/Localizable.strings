@@ -44,6 +44,8 @@
 "Direct connection" = "Přímý";
 "Direct connections only" = "Pouze přímá spojení";
 "Direct only" = "Jen přímé";
+"Download Attachment" = "Stáhnout přílohu";
+"Download attachment %@" = "Stáhnout přílohu %@";
 "Done" = "Hotovo";
 "Does not run" = "Nejede";
 "Does not run %@" = "Nejede %@";
@@ -148,6 +150,7 @@
 "Runs on days %@ within the listed date range" = "Jede ve dnech %@ v uvedeném rozsahu";
 "Runs on working days except the listed dates" = "Jede v pracovní dny kromě uvedených dat";
 "Runs throughout timetable validity except the listed dates" = "Jede po celou platnost jízdního řádu kromě uvedených dat";
+"Saves to a selected location" = "Uloží do zvoleného umístění";
 "Route" = "Trasa";
 "Search" = "Hledat";
 "Search mode" = "Režim vyhledávání";
