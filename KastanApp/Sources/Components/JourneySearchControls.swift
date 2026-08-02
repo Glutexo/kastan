@@ -342,7 +342,7 @@ struct JourneySearchControls: View {
             }
             DatePicker("Date", selection: $date, displayedComponents: .date)
                 .labelsHidden()
-                .datePickerStyle(.field)
+                .datePickerStyle(.stepperField)
         }
     }
 

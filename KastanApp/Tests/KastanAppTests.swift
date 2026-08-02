@@ -1604,6 +1604,42 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(SearchShortcutPresentation.isVisible(for: [.command]))
     }
 
+    func testSearchDateFieldUsesNativeStepperArrows() throws {
+        let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
+        let controls = JourneySearchControls(
+            date: .constant(fixedDate),
+            time: .constant(fixedDate),
+            isArrival: .constant(false),
+            modeLabel: "Time means",
+            departureLabel: "Departure",
+            arrivalLabel: "Arrival",
+            isSearching: false,
+            canSearch: true,
+            usesStackedLayout: true,
+            search: {}
+        )
+        let hostingView = NSHostingView(rootView: controls)
+        hostingView.frame = NSRect(x: 0, y: 0, width: 490, height: 160)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        let datePicker = try XCTUnwrap(
+            hostingView.allDescendantViews.compactMap { $0 as? NSDatePicker }.first {
+                $0.datePickerElements.contains(.yearMonthDay)
+            }
+        )
+
+        XCTAssertEqual(datePicker.datePickerStyle, .textFieldAndStepper)
+    }
+
     func testSearchFieldShortcutDoesNotResizeItsHeader() {
         let hiddenHeader = NSHostingView(rootView: SearchFieldHeader(
             title: "Time",
