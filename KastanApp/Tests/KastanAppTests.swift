@@ -1400,6 +1400,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(
             ConnectionResultsPresentation.resolve(
                 isSearching: true,
+                hasCompletedSearch: false,
                 hasConnections: true,
                 hasError: false
             ),
@@ -1408,6 +1409,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(
             ConnectionResultsPresentation.resolve(
                 isSearching: false,
+                hasCompletedSearch: true,
                 hasConnections: true,
                 hasError: false
             ),
@@ -1416,10 +1418,35 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(
             ConnectionResultsPresentation.resolve(
                 isSearching: false,
+                hasCompletedSearch: false,
                 hasConnections: false,
                 hasError: false
             ),
             .empty
+        )
+        XCTAssertEqual(
+            ConnectionResultsPresentation.resolve(
+                isSearching: false,
+                hasCompletedSearch: true,
+                hasConnections: false,
+                hasError: false
+            ),
+            .noResults
+        )
+    }
+
+    func testConnectionNoResultsGuidanceIsLocalized() throws {
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        let keys = ["No connections found", "Try a different time, route, or timetable."]
+
+        XCTAssertEqual(
+            keys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
+            ["Žádné spojení nenalezeno", "Zkuste jiný čas, trasu nebo jízdní řád."]
+        )
+        XCTAssertEqual(
+            keys.map { english.localizedString(forKey: $0, value: nil, table: nil) },
+            keys
         )
     }
 
@@ -2426,7 +2453,40 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(request?.maxTransfers, 2)
         XCTAssertEqual(request?.resultLimit, 10)
         XCTAssertEqual(model.connections.first?.id, "connection-1")
+        XCTAssertTrue(model.hasCompletedSearch)
         XCTAssertNil(model.errorMessage)
+    }
+
+    func testUntouchedConnectionDateAndTimeStayCurrentUntilSearchOrEditing() async {
+        let client = MockIDOSClient()
+        let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())
+        let firstNow = serviceDate(2026, 8, 1).addingTimeInterval(21 * 60 * 60)
+        let nextMorning = serviceDate(2026, 8, 2).addingTimeInterval(10 * 60 * 60)
+
+        model.refreshCurrentDateAndTime(now: firstNow)
+        model.refreshCurrentDateAndTime(now: nextMorning)
+
+        XCTAssertEqual(model.date, nextMorning)
+        XCTAssertEqual(model.time, nextMorning)
+
+        model.from = "Praha"
+        model.to = "Brno"
+        await model.search()
+        model.refreshCurrentDateAndTime(now: serviceDate(2026, 8, 3))
+
+        XCTAssertEqual(model.date, nextMorning)
+        XCTAssertEqual(model.time, nextMorning)
+
+        let editedModel = ConnectionsViewModel(
+            client: MockIDOSClient(),
+            calendarImporter: RecordingCalendarImporter()
+        )
+        editedModel.refreshCurrentDateAndTime(now: firstNow)
+        editedModel.time = nextMorning
+        editedModel.refreshCurrentDateAndTime(now: serviceDate(2026, 8, 3))
+
+        XCTAssertEqual(editedModel.date, firstNow)
+        XCTAssertEqual(editedModel.time, nextMorning)
     }
 
     func testConnectionPlaceSelectionsFollowSwapAndClearAfterEditing() {

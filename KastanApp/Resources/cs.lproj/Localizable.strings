@@ -110,6 +110,7 @@
 "My location" = "Moje poloha";
 "No application could open the attachment." = "Přílohu se nepodařilo otevřít v žádné aplikaci.";
 "No application could open the calendar event." = "Událost kalendáře se nepodařilo otevřít v žádné aplikaci.";
+"No connections found" = "Žádné spojení nenalezeno";
 "No connections yet" = "Zatím žádné spojení";
 "No station board yet" = "Zatím žádná odjezdová tabule";
 "No station timetable yet" = "Zatím žádný zastávkový jízdní řád";
@@ -197,6 +198,7 @@
 "Trains, buses, and all" = "Vlaky, autobusy a vše";
 "Trains + Buses" = "Vlaky + autobusy";
 "Trains + Buses + Urban Public Transport" = "Vlaky + autobusy + MHD";
+"Try a different time, route, or timetable." = "Zkuste jiný čas, trasu nebo jízdní řád.";
 "Try Again" = "Zkusit znovu";
 "Prague + PID" = "Praha + PID";
 "Urban public transport by city" = "MHD jednotlivých měst";

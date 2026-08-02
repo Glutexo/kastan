@@ -110,6 +110,7 @@
 "My location" = "My location";
 "No application could open the attachment." = "No application could open the attachment.";
 "No application could open the calendar event." = "No application could open the calendar event.";
+"No connections found" = "No connections found";
 "No connections yet" = "No connections yet";
 "No station board yet" = "No station board yet";
 "No station timetable yet" = "No station timetable yet";
@@ -197,6 +198,7 @@
 "Trains, buses, and all" = "Trains, buses, and all";
 "Trains + Buses" = "Trains + Buses";
 "Trains + Buses + Urban Public Transport" = "Trains + Buses + Urban Public Transport";
+"Try a different time, route, or timetable." = "Try a different time, route, or timetable.";
 "Try Again" = "Try Again";
 "Prague + PID" = "Prague + PID";
 "Urban public transport by city" = "Urban public transport by city";

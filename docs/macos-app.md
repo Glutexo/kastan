@@ -15,9 +15,11 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   to a free-text search. Holding Option reveals compact field shortcuts: Here beside From and To requests the Mac's
   current location only when clicked and fills that endpoint with IDOS's exact My location object. Typing the exact
   localized My location phrase into either field does the same when the search starts. Today and Now reset the date
-  or time without reopening its picker or moving the surrounding search controls. Searches also support arrival
-  mode and an extensible journey-options builder modeled after native macOS rule editors. Selecting the same exact
-  departure and arrival shows inline guidance and disables Search before any IDOS request can start.
+  or time without reopening its picker or moving the surrounding search controls. Until either value is edited or a
+  search is submitted, these launch defaults follow the current moment when the form appears, the app becomes active,
+  and immediately before searching, so an app left open overnight does not silently query yesterday. Searches also
+  support arrival mode and an extensible journey-options builder modeled after native macOS rule editors. Selecting
+  the same exact departure and arrival shows inline guidance and disables Search before any IDOS request can start.
   Each condition first selects either Via or Maximum number of transfers, then presents the corresponding text
   or compact, left-aligned number field with native stepper arrows. Both editors share one row height and follow the
   condition menu sized from the longest supported localized option at standard control spacing; fixed-size controls
@@ -62,8 +64,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   controls or clipping fields and actions at the window edge. macOS restores the last user-selected supported size
   thereafter; a legacy saved width below 522 points expands to that minimum when its window opens.
 - Submitting changed connection criteria replaces the previous result list with a progress indicator until the
-  fresh response arrives. Connection and station-board paging still extends results chronologically without
-  replacement: pulling past the top loads earlier results, while pulling past the bottom loads the following
+  fresh response arrives. A completed search without matches shows dedicated no-results guidance instead of retaining
+  the initial instruction to start a search. Connection and station-board paging still extends results chronologically
+  without replacement: pulling past the top loads earlier results, while pulling past the bottom loads the following
   results and removes duplicate rows. If connection paging fails after its IDOS session expires, the error banner
   can repeat the unchanged search, replace the stale list with progress, and establish a fresh paging session.
 - Native tabs and windows, including independent favorite-timetable, complete-connection, and resizable

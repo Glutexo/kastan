@@ -85,10 +85,15 @@ final class ConnectionsViewModel: ObservableObject {
             }
         }
     }
-    @Published var date = Date()
-    @Published var time = Date()
+    @Published var date = Date() {
+        didSet { stopFollowingCurrentDateAndTime() }
+    }
+    @Published var time = Date() {
+        didSet { stopFollowingCurrentDateAndTime() }
+    }
     @Published var isArrival = false
     @Published private(set) var connections: [IDOSConnection] = []
+    @Published private(set) var hasCompletedSearch = false
     @Published private(set) var isSearching = false
     @Published private(set) var isLoadingEarlier = false
     @Published private(set) var isLoadingLater = false
@@ -102,6 +107,8 @@ final class ConnectionsViewModel: ObservableObject {
     private let pdfExporter: any PDFExporting
     private let currentLocationProvider: any CurrentLocationProviding
     private var resultPage: IDOSConnectionPage?
+    private var followsCurrentDateAndTime = true
+    private var isRefreshingCurrentDateAndTime = false
 
     init(
         client: any IDOSClienting,
@@ -128,6 +135,16 @@ final class ConnectionsViewModel: ObservableObject {
 
     var canLoadLater: Bool {
         !connections.isEmpty && resultPage?.canLoadLater == true && !isSearching && !isLoadingEarlier
+    }
+
+    /// Keeps untouched launch defaults current until the first search, while preserving every explicit choice.
+    func refreshCurrentDateAndTime(now: Date = .now) {
+        guard followsCurrentDateAndTime else { return }
+
+        isRefreshingCurrentDateAndTime = true
+        defer { isRefreshingCurrentDateAndTime = false }
+        date = now
+        time = now
     }
 
     /// Gives the editable form immediate guidance before an invalid route can start searching.
@@ -244,10 +261,14 @@ final class ConnectionsViewModel: ObservableObject {
             return
         }
 
+        followsCurrentDateAndTime = false
         isSearching = true
         errorMessage = nil
         resultPage = nil
-        defer { isSearching = false }
+        defer {
+            hasCompletedSearch = true
+            isSearching = false
+        }
 
         let typedCurrentLocationEndpoints = manuallyEnteredCurrentLocationEndpoints
         if !typedCurrentLocationEndpoints.isEmpty,
@@ -285,6 +306,12 @@ final class ConnectionsViewModel: ObservableObject {
             connections = []
             errorMessage = AppErrorPresentation.message(for: error)
         }
+    }
+
+    /// Treats either date or time editing as one deliberate journey-time choice that must remain stable.
+    private func stopFollowingCurrentDateAndTime() {
+        guard !isRefreshingCurrentDateAndTime else { return }
+        followsCurrentDateAndTime = false
     }
 
     /// Rejects only the same exact IDOS object, while preserving distinct same-named place choices.

@@ -6,16 +6,19 @@ import SwiftUI
 enum ConnectionResultsPresentation: Equatable {
     case searching
     case empty
+    case noResults
     case connections
 
     static func resolve(
         isSearching: Bool,
+        hasCompletedSearch: Bool,
         hasConnections: Bool,
         hasError: Bool
     ) -> Self {
         if isSearching { return .searching }
-        if !hasConnections, !hasError { return .empty }
-        return .connections
+        if hasConnections || hasError { return .connections }
+        if hasCompletedSearch { return .noResults }
+        return .empty
     }
 
     /// Mirrors the CLI by marking every displayed connection tied for the shortest parsed duration.
@@ -222,6 +225,12 @@ struct ConnectionsView: View {
                 client: client
             )
         }
+        .onAppear {
+            model.refreshCurrentDateAndTime()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            model.refreshCurrentDateAndTime()
+        }
     }
 
     private var resultsPanel: some View {
@@ -387,6 +396,7 @@ struct ConnectionsView: View {
 
     private func performSearch() {
         guard model.canSearch else { return }
+        model.refreshCurrentDateAndTime()
         withAnimation(.easeInOut(duration: 0.18)) {
             isSearchFormCollapsed = true
         }
@@ -511,6 +521,7 @@ struct ConnectionsView: View {
     private var results: some View {
         switch ConnectionResultsPresentation.resolve(
             isSearching: model.isSearching,
+            hasCompletedSearch: model.hasCompletedSearch,
             hasConnections: !model.connections.isEmpty,
             hasError: model.errorMessage != nil
         ) {
@@ -522,6 +533,12 @@ struct ConnectionsView: View {
                 title: "No connections yet",
                 systemImage: "arrow.left.arrow.right",
                 description: "Enter a route and start a search."
+            )
+        case .noResults:
+            EmptyStateView(
+                title: "No connections found",
+                systemImage: "magnifyingglass",
+                description: "Try a different time, route, or timetable."
             )
         case .connections:
             let shortestConnectionIDs = ConnectionResultsPresentation.shortestConnectionIDs(
