@@ -1604,7 +1604,63 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(SearchShortcutPresentation.isVisible(for: [.command]))
     }
 
-    func testSearchDateFieldUsesNativeStepperArrows() throws {
+    func testSearchDateTimePresentationCombinesTheChosenDateAndTime() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+        let date = try XCTUnwrap(calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 2,
+            hour: 7,
+            minute: 15
+        )))
+        let time = try XCTUnwrap(calendar.date(from: DateComponents(
+            year: 2001,
+            month: 1,
+            day: 1,
+            hour: 16,
+            minute: 45
+        )))
+
+        let combined = JourneyDateTimePresentation.combinedValue(
+            date: date,
+            time: time,
+            calendar: calendar
+        )
+        let components = calendar.dateComponents(
+            [.year, .month, .day, .hour, .minute, .second],
+            from: combined
+        )
+
+        XCTAssertEqual(components.year, 2026)
+        XCTAssertEqual(components.month, 8)
+        XCTAssertEqual(components.day, 2)
+        XCTAssertEqual(components.hour, 16)
+        XCTAssertEqual(components.minute, 45)
+        XCTAssertEqual(components.second, 0)
+        XCTAssertEqual(
+            JourneyDateTimePresentation.title(
+                date: date,
+                time: time,
+                usesCurrentDateAndTime: true,
+                locale: Locale(identifier: "en_GB"),
+                calendar: calendar
+            ),
+            AppLocalization.string("Now")
+        )
+
+        let selectedTitle = JourneyDateTimePresentation.title(
+            date: date,
+            time: time,
+            usesCurrentDateAndTime: false,
+            locale: Locale(identifier: "en_GB"),
+            calendar: calendar
+        )
+        XCTAssertTrue(selectedTitle.contains("02/08/2026"))
+        XCTAssertTrue(selectedTitle.contains("16:45"))
+    }
+
+    func testSearchDateTimeEditorsRemainAbsentUntilThePopoverOpens() {
         let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
         let controls = JourneySearchControls(
             date: .constant(fixedDate),
@@ -1631,13 +1687,9 @@ final class KastanAppTests: XCTestCase {
         hostingView.layoutSubtreeIfNeeded()
         defer { window.orderOut(nil) }
 
-        let datePicker = try XCTUnwrap(
-            hostingView.allDescendantViews.compactMap { $0 as? NSDatePicker }.first {
-                $0.datePickerElements.contains(.yearMonthDay)
-            }
-        )
-
-        XCTAssertEqual(datePicker.datePickerStyle, .textFieldAndStepper)
+        XCTAssertTrue(hostingView.allDescendantViews.compactMap { $0 as? NSDatePicker }.isEmpty)
+        XCTAssertEqual(JourneyDateTimePicker.buttonContentWidth, 150)
+        XCTAssertEqual(JourneyDateTimePicker.editorFieldWidth, 180)
     }
 
     func testSearchFieldShortcutDoesNotResizeItsHeader() {
@@ -2868,6 +2920,7 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertEqual(model.date, nextMorning)
         XCTAssertEqual(model.time, nextMorning)
+        XCTAssertTrue(model.usesCurrentDateAndTime)
 
         model.from = "Praha"
         model.to = "Brno"
@@ -2876,6 +2929,7 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertEqual(model.date, nextMorning)
         XCTAssertEqual(model.time, nextMorning)
+        XCTAssertFalse(model.usesCurrentDateAndTime)
 
         let editedModel = ConnectionsViewModel(
             client: MockIDOSClient(),
@@ -2887,6 +2941,13 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertEqual(editedModel.date, firstNow)
         XCTAssertEqual(editedModel.time, nextMorning)
+        XCTAssertFalse(editedModel.usesCurrentDateAndTime)
+
+        editedModel.selectCurrentDateAndTime(now: firstNow)
+
+        XCTAssertEqual(editedModel.date, firstNow)
+        XCTAssertEqual(editedModel.time, firstNow)
+        XCTAssertTrue(editedModel.usesCurrentDateAndTime)
     }
 
     func testConnectionPlaceSelectionsFollowSwapAndClearAfterEditing() {
@@ -3190,6 +3251,43 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(request?.stationSelection, stationSelection.idosSelection)
         XCTAssertEqual(request?.isArrival, true)
         XCTAssertEqual(model.departures.count, 20)
+    }
+
+    func testUntouchedDepartureDateAndTimeStayCurrentUntilSearchOrEditing() async {
+        let client = MockIDOSClient()
+        let model = DeparturesViewModel(client: client)
+        let firstNow = serviceDate(2026, 8, 1).addingTimeInterval(21 * 60 * 60)
+        let nextMorning = serviceDate(2026, 8, 2).addingTimeInterval(10 * 60 * 60)
+
+        model.refreshCurrentDateAndTime(now: firstNow)
+        model.refreshCurrentDateAndTime(now: nextMorning)
+
+        XCTAssertEqual(model.date, nextMorning)
+        XCTAssertEqual(model.time, nextMorning)
+        XCTAssertTrue(model.usesCurrentDateAndTime)
+
+        model.station = "Ostrava-Svinov"
+        await model.search()
+        model.refreshCurrentDateAndTime(now: serviceDate(2026, 8, 3))
+
+        XCTAssertEqual(model.date, nextMorning)
+        XCTAssertEqual(model.time, nextMorning)
+        XCTAssertFalse(model.usesCurrentDateAndTime)
+
+        let editedModel = DeparturesViewModel(client: MockIDOSClient())
+        editedModel.refreshCurrentDateAndTime(now: firstNow)
+        editedModel.date = nextMorning
+        editedModel.refreshCurrentDateAndTime(now: serviceDate(2026, 8, 3))
+
+        XCTAssertEqual(editedModel.date, nextMorning)
+        XCTAssertEqual(editedModel.time, firstNow)
+        XCTAssertFalse(editedModel.usesCurrentDateAndTime)
+
+        editedModel.selectCurrentDateAndTime(now: nextMorning)
+
+        XCTAssertEqual(editedModel.date, nextMorning)
+        XCTAssertEqual(editedModel.time, nextMorning)
+        XCTAssertTrue(editedModel.usesCurrentDateAndTime)
     }
 
     func testConnectionPagingPrependsAndAppendsUniqueResults() async {

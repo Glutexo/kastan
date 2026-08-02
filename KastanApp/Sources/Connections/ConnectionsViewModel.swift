@@ -91,6 +91,8 @@ final class ConnectionsViewModel: ObservableObject {
     @Published var time = Date() {
         didSet { stopFollowingCurrentDateAndTime() }
     }
+    /// Distinguishes the live current-moment default from a journey instant deliberately chosen or submitted.
+    @Published private(set) var usesCurrentDateAndTime = true
     @Published var isArrival = false
     @Published private(set) var connections: [IDOSConnection] = []
     @Published private(set) var hasCompletedSearch = false
@@ -111,7 +113,6 @@ final class ConnectionsViewModel: ObservableObject {
     private let emailMailComposer: any ConnectionEmailMailComposing
     private let currentLocationProvider: any CurrentLocationProviding
     private var resultPage: IDOSConnectionPage?
-    private var followsCurrentDateAndTime = true
     private var isRefreshingCurrentDateAndTime = false
 
     init(
@@ -149,7 +150,14 @@ final class ConnectionsViewModel: ObservableObject {
 
     /// Keeps untouched launch defaults current until the first search, while preserving every explicit choice.
     func refreshCurrentDateAndTime(now: Date = .now) {
-        guard followsCurrentDateAndTime else { return }
+        guard usesCurrentDateAndTime else { return }
+
+        selectCurrentDateAndTime(now: now)
+    }
+
+    /// Restores the live current-moment choice from the compact date-and-time editor.
+    func selectCurrentDateAndTime(now: Date = .now) {
+        usesCurrentDateAndTime = true
 
         isRefreshingCurrentDateAndTime = true
         defer { isRefreshingCurrentDateAndTime = false }
@@ -271,7 +279,7 @@ final class ConnectionsViewModel: ObservableObject {
             return
         }
 
-        followsCurrentDateAndTime = false
+        usesCurrentDateAndTime = false
         isSearching = true
         errorMessage = nil
         resultPage = nil
@@ -320,8 +328,8 @@ final class ConnectionsViewModel: ObservableObject {
 
     /// Treats either date or time editing as one deliberate journey-time choice that must remain stable.
     private func stopFollowingCurrentDateAndTime() {
-        guard !isRefreshingCurrentDateAndTime else { return }
-        followsCurrentDateAndTime = false
+        guard !isRefreshingCurrentDateAndTime, usesCurrentDateAndTime else { return }
+        usesCurrentDateAndTime = false
     }
 
     /// Rejects only the same exact IDOS object, while preserving distinct same-named place choices.

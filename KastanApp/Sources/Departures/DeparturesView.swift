@@ -1,3 +1,4 @@
+import AppKit
 import Kastan
 import SwiftUI
 
@@ -42,6 +43,12 @@ struct DeparturesView: View {
                 alignment: .topLeading
             )
             .animation(.easeInOut(duration: 0.18), value: isSearchFormCollapsed)
+            .onAppear {
+                model.refreshCurrentDateAndTime()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                model.refreshCurrentDateAndTime()
+            }
         }
     }
 
@@ -92,6 +99,10 @@ struct DeparturesView: View {
             modeLabel: "Board type",
             departureLabel: "Departures",
             arrivalLabel: "Arrivals",
+            usesCurrentDateAndTime: model.usesCurrentDateAndTime,
+            selectCurrentDateAndTime: {
+                model.selectCurrentDateAndTime()
+            },
             isSearching: model.isSearching,
             canSearch: model.canSearch,
             usesStackedLayout: stacked
@@ -112,6 +123,7 @@ struct DeparturesView: View {
 
     private func performSearch() {
         guard model.canSearch else { return }
+        model.refreshCurrentDateAndTime()
         withAnimation(.easeInOut(duration: 0.18)) {
             isSearchFormCollapsed = true
         }

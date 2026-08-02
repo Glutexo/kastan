@@ -34,6 +34,7 @@
 "Connection detail" = "Connection detail";
 "Connections" = "Connections";
 "Date" = "Date";
+"Date and time" = "Date and time";
 "Departure" = "Departure";
 "Departure tends to be delayed" = "Departure tends to be delayed";
 "Departure tends to be on time" = "Departure tends to be on time";
@@ -192,7 +193,6 @@
 "The calendar data could not be saved." = "The calendar data could not be saved.";
 "The connection was sent to %@." = "The connection was sent to %@.";
 "The email could not be prepared in Mail." = "The email could not be prepared in Mail.";
-"Today" = "Today";
 "Time" = "Time";
 "Time means" = "Time means";
 "Timetable" = "Timetable";

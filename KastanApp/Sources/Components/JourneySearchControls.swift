@@ -124,13 +124,12 @@ struct JourneySearchControls: View {
     @Binding private var date: Date
     @Binding private var time: Date
     @Binding private var isArrival: Bool
-    @State private var showsDateTimeShortcuts = SearchShortcutPresentation.isVisible(
-        for: NSEvent.modifierFlags
-    )
 
     private let modeLabel: LocalizedStringKey
     private let departureLabel: LocalizedStringKey
     private let arrivalLabel: LocalizedStringKey
+    private let usesCurrentDateAndTime: Bool
+    private let selectCurrentDateAndTime: () -> Void
     private let isSearching: Bool
     private let canSearch: Bool
     private let usesStackedLayout: Bool
@@ -144,6 +143,8 @@ struct JourneySearchControls: View {
         modeLabel: LocalizedStringKey,
         departureLabel: LocalizedStringKey,
         arrivalLabel: LocalizedStringKey,
+        usesCurrentDateAndTime: Bool = true,
+        selectCurrentDateAndTime: (() -> Void)? = nil,
         isSearching: Bool,
         canSearch: Bool,
         usesStackedLayout: Bool,
@@ -156,6 +157,12 @@ struct JourneySearchControls: View {
         self.modeLabel = modeLabel
         self.departureLabel = departureLabel
         self.arrivalLabel = arrivalLabel
+        self.usesCurrentDateAndTime = usesCurrentDateAndTime
+        self.selectCurrentDateAndTime = selectCurrentDateAndTime ?? {
+            let now = Date.now
+            date.wrappedValue = now
+            time.wrappedValue = now
+        }
         self.isSearching = isSearching
         self.canSearch = canSearch
         self.usesStackedLayout = usesStackedLayout
@@ -177,8 +184,7 @@ struct JourneySearchControls: View {
                     horizontalControls(supplement: supplement)
                 } else {
                     HStack(alignment: .bottom, spacing: 12) {
-                        datePicker
-                        timePicker
+                        dateTimePicker
                         modePicker
                             .frame(width: 175, alignment: .leading)
                         Spacer(minLength: 0)
@@ -193,18 +199,13 @@ struct JourneySearchControls: View {
             }
         }
         .fixedSize(horizontal: false, vertical: true)
-        .background {
-            OptionModifierMonitor(isPressed: $showsDateTimeShortcuts)
-                .frame(width: 0, height: 0)
-        }
     }
 
     /// Uses the same grid column for the time mode and its supplemental shortcut.
     private func horizontalControls(supplement: JourneySearchControlsSupplement) -> some View {
         Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 14) {
             GridRow(alignment: .bottom) {
-                datePicker
-                timePicker
+                dateTimePicker
                 modePicker
                     .frame(width: 175, alignment: .leading)
                 Spacer(minLength: 0)
@@ -212,7 +213,7 @@ struct JourneySearchControls: View {
                     .padding(.trailing, Self.wideSearchButtonTrailingPadding)
             }
 
-            supplementalRow(supplement: supplement, leadingColumnCount: 2, modeWidth: 175)
+            supplementalRow(supplement: supplement, modeWidth: 175)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -223,21 +224,19 @@ struct JourneySearchControls: View {
         if let supplement {
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 14) {
                 GridRow(alignment: .bottom) {
-                    datePicker
-                    timePicker
+                    dateTimePicker
                     modePicker
                         .fixedSize(horizontal: true, vertical: false)
                     Spacer(minLength: 8)
                     searchButton
                 }
 
-                supplementalRow(supplement: supplement, leadingColumnCount: 2, modeWidth: nil)
+                supplementalRow(supplement: supplement, modeWidth: nil)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             HStack(alignment: .bottom, spacing: 12) {
-                datePicker
-                timePicker
+                dateTimePicker
                 modePicker
                     .fixedSize(horizontal: true, vertical: false)
                 Spacer(minLength: 8)
@@ -250,8 +249,7 @@ struct JourneySearchControls: View {
     private var compactStackedControls: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .bottom, spacing: 12) {
-                datePicker
-                timePicker
+                dateTimePicker
                 Spacer(minLength: 0)
             }
 
@@ -313,15 +311,13 @@ struct JourneySearchControls: View {
         }
     }
 
-    /// Spans the controls before the mode column and retains the trailing flexible and search columns.
+    /// Aligns supplemental controls beneath the compact instant and time-mode columns.
     private func supplementalRow(
         supplement: JourneySearchControlsSupplement,
-        leadingColumnCount: Int,
         modeWidth: CGFloat?
     ) -> some View {
         GridRow(alignment: .firstTextBaseline) {
             supplement.leading
-                .gridCellColumns(leadingColumnCount)
             supplement.modeAligned
                 .frame(width: modeWidth, alignment: .leading)
             Color.clear
@@ -331,33 +327,13 @@ struct JourneySearchControls: View {
         }
     }
 
-    private var datePicker: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            SearchFieldHeader(
-                title: "Date",
-                shortcutTitle: "Today",
-                showsShortcut: showsDateTimeShortcuts
-            ) {
-                date = .now
-            }
-            DatePicker("Date", selection: $date, displayedComponents: .date)
-                .labelsHidden()
-                .datePickerStyle(.stepperField)
-        }
-    }
-
-    private var timePicker: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            SearchFieldHeader(
-                title: "Time",
-                shortcutTitle: "Now",
-                showsShortcut: showsDateTimeShortcuts
-            ) {
-                time = .now
-            }
-            DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
-                .labelsHidden()
-        }
+    private var dateTimePicker: some View {
+        JourneyDateTimePicker(
+            date: $date,
+            time: $time,
+            usesCurrentDateAndTime: usesCurrentDateAndTime,
+            selectCurrentDateAndTime: selectCurrentDateAndTime
+        )
     }
 
     private var modePicker: some View {
@@ -386,6 +362,145 @@ struct JourneySearchControls: View {
         .controlSize(.large)
         .keyboardShortcut(.defaultAction)
         .disabled(!canSearch)
+    }
+}
+
+/// Combines the independently stored IDOS date and time components for one compact, localized label.
+enum JourneyDateTimePresentation {
+    static func combinedValue(
+        date: Date,
+        time: Date,
+        calendar: Calendar = .autoupdatingCurrent
+    ) -> Date {
+        var components = calendar.dateComponents([.era, .year, .month, .day], from: date)
+        let timeComponents = calendar.dateComponents([.hour, .minute], from: time)
+        components.hour = timeComponents.hour
+        components.minute = timeComponents.minute
+        components.second = 0
+        return calendar.date(from: components) ?? date
+    }
+
+    static func title(
+        date: Date,
+        time: Date,
+        usesCurrentDateAndTime: Bool,
+        locale: Locale = .autoupdatingCurrent,
+        calendar: Calendar = .autoupdatingCurrent
+    ) -> String {
+        guard !usesCurrentDateAndTime else {
+            return AppLocalization.string("Now")
+        }
+
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter.string(from: combinedValue(date: date, time: time, calendar: calendar))
+    }
+}
+
+/// Keeps the common journey instant compact until the user opens its date-and-time editor.
+struct JourneyDateTimePicker: View {
+    static let buttonContentWidth: CGFloat = 150
+    static let editorFieldWidth: CGFloat = 180
+
+    @Binding private var date: Date
+    @Binding private var time: Date
+    @State private var isEditorPresented = false
+
+    private let usesCurrentDateAndTime: Bool
+    private let selectCurrentDateAndTime: () -> Void
+
+    init(
+        date: Binding<Date>,
+        time: Binding<Date>,
+        usesCurrentDateAndTime: Bool,
+        selectCurrentDateAndTime: @escaping () -> Void
+    ) {
+        _date = date
+        _time = time
+        self.usesCurrentDateAndTime = usesCurrentDateAndTime
+        self.selectCurrentDateAndTime = selectCurrentDateAndTime
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Date and time")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Button {
+                if usesCurrentDateAndTime {
+                    selectCurrentDateAndTime()
+                }
+                isEditorPresented.toggle()
+            } label: {
+                HStack(spacing: 6) {
+                    Text(buttonTitle)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.down")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(width: Self.buttonContentWidth, alignment: .leading)
+            }
+            .accessibilityLabel(Text("Date and time"))
+            .accessibilityValue(Text(buttonTitle))
+            .popover(isPresented: $isEditorPresented, arrowEdge: .bottom) {
+                editor
+            }
+        }
+    }
+
+    private var buttonTitle: String {
+        JourneyDateTimePresentation.title(
+            date: date,
+            time: time,
+            usesCurrentDateAndTime: usesCurrentDateAndTime
+        )
+    }
+
+    private var editor: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Date and time")
+                .font(.headline)
+
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
+                GridRow {
+                    Text("Date")
+                    DatePicker("Date", selection: $date, displayedComponents: .date)
+                        .labelsHidden()
+                        .datePickerStyle(.stepperField)
+                        .frame(width: Self.editorFieldWidth, alignment: .leading)
+                }
+
+                GridRow {
+                    Text("Time")
+                    DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
+                        .labelsHidden()
+                        .datePickerStyle(.stepperField)
+                        .frame(width: Self.editorFieldWidth, alignment: .leading)
+                }
+            }
+
+            Divider()
+
+            HStack {
+                Button("Now") {
+                    selectCurrentDateAndTime()
+                    isEditorPresented = false
+                }
+                Spacer()
+                Button("Done") {
+                    isEditorPresented = false
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(16)
     }
 }
 

@@ -34,6 +34,7 @@
 "Connection detail" = "Detail spojení";
 "Connections" = "Spojení";
 "Date" = "Datum";
+"Date and time" = "Datum a čas";
 "Departure" = "Odjezd";
 "Departure tends to be delayed" = "Odjezd bývá zpožděn";
 "Departure tends to be on time" = "Odjezd bývá včas";
@@ -192,7 +193,6 @@
 "The calendar data could not be saved." = "Data kalendáře se nepodařilo uložit.";
 "The connection was sent to %@." = "Spojení bylo odesláno na %@.";
 "The email could not be prepared in Mail." = "E-mail se nepodařilo připravit v Mailu.";
-"Today" = "Dnes";
 "Time" = "Čas";
 "Time means" = "Význam času";
 "Timetable" = "Jízdní řád";

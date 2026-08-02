@@ -358,6 +358,10 @@ struct ConnectionsView: View {
             modeLabel: "Time means",
             departureLabel: "Departure",
             arrivalLabel: "Arrival",
+            usesCurrentDateAndTime: model.usesCurrentDateAndTime,
+            selectCurrentDateAndTime: {
+                model.selectCurrentDateAndTime()
+            },
             isSearching: model.isSearching,
             canSearch: model.canSearch,
             usesStackedLayout: stacked,

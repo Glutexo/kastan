@@ -19,8 +19,14 @@ final class DeparturesViewModel: ObservableObject {
             stationSelection = nil
         }
     }
-    @Published var date = Date()
-    @Published var time = Date()
+    @Published var date = Date() {
+        didSet { stopFollowingCurrentDateAndTime() }
+    }
+    @Published var time = Date() {
+        didSet { stopFollowingCurrentDateAndTime() }
+    }
+    /// Distinguishes the live current-moment default from a board instant deliberately chosen or submitted.
+    @Published private(set) var usesCurrentDateAndTime = true
     @Published var isArrival = false
     @Published private(set) var departures: [IDOSDeparture] = []
     @Published private(set) var isSearching = false
@@ -30,6 +36,7 @@ final class DeparturesViewModel: ObservableObject {
 
     let client: any IDOSClienting
     private var resultPage: IDOSDeparturePage?
+    private var isRefreshingCurrentDateAndTime = false
 
     init(client: any IDOSClienting) {
         self.client = client
@@ -48,6 +55,23 @@ final class DeparturesViewModel: ObservableObject {
         !departures.isEmpty && resultPage?.canLoadLater == true && !isSearching && !isLoadingEarlier
     }
 
+    /// Keeps the untouched station-board instant current while preserving every explicit choice.
+    func refreshCurrentDateAndTime(now: Date = .now) {
+        guard usesCurrentDateAndTime else { return }
+
+        selectCurrentDateAndTime(now: now)
+    }
+
+    /// Restores the live current-moment choice from the compact date-and-time editor.
+    func selectCurrentDateAndTime(now: Date = .now) {
+        usesCurrentDateAndTime = true
+
+        isRefreshingCurrentDateAndTime = true
+        defer { isRefreshingCurrentDateAndTime = false }
+        date = now
+        time = now
+    }
+
     func search() async {
         let station = station.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !station.isEmpty else {
@@ -55,6 +79,7 @@ final class DeparturesViewModel: ObservableObject {
             return
         }
 
+        usesCurrentDateAndTime = false
         isSearching = true
         errorMessage = nil
         resultPage = nil
@@ -115,5 +140,11 @@ final class DeparturesViewModel: ObservableObject {
         } else {
             departures.append(contentsOf: uniqueDepartures)
         }
+    }
+
+    /// Treats either editor change as one deliberate station-board instant that must remain stable.
+    private func stopFollowingCurrentDateAndTime() {
+        guard !isRefreshingCurrentDateAndTime, usesCurrentDateAndTime else { return }
+        usesCurrentDateAndTime = false
     }
 }
