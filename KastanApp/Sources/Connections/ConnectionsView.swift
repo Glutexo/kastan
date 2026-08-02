@@ -1099,7 +1099,7 @@ struct ConnectionDetailView: View {
             .accessibilityLabel(action.title)
             .help(action.title)
         case .addToCalendar:
-            CalendarExportButton { calendarExportAction in
+            CalendarExportButton(placement: .toolbar) { calendarExportAction in
                 Task {
                     await actionsModel.performCalendarAction(
                         calendarExportAction,

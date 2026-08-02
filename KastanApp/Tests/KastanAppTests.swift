@@ -706,6 +706,8 @@ final class KastanAppTests: XCTestCase {
     }
 
     func testOptionChangesAddToCalendarToICSDownload() {
+        XCTAssertTrue(CalendarExportButtonPlacement.menu.usesNativeAlternateWhenAvailable)
+        XCTAssertFalse(CalendarExportButtonPlacement.toolbar.usesNativeAlternateWhenAvailable)
         XCTAssertEqual(CalendarExportAction.preferred(for: []), .addToCalendar)
         XCTAssertEqual(CalendarExportAction.preferred(for: [.command]), .addToCalendar)
         XCTAssertEqual(CalendarExportAction.preferred(for: [.option]), .download)

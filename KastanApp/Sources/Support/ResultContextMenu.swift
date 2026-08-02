@@ -130,7 +130,10 @@ struct ConnectionContextMenuContent: View {
             }
             .disabled(isPerformingExport)
         case .detail(.addToCalendar):
-            CalendarExportButton(perform: performCalendarAction) { calendarExportAction in
+            CalendarExportButton(
+                placement: .menu,
+                perform: performCalendarAction
+            ) { calendarExportAction in
                 ResultContextActionLabel(
                     action: action,
                     target: .connection,
@@ -229,7 +232,7 @@ struct ServiceContextMenuContent: View {
         case .detail(.sendByEmail):
             EmptyView()
         case .detail(.addToCalendar):
-            CalendarExportButton { calendarExportAction in
+            CalendarExportButton(placement: .menu) { calendarExportAction in
                 Task { await model.performCalendarAction(calendarExportAction) }
             } label: { calendarExportAction in
                 ResultContextActionLabel(

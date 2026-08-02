@@ -449,7 +449,7 @@ struct ServiceDetailView: View {
         case .sendByEmail:
             EmptyView()
         case .addToCalendar:
-            CalendarExportButton { calendarExportAction in
+            CalendarExportButton(placement: .toolbar) { calendarExportAction in
                 Task { await model.performCalendarAction(calendarExportAction) }
             } label: { calendarExportAction in
                 exportActionLabel(

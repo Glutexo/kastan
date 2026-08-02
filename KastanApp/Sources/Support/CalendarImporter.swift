@@ -31,33 +31,47 @@ enum CalendarExportAction: Equatable {
     }
 }
 
+/// Selects the native presentation that can reliably replace a calendar action for its location.
+enum CalendarExportButtonPlacement: Equatable {
+    case menu
+    case toolbar
+
+    /// Menus preserve both native items; visible toolbar controls instead redraw one monitored button.
+    var usesNativeAlternateWhenAvailable: Bool {
+        self == .menu
+    }
+}
+
 /// Presents Add to Calendar as the primary action and Download ICS File while Option is held.
 struct CalendarExportButton<Label: View>: View {
-    @State private var legacyOptionIsPressed = CalendarExportAction.preferred(
+    @State private var optionIsPressed = CalendarExportAction.preferred(
         for: NSEvent.modifierFlags
     ) == .download
+    let placement: CalendarExportButtonPlacement
     let perform: (CalendarExportAction) -> Void
     let label: (CalendarExportAction) -> Label
 
     init(
+        placement: CalendarExportButtonPlacement,
         perform: @escaping (CalendarExportAction) -> Void,
         @ViewBuilder label: @escaping (CalendarExportAction) -> Label
     ) {
+        self.placement = placement
         self.perform = perform
         self.label = label
     }
 
     @ViewBuilder
     var body: some View {
-        if #available(macOS 15.0, *) {
+        if #available(macOS 15.0, *), placement.usesNativeAlternateWhenAvailable {
             button(for: .addToCalendar)
                 .modifierKeyAlternate(.option) {
                     button(for: .download)
                 }
         } else {
-            legacyButton(for: legacyOptionIsPressed ? .download : .addToCalendar)
+            monitoredButton(for: optionIsPressed ? .download : .addToCalendar)
                 .background {
-                    OptionModifierMonitor(isPressed: $legacyOptionIsPressed)
+                    OptionModifierMonitor(isPressed: $optionIsPressed)
                         .frame(width: 0, height: 0)
                 }
         }
@@ -73,8 +87,8 @@ struct CalendarExportButton<Label: View>: View {
         .help(action.title)
     }
 
-    /// Resolves modifiers again on activation so the alternate remains correct if a legacy menu cannot redraw live.
-    private func legacyButton(for presentedAction: CalendarExportAction) -> some View {
+    /// Resolves modifiers again on activation so the action remains correct between live presentation updates.
+    private func monitoredButton(for presentedAction: CalendarExportAction) -> some View {
         Button {
             perform(CalendarExportAction.preferred(for: NSEvent.modifierFlags))
         } label: {

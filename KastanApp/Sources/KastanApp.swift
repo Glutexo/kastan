@@ -398,7 +398,7 @@ struct ResultDetailCommands: Commands {
             actionButton(.sendByEmail) {
                 context?.sendByEmail?()
             }
-            CalendarExportButton { calendarExportAction in
+            CalendarExportButton(placement: .menu) { calendarExportAction in
                 context?.performCalendarAction(calendarExportAction)
             } label: { calendarExportAction in
                 actionLabel(.addToCalendar, calendarExportAction: calendarExportAction)
