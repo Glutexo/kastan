@@ -1448,7 +1448,7 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testWideSearchControlsUseIntrinsicHeightAndAlignSupplementalShortcut() throws {
+    func testWideSearchControlsUseIntrinsicHeightAndKeepSupplementalControlsTogether() throws {
         let width: CGFloat = 880
         let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
         let controls = JourneySearchControls(
@@ -1489,25 +1489,25 @@ final class KastanAppTests: XCTestCase {
         let descendants = hostingView.allDescendantViews
         let probes = descendants.compactMap { $0 as? SearchSupplementLayoutProbeView }
         let controlsProbe = try XCTUnwrap(probes.first { $0.name == "controls" })
+        let options = try XCTUnwrap(probes.first { $0.name == "options" })
         let shortcut = try XCTUnwrap(probes.first { $0.name == "shortcut" })
-        let mode = try XCTUnwrap(descendants.compactMap { $0 as? NSSegmentedControl }.first)
 
         let controlsFrame = hostingView.convert(controlsProbe.bounds, from: controlsProbe)
+        let optionsFrame = hostingView.convert(options.bounds, from: options)
         let shortcutFrame = hostingView.convert(shortcut.bounds, from: shortcut)
-        let modeFrame = hostingView.convert(mode.bounds, from: mode)
 
         XCTAssertLessThan(controlsFrame.height, 120)
-        XCTAssertEqual(modeFrame.minX, shortcutFrame.minX, accuracy: 1)
+        XCTAssertEqual(shortcutFrame.minX - optionsFrame.maxX, 12, accuracy: 1)
     }
 
-    func testWiderSearchDoesNotSeparateTheJourneyControlPairs() throws {
+    func testSearchWidthKeepsJourneyControlPairsClustered() throws {
         struct Frames {
             let mode: CGRect
             let options: CGRect
             let directOnly: CGRect
         }
 
-        func renderedFrames(width: CGFloat) throws -> Frames {
+        func renderedFrames(width: CGFloat, usesStackedLayout: Bool) throws -> Frames {
             let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
             let controls = JourneySearchControls(
                 date: .constant(fixedDate),
@@ -1518,7 +1518,7 @@ final class KastanAppTests: XCTestCase {
                 arrivalLabel: "Arrival",
                 isSearching: false,
                 canSearch: true,
-                usesStackedLayout: false,
+                usesStackedLayout: usesStackedLayout,
                 supplement: JourneySearchControlsSupplement(
                     leading: JourneyOptionsDisclosureHeader(isExpanded: .constant(false))
                         .background(SearchSupplementLayoutProbe(name: "options")),
@@ -1555,14 +1555,19 @@ final class KastanAppTests: XCTestCase {
             )
         }
 
-        let baseline = try renderedFrames(width: 880)
-        let expanded = try renderedFrames(width: 1_200)
+        let frames = try [
+            renderedFrames(width: 490, usesStackedLayout: true),
+            renderedFrames(width: 880, usesStackedLayout: false),
+            renderedFrames(width: 1_200, usesStackedLayout: false),
+        ]
+        let baseline = try XCTUnwrap(frames.first)
 
-        XCTAssertEqual(baseline.mode.minX, expanded.mode.minX, accuracy: 1)
-        XCTAssertEqual(baseline.directOnly.minX, expanded.directOnly.minX, accuracy: 1)
-        XCTAssertEqual(baseline.options.minX, expanded.options.minX, accuracy: 1)
-        XCTAssertEqual(baseline.mode.minX, baseline.directOnly.minX, accuracy: 1)
-        XCTAssertEqual(expanded.mode.minX, expanded.directOnly.minX, accuracy: 1)
+        for current in frames {
+            XCTAssertEqual(current.mode.minX, baseline.mode.minX, accuracy: 1)
+            XCTAssertEqual(current.options.minX, baseline.options.minX, accuracy: 1)
+            XCTAssertEqual(current.directOnly.minX, baseline.directOnly.minX, accuracy: 1)
+            XCTAssertEqual(current.directOnly.minX - current.options.maxX, 12, accuracy: 1)
+        }
     }
 
     func testExpandedSearchSupplementKeepsModeAndLabelsInPlace() throws {

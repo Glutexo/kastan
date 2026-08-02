@@ -201,10 +201,10 @@ struct JourneySearchControls: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// Uses the same grid column for the time mode and its supplemental shortcut.
+    /// Keeps each related control pair at standard spacing while the search action uses the remaining width.
     private func horizontalControls(supplement: JourneySearchControlsSupplement) -> some View {
-        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 14) {
-            GridRow(alignment: .bottom) {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .bottom, spacing: 12) {
                 dateTimePicker
                 modePicker
                     .frame(width: 175, alignment: .leading)
@@ -213,17 +213,17 @@ struct JourneySearchControls: View {
                     .padding(.trailing, Self.wideSearchButtonTrailingPadding)
             }
 
-            supplementalRow(supplement: supplement, modeWidth: 175)
+            naturalSupplementalRow(supplement: supplement)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Keeps the supplemental shortcut below the mode picker while all controls still fit on one row.
+    /// Keeps both related pairs compact while all primary controls still fit on one row.
     @ViewBuilder
     private var stackedHorizontalControls: some View {
         if let supplement {
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 14) {
-                GridRow(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .bottom, spacing: 12) {
                     dateTimePicker
                     modePicker
                         .fixedSize(horizontal: true, vertical: false)
@@ -231,7 +231,7 @@ struct JourneySearchControls: View {
                     searchButton
                 }
 
-                supplementalRow(supplement: supplement, modeWidth: nil)
+                naturalSupplementalRow(supplement: supplement)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         } else {
@@ -254,10 +254,7 @@ struct JourneySearchControls: View {
             }
 
             if let supplement {
-                ViewThatFits(in: .horizontal) {
-                    compactAlignedControls(supplement: supplement)
-                    compactNaturalControls(supplement: supplement)
-                }
+                compactNaturalControls(supplement: supplement)
             } else {
                 HStack(spacing: 12) {
                     modePicker
@@ -269,32 +266,7 @@ struct JourneySearchControls: View {
         }
     }
 
-    /// Reserves the collapsed journey-options width so the checkbox remains directly below the time mode.
-    private func compactAlignedControls(supplement: JourneySearchControlsSupplement) -> some View {
-        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {
-            GridRow {
-                Color.clear
-                    .frame(height: 0)
-                modePicker
-                    .fixedSize(horizontal: true, vertical: false)
-                Spacer(minLength: 0)
-                searchButton
-            }
-
-            GridRow(alignment: .firstTextBaseline) {
-                supplement.leading
-                    .fixedSize(horizontal: true, vertical: false)
-                supplement.modeAligned
-                Color.clear
-                    .frame(height: 0)
-                Color.clear
-                    .frame(height: 0)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// Keeps both supplemental labels side by side when aligned grid columns no longer fit.
+    /// Keeps both supplemental labels side by side when the primary controls need separate rows.
     private func compactNaturalControls(supplement: JourneySearchControlsSupplement) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
@@ -304,33 +276,24 @@ struct JourneySearchControls: View {
                 searchButton
             }
 
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                supplement.leading
-                    .fixedSize(horizontal: true, vertical: false)
-                supplement.modeAligned
-                    .fixedSize(horizontal: true, vertical: false)
-                Spacer(minLength: 0)
-            }
+            naturalSupplementalRow(supplement: supplement)
         }
     }
 
-    /// Aligns supplemental controls beneath the compact instant and time-mode columns.
-    private func supplementalRow(
-        supplement: JourneySearchControlsSupplement,
-        modeWidth: CGFloat?
+    /// Prevents the journey-option controls from absorbing wider windows between them.
+    private func naturalSupplementalRow(
+        supplement: JourneySearchControlsSupplement
     ) -> some View {
-        GridRow(alignment: .firstTextBaseline) {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
             supplement.leading
                 .fixedSize(horizontal: true, vertical: false)
             supplement.modeAligned
-                .frame(width: modeWidth, alignment: .leading)
-            Color.clear
-                .frame(width: 0, height: 0)
-            Color.clear
-                .frame(width: 0, height: 0)
+                .fixedSize(horizontal: true, vertical: false)
+            Spacer(minLength: 0)
         }
     }
 
+    /// Keeps the compact instant from gaining width and pushing the adjacent time mode away.
     private var dateTimePicker: some View {
         JourneyDateTimePicker(
             date: $date,
@@ -338,6 +301,7 @@ struct JourneySearchControls: View {
             usesCurrentDateAndTime: usesCurrentDateAndTime,
             selectCurrentDateAndTime: selectCurrentDateAndTime
         )
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     private var modePicker: some View {

@@ -25,10 +25,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   Each condition first selects either Via or Maximum number of transfers, then presents the corresponding text
   or compact, left-aligned number field with native stepper arrows. Both editors share one row height and follow the
   condition menu sized from the longest supported localized option at standard control spacing; fixed-size controls
-  add and remove rows while summaries retain locale-aware transfer wording. A Direct connections only checkbox starts
-  directly below the Departure/Arrival control at the same leading edge, beside the builder heading. These paired
-  columns retain their natural spacing instead of spreading apart when the window grows. Expanding the builder adds
-  its full-width conditions below this stable control grid without moving the time mode or checkbox;
+  add and remove rows while summaries retain locale-aware transfer wording. Departure/Arrival follows the compact
+  journey instant at standard control spacing, and a Direct connections only checkbox follows the builder heading at
+  that same spacing. These paired controls stay clustered instead of spreading apart when the window grows. Expanding
+  the builder adds its full-width conditions below the stable control rows without moving the time mode or checkbox;
   either its arrow or heading toggles the conditions. Selecting the checkbox keeps a collapsed builder closed and adds
   a zero-transfer condition or updates the existing transfer limit; clearing it removes that condition.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
