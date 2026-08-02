@@ -1450,14 +1450,7 @@ final class KastanAppTests: XCTestCase {
 
     func testWideSearchControlsUseIntrinsicHeightAndKeepSupplementalControlsTogether() throws {
         let width: CGFloat = 880
-        let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
         let controls = JourneySearchControls(
-            date: .constant(fixedDate),
-            time: .constant(fixedDate),
-            isArrival: .constant(false),
-            modeLabel: "Time means",
-            departureLabel: "Departure",
-            arrivalLabel: "Arrival",
             isSearching: false,
             canSearch: true,
             usesStackedLayout: false,
@@ -1507,14 +1500,7 @@ final class KastanAppTests: XCTestCase {
         }
 
         func renderedFrames(width: CGFloat, usesStackedLayout: Bool) throws -> Frames {
-            let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
             let controls = JourneySearchControls(
-                date: .constant(fixedDate),
-                time: .constant(fixedDate),
-                isArrival: .constant(false),
-                modeLabel: "Time means",
-                departureLabel: "Departure",
-                arrivalLabel: "Arrival",
                 isSearching: false,
                 canSearch: true,
                 usesStackedLayout: usesStackedLayout,
@@ -1575,14 +1561,7 @@ final class KastanAppTests: XCTestCase {
         }
 
         func renderedFrames(width: CGFloat, detailsHeight: CGFloat) throws -> Frames {
-            let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
             let controls = JourneySearchControls(
-                date: .constant(fixedDate),
-                time: .constant(fixedDate),
-                isArrival: .constant(false),
-                modeLabel: "Time means",
-                departureLabel: "Departure",
-                arrivalLabel: "Arrival",
                 isSearching: false,
                 canSearch: true,
                 usesStackedLayout: true,
@@ -1748,51 +1727,67 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(selectedTitle.contains("16:45"))
     }
 
-    func testSearchDateTimeEditorsRemainAbsentUntilThePopoverOpens() {
+    func testClosedSearchDateTimePickerShowsModeWithoutEagerEditors() {
         let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
-        let compactPicker = NSHostingView(rootView: JourneyDateTimePicker(
-            date: .constant(fixedDate),
-            time: .constant(fixedDate),
-            isArrival: .constant(false),
-            modeLabel: "Time means",
-            departureLabel: "Departure",
-            arrivalLabel: "Arrival",
-            usesCurrentDateAndTime: true,
-            selectCurrentDateAndTime: {}
-        ))
-        let controls = JourneySearchControls(
-            date: .constant(fixedDate),
-            time: .constant(fixedDate),
-            isArrival: .constant(false),
-            modeLabel: "Time means",
-            departureLabel: "Departure",
-            arrivalLabel: "Arrival",
-            isSearching: false,
-            canSearch: true,
-            usesStackedLayout: true,
-            search: {}
-        )
-        let hostingView = NSHostingView(rootView: controls)
-        hostingView.frame = NSRect(x: 0, y: 0, width: 490, height: 160)
-        let window = NSWindow(
-            contentRect: hostingView.frame,
-            styleMask: .borderless,
-            backing: .buffered,
-            defer: false
-        )
-        window.contentView = hostingView
-        window.makeKeyAndOrderFront(nil)
-        hostingView.layoutSubtreeIfNeeded()
-        defer { window.orderOut(nil) }
 
-        XCTAssertTrue(hostingView.allDescendantViews.compactMap { $0 as? NSDatePicker }.isEmpty)
-        XCTAssertTrue(hostingView.allDescendantViews.compactMap { $0 as? NSSegmentedControl }.isEmpty)
-        XCTAssertLessThanOrEqual(compactPicker.fittingSize.height, 30)
-        XCTAssertEqual(JourneyDateTimePicker.buttonContentWidth, 150)
-        XCTAssertEqual(JourneyDateTimePicker.editorFieldWidth, 180)
+        func assertClosedPicker(isArrival: Bool) {
+            let hostingView = NSHostingView(rootView: JourneyDateTimePicker(
+                date: .constant(fixedDate),
+                time: .constant(fixedDate),
+                isArrival: .constant(isArrival),
+                modeLabel: "Time means",
+                departureLabel: "Departure",
+                arrivalLabel: "Arrival",
+                usesCurrentDateAndTime: true,
+                selectCurrentDateAndTime: {}
+            ))
+            hostingView.frame = NSRect(x: 0, y: 0, width: 240, height: 40)
+            let window = NSWindow(
+                contentRect: hostingView.frame,
+                styleMask: .borderless,
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = hostingView
+            window.makeKeyAndOrderFront(nil)
+            hostingView.layoutSubtreeIfNeeded()
+            defer { window.orderOut(nil) }
+
+            XCTAssertTrue(hostingView.allDescendantViews.compactMap { $0 as? NSDatePicker }.isEmpty)
+            XCTAssertTrue(
+                hostingView.allDescendantViews.compactMap { $0 as? NSSegmentedControl }.isEmpty
+            )
+            XCTAssertLessThanOrEqual(hostingView.fittingSize.height, 30)
+        }
+
+        assertClosedPicker(isArrival: false)
+        assertClosedPicker(isArrival: true)
+        XCTAssertEqual(
+            JourneyDateTimePresentation.closedTitle(
+                date: fixedDate,
+                time: fixedDate,
+                isArrival: false,
+                departureLabel: "Departure",
+                arrivalLabel: "Arrival",
+                usesCurrentDateAndTime: true
+            ),
+            "\(AppLocalization.string("Departure")) · \(AppLocalization.string("Now"))"
+        )
+        XCTAssertEqual(
+            JourneyDateTimePresentation.closedTitle(
+                date: fixedDate,
+                time: fixedDate,
+                isArrival: true,
+                departureLabel: "Departure",
+                arrivalLabel: "Arrival",
+                usesCurrentDateAndTime: true
+            ),
+            "\(AppLocalization.string("Arrival")) · \(AppLocalization.string("Now"))"
+        )
+        XCTAssertEqual(JourneyDateTimePicker.buttonContentWidth, 190)
     }
 
-    func testTimeModeReplacesDateTimePopoverHeading() throws {
+    func testTimeModeHeadsContentSizedDateTimePopover() throws {
         let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
         var isArrival = false
         let editor = JourneyDateTimeEditor(
@@ -1821,6 +1816,7 @@ final class KastanAppTests: XCTestCase {
         hostingView.layoutSubtreeIfNeeded()
         defer { window.orderOut(nil) }
 
+        XCTAssertLessThanOrEqual(hostingView.fittingSize.width, 200)
         let descendants = hostingView.allDescendantViews
         XCTAssertEqual(descendants.compactMap { $0 as? NSDatePicker }.count, 2)
         let visibleLabels = descendants.compactMap { $0 as? NSTextField }.map(\.stringValue)

@@ -111,7 +111,70 @@ struct SearchTimetablePicker: View {
     }
 }
 
-/// Keeps date, time, mode, and search actions visually identical across app searches.
+/// Keeps the timetable context and journey instant on one stable row across journey searches.
+struct JourneySearchHeader: View {
+    @Binding private var timetable: IDOSTimetable
+    @Binding private var date: Date
+    @Binding private var time: Date
+    @Binding private var isArrival: Bool
+
+    private let modeLabel: String
+    private let departureLabel: String
+    private let arrivalLabel: String
+    private let usesCurrentDateAndTime: Bool
+    private let selectCurrentDateAndTime: () -> Void
+    private let usesCompactLayout: Bool
+
+    init(
+        timetable: Binding<IDOSTimetable>,
+        date: Binding<Date>,
+        time: Binding<Date>,
+        isArrival: Binding<Bool>,
+        modeLabel: String,
+        departureLabel: String,
+        arrivalLabel: String,
+        usesCurrentDateAndTime: Bool,
+        selectCurrentDateAndTime: @escaping () -> Void,
+        usesCompactLayout: Bool
+    ) {
+        _timetable = timetable
+        _date = date
+        _time = time
+        _isArrival = isArrival
+        self.modeLabel = modeLabel
+        self.departureLabel = departureLabel
+        self.arrivalLabel = arrivalLabel
+        self.usesCurrentDateAndTime = usesCurrentDateAndTime
+        self.selectCurrentDateAndTime = selectCurrentDateAndTime
+        self.usesCompactLayout = usesCompactLayout
+    }
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 12) {
+            SearchTimetablePicker(
+                timetable: $timetable,
+                usesCompactLayout: usesCompactLayout
+            )
+
+            Spacer(minLength: usesCompactLayout ? 8 : 12)
+
+            JourneyDateTimePicker(
+                date: $date,
+                time: $time,
+                isArrival: $isArrival,
+                modeLabel: modeLabel,
+                departureLabel: departureLabel,
+                arrivalLabel: arrivalLabel,
+                usesCurrentDateAndTime: usesCurrentDateAndTime,
+                selectCurrentDateAndTime: selectCurrentDateAndTime
+            )
+            .fixedSize(horizontal: true, vertical: false)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Keeps search actions and connection-specific options visually identical across journey searches.
 struct JourneySearchControls: View {
     /// Balances the large native search button's trailing chrome with the visible leading control inset.
     static let wideSearchButtonTrailingPadding: CGFloat = 5
@@ -121,15 +184,6 @@ struct JourneySearchControls: View {
         usesStackedLayout ? 80 : 140
     }
 
-    @Binding private var date: Date
-    @Binding private var time: Date
-    @Binding private var isArrival: Bool
-
-    private let modeLabel: LocalizedStringKey
-    private let departureLabel: LocalizedStringKey
-    private let arrivalLabel: LocalizedStringKey
-    private let usesCurrentDateAndTime: Bool
-    private let selectCurrentDateAndTime: () -> Void
     private let isSearching: Bool
     private let canSearch: Bool
     private let usesStackedLayout: Bool
@@ -137,32 +191,12 @@ struct JourneySearchControls: View {
     private let search: () -> Void
 
     init(
-        date: Binding<Date>,
-        time: Binding<Date>,
-        isArrival: Binding<Bool>,
-        modeLabel: LocalizedStringKey,
-        departureLabel: LocalizedStringKey,
-        arrivalLabel: LocalizedStringKey,
-        usesCurrentDateAndTime: Bool = true,
-        selectCurrentDateAndTime: (() -> Void)? = nil,
         isSearching: Bool,
         canSearch: Bool,
         usesStackedLayout: Bool,
         supplement: JourneySearchControlsSupplement? = nil,
         search: @escaping () -> Void
     ) {
-        _date = date
-        _time = time
-        _isArrival = isArrival
-        self.modeLabel = modeLabel
-        self.departureLabel = departureLabel
-        self.arrivalLabel = arrivalLabel
-        self.usesCurrentDateAndTime = usesCurrentDateAndTime
-        self.selectCurrentDateAndTime = selectCurrentDateAndTime ?? {
-            let now = Date.now
-            date.wrappedValue = now
-            time.wrappedValue = now
-        }
         self.isSearching = isSearching
         self.canSearch = canSearch
         self.usesStackedLayout = usesStackedLayout
@@ -174,12 +208,12 @@ struct JourneySearchControls: View {
         VStack(alignment: .leading, spacing: 0) {
             if let supplement {
                 VStack(alignment: .leading, spacing: 14) {
-                    primaryControls
+                    searchRow
                     supplementalRow(supplement: supplement)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                primaryControls
+                searchRow
             }
 
             if let supplement {
@@ -189,11 +223,10 @@ struct JourneySearchControls: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// Leaves flexible space only between the compact journey editor and the trailing search action.
-    private var primaryControls: some View {
+    /// Keeps the primary action at the trailing edge after the journey editor moves into the header.
+    private var searchRow: some View {
         HStack(alignment: .bottom, spacing: 12) {
-            dateTimePicker
-            Spacer(minLength: usesStackedLayout ? 8 : 0)
+            Spacer(minLength: 0)
             searchButton
                 .padding(
                     .trailing,
@@ -211,21 +244,6 @@ struct JourneySearchControls: View {
                 .fixedSize(horizontal: true, vertical: false)
             Spacer(minLength: 0)
         }
-    }
-
-    /// Keeps the complete journey editor compact while its detailed controls stay in the popover.
-    private var dateTimePicker: some View {
-        JourneyDateTimePicker(
-            date: $date,
-            time: $time,
-            isArrival: $isArrival,
-            modeLabel: modeLabel,
-            departureLabel: departureLabel,
-            arrivalLabel: arrivalLabel,
-            usesCurrentDateAndTime: usesCurrentDateAndTime,
-            selectCurrentDateAndTime: selectCurrentDateAndTime
-        )
-        .fixedSize(horizontal: true, vertical: false)
     }
 
     private var searchButton: some View {
@@ -282,21 +300,42 @@ enum JourneyDateTimePresentation {
         formatter.timeStyle = .short
         return formatter.string(from: combinedValue(date: date, time: time, calendar: calendar))
     }
+
+    /// Keeps the selected journey mode visible beside either Now or the chosen localized instant.
+    static func closedTitle(
+        date: Date,
+        time: Date,
+        isArrival: Bool,
+        departureLabel: String,
+        arrivalLabel: String,
+        usesCurrentDateAndTime: Bool,
+        locale: Locale = .autoupdatingCurrent,
+        calendar: Calendar = .autoupdatingCurrent
+    ) -> String {
+        let mode = AppLocalization.string(isArrival ? arrivalLabel : departureLabel)
+        let instant = title(
+            date: date,
+            time: time,
+            usesCurrentDateAndTime: usesCurrentDateAndTime,
+            locale: locale,
+            calendar: calendar
+        )
+        return "\(mode) · \(instant)"
+    }
 }
 
 /// Keeps the common journey instant compact until the user opens its date-and-time editor.
 struct JourneyDateTimePicker: View {
-    static let buttonContentWidth: CGFloat = 150
-    static let editorFieldWidth: CGFloat = 180
+    static let buttonContentWidth: CGFloat = 190
 
     @Binding private var date: Date
     @Binding private var time: Date
     @Binding private var isArrival: Bool
     @State private var isEditorPresented = false
 
-    private let modeLabel: LocalizedStringKey
-    private let departureLabel: LocalizedStringKey
-    private let arrivalLabel: LocalizedStringKey
+    private let modeLabel: String
+    private let departureLabel: String
+    private let arrivalLabel: String
     private let usesCurrentDateAndTime: Bool
     private let selectCurrentDateAndTime: () -> Void
 
@@ -304,9 +343,9 @@ struct JourneyDateTimePicker: View {
         date: Binding<Date>,
         time: Binding<Date>,
         isArrival: Binding<Bool>,
-        modeLabel: LocalizedStringKey,
-        departureLabel: LocalizedStringKey,
-        arrivalLabel: LocalizedStringKey,
+        modeLabel: String,
+        departureLabel: String,
+        arrivalLabel: String,
         usesCurrentDateAndTime: Bool,
         selectCurrentDateAndTime: @escaping () -> Void
     ) {
@@ -330,6 +369,7 @@ struct JourneyDateTimePicker: View {
             HStack(spacing: 6) {
                 Text(buttonTitle)
                     .lineLimit(1)
+                    .truncationMode(.middle)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.down")
                     .font(.caption2)
@@ -345,9 +385,12 @@ struct JourneyDateTimePicker: View {
     }
 
     private var buttonTitle: String {
-        JourneyDateTimePresentation.title(
+        JourneyDateTimePresentation.closedTitle(
             date: date,
             time: time,
+            isArrival: isArrival,
+            departureLabel: departureLabel,
+            arrivalLabel: arrivalLabel,
             usesCurrentDateAndTime: usesCurrentDateAndTime
         )
     }
@@ -372,24 +415,21 @@ struct JourneyDateTimeEditor: View {
     @Binding var time: Date
     @Binding var isArrival: Bool
 
-    let modeLabel: LocalizedStringKey
-    let departureLabel: LocalizedStringKey
-    let arrivalLabel: LocalizedStringKey
+    let modeLabel: String
+    let departureLabel: String
+    let arrivalLabel: String
     let selectCurrentDateAndTime: () -> Void
     let done: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Picker(modeLabel, selection: $isArrival) {
-                Text(departureLabel).tag(false)
-                Text(arrivalLabel).tag(true)
+            Picker(AppLocalization.string(modeLabel), selection: $isArrival) {
+                Text(AppLocalization.string(departureLabel)).tag(false)
+                Text(AppLocalization.string(arrivalLabel)).tag(true)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
-            .frame(
-                width: JourneyDateTimePicker.editorFieldWidth,
-                alignment: .leading
-            )
+            .fixedSize(horizontal: true, vertical: false)
 
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
                 GridRow {
@@ -397,10 +437,7 @@ struct JourneyDateTimeEditor: View {
                     DatePicker("Date", selection: $date, displayedComponents: .date)
                         .labelsHidden()
                         .datePickerStyle(.stepperField)
-                        .frame(
-                            width: JourneyDateTimePicker.editorFieldWidth,
-                            alignment: .leading
-                        )
+                        .fixedSize(horizontal: true, vertical: false)
                 }
 
                 GridRow {
@@ -408,10 +445,7 @@ struct JourneyDateTimeEditor: View {
                     DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
                         .labelsHidden()
                         .datePickerStyle(.stepperField)
-                        .frame(
-                            width: JourneyDateTimePicker.editorFieldWidth,
-                            alignment: .leading
-                        )
+                        .fixedSize(horizontal: true, vertical: false)
                 }
             }
 
@@ -428,6 +462,7 @@ struct JourneyDateTimeEditor: View {
             }
         }
         .padding(16)
+        .fixedSize(horizontal: true, vertical: true)
     }
 }
 

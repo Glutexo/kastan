@@ -68,8 +68,18 @@ struct DeparturesView: View {
 
     private func searchPanel(stacked: Bool) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            SearchTimetablePicker(
+            JourneySearchHeader(
                 timetable: $model.timetable,
+                date: $model.date,
+                time: $model.time,
+                isArrival: $model.isArrival,
+                modeLabel: "Board type",
+                departureLabel: "Departures",
+                arrivalLabel: "Arrivals",
+                usesCurrentDateAndTime: model.usesCurrentDateAndTime,
+                selectCurrentDateAndTime: {
+                    model.selectCurrentDateAndTime()
+                },
                 usesCompactLayout: stacked
             )
 
@@ -93,16 +103,6 @@ struct DeparturesView: View {
 
     private func searchControls(stacked: Bool) -> some View {
         JourneySearchControls(
-            date: $model.date,
-            time: $model.time,
-            isArrival: $model.isArrival,
-            modeLabel: "Board type",
-            departureLabel: "Departures",
-            arrivalLabel: "Arrivals",
-            usesCurrentDateAndTime: model.usesCurrentDateAndTime,
-            selectCurrentDateAndTime: {
-                model.selectCurrentDateAndTime()
-            },
             isSearching: model.isSearching,
             canSearch: model.canSearch,
             usesStackedLayout: stacked
