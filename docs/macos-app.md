@@ -74,8 +74,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   service-route windows. A connection opened in its own window presents its email, export, and sharing actions as
   individually visible controls in the native toolbar instead of repeating the result-card action menu, and
   each of its services can still open a separate complete route. The active connection or service detail repeats
-  every toolbar action in the File menu, with all commands disabled while an export is running and email disabled
-  until IDOS supplies a permanent link. Complete connections open at 620 points wide, while
+  every toolbar action in the File menu, with all commands disabled while an export or Mail draft is being prepared
+  and email disabled until IDOS supplies a permanent link. Complete connections open at 620 points wide, while
   service routes open at a compact 540-point width and remain usable down to 480 points. When scrolling hides the
   connection's main time range, that range moves into the window title until its content label is visible again.
 - Connection cards, complete connections, and complete service routes share their permanent link by default.
@@ -84,13 +84,16 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   terminal-only ANSI color and emphasis codes. Share Text remains available when IDOS does not supply a permanent
   result link.
 - Connection cards and complete connections offer Send by Email when IDOS supplies the data needed for that result.
-  The confirmation sheet loads IDOS's localized default message and generated PDF and calendar attachment names,
-  extends its IDOS website attribution with Kaštan's GitHub project URL, and keeps the complete message editable. Each
-  attachment opens independently in the default macOS application when selected, without sending the email. Holding
-  Option changes the attachment rows to Download; selecting one then saves it through the native macOS save panel
-  instead of opening it. The sheet accepts one or more recipient addresses separated by commas or semicolons. Kaštan
-  sends the address list and message to IDOS only after explicit confirmation and does not retain them after the sheet
-  closes. IDOS generates and delivers the attachments; delivery and attachment errors stay in the sheet for retry.
+  Activating it normally opens a confirmation sheet with IDOS's localized default message and generated PDF and
+  calendar attachment names, extends the IDOS website attribution with Kaštan's GitHub project URL, and keeps the
+  complete message editable. Holding Option while activating Send by Email bypasses that sheet and opens an unsent
+  draft directly in Mail, with IDOS's localized description as its subject, the same credited message, and both
+  generated attachments; Mail leaves the recipient for the passenger to enter. Inside Kaštan's sheet, each attachment
+  opens independently in the default macOS application when selected, without sending the email. Holding Option there
+  changes the attachment rows to Download; selecting one then saves it through the native macOS save panel instead of
+  opening it. The sheet accepts one or more recipient addresses separated by commas or semicolons. Kaštan sends the
+  address list and message to IDOS only after explicit confirmation and does not retain them after the sheet closes.
+  IDOS generates and delivers the in-app attachments; delivery and attachment errors stay in the sheet for retry.
 - Connection cards use semantic emoji to mark direct journeys and every connection tied for the shortest displayed
   duration. Badge text never wraps or forces the connection time and duration onto extra lines: each badge collapses
   to its semantic emoji when the complete localized title does not fit, and hovering that compact badge reveals the
@@ -166,8 +169,9 @@ xcodebuild test \
 The app target is sandboxed and permits outgoing network connections for IDOS. Location access is requested only
 after the user clicks a Here shortcut or searches with the exact localized My location phrase. The first request
 opens the localized macOS permission prompt, and the decision can later be changed in System Settings. Calendar and
-PDF files are written to a temporary app directory before macOS opens them; downloaded PDF and ICS files and
-downloaded email attachments can be written only to a location explicitly selected by the user.
+PDF files, including attachments passed to Mail, are written to a temporary app directory before macOS opens them;
+downloaded PDF and ICS files and downloaded email attachments can be written only to a location explicitly selected
+by the user.
 
 ## Data Source
 

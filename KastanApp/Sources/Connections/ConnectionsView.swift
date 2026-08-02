@@ -556,7 +556,8 @@ struct ConnectionsView: View {
                         timetable: model.timetable,
                         client: client,
                         isShortest: shortestConnectionIDs.contains(connection.id),
-                        isPerformingExport: model.processingCalendarConnectionID == connection.id ||
+                        isPerformingAction: model.processingEmailConnectionID == connection.id ||
+                            model.processingCalendarConnectionID == connection.id ||
                             model.processingPDFConnectionID == connection.id,
                         showsActionMenu: true,
                         timeFrameCoordinateSpace: nil,
@@ -567,8 +568,13 @@ struct ConnectionsView: View {
                             )
                         },
                         openService: { openWindow(id: AppWindow.serviceDetail, value: $0) },
-                        sendByEmail: {
-                            emailSelection = selection
+                        performEmailAction: { emailAction in
+                            switch emailAction {
+                            case .sendViaIDOS:
+                                emailSelection = selection
+                            case .composeInMail:
+                                Task { await model.composeEmailInMail(for: connection) }
+                            }
                         },
                         performCalendarAction: { calendarExportAction in
                             Task {
@@ -758,12 +764,12 @@ struct ConnectionCard: View {
     let timetable: IDOSTimetable
     let client: any IDOSClienting
     let isShortest: Bool
-    let isPerformingExport: Bool
+    let isPerformingAction: Bool
     let showsActionMenu: Bool
     let timeFrameCoordinateSpace: String?
     let openConnection: (() -> Void)?
     let openService: (ServiceSelection) -> Void
-    let sendByEmail: () -> Void
+    let performEmailAction: (ConnectionEmailAction) -> Void
     let performCalendarAction: (CalendarExportAction) -> Void
     let performPDFAction: (PDFExportAction) -> Void
 
@@ -835,7 +841,7 @@ struct ConnectionCard: View {
                         Menu {
                             actionMenuContent(openInNewWindow: openConnection)
                         } label: {
-                            if isPerformingExport {
+                            if isPerformingAction {
                                 ProgressView()
                                     .controlSize(.small)
                             } else {
@@ -908,9 +914,9 @@ struct ConnectionCard: View {
         ConnectionContextMenuContent(
             permanentLink: connectionActionURL,
             shareText: connectionShareText,
-            isPerformingExport: isPerformingExport,
+            isPerformingAction: isPerformingAction,
             openInNewWindow: openInNewWindow,
-            sendByEmail: sendByEmail,
+            performEmailAction: performEmailAction,
             performCalendarAction: performCalendarAction,
             performPDFAction: performPDFAction
         )
@@ -960,15 +966,12 @@ struct ConnectionDetailView: View {
                     timetable: selection.timetable,
                     client: client,
                     isShortest: false,
-                    isPerformingExport: actionsModel.processingCalendarConnectionID == selection.connection.id ||
-                        actionsModel.processingPDFConnectionID == selection.connection.id,
+                    isPerformingAction: isPerformingAction,
                     showsActionMenu: false,
                     timeFrameCoordinateSpace: Self.scrollCoordinateSpace,
                     openConnection: nil,
                     openService: { openWindow(id: AppWindow.serviceDetail, value: $0) },
-                    sendByEmail: {
-                        isEmailPresented = true
-                    },
+                    performEmailAction: performEmailAction,
                     performCalendarAction: { calendarExportAction in
                         Task {
                             await actionsModel.performCalendarAction(
@@ -1044,20 +1047,28 @@ struct ConnectionDetailView: View {
         )
     }
 
-    private var isPerformingExport: Bool {
-        actionsModel.processingCalendarConnectionID == selection.connection.id ||
+    private var isPerformingAction: Bool {
+        actionsModel.processingEmailConnectionID == selection.connection.id ||
+            actionsModel.processingCalendarConnectionID == selection.connection.id ||
             actionsModel.processingPDFConnectionID == selection.connection.id
+    }
+
+    private func performEmailAction(_ action: ConnectionEmailAction) {
+        switch action {
+        case .sendViaIDOS:
+            isEmailPresented = true
+        case .composeInMail:
+            Task { await actionsModel.composeEmailInMail(for: selection.connection) }
+        }
     }
 
     private var resultDetailCommandContext: ResultDetailCommandContext {
         ResultDetailCommandContext(
             hasLoadedResult: true,
-            isPerformingExport: isPerformingExport,
+            isPerformingAction: isPerformingAction,
             permanentLink: connectionActionURL,
             shareText: connectionShareText,
-            sendByEmail: {
-                isEmailPresented = true
-            },
+            performEmailAction: performEmailAction,
             performCalendarAction: { calendarExportAction in
                 Task {
                     await actionsModel.performCalendarAction(
@@ -1085,14 +1096,17 @@ struct ConnectionDetailView: View {
     ) -> some View {
         switch action {
         case .sendByEmail:
-            Button {
-                isEmailPresented = true
-            } label: {
-                connectionActionLabel(action)
+            ConnectionEmailButton(
+                placement: .toolbar,
+                perform: performEmailAction
+            ) { emailAction in
+                emailActionLabel(
+                    action,
+                    emailAction: emailAction,
+                    isPerforming: actionsModel.processingEmailConnectionID == selection.connection.id
+                )
             }
-            .disabled(isPerformingExport || url == nil)
-            .accessibilityLabel(action.title)
-            .help(action.title)
+            .disabled(isPerformingAction || url == nil)
         case .addToCalendar:
             CalendarExportButton(placement: .toolbar) { calendarExportAction in
                 Task {
@@ -1108,7 +1122,7 @@ struct ConnectionDetailView: View {
                     isPerforming: actionsModel.processingCalendarConnectionID == selection.connection.id
                 )
             }
-            .disabled(isPerformingExport)
+            .disabled(isPerformingAction)
         case .openPDF:
             PDFExportButton(placement: .toolbar) { pdfExportAction in
                 Task {
@@ -1124,7 +1138,7 @@ struct ConnectionDetailView: View {
                     isPerforming: actionsModel.processingPDFConnectionID == selection.connection.id
                 )
             }
-            .disabled(isPerformingExport)
+            .disabled(isPerformingAction)
         case .share:
             ResultShareButton(
                 link: url,
@@ -1133,7 +1147,21 @@ struct ConnectionDetailView: View {
             ) { sharingAction in
                 connectionActionLabel(action, sharingAction: sharingAction)
             }
-            .disabled(isPerformingExport)
+            .disabled(isPerformingAction)
+        }
+    }
+
+    @ViewBuilder
+    private func emailActionLabel(
+        _ action: ResultDetailAction,
+        emailAction: ConnectionEmailAction,
+        isPerforming: Bool
+    ) -> some View {
+        if isPerforming {
+            ProgressView()
+                .controlSize(.small)
+        } else {
+            connectionActionLabel(action, emailAction: emailAction)
         }
     }
 
@@ -1158,17 +1186,20 @@ struct ConnectionDetailView: View {
 
     private func connectionActionLabel(
         _ action: ResultDetailAction,
+        emailAction: ConnectionEmailAction = .sendViaIDOS,
         calendarExportAction: CalendarExportAction = .addToCalendar,
         pdfExportAction: PDFExportAction = .openInPreview,
         sharingAction: ResultSharingAction = .link
     ) -> some View {
         Label(
             action.title(
+                emailAction: emailAction,
                 calendarExportAction: calendarExportAction,
                 pdfExportAction: pdfExportAction,
                 sharingAction: sharingAction
             ),
             systemImage: action.systemImage(
+                emailAction: emailAction,
                 calendarExportAction: calendarExportAction,
                 pdfExportAction: pdfExportAction,
                 sharingAction: sharingAction

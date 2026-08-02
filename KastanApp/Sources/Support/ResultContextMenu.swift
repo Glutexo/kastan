@@ -55,6 +55,7 @@ enum ResultContextAction: Hashable, Identifiable {
 private struct ResultContextActionLabel: View {
     let action: ResultContextAction
     let target: ResultContextTarget
+    let emailAction: ConnectionEmailAction
     let calendarExportAction: CalendarExportAction
     let pdfExportAction: PDFExportAction
     let sharingAction: ResultSharingAction
@@ -62,12 +63,14 @@ private struct ResultContextActionLabel: View {
     init(
         action: ResultContextAction,
         target: ResultContextTarget,
+        emailAction: ConnectionEmailAction = .sendViaIDOS,
         calendarExportAction: CalendarExportAction = .addToCalendar,
         pdfExportAction: PDFExportAction = .openInPreview,
         sharingAction: ResultSharingAction = .link
     ) {
         self.action = action
         self.target = target
+        self.emailAction = emailAction
         self.calendarExportAction = calendarExportAction
         self.pdfExportAction = pdfExportAction
         self.sharingAction = sharingAction
@@ -83,11 +86,13 @@ private struct ResultContextActionLabel: View {
         case .detail(let action):
             Label(
                 action.title(
+                    emailAction: emailAction,
                     calendarExportAction: calendarExportAction,
                     pdfExportAction: pdfExportAction,
                     sharingAction: sharingAction
                 ),
                 systemImage: action.systemImage(
+                    emailAction: emailAction,
                     calendarExportAction: calendarExportAction,
                     pdfExportAction: pdfExportAction,
                     sharingAction: sharingAction
@@ -103,9 +108,9 @@ private struct ResultContextActionLabel: View {
 struct ConnectionContextMenuContent: View {
     let permanentLink: URL?
     let shareText: String
-    let isPerformingExport: Bool
+    let isPerformingAction: Bool
     let openInNewWindow: () -> Void
-    let sendByEmail: () -> Void
+    let performEmailAction: (ConnectionEmailAction) -> Void
     let performCalendarAction: (CalendarExportAction) -> Void
     let performPDFAction: (PDFExportAction) -> Void
 
@@ -132,10 +137,17 @@ struct ConnectionContextMenuContent: View {
         case .separator:
             Divider()
         case .detail(.sendByEmail):
-            Button(action: sendByEmail) {
-                ResultContextActionLabel(action: action, target: .connection)
+            ConnectionEmailButton(
+                placement: .menu,
+                perform: performEmailAction
+            ) { emailAction in
+                ResultContextActionLabel(
+                    action: action,
+                    target: .connection,
+                    emailAction: emailAction
+                )
             }
-            .disabled(isPerformingExport)
+            .disabled(isPerformingAction)
         case .detail(.addToCalendar):
             CalendarExportButton(
                 placement: .menu,
@@ -147,7 +159,7 @@ struct ConnectionContextMenuContent: View {
                     calendarExportAction: calendarExportAction
                 )
             }
-            .disabled(isPerformingExport)
+            .disabled(isPerformingAction)
         case .detail(.openPDF):
             PDFExportButton(
                 placement: .menu,
@@ -159,7 +171,7 @@ struct ConnectionContextMenuContent: View {
                     pdfExportAction: pdfExportAction
                 )
             }
-            .disabled(isPerformingExport)
+            .disabled(isPerformingAction)
         case .detail(.share):
             ResultShareButton(
                 link: permanentLink,
@@ -172,7 +184,7 @@ struct ConnectionContextMenuContent: View {
                     sharingAction: sharingAction
                 )
             }
-            .disabled(isPerformingExport)
+            .disabled(isPerformingAction)
         }
     }
 }

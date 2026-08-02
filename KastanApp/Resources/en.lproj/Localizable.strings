@@ -26,6 +26,7 @@
 "Choose an MHD line and direction, then start a search." = "Choose an MHD line and direction, then start a search.";
 "Close Tab" = "Close Tab";
 "Close Window" = "Close Window";
+"Compose in Mail" = "Compose in Mail";
 "Could not build the IDOS URL." = "Could not build the IDOS URL.";
 "Currently no delay" = "Currently no delay";
 "Connection %lld" = "Connection %lld";
@@ -189,6 +190,7 @@
 "tariff zone %@" = "tariff zone %@";
 "The calendar data could not be saved." = "The calendar data could not be saved.";
 "The connection was sent to %@." = "The connection was sent to %@.";
+"The email could not be prepared in Mail." = "The email could not be prepared in Mail.";
 "Today" = "Today";
 "Time" = "Time";
 "Time means" = "Time means";

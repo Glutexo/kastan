@@ -97,6 +97,7 @@ final class ConnectionsViewModel: ObservableObject {
     @Published private(set) var isSearching = false
     @Published private(set) var isLoadingEarlier = false
     @Published private(set) var isLoadingLater = false
+    @Published private(set) var processingEmailConnectionID: String?
     @Published private(set) var processingCalendarConnectionID: String?
     @Published private(set) var processingPDFConnectionID: String?
     @Published private(set) var locatingEndpoint: ConnectionEndpoint?
@@ -107,6 +108,7 @@ final class ConnectionsViewModel: ObservableObject {
     private let calendarSaver: any CalendarSaving
     private let pdfOpener: any PDFOpening
     private let pdfExporter: any PDFExporting
+    private let emailMailComposer: any ConnectionEmailMailComposing
     private let currentLocationProvider: any CurrentLocationProviding
     private var resultPage: IDOSConnectionPage?
     private var followsCurrentDateAndTime = true
@@ -118,6 +120,7 @@ final class ConnectionsViewModel: ObservableObject {
         calendarSaver: any CalendarSaving = WorkspaceCalendarSaver(),
         pdfOpener: any PDFOpening = WorkspacePDFOpener(),
         pdfExporter: any PDFExporting = WorkspacePDFExporter(),
+        emailMailComposer: any ConnectionEmailMailComposing = WorkspaceConnectionEmailMailComposer(),
         currentLocationProvider: any CurrentLocationProviding = SystemCurrentLocationProvider()
     ) {
         self.client = client
@@ -125,6 +128,7 @@ final class ConnectionsViewModel: ObservableObject {
         self.calendarSaver = calendarSaver
         self.pdfOpener = pdfOpener
         self.pdfExporter = pdfExporter
+        self.emailMailComposer = emailMailComposer
         self.currentLocationProvider = currentLocationProvider
     }
 
@@ -428,6 +432,29 @@ final class ConnectionsViewModel: ObservableObject {
             connections.insert(contentsOf: uniqueConnections, at: 0)
         } else {
             connections.append(contentsOf: uniqueConnections)
+        }
+    }
+
+    /// Downloads the localized IDOS message and attachments before opening an unsent draft in Mail.
+    func composeEmailInMail(for connection: IDOSConnection) async {
+        guard processingEmailConnectionID == nil else { return }
+
+        processingEmailConnectionID = connection.id
+        errorMessage = nil
+        defer { processingEmailConnectionID = nil }
+
+        do {
+            let draft = try await ConnectionEmailMailDraft.prepare(
+                connection: connection,
+                timetable: timetable,
+                language: AppLanguagePreference.idosLanguage,
+                client: client
+            )
+            guard !Task.isCancelled else { return }
+            try emailMailComposer.compose(draft)
+        } catch {
+            guard !Task.isCancelled else { return }
+            errorMessage = AppErrorPresentation.message(for: error)
         }
     }
 

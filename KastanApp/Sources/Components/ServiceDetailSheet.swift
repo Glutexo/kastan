@@ -424,7 +424,7 @@ struct ServiceDetailView: View {
     private var resultDetailCommandContext: ResultDetailCommandContext {
         ResultDetailCommandContext(
             hasLoadedResult: model.service != nil,
-            isPerformingExport: model.isPerformingExport,
+            isPerformingAction: model.isPerformingExport,
             permanentLink: serviceActionURL,
             shareText: serviceShareText,
             performCalendarAction: { calendarExportAction in

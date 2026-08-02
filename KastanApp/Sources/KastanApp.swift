@@ -270,7 +270,7 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
     var title: LocalizedStringKey {
         switch self {
         case .sendByEmail:
-            "Send by Email"
+            ConnectionEmailAction.sendViaIDOS.title
         case .addToCalendar:
             "Add to Calendar"
         case .openPDF:
@@ -283,7 +283,7 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
     var systemImage: String {
         switch self {
         case .sendByEmail:
-            "envelope"
+            ConnectionEmailAction.sendViaIDOS.systemImage
         case .addToCalendar:
             "calendar.badge.plus"
         case .openPDF:
@@ -293,38 +293,40 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
         }
     }
 
-    /// Replaces export presentations when their Option alternates are active.
+    /// Replaces result-action presentations when their Option alternates are active.
     func title(
+        emailAction: ConnectionEmailAction = .sendViaIDOS,
         calendarExportAction: CalendarExportAction = .addToCalendar,
         pdfExportAction: PDFExportAction = .openInPreview,
         sharingAction: ResultSharingAction = .link
     ) -> LocalizedStringKey {
         switch self {
+        case .sendByEmail:
+            emailAction.title
         case .addToCalendar:
             calendarExportAction.title
         case .openPDF:
             pdfExportAction.title
         case .share:
             sharingAction.title
-        default:
-            title
         }
     }
 
     func systemImage(
+        emailAction: ConnectionEmailAction = .sendViaIDOS,
         calendarExportAction: CalendarExportAction = .addToCalendar,
         pdfExportAction: PDFExportAction = .openInPreview,
         sharingAction: ResultSharingAction = .link
     ) -> String {
         switch self {
+        case .sendByEmail:
+            emailAction.systemImage
         case .addToCalendar:
             calendarExportAction.systemImage
         case .openPDF:
             pdfExportAction.systemImage
         case .share:
             sharingAction.systemImage
-        default:
-            systemImage
         }
     }
 
@@ -347,39 +349,39 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
 /// Connects commands in the macOS main menu to the currently focused connection or service detail.
 struct ResultDetailCommandContext {
     let hasLoadedResult: Bool
-    let isPerformingExport: Bool
+    let isPerformingAction: Bool
     let permanentLink: URL?
     let shareText: String?
-    let sendByEmail: (() -> Void)?
+    let performEmailAction: ((ConnectionEmailAction) -> Void)?
     let performCalendarAction: (CalendarExportAction) -> Void
     let performPDFAction: (PDFExportAction) -> Void
 
     init(
         hasLoadedResult: Bool,
-        isPerformingExport: Bool,
+        isPerformingAction: Bool,
         permanentLink: URL?,
         shareText: String?,
-        sendByEmail: (() -> Void)? = nil,
+        performEmailAction: ((ConnectionEmailAction) -> Void)? = nil,
         performCalendarAction: @escaping (CalendarExportAction) -> Void,
         performPDFAction: @escaping (PDFExportAction) -> Void
     ) {
         self.hasLoadedResult = hasLoadedResult
-        self.isPerformingExport = isPerformingExport
+        self.isPerformingAction = isPerformingAction
         self.permanentLink = permanentLink
         self.shareText = shareText
-        self.sendByEmail = sendByEmail
+        self.performEmailAction = performEmailAction
         self.performCalendarAction = performCalendarAction
         self.performPDFAction = performPDFAction
     }
 
     func isEnabled(_ action: ResultDetailAction) -> Bool {
-        guard !isPerformingExport else { return false }
+        guard !isPerformingAction else { return false }
 
         switch action {
         case .addToCalendar, .openPDF:
             return hasLoadedResult
         case .sendByEmail:
-            return hasLoadedResult && permanentLink != nil && sendByEmail != nil
+            return hasLoadedResult && permanentLink != nil && performEmailAction != nil
         case .share:
             return hasLoadedResult && (permanentLink != nil || shareText?.isEmpty == false)
         }
@@ -403,9 +405,12 @@ struct ResultDetailCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .importExport) {
-            actionButton(.sendByEmail) {
-                context?.sendByEmail?()
+            ConnectionEmailButton(placement: .menu) { emailAction in
+                context?.performEmailAction?(emailAction)
+            } label: { emailAction in
+                actionLabel(.sendByEmail, emailAction: emailAction)
             }
+            .disabled(context?.isEnabled(.sendByEmail) != true)
             CalendarExportButton(placement: .menu) { calendarExportAction in
                 context?.performCalendarAction(calendarExportAction)
             } label: { calendarExportAction in
@@ -430,29 +435,22 @@ struct ResultDetailCommands: Commands {
         }
     }
 
-    private func actionButton(
-        _ action: ResultDetailAction,
-        perform: @escaping () -> Void
-    ) -> some View {
-        Button(action: perform) {
-            actionLabel(action)
-        }
-        .disabled(context?.isEnabled(action) != true)
-    }
-
     private func actionLabel(
         _ action: ResultDetailAction,
+        emailAction: ConnectionEmailAction = .sendViaIDOS,
         calendarExportAction: CalendarExportAction = .addToCalendar,
         pdfExportAction: PDFExportAction = .openInPreview,
         sharingAction: ResultSharingAction = .link
     ) -> some View {
         Label(
             action.title(
+                emailAction: emailAction,
                 calendarExportAction: calendarExportAction,
                 pdfExportAction: pdfExportAction,
                 sharingAction: sharingAction
             ),
             systemImage: action.systemImage(
+                emailAction: emailAction,
                 calendarExportAction: calendarExportAction,
                 pdfExportAction: pdfExportAction,
                 sharingAction: sharingAction

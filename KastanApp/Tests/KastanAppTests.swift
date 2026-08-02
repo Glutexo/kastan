@@ -31,6 +31,7 @@ final class KastanAppTests: XCTestCase {
         let menuItems = mainMenu.items.compactMap(\.submenu).flatMap(\.items)
         let actionKeys = [
             "Send by Email",
+            "Compose in Mail",
             "Add to Calendar",
             "Download ICS File",
             "Open PDF in Preview",
@@ -49,7 +50,7 @@ final class KastanAppTests: XCTestCase {
             )
         }
 
-        for key in ["Download ICS File", "Download PDF File", "Share Text"] {
+        for key in ["Compose in Mail", "Download ICS File", "Download PDF File", "Share Text"] {
             let alternateItem = try XCTUnwrap(
                 menuItems.first { $0.title == AppLocalization.string(key) }
             )
@@ -75,6 +76,7 @@ final class KastanAppTests: XCTestCase {
     func testResultDetailMenuActionsStayInOneGroup() throws {
         let expectedTitles = [
             "Send by Email",
+            "Compose in Mail",
             "Add to Calendar",
             "Download ICS File",
             "Open PDF in Preview",
@@ -655,6 +657,14 @@ final class KastanAppTests: XCTestCase {
             keys
         )
         XCTAssertEqual(
+            czech.localizedString(forKey: "Compose in Mail", value: nil, table: nil),
+            "Napsat v Mailu"
+        )
+        XCTAssertEqual(
+            english.localizedString(forKey: "Compose in Mail", value: nil, table: nil),
+            "Compose in Mail"
+        )
+        XCTAssertEqual(
             czech.localizedString(forKey: "Share Text", value: nil, table: nil),
             "Sdílet text"
         )
@@ -770,6 +780,49 @@ final class KastanAppTests: XCTestCase {
             ResultDetailAction.availableActions(hasPermanentLink: true, canSendByEmail: false),
             [.addToCalendar, .openPDF, .share]
         )
+    }
+
+    func testOptionChangesIDOSConnectionEmailToMailComposition() {
+        XCTAssertEqual(ConnectionEmailAction.preferred(for: []), .sendViaIDOS)
+        XCTAssertEqual(ConnectionEmailAction.preferred(for: [.command]), .sendViaIDOS)
+        XCTAssertEqual(ConnectionEmailAction.preferred(for: [.option]), .composeInMail)
+        XCTAssertEqual(
+            ConnectionEmailAction.preferred(for: [.option, .shift]),
+            .composeInMail
+        )
+        XCTAssertEqual(ConnectionEmailAction.sendViaIDOS.systemImage, "envelope")
+        XCTAssertEqual(ConnectionEmailAction.composeInMail.systemImage, "envelope.open")
+        XCTAssertEqual(
+            ResultDetailAction.sendByEmail.systemImage(emailAction: .composeInMail),
+            ConnectionEmailAction.composeInMail.systemImage
+        )
+    }
+
+    func testEmailToolbarKeepsItsWidthWhenOptionChangesDestination() {
+        let idos = NSHostingView(
+            rootView: OptionAlternateButtonLabel(
+                primaryAction: ConnectionEmailAction.sendViaIDOS,
+                alternateAction: ConnectionEmailAction.composeInMail,
+                presentedAction: .sendViaIDOS,
+                reservesAlternateWidth: true
+            ) { action in
+                Label(action.title, systemImage: action.systemImage)
+                    .labelStyle(.iconOnly)
+            }
+        )
+        let mail = NSHostingView(
+            rootView: OptionAlternateButtonLabel(
+                primaryAction: ConnectionEmailAction.sendViaIDOS,
+                alternateAction: ConnectionEmailAction.composeInMail,
+                presentedAction: .composeInMail,
+                reservesAlternateWidth: true
+            ) { action in
+                Label(action.title, systemImage: action.systemImage)
+                    .labelStyle(.iconOnly)
+            }
+        )
+
+        XCTAssertEqual(idos.fittingSize, mail.fittingSize)
     }
 
     func testOptionChangesLinkSharingToPortableText() {
@@ -1047,16 +1100,16 @@ final class KastanAppTests: XCTestCase {
     func testResultDetailCommandsFollowTheFocusedWindowState() {
         let ready = ResultDetailCommandContext(
             hasLoadedResult: true,
-            isPerformingExport: false,
+            isPerformingAction: false,
             permanentLink: URL(string: "https://idos.cz/"),
             shareText: "Portable result",
-            sendByEmail: {},
+            performEmailAction: { _ in },
             performCalendarAction: { _ in },
             performPDFAction: { _ in }
         )
         let loading = ResultDetailCommandContext(
             hasLoadedResult: false,
-            isPerformingExport: false,
+            isPerformingAction: false,
             permanentLink: nil,
             shareText: nil,
             performCalendarAction: { _ in },
@@ -1064,7 +1117,7 @@ final class KastanAppTests: XCTestCase {
         )
         let exporting = ResultDetailCommandContext(
             hasLoadedResult: true,
-            isPerformingExport: true,
+            isPerformingAction: true,
             permanentLink: URL(string: "https://idos.cz/"),
             shareText: "Portable result",
             performCalendarAction: { _ in },
@@ -1072,7 +1125,7 @@ final class KastanAppTests: XCTestCase {
         )
         let textOnly = ResultDetailCommandContext(
             hasLoadedResult: true,
-            isPerformingExport: false,
+            isPerformingAction: false,
             permanentLink: nil,
             shareText: "Portable result",
             performCalendarAction: { _ in },
@@ -1880,12 +1933,12 @@ final class KastanAppTests: XCTestCase {
             timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
             client: MockIDOSClient(),
             isShortest: true,
-            isPerformingExport: false,
+            isPerformingAction: false,
             showsActionMenu: true,
             timeFrameCoordinateSpace: nil,
             openConnection: {},
             openService: { _ in },
-            sendByEmail: {},
+            performEmailAction: { _ in },
             performCalendarAction: { _ in },
             performPDFAction: { _ in }
         )
@@ -3462,6 +3515,50 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(model.canSend)
     }
 
+    func testOptionEmailPreparesMailDraftWithGeneratedAttachmentsWithoutSending() async throws {
+        let client = MockIDOSClient()
+        let composer = RecordingConnectionEmailMailComposer()
+        let timetable = IDOSTimetable(slug: "vlaky", displayName: "Trains")
+        let model = ConnectionsViewModel(
+            client: client,
+            emailMailComposer: composer
+        )
+        model.timetable = timetable
+        let connection = connection(id: "connection-mail-draft")
+
+        await model.composeEmailInMail(for: connection)
+
+        let draft = try XCTUnwrap(composer.draft)
+        XCTAssertEqual(draft.subject, "Connection detail")
+        XCTAssertEqual(
+            draft.message,
+            ConnectionEmailMessage.localizedCreditingKastan(
+                in: "Prepared by IDOS at https://idos.cz"
+            )
+        )
+        XCTAssertEqual(draft.attachments.map(\.fileName), ["connection.pdf", "connection.ics"])
+        XCTAssertEqual(
+            String(data: draft.attachments[0].data, encoding: .utf8),
+            "%PDF-1.4\nKaštan"
+        )
+        XCTAssertEqual(
+            String(data: draft.attachments[1].data, encoding: .utf8),
+            "BEGIN:VCALENDAR\nEND:VCALENDAR"
+        )
+        let emailTimetable = await client.lastEmailTimetable
+        let emailLanguage = await client.lastEmailLanguage
+        let pdfLanguage = await client.lastPDFLanguage
+        let calendarLanguage = await client.lastConnectionCalendarLanguage
+        let recipient = await client.lastEmailRecipient
+        XCTAssertEqual(emailTimetable, timetable)
+        XCTAssertEqual(emailLanguage, AppLanguagePreference.idosLanguage)
+        XCTAssertEqual(pdfLanguage, AppLanguagePreference.idosLanguage)
+        XCTAssertEqual(calendarLanguage, AppLanguagePreference.idosLanguage)
+        XCTAssertNil(recipient)
+        XCTAssertNil(model.processingEmailConnectionID)
+        XCTAssertNil(model.errorMessage)
+    }
+
     func testConnectionEmailRejectsInvalidAddressesAndOversizedInput() async {
         let model = ConnectionEmailViewModel(
             connection: connection(id: "connection-email-validation"),
@@ -3599,12 +3696,12 @@ private func connectionCardOpenCount(afterDoubleClickAt location: NSPoint) -> In
         timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
         client: MockIDOSClient(),
         isShortest: false,
-        isPerformingExport: false,
+        isPerformingAction: false,
         showsActionMenu: false,
         timeFrameCoordinateSpace: nil,
         openConnection: { openCount += 1 },
         openService: { _ in },
-        sendByEmail: {},
+        performEmailAction: { _ in },
         performCalendarAction: { _ in },
         performPDFAction: { _ in }
     )
@@ -3764,6 +3861,15 @@ private final class RecordingPDFExporter: PDFExporting {
     func save(pdfData: Data, suggestedFileName: String) async throws {
         self.pdfData = pdfData
         self.suggestedFileName = suggestedFileName
+    }
+}
+
+@MainActor
+private final class RecordingConnectionEmailMailComposer: ConnectionEmailMailComposing {
+    private(set) var draft: ConnectionEmailMailDraft?
+
+    func compose(_ draft: ConnectionEmailMailDraft) throws {
+        self.draft = draft
     }
 }
 

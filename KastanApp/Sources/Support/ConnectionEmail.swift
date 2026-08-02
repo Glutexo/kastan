@@ -4,6 +4,62 @@ import Kastan
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// Chooses whether Kaštan handles connection delivery or prepares the same content for Mail.
+enum ConnectionEmailAction: Equatable {
+    case sendViaIDOS
+    case composeInMail
+
+    static func preferred(for modifierFlags: NSEvent.ModifierFlags) -> Self {
+        modifierFlags.contains(.option) ? .composeInMail : .sendViaIDOS
+    }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .sendViaIDOS:
+            "Send by Email"
+        case .composeInMail:
+            "Compose in Mail"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .sendViaIDOS:
+            "envelope"
+        case .composeInMail:
+            "envelope.open"
+        }
+    }
+}
+
+/// Presents Kaštan's email sheet normally and the complete Mail draft while Option is held.
+struct ConnectionEmailButton<Label: View>: View {
+    let placement: OptionAlternateButtonPlacement
+    let perform: (ConnectionEmailAction) -> Void
+    let label: (ConnectionEmailAction) -> Label
+
+    init(
+        placement: OptionAlternateButtonPlacement,
+        perform: @escaping (ConnectionEmailAction) -> Void,
+        @ViewBuilder label: @escaping (ConnectionEmailAction) -> Label
+    ) {
+        self.placement = placement
+        self.perform = perform
+        self.label = label
+    }
+
+    var body: some View {
+        OptionAlternateButton(
+            placement: placement,
+            primaryAction: ConnectionEmailAction.sendViaIDOS,
+            alternateAction: .composeInMail,
+            title: \.title,
+            perform: perform,
+            label: label
+        )
+    }
+}
+
 /// Opens one generated email attachment in the user's default macOS application.
 @MainActor
 protocol ConnectionEmailAttachmentOpening {
@@ -107,6 +163,30 @@ private enum ConnectionEmailAttachmentKind {
             return nil
         }
     }
+
+    /// Loads the localized IDOS representation belonging to one advertised attachment name.
+    func data(
+        for connection: IDOSConnection,
+        timetable: IDOSTimetable,
+        language: IDOSLanguage,
+        client: any IDOSClienting
+    ) async throws -> Data {
+        switch self {
+        case .pdf:
+            return try await client.connectionPDF(
+                for: connection,
+                timetable: timetable,
+                language: language
+            )
+        case .calendar:
+            let calendar = try await client.connectionCalendar(
+                for: connection,
+                timetable: timetable,
+                language: language
+            )
+            return Data(calendar.utf8)
+        }
+    }
 }
 
 /// Selects the attachment behavior and matching presentation for the current keyboard modifiers.
@@ -162,6 +242,125 @@ enum ConnectionEmailMessage {
             in: websiteRange,
             with: "\(idosWebsite) \(attribution)"
         )
+    }
+
+    /// Uses the current app language for the attribution shared by Kaštan's sheet and Mail drafts.
+    static func localizedCreditingKastan(in message: String) -> String {
+        creditingKastan(
+            in: message,
+            attribution: AppLocalization.string(
+                "using the Kaštan app %@",
+                projectWebsite.absoluteString
+            )
+        )
+    }
+}
+
+/// Carries one complete, unsent connection email from IDOS into the system Mail composer.
+struct ConnectionEmailMailDraft: Equatable, Sendable {
+    struct Attachment: Equatable, Sendable {
+        let data: Data
+        let fileName: String
+    }
+
+    let subject: String
+    let message: String
+    let attachments: [Attachment]
+
+    /// Loads the localized IDOS labels and every generated attachment before Mail is opened.
+    static func prepare(
+        connection: IDOSConnection,
+        timetable: IDOSTimetable,
+        language: IDOSLanguage,
+        client: any IDOSClienting
+    ) async throws -> Self {
+        let source = try await client.connectionEmailDraft(
+            for: connection,
+            timetable: timetable,
+            language: language
+        )
+        var attachments: [Attachment] = []
+
+        for fileName in source.attachmentFileNames {
+            guard let kind = ConnectionEmailAttachmentKind(fileName: fileName) else {
+                throw ConnectionEmailMailComposeError.cannotCompose
+            }
+            let data = try await kind.data(
+                for: connection,
+                timetable: timetable,
+                language: language,
+                client: client
+            )
+            attachments.append(Attachment(data: data, fileName: fileName))
+        }
+
+        guard !attachments.isEmpty else {
+            throw ConnectionEmailMailComposeError.cannotCompose
+        }
+        try Task.checkCancellation()
+
+        let description = source.description.trimmingCharacters(in: .whitespacesAndNewlines)
+        let subject = description.isEmpty
+            ? AppLocalization.string(
+                "Connection %@ – %@",
+                connection.departureStation,
+                connection.arrivalStation
+            )
+            : description
+        return Self(
+            subject: subject,
+            message: ConnectionEmailMessage.localizedCreditingKastan(in: source.message),
+            attachments: attachments
+        )
+    }
+}
+
+/// Explains when Kaštan cannot hand a complete generated connection email to Mail.
+enum ConnectionEmailMailComposeError: LocalizedError {
+    case cannotCompose
+
+    var errorDescription: String? {
+        AppLocalization.string("The email could not be prepared in Mail.")
+    }
+}
+
+/// Opens Apple's Mail composer with the IDOS subject, message, and temporary PDF and calendar files.
+@MainActor
+protocol ConnectionEmailMailComposing {
+    func compose(_ draft: ConnectionEmailMailDraft) throws
+}
+
+/// Keeps generated files in an isolated temporary directory for as long as Mail needs to import them.
+@MainActor
+final class WorkspaceConnectionEmailMailComposer: ConnectionEmailMailComposing {
+    private var activeService: NSSharingService?
+
+    func compose(_ draft: ConnectionEmailMailDraft) throws {
+        guard let service = NSSharingService(named: .composeEmail) else {
+            throw ConnectionEmailMailComposeError.cannotCompose
+        }
+
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("Kastan", isDirectory: true)
+            .appendingPathComponent("MailDrafts", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+
+        var items: [Any] = [draft.message]
+        for attachment in draft.attachments {
+            let file = directory.appendingPathComponent(
+                ConnectionEmailAttachmentFileName.safeValue(attachment.fileName)
+            )
+            try attachment.data.write(to: file, options: .atomic)
+            items.append(file as NSURL)
+        }
+
+        guard service.canPerform(withItems: items) else {
+            throw ConnectionEmailMailComposeError.cannotCompose
+        }
+        service.subject = draft.subject
+        activeService = service
+        service.perform(withItems: items)
     }
 }
 
@@ -253,14 +452,7 @@ final class ConnectionEmailViewModel: ObservableObject {
             )
             guard !Task.isCancelled else { return }
             self.draft = draft
-            let attribution = AppLocalization.string(
-                "using the Kaštan app %@",
-                ConnectionEmailMessage.projectWebsite.absoluteString
-            )
-            message = ConnectionEmailMessage.creditingKastan(
-                in: draft.message,
-                attribution: attribution
-            )
+            message = ConnectionEmailMessage.localizedCreditingKastan(in: draft.message)
         } catch {
             guard !Task.isCancelled else { return }
             errorMessage = AppErrorPresentation.message(for: error)
@@ -309,22 +501,12 @@ final class ConnectionEmailViewModel: ObservableObject {
         defer { processingAttachmentFileName = nil }
 
         do {
-            let data: Data
-            switch kind {
-            case .pdf:
-                data = try await client.connectionPDF(
-                    for: connection,
-                    timetable: timetable,
-                    language: AppLanguagePreference.idosLanguage
-                )
-            case .calendar:
-                let calendar = try await client.connectionCalendar(
-                    for: connection,
-                    timetable: timetable,
-                    language: AppLanguagePreference.idosLanguage
-                )
-                data = Data(calendar.utf8)
-            }
+            let data = try await kind.data(
+                for: connection,
+                timetable: timetable,
+                language: AppLanguagePreference.idosLanguage,
+                client: client
+            )
 
             guard !Task.isCancelled else { return }
             switch action {
