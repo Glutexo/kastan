@@ -1448,7 +1448,7 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testWideSearchControlsUseIntrinsicHeightAndKeepSupplementalControlsTogether() throws {
+    func testWideSearchControlsUseIntrinsicHeightAndAlignDirectOnlyBelowMode() throws {
         let width: CGFloat = 880
         let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
         let controls = JourneySearchControls(
@@ -1489,18 +1489,18 @@ final class KastanAppTests: XCTestCase {
         let descendants = hostingView.allDescendantViews
         let probes = descendants.compactMap { $0 as? SearchSupplementLayoutProbeView }
         let controlsProbe = try XCTUnwrap(probes.first { $0.name == "controls" })
-        let options = try XCTUnwrap(probes.first { $0.name == "options" })
         let shortcut = try XCTUnwrap(probes.first { $0.name == "shortcut" })
+        let mode = try XCTUnwrap(descendants.compactMap { $0 as? NSSegmentedControl }.first)
 
         let controlsFrame = hostingView.convert(controlsProbe.bounds, from: controlsProbe)
-        let optionsFrame = hostingView.convert(options.bounds, from: options)
         let shortcutFrame = hostingView.convert(shortcut.bounds, from: shortcut)
+        let modeFrame = hostingView.convert(mode.bounds, from: mode)
 
         XCTAssertLessThan(controlsFrame.height, 120)
-        XCTAssertEqual(shortcutFrame.minX - optionsFrame.maxX, 12, accuracy: 1)
+        XCTAssertEqual(shortcutFrame.minX, modeFrame.minX, accuracy: 1)
     }
 
-    func testSearchWidthKeepsJourneyControlPairsClustered() throws {
+    func testSearchWidthKeepsDirectOnlyAlignedBelowMode() throws {
         struct Frames {
             let mode: CGRect
             let options: CGRect
@@ -1566,7 +1566,7 @@ final class KastanAppTests: XCTestCase {
             XCTAssertEqual(current.mode.minX, baseline.mode.minX, accuracy: 1)
             XCTAssertEqual(current.options.minX, baseline.options.minX, accuracy: 1)
             XCTAssertEqual(current.directOnly.minX, baseline.directOnly.minX, accuracy: 1)
-            XCTAssertEqual(current.directOnly.minX - current.options.maxX, 12, accuracy: 1)
+            XCTAssertEqual(current.directOnly.minX, current.mode.minX, accuracy: 1)
         }
     }
 

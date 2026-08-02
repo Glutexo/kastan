@@ -201,10 +201,10 @@ struct JourneySearchControls: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// Keeps each related control pair at standard spacing while the search action uses the remaining width.
+    /// Keeps the direct-only shortcut in the same column as the time mode at every wide width.
     private func horizontalControls(supplement: JourneySearchControlsSupplement) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .bottom, spacing: 12) {
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 14) {
+            GridRow(alignment: .bottom) {
                 dateTimePicker
                 modePicker
                     .frame(width: 175, alignment: .leading)
@@ -213,17 +213,17 @@ struct JourneySearchControls: View {
                     .padding(.trailing, Self.wideSearchButtonTrailingPadding)
             }
 
-            naturalSupplementalRow(supplement: supplement)
+            alignedSupplementalRow(supplement: supplement, modeWidth: 175)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Keeps both related pairs compact while all primary controls still fit on one row.
+    /// Preserves the column alignment while all primary controls still fit on one compact row.
     @ViewBuilder
     private var stackedHorizontalControls: some View {
         if let supplement {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .bottom, spacing: 12) {
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 14) {
+                GridRow(alignment: .bottom) {
                     dateTimePicker
                     modePicker
                         .fixedSize(horizontal: true, vertical: false)
@@ -231,7 +231,7 @@ struct JourneySearchControls: View {
                     searchButton
                 }
 
-                naturalSupplementalRow(supplement: supplement)
+                alignedSupplementalRow(supplement: supplement, modeWidth: nil)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         } else {
@@ -254,7 +254,7 @@ struct JourneySearchControls: View {
             }
 
             if let supplement {
-                compactNaturalControls(supplement: supplement)
+                compactAlignedControls(supplement: supplement)
             } else {
                 HStack(spacing: 12) {
                     modePicker
@@ -266,30 +266,37 @@ struct JourneySearchControls: View {
         }
     }
 
-    /// Keeps both supplemental labels side by side when the primary controls need separate rows.
-    private func compactNaturalControls(supplement: JourneySearchControlsSupplement) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
+    /// Reserves the journey-options column when primary controls need separate compact rows.
+    private func compactAlignedControls(supplement: JourneySearchControlsSupplement) -> some View {
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {
+            GridRow {
+                Color.clear
+                    .frame(height: 0)
                 modePicker
                     .fixedSize(horizontal: true, vertical: false)
                 Spacer(minLength: 0)
                 searchButton
             }
 
-            naturalSupplementalRow(supplement: supplement)
+            alignedSupplementalRow(supplement: supplement, modeWidth: nil)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Prevents the journey-option controls from absorbing wider windows between them.
-    private func naturalSupplementalRow(
-        supplement: JourneySearchControlsSupplement
+    /// Aligns supplemental controls beneath the journey-instant and time-mode columns.
+    private func alignedSupplementalRow(
+        supplement: JourneySearchControlsSupplement,
+        modeWidth: CGFloat?
     ) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
+        GridRow(alignment: .firstTextBaseline) {
             supplement.leading
                 .fixedSize(horizontal: true, vertical: false)
             supplement.modeAligned
-                .fixedSize(horizontal: true, vertical: false)
-            Spacer(minLength: 0)
+                .frame(width: modeWidth, alignment: .leading)
+            Color.clear
+                .frame(width: 0, height: 0)
+            Color.clear
+                .frame(width: 0, height: 0)
         }
     }
 
