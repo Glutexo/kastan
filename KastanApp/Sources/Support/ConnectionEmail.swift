@@ -326,7 +326,7 @@ struct ConnectionEmailMailDraft: Equatable, Sendable {
     @MainActor
     func attributedMessage() throws -> NSAttributedString {
         guard let htmlData = htmlMessage.data(using: .utf8),
-              let result = try? NSAttributedString(
+              let importedMessage = try? NSAttributedString(
                 data: htmlData,
                 options: [
                     .documentType: NSAttributedString.DocumentType.html,
@@ -336,6 +336,31 @@ struct ConnectionEmailMailDraft: Equatable, Sendable {
               )
         else {
             throw ConnectionEmailMailComposeError.cannotCompose
+        }
+
+        let result = NSMutableAttributedString(attributedString: importedMessage)
+        let fullRange = NSRange(location: 0, length: result.length)
+        var fonts: [(range: NSRange, font: NSFont)] = []
+        result.enumerateAttribute(.font, in: fullRange) { value, range, _ in
+            let sourceFont = value as? NSFont ?? .systemFont(ofSize: NSFont.systemFontSize)
+            fonts.append((range, Self.systemFont(matching: sourceFont)))
+        }
+        for item in fonts {
+            result.addAttribute(.font, value: item.font, range: item.range)
+        }
+        return result
+    }
+
+    /// Keeps Mail's imported rich text in one system typeface while retaining the HTML hierarchy.
+    @MainActor
+    private static func systemFont(matching sourceFont: NSFont) -> NSFont {
+        let traits = sourceFont.fontDescriptor.symbolicTraits
+        var result = NSFont.systemFont(
+            ofSize: sourceFont.pointSize,
+            weight: traits.contains(.bold) ? .bold : .regular
+        )
+        if traits.contains(.italic) {
+            result = NSFontManager.shared.convert(result, toHaveTrait: .italicFontMask)
         }
         return result
     }

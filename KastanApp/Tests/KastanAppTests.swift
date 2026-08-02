@@ -1218,6 +1218,13 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(html.contains("Praha &lt;script&gt;alert(1)&lt;/script&gt;"))
         XCTAssertTrue(html.contains("Brno &amp; okolí"))
         XCTAssertTrue(html.contains("R &lt;script&gt;alert(2)&lt;/script&gt;"))
+        XCTAssertTrue(html.contains("<table class=\"route-summary\">"))
+        XCTAssertTrue(
+            html.contains(
+                "<th scope=\"row\">From</th><td>Praha &lt;script&gt;alert(1)&lt;/script&gt;</td>"
+            )
+        )
+        XCTAssertFalse(html.contains("<dl>"))
         XCTAssertFalse(html.contains("<script>"))
         XCTAssertFalse(html.contains("background: url(unsafe)"))
     }
@@ -3575,7 +3582,7 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertTrue(draft.htmlMessage.hasPrefix("<!doctype html>"))
         XCTAssertTrue(draft.htmlMessage.contains("Prepared by IDOS at https://idos.cz"))
-        XCTAssertTrue(draft.htmlMessage.contains("<table>"))
+        XCTAssertTrue(draft.htmlMessage.contains("<table class=\"route-summary\">"))
         XCTAssertTrue(draft.htmlMessage.contains("connection-mail-draft") == false)
         XCTAssertTrue(draft.htmlMessage.contains("Praha hl.n."))
         XCTAssertTrue(draft.htmlMessage.contains("Brno hl.n."))
@@ -3584,6 +3591,19 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(richMessage.string.contains(AppLocalization.string("Connections")))
         XCTAssertTrue(richMessage.string.contains("Praha hl.n."))
         XCTAssertTrue(richMessage.string.contains("Brno hl.n."))
+        var fontFamilies: Set<String> = []
+        var fontSizes: Set<CGFloat> = []
+        richMessage.enumerateAttribute(
+            .font,
+            in: NSRange(location: 0, length: richMessage.length)
+        ) { value, _, _ in
+            guard let font = value as? NSFont else { return }
+            fontFamilies.insert(font.familyName ?? font.fontName)
+            fontSizes.insert(font.pointSize)
+        }
+        let systemFont = NSFont.systemFont(ofSize: NSFont.systemFontSize)
+        XCTAssertEqual(fontFamilies, Set([systemFont.familyName ?? systemFont.fontName]))
+        XCTAssertGreaterThan(fontSizes.count, 1, "Mail typography should retain its visual hierarchy")
         XCTAssertEqual(draft.attachments.map(\.fileName), ["connection.pdf", "connection.ics"])
         XCTAssertEqual(
             String(data: draft.attachments[0].data, encoding: .utf8),

@@ -80,7 +80,7 @@ struct CLIPlainTextPresentation {
             body: """
             \(introduction)
             <h1>🧭 \(PortableHTML.escape(text("Connections")))</h1>
-            \(PortableHTML.definitionList([
+            \(PortableHTML.routeSummary([
                 (label: text("From"), value: connection.departureStation),
                 (label: text("To"), value: connection.arrivalStation),
                 (label: text("Timetable"), value: timetableName(timetable)),
@@ -227,17 +227,22 @@ private enum PortableHTML {
           <meta charset="utf-8">
           <title>\(escape(title))</title>
           <style>
-            body { font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 20px; }
-            h1, h2 { line-height: 1.25; margin: 20px 0 10px; }
+            body, table, h1, h2, p, div, span, th, td {
+              font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+            }
+            body { font-size: 15px; line-height: 1.45; margin: 20px; }
+            h1, h2 { font-weight: bold; line-height: 1.25; margin: 20px 0 10px; }
             h1 { font-size: 1.55em; }
             h2 { font-size: 1.2em; }
             p { margin: 8px 0 14px; }
-            dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0 18px; }
-            dt { font-weight: 600; }
-            dd { margin: 0; }
             table { border-collapse: collapse; margin: 12px 0 20px; width: 100%; }
             th, td { border: 1px solid #b8bec6; padding: 6px 10px; text-align: left; vertical-align: top; }
-            th, .badges { font-weight: 600; }
+            th, .badges { font-weight: bold; }
+            .route-summary { background: #f5f6f8; border: 1px solid #d8dce2; }
+            .route-summary th, .route-summary td { border: 0; padding: 7px 10px; }
+            .route-summary th { color: #5f6872; font-size: 0.85em; white-space: nowrap; width: 7.5em; }
+            .route-summary td { font-weight: bold; }
+            .route-summary tr + tr th, .route-summary tr + tr td { border-top: 1px solid #e1e4e8; }
             hr { border: 0; border-top: 1px solid #b8bec6; margin: 20px 0; }
           </style>
         </head>
@@ -269,11 +274,12 @@ private enum PortableHTML {
             .joined(separator: "\n")
     }
 
-    static func definitionList(_ items: [(label: String, value: String)]) -> String {
+    /// Aligns route labels and values without relying on CSS grid, which Mail's HTML importer does not preserve.
+    static func routeSummary(_ items: [(label: String, value: String)]) -> String {
         let rows = items.map { item in
-            "<dt>\(escape(item.label))</dt><dd>\(escape(item.value))</dd>"
+            "<tr><th scope=\"row\">\(escape(item.label))</th><td>\(escape(item.value))</td></tr>"
         }.joined(separator: "\n")
-        return "<dl>\n\(rows)\n</dl>"
+        return "<table class=\"route-summary\">\n<tbody>\n\(rows)\n</tbody>\n</table>"
     }
 
     /// Renders escaped headers and trusted, already-escaped cell markup.
