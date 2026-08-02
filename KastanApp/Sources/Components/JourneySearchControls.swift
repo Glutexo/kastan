@@ -12,16 +12,16 @@ enum SearchShortcutPresentation {
 /// Adds stable connection-specific controls and full-width details to the shared search layout.
 struct JourneySearchControlsSupplement {
     let leading: AnyView
-    let modeAligned: AnyView
+    let adjacent: AnyView
     let details: AnyView
 
-    init<Leading: View, ModeAligned: View, Details: View>(
+    init<Leading: View, Adjacent: View, Details: View>(
         leading: Leading,
-        modeAligned: ModeAligned,
+        adjacent: Adjacent,
         details: Details
     ) {
         self.leading = AnyView(leading)
-        self.modeAligned = AnyView(modeAligned)
+        self.adjacent = AnyView(adjacent)
         self.details = AnyView(details)
     }
 }
@@ -116,7 +116,7 @@ struct JourneySearchControls: View {
     /// Balances the large native search button's trailing chrome with the visible leading control inset.
     static let wideSearchButtonTrailingPadding: CGFloat = 5
 
-    /// Leaves enough room for the localized time mode to stay on the compact search row.
+    /// Keeps the search action compact in narrow forms and comfortably wide otherwise.
     static func searchButtonContentWidth(usesStackedLayout: Bool) -> CGFloat {
         usesStackedLayout ? 80 : 140
     }
@@ -172,26 +172,14 @@ struct JourneySearchControls: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Group {
-                if usesStackedLayout {
-                    ViewThatFits(in: .horizontal) {
-                        stackedHorizontalControls
-                            .fixedSize(horizontal: true, vertical: false)
-
-                        compactStackedControls
-                    }
-                } else if let supplement {
-                    horizontalControls(supplement: supplement)
-                } else {
-                    HStack(alignment: .bottom, spacing: 12) {
-                        dateTimePicker
-                        modePicker
-                            .frame(width: 175, alignment: .leading)
-                        Spacer(minLength: 0)
-                        searchButton
-                            .padding(.trailing, Self.wideSearchButtonTrailingPadding)
-                    }
+            if let supplement {
+                VStack(alignment: .leading, spacing: 14) {
+                    primaryControls
+                    supplementalRow(supplement: supplement)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                primaryControls
             }
 
             if let supplement {
@@ -201,123 +189,43 @@ struct JourneySearchControls: View {
         .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// Keeps the direct-only shortcut in the same column as the time mode at every wide width.
-    private func horizontalControls(supplement: JourneySearchControlsSupplement) -> some View {
-        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 14) {
-            GridRow(alignment: .bottom) {
-                dateTimePicker
-                modePicker
-                    .frame(width: 175, alignment: .leading)
-                Spacer(minLength: 0)
-                searchButton
-                    .padding(.trailing, Self.wideSearchButtonTrailingPadding)
-            }
-
-            alignedSupplementalRow(supplement: supplement, modeWidth: 175)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// Preserves the column alignment while all primary controls still fit on one compact row.
-    @ViewBuilder
-    private var stackedHorizontalControls: some View {
-        if let supplement {
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 14) {
-                GridRow(alignment: .bottom) {
-                    dateTimePicker
-                    modePicker
-                        .fixedSize(horizontal: true, vertical: false)
-                    Spacer(minLength: 8)
-                    searchButton
-                }
-
-                alignedSupplementalRow(supplement: supplement, modeWidth: nil)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        } else {
-            HStack(alignment: .bottom, spacing: 12) {
-                dateTimePicker
-                modePicker
-                    .fixedSize(horizontal: true, vertical: false)
-                Spacer(minLength: 8)
-                searchButton
-            }
+    /// Leaves flexible space only between the compact journey editor and the trailing search action.
+    private var primaryControls: some View {
+        HStack(alignment: .bottom, spacing: 12) {
+            dateTimePicker
+            Spacer(minLength: usesStackedLayout ? 8 : 0)
+            searchButton
+                .padding(
+                    .trailing,
+                    usesStackedLayout ? 0 : Self.wideSearchButtonTrailingPadding
+                )
         }
     }
 
-    /// Preserves a readable side-by-side options row when the mode itself moves to a compact row.
-    private var compactStackedControls: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .bottom, spacing: 12) {
-                dateTimePicker
-                Spacer(minLength: 0)
-            }
-
-            if let supplement {
-                compactAlignedControls(supplement: supplement)
-            } else {
-                HStack(spacing: 12) {
-                    modePicker
-                        .fixedSize(horizontal: true, vertical: false)
-                    Spacer(minLength: 0)
-                    searchButton
-                }
-            }
-        }
-    }
-
-    /// Reserves the journey-options column when primary controls need separate compact rows.
-    private func compactAlignedControls(supplement: JourneySearchControlsSupplement) -> some View {
-        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {
-            GridRow {
-                Color.clear
-                    .frame(height: 0)
-                modePicker
-                    .fixedSize(horizontal: true, vertical: false)
-                Spacer(minLength: 0)
-                searchButton
-            }
-
-            alignedSupplementalRow(supplement: supplement, modeWidth: nil)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// Aligns supplemental controls beneath the journey-instant and time-mode columns.
-    private func alignedSupplementalRow(
-        supplement: JourneySearchControlsSupplement,
-        modeWidth: CGFloat?
-    ) -> some View {
-        GridRow(alignment: .firstTextBaseline) {
+    /// Keeps connection-specific shortcuts together instead of letting wider windows separate them.
+    private func supplementalRow(supplement: JourneySearchControlsSupplement) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
             supplement.leading
                 .fixedSize(horizontal: true, vertical: false)
-            supplement.modeAligned
-                .frame(width: modeWidth, alignment: .leading)
-            Color.clear
-                .frame(width: 0, height: 0)
-            Color.clear
-                .frame(width: 0, height: 0)
+            supplement.adjacent
+                .fixedSize(horizontal: true, vertical: false)
+            Spacer(minLength: 0)
         }
     }
 
-    /// Keeps the compact instant from gaining width and pushing the adjacent time mode away.
+    /// Keeps the complete journey editor compact while its detailed controls stay in the popover.
     private var dateTimePicker: some View {
         JourneyDateTimePicker(
             date: $date,
             time: $time,
+            isArrival: $isArrival,
+            modeLabel: modeLabel,
+            departureLabel: departureLabel,
+            arrivalLabel: arrivalLabel,
             usesCurrentDateAndTime: usesCurrentDateAndTime,
             selectCurrentDateAndTime: selectCurrentDateAndTime
         )
         .fixedSize(horizontal: true, vertical: false)
-    }
-
-    private var modePicker: some View {
-        Picker(modeLabel, selection: $isArrival) {
-            Text(departureLabel).tag(false)
-            Text(arrivalLabel).tag(true)
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
     }
 
     private var searchButton: some View {
@@ -383,19 +291,31 @@ struct JourneyDateTimePicker: View {
 
     @Binding private var date: Date
     @Binding private var time: Date
+    @Binding private var isArrival: Bool
     @State private var isEditorPresented = false
 
+    private let modeLabel: LocalizedStringKey
+    private let departureLabel: LocalizedStringKey
+    private let arrivalLabel: LocalizedStringKey
     private let usesCurrentDateAndTime: Bool
     private let selectCurrentDateAndTime: () -> Void
 
     init(
         date: Binding<Date>,
         time: Binding<Date>,
+        isArrival: Binding<Bool>,
+        modeLabel: LocalizedStringKey,
+        departureLabel: LocalizedStringKey,
+        arrivalLabel: LocalizedStringKey,
         usesCurrentDateAndTime: Bool,
         selectCurrentDateAndTime: @escaping () -> Void
     ) {
         _date = date
         _time = time
+        _isArrival = isArrival
+        self.modeLabel = modeLabel
+        self.departureLabel = departureLabel
+        self.arrivalLabel = arrivalLabel
         self.usesCurrentDateAndTime = usesCurrentDateAndTime
         self.selectCurrentDateAndTime = selectCurrentDateAndTime
     }
@@ -433,6 +353,32 @@ struct JourneyDateTimePicker: View {
     }
 
     private var editor: some View {
+        JourneyDateTimeEditor(
+            date: $date,
+            time: $time,
+            isArrival: $isArrival,
+            modeLabel: modeLabel,
+            departureLabel: departureLabel,
+            arrivalLabel: arrivalLabel,
+            selectCurrentDateAndTime: selectCurrentDateAndTime,
+            done: { isEditorPresented = false }
+        )
+    }
+}
+
+/// Edits the complete journey instant and whether that instant means departure or arrival.
+struct JourneyDateTimeEditor: View {
+    @Binding var date: Date
+    @Binding var time: Date
+    @Binding var isArrival: Bool
+
+    let modeLabel: LocalizedStringKey
+    let departureLabel: LocalizedStringKey
+    let arrivalLabel: LocalizedStringKey
+    let selectCurrentDateAndTime: () -> Void
+    let done: () -> Void
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Date and time")
                 .font(.headline)
@@ -443,7 +389,10 @@ struct JourneyDateTimePicker: View {
                     DatePicker("Date", selection: $date, displayedComponents: .date)
                         .labelsHidden()
                         .datePickerStyle(.stepperField)
-                        .frame(width: Self.editorFieldWidth, alignment: .leading)
+                        .frame(
+                            width: JourneyDateTimePicker.editorFieldWidth,
+                            alignment: .leading
+                        )
                 }
 
                 GridRow {
@@ -451,7 +400,24 @@ struct JourneyDateTimePicker: View {
                     DatePicker("Time", selection: $time, displayedComponents: .hourAndMinute)
                         .labelsHidden()
                         .datePickerStyle(.stepperField)
-                        .frame(width: Self.editorFieldWidth, alignment: .leading)
+                        .frame(
+                            width: JourneyDateTimePicker.editorFieldWidth,
+                            alignment: .leading
+                        )
+                }
+
+                GridRow {
+                    Text(modeLabel)
+                    Picker(modeLabel, selection: $isArrival) {
+                        Text(departureLabel).tag(false)
+                        Text(arrivalLabel).tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(
+                        width: JourneyDateTimePicker.editorFieldWidth,
+                        alignment: .leading
+                    )
                 }
             }
 
@@ -460,13 +426,11 @@ struct JourneyDateTimePicker: View {
             HStack {
                 Button("Now") {
                     selectCurrentDateAndTime()
-                    isEditorPresented = false
+                    done()
                 }
                 Spacer()
-                Button("Done") {
-                    isEditorPresented = false
-                }
-                .keyboardShortcut(.defaultAction)
+                Button("Done", action: done)
+                    .keyboardShortcut(.defaultAction)
             }
         }
         .padding(16)

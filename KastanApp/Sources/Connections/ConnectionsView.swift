@@ -367,7 +367,7 @@ struct ConnectionsView: View {
             usesStackedLayout: stacked,
             supplement: JourneySearchControlsSupplement(
                 leading: journeyOptionsHeader,
-                modeAligned: directConnectionsOnlyToggle,
+                adjacent: directConnectionsOnlyToggle,
                 details: journeyOptionsDetails
             )
         ) {

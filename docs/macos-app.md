@@ -15,20 +15,21 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   to a free-text search. Holding Option reveals compact field shortcuts: Here beside From and To requests the Mac's
   current location only when clicked and fills that endpoint with IDOS's exact My location object. Typing the exact
   localized My location phrase into either field does the same when the search starts. A single compact Now control
-  replaces the separate date and time fields. It opens a popover with native date and time editors, a Now reset, and
-  a Done action; after either value is edited, the closed control shows the localized selected date and time. Until
-  either value is edited or a search is submitted, the launch default follows the current moment when the form
-  appears, the app becomes active, and immediately before searching, so an app left open overnight does not silently
-  query yesterday. Station-board searches use the same current-moment behavior and compact editor. Searches also
+  replaces the separate date, time, and Departure/Arrival controls. It opens a popover with native date and time
+  editors, the time-mode selector, a Now reset, and a Done action; after either value is edited, the closed control
+  shows the localized selected date and time. Until either value is edited or a search is submitted, the launch
+  default follows the current moment when the form appears, the app becomes active, and immediately before searching,
+  so an app left open overnight does not silently query yesterday. Station-board searches use the same current-moment
+  behavior and compact editor, with their Departures/Arrivals selector inside the popover. Searches also
   support arrival mode and an extensible journey-options builder modeled after native macOS rule editors. Selecting
   the same exact departure and arrival shows inline guidance and disables Search before any IDOS request can start.
   Each condition first selects either Via or Maximum number of transfers, then presents the corresponding text
   or compact, left-aligned number field with native stepper arrows. Both editors share one row height and follow the
   condition menu sized from the longest supported localized option at standard control spacing; fixed-size controls
-  add and remove rows while summaries retain locale-aware transfer wording. Departure/Arrival follows the compact
-  journey instant at standard control spacing, and a Direct connections only checkbox aligns directly below that
-  time-mode control. Their shared column stays fixed instead of shifting when the window grows. Expanding the builder
-  adds its full-width conditions below the stable control rows without moving the time mode or checkbox;
+  add and remove rows while summaries retain locale-aware transfer wording. Departure/Arrival stays inside the compact
+  journey editor, while a Direct connections only checkbox follows the builder heading at standard control spacing.
+  Those supplemental controls stay clustered instead of spreading apart when the window grows. Expanding the builder
+  adds its full-width conditions below the stable control rows without moving the checkbox;
   either its arrow or heading toggles the conditions. Selecting the checkbox keeps a collapsed builder closed and adds
   a zero-transfer condition or updates the existing transfer limit; clearing it removes that condition.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.

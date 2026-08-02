@@ -1448,7 +1448,7 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testWideSearchControlsUseIntrinsicHeightAndAlignDirectOnlyBelowMode() throws {
+    func testWideSearchControlsUseIntrinsicHeightAndKeepSupplementalControlsTogether() throws {
         let width: CGFloat = 880
         let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
         let controls = JourneySearchControls(
@@ -1464,7 +1464,7 @@ final class KastanAppTests: XCTestCase {
             supplement: JourneySearchControlsSupplement(
                 leading: SearchSupplementLayoutProbe(name: "options")
                     .frame(width: 180, height: 22),
-                modeAligned: SearchSupplementLayoutProbe(name: "shortcut")
+                adjacent: SearchSupplementLayoutProbe(name: "shortcut")
                     .frame(width: 150, height: 22),
                 details: SearchSupplementLayoutProbe(name: "details")
                     .frame(height: 0)
@@ -1489,20 +1489,19 @@ final class KastanAppTests: XCTestCase {
         let descendants = hostingView.allDescendantViews
         let probes = descendants.compactMap { $0 as? SearchSupplementLayoutProbeView }
         let controlsProbe = try XCTUnwrap(probes.first { $0.name == "controls" })
+        let options = try XCTUnwrap(probes.first { $0.name == "options" })
         let shortcut = try XCTUnwrap(probes.first { $0.name == "shortcut" })
-        let mode = try XCTUnwrap(descendants.compactMap { $0 as? NSSegmentedControl }.first)
 
         let controlsFrame = hostingView.convert(controlsProbe.bounds, from: controlsProbe)
+        let optionsFrame = hostingView.convert(options.bounds, from: options)
         let shortcutFrame = hostingView.convert(shortcut.bounds, from: shortcut)
-        let modeFrame = hostingView.convert(mode.bounds, from: mode)
 
         XCTAssertLessThan(controlsFrame.height, 120)
-        XCTAssertEqual(shortcutFrame.minX, modeFrame.minX, accuracy: 1)
+        XCTAssertEqual(shortcutFrame.minX - optionsFrame.maxX, 12, accuracy: 1)
     }
 
-    func testSearchWidthKeepsDirectOnlyAlignedBelowMode() throws {
+    func testSearchWidthKeepsSupplementalControlsClustered() throws {
         struct Frames {
-            let mode: CGRect
             let options: CGRect
             let directOnly: CGRect
         }
@@ -1522,7 +1521,7 @@ final class KastanAppTests: XCTestCase {
                 supplement: JourneySearchControlsSupplement(
                     leading: JourneyOptionsDisclosureHeader(isExpanded: .constant(false))
                         .background(SearchSupplementLayoutProbe(name: "options")),
-                    modeAligned: SearchSupplementLayoutProbe(name: "direct-only")
+                    adjacent: SearchSupplementLayoutProbe(name: "direct-only")
                         .frame(width: 150, height: 22),
                     details: EmptyView()
                 ),
@@ -1544,12 +1543,11 @@ final class KastanAppTests: XCTestCase {
 
             let descendants = hostingView.allDescendantViews
             let probes = descendants.compactMap { $0 as? SearchSupplementLayoutProbeView }
-            let mode = try XCTUnwrap(descendants.compactMap { $0 as? NSSegmentedControl }.first)
             let options = try XCTUnwrap(probes.first { $0.name == "options" })
             let directOnly = try XCTUnwrap(probes.first { $0.name == "direct-only" })
+            XCTAssertTrue(descendants.compactMap { $0 as? NSSegmentedControl }.isEmpty)
 
             return Frames(
-                mode: hostingView.convert(mode.bounds, from: mode),
                 options: hostingView.convert(options.bounds, from: options),
                 directOnly: hostingView.convert(directOnly.bounds, from: directOnly)
             )
@@ -1563,16 +1561,14 @@ final class KastanAppTests: XCTestCase {
         let baseline = try XCTUnwrap(frames.first)
 
         for current in frames {
-            XCTAssertEqual(current.mode.minX, baseline.mode.minX, accuracy: 1)
             XCTAssertEqual(current.options.minX, baseline.options.minX, accuracy: 1)
             XCTAssertEqual(current.directOnly.minX, baseline.directOnly.minX, accuracy: 1)
-            XCTAssertEqual(current.directOnly.minX, current.mode.minX, accuracy: 1)
+            XCTAssertEqual(current.directOnly.minX - current.options.maxX, 12, accuracy: 1)
         }
     }
 
-    func testExpandedSearchSupplementKeepsModeAndLabelsInPlace() throws {
+    func testExpandedSearchSupplementKeepsLabelsInPlace() throws {
         struct Frames {
-            let mode: CGRect
             let options: CGRect
             let shortcut: CGRect
             let details: CGRect
@@ -1593,7 +1589,7 @@ final class KastanAppTests: XCTestCase {
                 supplement: JourneySearchControlsSupplement(
                     leading: SearchSupplementLayoutProbe(name: "options")
                         .frame(width: 180, height: 22),
-                    modeAligned: SearchSupplementLayoutProbe(name: "shortcut")
+                    adjacent: SearchSupplementLayoutProbe(name: "shortcut")
                         .frame(width: 150, height: 22),
                     details: SearchSupplementLayoutProbe(name: "details")
                         .frame(height: detailsHeight)
@@ -1617,13 +1613,11 @@ final class KastanAppTests: XCTestCase {
 
             let descendants = hostingView.allDescendantViews
             let probes = descendants.compactMap { $0 as? SearchSupplementLayoutProbeView }
-            let mode = try XCTUnwrap(descendants.compactMap { $0 as? NSSegmentedControl }.first)
             let options = try XCTUnwrap(probes.first { $0.name == "options" })
             let shortcut = try XCTUnwrap(probes.first { $0.name == "shortcut" })
             let details = try XCTUnwrap(probes.first { $0.name == "details" })
 
             return Frames(
-                mode: hostingView.convert(mode.bounds, from: mode),
                 options: hostingView.convert(options.bounds, from: options),
                 shortcut: hostingView.convert(shortcut.bounds, from: shortcut),
                 details: hostingView.convert(details.bounds, from: details)
@@ -1638,13 +1632,8 @@ final class KastanAppTests: XCTestCase {
             let collapsed = try renderedFrames(width: width, detailsHeight: 0)
             let expanded = try renderedFrames(width: width, detailsHeight: 120)
 
-            XCTAssertEqual(collapsed.mode.minX, expanded.mode.minX, accuracy: 1)
+            XCTAssertEqual(collapsed.options.minX, expanded.options.minX, accuracy: 1)
             XCTAssertEqual(collapsed.shortcut.minX, expanded.shortcut.minX, accuracy: 1)
-            XCTAssertEqual(
-                collapsed.mode.minY - collapsed.options.minY,
-                expanded.mode.minY - expanded.options.minY,
-                accuracy: 1
-            )
             XCTAssertEqual(
                 collapsed.shortcut.minY - collapsed.options.minY,
                 expanded.shortcut.minY - expanded.options.minY,
@@ -1764,6 +1753,10 @@ final class KastanAppTests: XCTestCase {
         let compactPicker = NSHostingView(rootView: JourneyDateTimePicker(
             date: .constant(fixedDate),
             time: .constant(fixedDate),
+            isArrival: .constant(false),
+            modeLabel: "Time means",
+            departureLabel: "Departure",
+            arrivalLabel: "Arrival",
             usesCurrentDateAndTime: true,
             selectCurrentDateAndTime: {}
         ))
@@ -1793,9 +1786,52 @@ final class KastanAppTests: XCTestCase {
         defer { window.orderOut(nil) }
 
         XCTAssertTrue(hostingView.allDescendantViews.compactMap { $0 as? NSDatePicker }.isEmpty)
+        XCTAssertTrue(hostingView.allDescendantViews.compactMap { $0 as? NSSegmentedControl }.isEmpty)
         XCTAssertLessThanOrEqual(compactPicker.fittingSize.height, 30)
         XCTAssertEqual(JourneyDateTimePicker.buttonContentWidth, 150)
         XCTAssertEqual(JourneyDateTimePicker.editorFieldWidth, 180)
+    }
+
+    func testTimeModeIsEditedInsideDateTimePopover() throws {
+        let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
+        var isArrival = false
+        let editor = JourneyDateTimeEditor(
+            date: .constant(fixedDate),
+            time: .constant(fixedDate),
+            isArrival: Binding(
+                get: { isArrival },
+                set: { isArrival = $0 }
+            ),
+            modeLabel: "Time means",
+            departureLabel: "Departure",
+            arrivalLabel: "Arrival",
+            selectCurrentDateAndTime: {},
+            done: {}
+        )
+        let hostingView = NSHostingView(rootView: editor)
+        hostingView.frame = NSRect(x: 0, y: 0, width: 360, height: 240)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        let descendants = hostingView.allDescendantViews
+        XCTAssertEqual(descendants.compactMap { $0 as? NSDatePicker }.count, 2)
+
+        let mode = try XCTUnwrap(descendants.compactMap { $0 as? NSSegmentedControl }.first)
+        XCTAssertEqual(mode.segmentCount, 2)
+        XCTAssertEqual(mode.label(forSegment: 0), AppLocalization.string("Departure"))
+        XCTAssertEqual(mode.label(forSegment: 1), AppLocalization.string("Arrival"))
+
+        mode.selectedSegment = 1
+        mode.sendAction(mode.action, to: mode.target)
+        XCTAssertTrue(isArrival)
     }
 
     func testSearchFieldShortcutDoesNotResizeItsHeader() {
