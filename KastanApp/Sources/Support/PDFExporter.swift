@@ -33,9 +33,9 @@ struct WorkspacePDFExporter: PDFExporting {
     }
 }
 
-/// Produces a readable route-based name while removing path separators that cannot belong to one file name.
-enum PDFExportFileName {
-    static func connection(from: String, to: String) -> String {
+/// Produces readable route-based export names while removing characters that cannot belong to one file name.
+enum ResultExportFileName {
+    static func connection(from: String, to: String, pathExtension: String) -> String {
         var invalidCharacters = CharacterSet(charactersIn: "/:")
         invalidCharacters.formUnion(.newlines)
         let title = AppLocalization.string(
@@ -49,6 +49,17 @@ enum PDFExportFileName {
             .components(separatedBy: invalidCharacters)
             .joined(separator: "-")
             .trimmingCharacters(in: trailingCharacters)
-        return "\(safeTitle).pdf"
+        return "\(safeTitle).\(pathExtension)"
+    }
+}
+
+/// Supplies a native PDF extension for the shared route-based export name.
+enum PDFExportFileName {
+    static func connection(from: String, to: String) -> String {
+        ResultExportFileName.connection(
+            from: from,
+            to: to,
+            pathExtension: "pdf"
+        )
     }
 }

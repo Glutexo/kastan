@@ -303,6 +303,15 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
         }
     }
 
+    /// Replaces only the calendar action's presentation when its Option alternate is active.
+    func title(for calendarExportAction: CalendarExportAction) -> LocalizedStringKey {
+        self == .addToCalendar ? calendarExportAction.title : title
+    }
+
+    func systemImage(for calendarExportAction: CalendarExportAction) -> String {
+        self == .addToCalendar ? calendarExportAction.systemImage : systemImage
+    }
+
     /// Filters link-backed actions for the selected result while keeping email connection-specific.
     static func availableActions(
         hasPermanentLink: Bool,
@@ -328,7 +337,7 @@ struct ResultDetailCommandContext {
     let permanentLink: URL?
     let copyToClipboard: () -> Void
     let sendByEmail: (() -> Void)?
-    let addToCalendar: () -> Void
+    let performCalendarAction: (CalendarExportAction) -> Void
     let saveAsPDF: () -> Void
     let openInIDOS: () -> Void
 
@@ -338,7 +347,7 @@ struct ResultDetailCommandContext {
         permanentLink: URL?,
         copyToClipboard: @escaping () -> Void,
         sendByEmail: (() -> Void)? = nil,
-        addToCalendar: @escaping () -> Void,
+        performCalendarAction: @escaping (CalendarExportAction) -> Void,
         saveAsPDF: @escaping () -> Void,
         openInIDOS: @escaping () -> Void
     ) {
@@ -347,7 +356,7 @@ struct ResultDetailCommandContext {
         self.permanentLink = permanentLink
         self.copyToClipboard = copyToClipboard
         self.sendByEmail = sendByEmail
-        self.addToCalendar = addToCalendar
+        self.performCalendarAction = performCalendarAction
         self.saveAsPDF = saveAsPDF
         self.openInIDOS = openInIDOS
     }
@@ -389,9 +398,12 @@ struct ResultDetailCommands: Commands {
             actionButton(.sendByEmail) {
                 context?.sendByEmail?()
             }
-            actionButton(.addToCalendar) {
-                context?.addToCalendar()
+            CalendarExportButton { calendarExportAction in
+                context?.performCalendarAction(calendarExportAction)
+            } label: { calendarExportAction in
+                actionLabel(.addToCalendar, calendarExportAction: calendarExportAction)
             }
+            .disabled(context?.isEnabled(.addToCalendar) != true)
             actionButton(.saveAsPDF) {
                 context?.saveAsPDF()
             }
@@ -420,8 +432,14 @@ struct ResultDetailCommands: Commands {
         .disabled(context?.isEnabled(action) != true)
     }
 
-    private func actionLabel(_ action: ResultDetailAction) -> some View {
-        Label(action.title, systemImage: action.systemImage)
+    private func actionLabel(
+        _ action: ResultDetailAction,
+        calendarExportAction: CalendarExportAction = .addToCalendar
+    ) -> some View {
+        Label(
+            action.title(for: calendarExportAction),
+            systemImage: action.systemImage(for: calendarExportAction)
+        )
     }
 }
 

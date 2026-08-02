@@ -556,7 +556,7 @@ struct ConnectionsView: View {
                         timetable: model.timetable,
                         client: client,
                         isShortest: shortestConnectionIDs.contains(connection.id),
-                        isPerformingExport: model.importingConnectionID == connection.id ||
+                        isPerformingExport: model.processingCalendarConnectionID == connection.id ||
                             model.exportingPDFConnectionID == connection.id,
                         showsActionMenu: true,
                         timeFrameCoordinateSpace: nil,
@@ -573,7 +573,14 @@ struct ConnectionsView: View {
                         sendByEmail: {
                             emailSelection = selection
                         },
-                        addToCalendar: { Task { await model.addToCalendar(connection) } },
+                        performCalendarAction: { calendarExportAction in
+                            Task {
+                                await model.performCalendarAction(
+                                    calendarExportAction,
+                                    for: connection
+                                )
+                            }
+                        },
                         saveAsPDF: { Task { await model.saveAsPDF(connection) } }
                     )
                 }
@@ -754,7 +761,7 @@ struct ConnectionCard: View {
     let openService: (ServiceSelection) -> Void
     let copyToClipboard: () -> Void
     let sendByEmail: () -> Void
-    let addToCalendar: () -> Void
+    let performCalendarAction: (CalendarExportAction) -> Void
     let saveAsPDF: () -> Void
 
     @ViewBuilder
@@ -897,7 +904,7 @@ struct ConnectionCard: View {
             openInNewWindow: openInNewWindow,
             copyToClipboard: copyToClipboard,
             sendByEmail: sendByEmail,
-            addToCalendar: addToCalendar,
+            performCalendarAction: performCalendarAction,
             saveAsPDF: saveAsPDF
         )
     }
@@ -947,7 +954,7 @@ struct ConnectionDetailView: View {
                     timetable: selection.timetable,
                     client: client,
                     isShortest: false,
-                    isPerformingExport: actionsModel.importingConnectionID == selection.connection.id ||
+                    isPerformingExport: actionsModel.processingCalendarConnectionID == selection.connection.id ||
                         actionsModel.exportingPDFConnectionID == selection.connection.id,
                     showsActionMenu: false,
                     timeFrameCoordinateSpace: Self.scrollCoordinateSpace,
@@ -962,8 +969,13 @@ struct ConnectionDetailView: View {
                     sendByEmail: {
                         isEmailPresented = true
                     },
-                    addToCalendar: {
-                        Task { await actionsModel.addToCalendar(selection.connection) }
+                    performCalendarAction: { calendarExportAction in
+                        Task {
+                            await actionsModel.performCalendarAction(
+                                calendarExportAction,
+                                for: selection.connection
+                            )
+                        }
                     },
                     saveAsPDF: {
                         Task { await actionsModel.saveAsPDF(selection.connection) }
@@ -1021,7 +1033,7 @@ struct ConnectionDetailView: View {
     }
 
     private var isPerformingExport: Bool {
-        actionsModel.importingConnectionID == selection.connection.id ||
+        actionsModel.processingCalendarConnectionID == selection.connection.id ||
             actionsModel.exportingPDFConnectionID == selection.connection.id
     }
 
@@ -1039,8 +1051,13 @@ struct ConnectionDetailView: View {
             sendByEmail: {
                 isEmailPresented = true
             },
-            addToCalendar: {
-                Task { await actionsModel.addToCalendar(selection.connection) }
+            performCalendarAction: { calendarExportAction in
+                Task {
+                    await actionsModel.performCalendarAction(
+                        calendarExportAction,
+                        for: selection.connection
+                    )
+                }
             },
             saveAsPDF: {
                 Task { await actionsModel.saveAsPDF(selection.connection) }
@@ -1082,17 +1099,21 @@ struct ConnectionDetailView: View {
             .accessibilityLabel(action.title)
             .help(action.title)
         case .addToCalendar:
-            Button {
-                Task { await actionsModel.addToCalendar(selection.connection) }
-            } label: {
+            CalendarExportButton { calendarExportAction in
+                Task {
+                    await actionsModel.performCalendarAction(
+                        calendarExportAction,
+                        for: selection.connection
+                    )
+                }
+            } label: { calendarExportAction in
                 exportActionLabel(
                     action,
-                    isPerforming: actionsModel.importingConnectionID == selection.connection.id
+                    calendarExportAction: calendarExportAction,
+                    isPerforming: actionsModel.processingCalendarConnectionID == selection.connection.id
                 )
             }
             .disabled(isPerformingExport)
-            .accessibilityLabel(action.title)
-            .help(action.title)
         case .saveAsPDF:
             Button {
                 Task { await actionsModel.saveAsPDF(selection.connection) }
@@ -1130,18 +1151,25 @@ struct ConnectionDetailView: View {
     @ViewBuilder
     private func exportActionLabel(
         _ action: ResultDetailAction,
+        calendarExportAction: CalendarExportAction = .addToCalendar,
         isPerforming: Bool
     ) -> some View {
         if isPerforming {
             ProgressView()
                 .controlSize(.small)
         } else {
-            connectionActionLabel(action)
+            connectionActionLabel(action, calendarExportAction: calendarExportAction)
         }
     }
 
-    private func connectionActionLabel(_ action: ResultDetailAction) -> some View {
-        Label(action.title, systemImage: action.systemImage)
+    private func connectionActionLabel(
+        _ action: ResultDetailAction,
+        calendarExportAction: CalendarExportAction = .addToCalendar
+    ) -> some View {
+        Label(
+            action.title(for: calendarExportAction),
+            systemImage: action.systemImage(for: calendarExportAction)
+        )
             .labelStyle(.iconOnly)
     }
 }

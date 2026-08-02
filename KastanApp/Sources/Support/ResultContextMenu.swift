@@ -57,6 +57,17 @@ enum ResultContextAction: Hashable, Identifiable {
 private struct ResultContextActionLabel: View {
     let action: ResultContextAction
     let target: ResultContextTarget
+    let calendarExportAction: CalendarExportAction
+
+    init(
+        action: ResultContextAction,
+        target: ResultContextTarget,
+        calendarExportAction: CalendarExportAction = .addToCalendar
+    ) {
+        self.action = action
+        self.target = target
+        self.calendarExportAction = calendarExportAction
+    }
 
     @ViewBuilder
     var body: some View {
@@ -66,7 +77,10 @@ private struct ResultContextActionLabel: View {
         case .openInNewWindow:
             Label(LocalizedStringKey(target.openInNewWindowTitleKey), systemImage: "macwindow")
         case .detail(let action):
-            Label(action.title, systemImage: action.systemImage)
+            Label(
+                action.title(for: calendarExportAction),
+                systemImage: action.systemImage(for: calendarExportAction)
+            )
         case .separator:
             EmptyView()
         }
@@ -80,7 +94,7 @@ struct ConnectionContextMenuContent: View {
     let openInNewWindow: () -> Void
     let copyToClipboard: () -> Void
     let sendByEmail: () -> Void
-    let addToCalendar: () -> Void
+    let performCalendarAction: (CalendarExportAction) -> Void
     let saveAsPDF: () -> Void
 
     var body: some View {
@@ -116,8 +130,12 @@ struct ConnectionContextMenuContent: View {
             }
             .disabled(isPerformingExport)
         case .detail(.addToCalendar):
-            Button(action: addToCalendar) {
-                ResultContextActionLabel(action: action, target: .connection)
+            CalendarExportButton(perform: performCalendarAction) { calendarExportAction in
+                ResultContextActionLabel(
+                    action: action,
+                    target: .connection,
+                    calendarExportAction: calendarExportAction
+                )
             }
             .disabled(isPerformingExport)
         case .detail(.saveAsPDF):
@@ -211,10 +229,14 @@ struct ServiceContextMenuContent: View {
         case .detail(.sendByEmail):
             EmptyView()
         case .detail(.addToCalendar):
-            Button {
-                Task { await model.addToCalendar() }
-            } label: {
-                ResultContextActionLabel(action: action, target: .service)
+            CalendarExportButton { calendarExportAction in
+                Task { await model.performCalendarAction(calendarExportAction) }
+            } label: { calendarExportAction in
+                ResultContextActionLabel(
+                    action: action,
+                    target: .service,
+                    calendarExportAction: calendarExportAction
+                )
             }
             .disabled(detailActionsAreDisabled)
         case .detail(.saveAsPDF):

@@ -97,13 +97,14 @@ final class ConnectionsViewModel: ObservableObject {
     @Published private(set) var isSearching = false
     @Published private(set) var isLoadingEarlier = false
     @Published private(set) var isLoadingLater = false
-    @Published private(set) var importingConnectionID: String?
+    @Published private(set) var processingCalendarConnectionID: String?
     @Published private(set) var exportingPDFConnectionID: String?
     @Published private(set) var locatingEndpoint: ConnectionEndpoint?
     @Published var errorMessage: String?
 
     let client: any IDOSClienting
     private let calendarImporter: any CalendarImporting
+    private let calendarSaver: any CalendarSaving
     private let pdfExporter: any PDFExporting
     private let currentLocationProvider: any CurrentLocationProviding
     private var resultPage: IDOSConnectionPage?
@@ -113,11 +114,13 @@ final class ConnectionsViewModel: ObservableObject {
     init(
         client: any IDOSClienting,
         calendarImporter: any CalendarImporting = WorkspaceCalendarImporter(),
+        calendarSaver: any CalendarSaving = WorkspaceCalendarSaver(),
         pdfExporter: any PDFExporting = WorkspacePDFExporter(),
         currentLocationProvider: any CurrentLocationProviding = SystemCurrentLocationProvider()
     ) {
         self.client = client
         self.calendarImporter = calendarImporter
+        self.calendarSaver = calendarSaver
         self.pdfExporter = pdfExporter
         self.currentLocationProvider = currentLocationProvider
     }
@@ -425,10 +428,14 @@ final class ConnectionsViewModel: ObservableObject {
         }
     }
 
-    func addToCalendar(_ connection: IDOSConnection) async {
-        importingConnectionID = connection.id
+    /// Fetches one native IDOS calendar and either opens it or lets the user retain its ICS file.
+    func performCalendarAction(
+        _ action: CalendarExportAction,
+        for connection: IDOSConnection
+    ) async {
+        processingCalendarConnectionID = connection.id
         errorMessage = nil
-        defer { importingConnectionID = nil }
+        defer { processingCalendarConnectionID = nil }
 
         do {
             let calendar = try await client.connectionCalendar(
@@ -436,7 +443,18 @@ final class ConnectionsViewModel: ObservableObject {
                 timetable: timetable,
                 language: AppLanguagePreference.idosLanguage
             )
-            try calendarImporter.open(calendarText: calendar)
+            switch action {
+            case .addToCalendar:
+                try calendarImporter.open(calendarText: calendar)
+            case .download:
+                try calendarSaver.save(
+                    calendarText: calendar,
+                    suggestedFileName: CalendarExportFileName.connection(
+                        from: connection.departureStation,
+                        to: connection.arrivalStation
+                    )
+                )
+            }
         } catch {
             errorMessage = AppErrorPresentation.message(for: error)
         }

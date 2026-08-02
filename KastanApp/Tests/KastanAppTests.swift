@@ -33,6 +33,7 @@ final class KastanAppTests: XCTestCase {
             "Copy to Clipboard",
             "Send by Email",
             "Add to Calendar",
+            "Download ICS File",
             "Save as PDF",
             "Share Link",
             "Open in IDOS",
@@ -47,6 +48,12 @@ final class KastanAppTests: XCTestCase {
                 "Expected exactly one \(title) command in the application menu"
             )
         }
+
+        let downloadICSItem = try XCTUnwrap(
+            menuItems.first { $0.title == AppLocalization.string("Download ICS File") }
+        )
+        XCTAssertTrue(downloadICSItem.isAlternate)
+        XCTAssertTrue(downloadICSItem.keyEquivalentModifierMask.contains(.option))
     }
 
     func testFavoriteTimetablesWindowCommandUsesAnIcon() throws {
@@ -63,6 +70,7 @@ final class KastanAppTests: XCTestCase {
             "Copy to Clipboard",
             "Send by Email",
             "Add to Calendar",
+            "Download ICS File",
             "Save as PDF",
             "Share Link",
             "Open in IDOS",
@@ -602,6 +610,14 @@ final class KastanAppTests: XCTestCase {
             keys
         )
         XCTAssertEqual(
+            czech.localizedString(forKey: "Download ICS File", value: nil, table: nil),
+            "Stáhnout soubor ICS"
+        )
+        XCTAssertEqual(
+            english.localizedString(forKey: "Download ICS File", value: nil, table: nil),
+            "Download ICS File"
+        )
+        XCTAssertEqual(
             czech.localizedString(forKey: "Refresh connections", value: nil, table: nil),
             "Obnovit spojení"
         )
@@ -686,6 +702,22 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(
             ResultDetailAction.availableActions(hasPermanentLink: true, canSendByEmail: false),
             [.copyToClipboard, .addToCalendar, .saveAsPDF, .shareLink, .openInIDOS]
+        )
+    }
+
+    func testOptionChangesAddToCalendarToICSDownload() {
+        XCTAssertEqual(CalendarExportAction.preferred(for: []), .addToCalendar)
+        XCTAssertEqual(CalendarExportAction.preferred(for: [.command]), .addToCalendar)
+        XCTAssertEqual(CalendarExportAction.preferred(for: [.option]), .download)
+        XCTAssertEqual(
+            CalendarExportAction.preferred(for: [.option, .shift]),
+            .download
+        )
+        XCTAssertEqual(CalendarExportAction.addToCalendar.systemImage, "calendar.badge.plus")
+        XCTAssertEqual(CalendarExportAction.download.systemImage, "arrow.down.to.line")
+        XCTAssertEqual(
+            ResultDetailAction.addToCalendar.systemImage(for: .download),
+            CalendarExportAction.download.systemImage
         )
     }
 
@@ -782,7 +814,7 @@ final class KastanAppTests: XCTestCase {
             permanentLink: URL(string: "https://idos.cz/"),
             copyToClipboard: {},
             sendByEmail: {},
-            addToCalendar: {},
+            performCalendarAction: { _ in },
             saveAsPDF: {},
             openInIDOS: {}
         )
@@ -791,7 +823,7 @@ final class KastanAppTests: XCTestCase {
             isPerformingExport: false,
             permanentLink: nil,
             copyToClipboard: {},
-            addToCalendar: {},
+            performCalendarAction: { _ in },
             saveAsPDF: {},
             openInIDOS: {}
         )
@@ -800,7 +832,7 @@ final class KastanAppTests: XCTestCase {
             isPerformingExport: true,
             permanentLink: URL(string: "https://idos.cz/"),
             copyToClipboard: {},
-            addToCalendar: {},
+            performCalendarAction: { _ in },
             saveAsPDF: {},
             openInIDOS: {}
         )
@@ -1619,7 +1651,7 @@ final class KastanAppTests: XCTestCase {
             openService: { _ in },
             copyToClipboard: {},
             sendByEmail: {},
-            addToCalendar: {},
+            performCalendarAction: { _ in },
             saveAsPDF: {}
         )
         let hostingView = NSHostingView(rootView: card.frame(width: 700))
@@ -2863,7 +2895,12 @@ final class KastanAppTests: XCTestCase {
     func testCalendarImportUsesCalendarReturnedByIDOS() async {
         let client = MockIDOSClient()
         let importer = RecordingCalendarImporter()
-        let model = ConnectionsViewModel(client: client, calendarImporter: importer)
+        let saver = RecordingCalendarSaver()
+        let model = ConnectionsViewModel(
+            client: client,
+            calendarImporter: importer,
+            calendarSaver: saver
+        )
         let connection = IDOSConnection(
             id: "connection-1",
             departureTime: "12:00",
@@ -2874,33 +2911,93 @@ final class KastanAppTests: XCTestCase {
             legs: []
         )
 
-        await model.addToCalendar(connection)
+        await model.performCalendarAction(.addToCalendar, for: connection)
 
         XCTAssertEqual(importer.calendarText, "BEGIN:VCALENDAR\nEND:VCALENDAR")
+        XCTAssertNil(saver.calendarText)
         let language = await client.lastConnectionCalendarLanguage
         XCTAssertEqual(language, AppLanguagePreference.idosLanguage)
+        XCTAssertNil(model.processingCalendarConnectionID)
+        XCTAssertNil(model.errorMessage)
+    }
+
+    func testConnectionCalendarDownloadSavesICSWithoutOpeningCalendarApp() async {
+        let client = MockIDOSClient()
+        let importer = RecordingCalendarImporter()
+        let saver = RecordingCalendarSaver()
+        let model = ConnectionsViewModel(
+            client: client,
+            calendarImporter: importer,
+            calendarSaver: saver
+        )
+        let connection = IDOSConnection(
+            id: "connection-calendar-download",
+            departureTime: "12:00",
+            departureStation: "Praha / centrum",
+            arrivalTime: "14:30",
+            arrivalStation: "Brno: hlavní",
+            duration: "2 h 30 min",
+            legs: []
+        )
+
+        await model.performCalendarAction(.download, for: connection)
+
+        XCTAssertNil(importer.calendarText)
+        XCTAssertEqual(saver.calendarText, "BEGIN:VCALENDAR\nEND:VCALENDAR")
+        XCTAssertTrue(saver.suggestedFileName?.contains("Praha") == true)
+        XCTAssertTrue(saver.suggestedFileName?.contains("Brno") == true)
+        XCTAssertTrue(saver.suggestedFileName?.hasSuffix(".ics") == true)
+        XCTAssertFalse(saver.suggestedFileName?.contains("/") == true)
+        XCTAssertFalse(saver.suggestedFileName?.contains(":") == true)
+        XCTAssertNil(model.processingCalendarConnectionID)
         XCTAssertNil(model.errorMessage)
     }
 
     func testServiceCalendarImportUsesCalendarReturnedByIDOS() async {
         let client = MockIDOSClient()
         let importer = RecordingCalendarImporter()
+        let saver = RecordingCalendarSaver()
         let model = ServiceDetailViewModel(
             id: "service-1",
             client: client,
-            calendarImporter: importer
+            calendarImporter: importer,
+            calendarSaver: saver
         )
 
-        await model.addToCalendar()
+        await model.performCalendarAction(.addToCalendar)
 
         XCTAssertEqual(importer.calendarText, "BEGIN:VCALENDAR\nEND:VCALENDAR")
+        XCTAssertNil(saver.calendarText)
         let serviceID = await client.lastCalendarServiceID
         let language = await client.lastServiceCalendarLanguage
         XCTAssertEqual(serviceID, "service-1")
         XCTAssertEqual(language, AppLanguagePreference.idosLanguage)
         let requestCount = await client.serviceDetailRequestCount
         XCTAssertEqual(requestCount, 1)
-        XCTAssertFalse(model.isAddingToCalendar)
+        XCTAssertFalse(model.isProcessingCalendar)
+        XCTAssertNil(model.actionErrorMessage)
+    }
+
+    func testServiceCalendarDownloadSavesICSWithoutOpeningCalendarApp() async {
+        let client = MockIDOSClient()
+        let importer = RecordingCalendarImporter()
+        let saver = RecordingCalendarSaver()
+        let model = ServiceDetailViewModel(
+            id: "service-1",
+            client: client,
+            calendarImporter: importer,
+            calendarSaver: saver
+        )
+
+        await model.performCalendarAction(.download)
+
+        XCTAssertNil(importer.calendarText)
+        XCTAssertEqual(saver.calendarText, "BEGIN:VCALENDAR\nEND:VCALENDAR")
+        XCTAssertTrue(saver.suggestedFileName?.contains("Ostrava-Svinov") == true)
+        XCTAssertTrue(saver.suggestedFileName?.hasSuffix(".ics") == true)
+        let serviceID = await client.lastCalendarServiceID
+        XCTAssertEqual(serviceID, "service-1")
+        XCTAssertFalse(model.isProcessingCalendar)
         XCTAssertNil(model.actionErrorMessage)
     }
 
@@ -3215,7 +3312,7 @@ private func connectionCardOpenCount(afterDoubleClickAt location: NSPoint) -> In
         openService: { _ in },
         copyToClipboard: {},
         sendByEmail: {},
-        addToCalendar: {},
+        performCalendarAction: { _ in },
         saveAsPDF: {}
     )
     let hostingView = NSHostingView(
@@ -3341,6 +3438,17 @@ private final class RecordingCalendarImporter: CalendarImporting {
 
     func open(calendarText: String) throws {
         self.calendarText = calendarText
+    }
+}
+
+@MainActor
+private final class RecordingCalendarSaver: CalendarSaving {
+    private(set) var calendarText: String?
+    private(set) var suggestedFileName: String?
+
+    func save(calendarText: String, suggestedFileName: String) throws {
+        self.calendarText = calendarText
+        self.suggestedFileName = suggestedFileName
     }
 }
 

@@ -7,7 +7,7 @@ final class ServiceDetailViewModel: ObservableObject {
     @Published private(set) var service: IDOSServiceDetail?
     @Published private(set) var timetableValidity: IDOSTimetableValidity?
     @Published private(set) var isLoading = false
-    @Published private(set) var isAddingToCalendar = false
+    @Published private(set) var isProcessingCalendar = false
     @Published private(set) var isSavingPDF = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var actionErrorMessage: String?
@@ -15,6 +15,7 @@ final class ServiceDetailViewModel: ObservableObject {
     private let id: String
     private let client: any IDOSClienting
     private let calendarImporter: any CalendarImporting
+    private let calendarSaver: any CalendarSaving
     private let pdfExporter: any PDFExporting
     private var activeLoadTask: Task<IDOSServiceDetail, Error>?
     private var activeLoadIdentifier: UUID?
@@ -23,16 +24,18 @@ final class ServiceDetailViewModel: ObservableObject {
         id: String,
         client: any IDOSClienting,
         calendarImporter: any CalendarImporting = WorkspaceCalendarImporter(),
+        calendarSaver: any CalendarSaving = WorkspaceCalendarSaver(),
         pdfExporter: any PDFExporting = WorkspacePDFExporter()
     ) {
         self.id = id
         self.client = client
         self.calendarImporter = calendarImporter
+        self.calendarSaver = calendarSaver
         self.pdfExporter = pdfExporter
     }
 
     var isPerformingExport: Bool {
-        isAddingToCalendar || isSavingPDF
+        isProcessingCalendar || isSavingPDF
     }
 
     func load() async {
@@ -91,22 +94,33 @@ final class ServiceDetailViewModel: ObservableObject {
         (await loadedService())?.shareURL.flatMap(AppLanguagePreference.localizedIDOSURL)
     }
 
-    /// Opens the dated service's native IDOS calendar export in the user's calendar application.
-    func addToCalendar() async {
+    /// Fetches the dated service's calendar and either opens it or lets the user retain its ICS file.
+    func performCalendarAction(_ action: CalendarExportAction) async {
         guard !isPerformingExport,
               let service = await loadedService(),
               !isPerformingExport
         else { return }
-        isAddingToCalendar = true
+        isProcessingCalendar = true
         actionErrorMessage = nil
-        defer { isAddingToCalendar = false }
+        defer { isProcessingCalendar = false }
 
         do {
             let calendar = try await client.serviceCalendar(
                 for: service,
                 language: AppLanguagePreference.idosLanguage
             )
-            try calendarImporter.open(calendarText: calendar)
+            switch action {
+            case .addToCalendar:
+                try calendarImporter.open(calendarText: calendar)
+            case .download:
+                try calendarSaver.save(
+                    calendarText: calendar,
+                    suggestedFileName: CalendarExportFileName.connection(
+                        from: service.stops.first?.name ?? service.name,
+                        to: service.stops.last?.name ?? service.name
+                    )
+                )
+            }
         } catch {
             actionErrorMessage = AppErrorPresentation.message(for: error)
         }
@@ -403,8 +417,8 @@ struct ServiceDetailView: View {
                     ResultClipboard.copy(service: service)
                 }
             },
-            addToCalendar: {
-                Task { await model.addToCalendar() }
+            performCalendarAction: { calendarExportAction in
+                Task { await model.performCalendarAction(calendarExportAction) }
             },
             saveAsPDF: {
                 Task { await model.saveAsPDF() }
@@ -435,14 +449,16 @@ struct ServiceDetailView: View {
         case .sendByEmail:
             EmptyView()
         case .addToCalendar:
-            Button {
-                Task { await model.addToCalendar() }
-            } label: {
-                exportActionLabel(action, isPerforming: model.isAddingToCalendar)
+            CalendarExportButton { calendarExportAction in
+                Task { await model.performCalendarAction(calendarExportAction) }
+            } label: { calendarExportAction in
+                exportActionLabel(
+                    action,
+                    calendarExportAction: calendarExportAction,
+                    isPerforming: model.isProcessingCalendar
+                )
             }
             .disabled(model.isPerformingExport)
-            .accessibilityLabel(action.title)
-            .help(action.title)
         case .saveAsPDF:
             Button {
                 Task { await model.saveAsPDF() }
@@ -477,18 +493,25 @@ struct ServiceDetailView: View {
     @ViewBuilder
     private func exportActionLabel(
         _ action: ResultDetailAction,
+        calendarExportAction: CalendarExportAction = .addToCalendar,
         isPerforming: Bool
     ) -> some View {
         if isPerforming {
             ProgressView()
                 .controlSize(.small)
         } else {
-            serviceActionLabel(action)
+            serviceActionLabel(action, calendarExportAction: calendarExportAction)
         }
     }
 
-    private func serviceActionLabel(_ action: ResultDetailAction) -> some View {
-        Label(action.title, systemImage: action.systemImage)
+    private func serviceActionLabel(
+        _ action: ResultDetailAction,
+        calendarExportAction: CalendarExportAction = .addToCalendar
+    ) -> some View {
+        Label(
+            action.title(for: calendarExportAction),
+            systemImage: action.systemImage(for: calendarExportAction)
+        )
             .labelStyle(.iconOnly)
     }
 
