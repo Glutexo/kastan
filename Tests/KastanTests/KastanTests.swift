@@ -37,7 +37,8 @@ import Testing
     #expect(output.contains("-o, --format"))
     #expect(output.contains("-v, --verbose"))
     #expect(output.contains("Show result and service IDs"))
-    #expect(output.contains("kastan service <service-id> [-o text|markdown|json]"))
+    #expect(output.contains("kastan service <service-id> [-o text|markdown|html|json]"))
+    #expect(output.contains("Output format: text, markdown, html, json"))
     #expect(output.contains("Direct connections only"))
     #expect(!output.contains("--jr"))
     #expect(output.contains("--version"))
@@ -200,6 +201,86 @@ import Testing
     #expect((json["query"] as? String) == "Praha")
     #expect((json["timetable"] as? [String: Any])?["displayName"] as? String == "Prague + PID")
     #expect((json["suggestions"] as? [[String: Any]])?.first?["text"] as? String == "Praha hl.n.")
+}
+
+@Test func humanReadableCommandsProduceStandaloneHTML() async {
+    let runner = englishCommandRunner(
+        client: MockIDOSClient(),
+        aliasFile: temporaryAliasFile()
+    )
+    let invocations = [
+        ["suggest", "Praha", "--format", "html"],
+        ["stations", "Praha", "--format", "html"],
+        ["connections", "Praha", "Brno", "--timetable", "vlaky", "--format", "html", "--limit", "1"],
+        ["departures", "Ostrava,Hrabůvka,Benzina", "--timetable", "odis", "--format", "html", "--limit", "1"],
+        [
+            "station-timetables", "--line", "Bus 154", "--from", "Strašnická",
+            "--to", "Sídliště Libuš", "--timetable", "pid", "--date", "17.7.2026",
+            "--whole-week", "--format", "html",
+        ],
+        ["service", "vlaky:0-74552-18.06.2026 12:04:00", "--format", "html"],
+        ["timetables", "--format", "html"],
+        ["aliases", "list", "--format", "html"],
+    ]
+
+    for invocation in invocations {
+        let output = await runner.output(for: invocation)
+        #expect(output.hasPrefix("<!doctype html>"), "Expected HTML for \(invocation)")
+        #expect(output.contains("<html lang=\"en\">"), "Expected English HTML for \(invocation)")
+        #expect(output.contains("<meta charset=\"utf-8\">"), "Expected UTF-8 HTML for \(invocation)")
+        #expect(!output.contains("\u{001B}"), "HTML must not contain terminal control codes for \(invocation)")
+    }
+}
+
+@Test func htmlOutputEscapesContentReceivedFromIDOS() async {
+    let suggestion = IDOSSuggestion(
+        selectedText: "<script>alert(1)</script>",
+        text: "<script>alert(1)</script>",
+        description: "A & B",
+        iconId: 1
+    )
+    let runner = englishCommandRunner(client: MockIDOSClient(
+        suggestionResultsByPrefix: ["unsafe": [suggestion]]
+    ))
+
+    let output = await runner.output(for: ["suggest", "unsafe", "--format", "html"])
+
+    #expect(output.contains("&lt;script&gt;alert(1)&lt;/script&gt;"))
+    #expect(output.contains("A &amp; B"))
+    #expect(!output.contains("<script>alert(1)</script>"))
+}
+
+@Test func htmlConnectionOutputRejectsUnsafeIDOSMarkupAndColors() async {
+    let connection = IDOSConnection(
+        id: "unsafe-connection",
+        departureTime: "12:00",
+        departureStation: "Praha <script>alert(1)</script>",
+        arrivalTime: "14:30",
+        arrivalStation: "Brno & okolí",
+        duration: "2 h 30 min",
+        legs: [
+            IDOSConnectionLeg(
+                name: "R <script>alert(2)</script>",
+                color: "red; background: url(unsafe)",
+                transportMode: .train,
+                departureTime: "12:00",
+                fromStation: "Praha <hl.n.>",
+                arrivalTime: "14:30",
+                toStation: "Brno & okolí"
+            ),
+        ]
+    )
+    let runner = englishCommandRunner(client: MockIDOSClient(connectionResults: [connection]))
+
+    let output = await runner.output(
+        for: ["connections", "Praha", "Brno", "--timetable", "vlaky", "--format", "html"]
+    )
+
+    #expect(output.contains("Praha &lt;script&gt;alert(1)&lt;/script&gt;"))
+    #expect(output.contains("Brno &amp; okolí"))
+    #expect(output.contains("R &lt;script&gt;alert(2)&lt;/script&gt;"))
+    #expect(!output.contains("<script>"))
+    #expect(!output.contains("background: url(unsafe)"))
 }
 
 @Test func suggestCommandAcceptsShortOptions() async throws {
@@ -506,6 +587,37 @@ import Testing
     #expect(output.contains("| Line | Service ID | From | From Tariff Zone | From Platform | Departure | To | To Tariff Zone | To Platform | Arrival | Carrier | Delay |"))
     #expect(output.contains("| 🚆 <span style=\"color: #008000\">R9 (R 981 Vysočina)</span> | `vlaky:0-74552-18.06.2026 12:04:00` | Praha hl.n. | P | 4 | **12:04** | Brno hl.n. | 100 |  | **15:44** | České dráhy, a.s. | Currently no delay |"))
     #expect(output.contains("🆔 **ID:** `396829589`"))
+}
+
+@Test func connectionCommandPrintsLocalizedSemanticHTML() async {
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+        for: [
+            "connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky",
+            "--format", "html", "--limit", "1", "--verbose", "--language", "cs",
+        ]
+    )
+
+    #expect(output.contains("<html lang=\"cs\">"))
+    #expect(output.contains("<h1>🧭 Spojení</h1>"))
+    #expect(output.contains("➡️  Přímý · ⚡ Nejrychlejší"))
+    #expect(output.contains("<span style=\"color: #008000\">R9 (R 981 Vysočina)</span>"))
+    #expect(output.contains("<th scope=\"col\">ID spoje</th>"))
+    #expect(output.contains("<code>vlaky:0-74552-18.06.2026 12:04:00</code>"))
+    #expect(output.contains("Aktuálně bez zpoždění"))
+}
+
+@Test func requestedHTMLErrorsStayMachineRecognizableAndEscaped() async {
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+        for: [
+            "connections", "Praha", "Brno", "--max-transfers=<value>",
+            "--format", "html",
+        ]
+    )
+
+    #expect(output.hasPrefix("<!doctype html>"))
+    #expect(output.contains("<h1>❌ Error</h1>"))
+    #expect(output.contains("Invalid --max-transfers: &lt;value&gt;"))
+    #expect(!output.contains("--max-transfers: <value>"))
 }
 
 @Test func connectionCommandPrintsMarkdownWithVia() async {

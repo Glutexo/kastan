@@ -87,8 +87,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   Activating it normally opens a confirmation sheet with IDOS's localized default message and generated PDF and
   calendar attachment names, extends the IDOS website attribution with Kaštan's GitHub project URL, and keeps the
   complete message editable. Holding Option while activating Send by Email bypasses that sheet and opens an unsent
-  draft directly in Mail, with IDOS's localized description as its subject, the same credited message, and both
-  generated attachments; Mail leaves the recipient for the passenger to enter. Inside Kaštan's sheet, each attachment
+  draft directly in Mail, with IDOS's localized description as its subject, the same credited message followed by a
+  rich HTML summary of the selected connection, and both generated attachments. The summary follows the app language
+  and the CLI HTML layout, including semantic transport symbols, emphasized times, and IDOS line colors; Mail leaves
+  the recipient for the passenger to enter. Inside Kaštan's sheet, each attachment
   opens independently in the default macOS application when selected, without sending the email. Holding Option there
   changes the attachment rows to Download; selecting one then saves it through the native macOS save panel instead of
   opening it. The sheet accepts one or more recipient addresses separated by commas or semicolons. Kaštan sends the

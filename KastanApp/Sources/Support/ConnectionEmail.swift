@@ -265,6 +265,8 @@ struct ConnectionEmailMailDraft: Equatable, Sendable {
 
     let subject: String
     let message: String
+    /// A complete HTML alternative containing the editable IDOS message and the selected connection.
+    let htmlMessage: String
     let attachments: [Attachment]
 
     /// Loads the localized IDOS labels and every generated attachment before Mail is opened.
@@ -307,11 +309,35 @@ struct ConnectionEmailMailDraft: Equatable, Sendable {
                 connection.arrivalStation
             )
             : description
+        let message = ConnectionEmailMessage.localizedCreditingKastan(in: source.message)
         return Self(
             subject: subject,
-            message: ConnectionEmailMessage.localizedCreditingKastan(in: source.message),
+            message: message,
+            htmlMessage: CLIPlainTextPresentation().connectionHTML(
+                connection,
+                timetable: timetable,
+                introductoryText: message
+            ),
             attachments: attachments
         )
+    }
+
+    /// Imports the portable HTML as AppKit rich text accepted by the system Mail sharing service.
+    @MainActor
+    func attributedMessage() throws -> NSAttributedString {
+        guard let htmlData = htmlMessage.data(using: .utf8),
+              let result = try? NSAttributedString(
+                data: htmlData,
+                options: [
+                    .documentType: NSAttributedString.DocumentType.html,
+                    .characterEncoding: String.Encoding.utf8.rawValue,
+                ],
+                documentAttributes: nil
+              )
+        else {
+            throw ConnectionEmailMailComposeError.cannotCompose
+        }
+        return result
     }
 }
 
@@ -324,7 +350,7 @@ enum ConnectionEmailMailComposeError: LocalizedError {
     }
 }
 
-/// Opens Apple's Mail composer with the IDOS subject, message, and temporary PDF and calendar files.
+/// Opens Apple's Mail composer with the IDOS subject, rich connection summary, and temporary export files.
 @MainActor
 protocol ConnectionEmailMailComposing {
     func compose(_ draft: ConnectionEmailMailDraft) throws
@@ -346,7 +372,7 @@ final class WorkspaceConnectionEmailMailComposer: ConnectionEmailMailComposing {
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
 
-        var items: [Any] = [draft.message]
+        var items: [Any] = [try draft.attributedMessage()]
         for attachment in draft.attachments {
             let file = directory.appendingPathComponent(
                 ConnectionEmailAttachmentFileName.safeValue(attachment.fileName)

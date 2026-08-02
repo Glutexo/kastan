@@ -784,6 +784,7 @@ private enum CommandError: Error {
 private enum OutputFormat: String {
     case text
     case markdown
+    case html
     case json
     case ics
 
@@ -797,6 +798,8 @@ private enum OutputFormat: String {
             return .text
         case "markdown", "md":
             return .markdown
+        case "html", "htm":
+            return .html
         case "json":
             return .json
         case "ics", "ical", "calendar":
@@ -824,6 +827,12 @@ private enum OutputFormat: String {
 
             return (["> ❌ \(label): \(Markdown.escape(first))"] + lines.dropFirst().map { "> \(Markdown.escape($0))" })
                 .joined(separator: "\n")
+        case .html:
+            return HTML.document(
+                title: label,
+                language: localization.language,
+                body: "<h1>❌ \(HTML.escape(label))</h1>\n<p class=\"error\">\(HTML.text(message))</p>"
+            )
         case .json:
             return (try? JSON.write(ErrorOutput(error: message))) ?? #"{"error":"\#(message)"}"#
         }
@@ -859,6 +868,35 @@ private enum OutputFormat: String {
             | ---: | --- | --- |
             \(rows)
             """
+        case .html:
+            let content: String
+            if output.suggestions.isEmpty {
+                content = "<p>\(HTML.escape(localization.text(.noSuggestedPlaces)))</p>"
+            } else {
+                let rows = output.suggestions.enumerated().map { index, suggestion in
+                    [
+                        HTML.escape(String(index + 1)),
+                        HTML.escape(suggestion.text),
+                        HTML.escape(suggestionDetails(suggestion).joined(separator: ", ")),
+                    ]
+                }
+                content = HTML.table(
+                    headers: ["#", localization.text(.place), localization.text(.details)],
+                    rows: rows
+                )
+            }
+            return HTML.document(
+                title: title,
+                language: localization.language,
+                body: """
+                <h1>🔎 \(HTML.escape(title))</h1>
+                \(HTML.definitionList([(
+                    label: localization.text(.timetable),
+                    value: localization.timetableName(output.timetable)
+                )]))
+                \(content)
+                """
+            )
         case .json:
             return try JSON.write(output)
         case .ics:
@@ -896,6 +934,35 @@ private enum OutputFormat: String {
             | ---: | --- | --- |
             \(rows)
             """
+        case .html:
+            let content: String
+            if output.stations.isEmpty {
+                content = "<p>\(HTML.escape(localization.text(.noStations)))</p>"
+            } else {
+                let rows = output.stations.enumerated().map { index, station in
+                    [
+                        HTML.escape(String(index + 1)),
+                        HTML.escape(station.text),
+                        HTML.escape(suggestionDetails(station).joined(separator: ", ")),
+                    ]
+                }
+                content = HTML.table(
+                    headers: ["#", localization.text(.station), localization.text(.details)],
+                    rows: rows
+                )
+            }
+            return HTML.document(
+                title: title,
+                language: localization.language,
+                body: """
+                <h1>🚏 \(HTML.escape(title))</h1>
+                \(HTML.definitionList([(
+                    label: localization.text(.timetable),
+                    value: localization.timetableName(output.timetable)
+                )]))
+                \(content)
+                """
+            )
         case .json:
             return try JSON.write(output)
         case .ics:
@@ -977,6 +1044,96 @@ private enum OutputFormat: String {
 
             \(sections)
             """
+        case .html:
+            let requestDetails = [
+                (label: localization.text(.from), value: output.request.from),
+                (label: localization.text(.to), value: output.request.to),
+            ] + (output.request.via.isEmpty ? [] : [
+                (label: localization.text(.via), value: output.request.via.joined(separator: ", ")),
+            ]) + [
+                (
+                    label: localization.text(.timetable),
+                    value: localization.timetableName(output.request.timetable)
+                ),
+            ]
+
+            let content: String
+            if output.connections.isEmpty {
+                content = "<p>\(HTML.escape(localization.text(.noConnections)))</p>"
+            } else {
+                content = output.items.enumerated().map { index, item in
+                    let connection = item.connection
+                    let badges = [
+                        item.isDirect ? "➡️  \(localization.text(.direct))" : nil,
+                        item.isShortest ? "⚡ \(localization.text(.shortest))" : nil,
+                    ].compactMap(\.self)
+                    let badgePrefix = badges.isEmpty
+                        ? ""
+                        : "<span class=\"badges\">\(HTML.escape(badges.joined(separator: " · ")))</span> — "
+                    let heading = """
+                    <h2>\(index + 1). \(badgePrefix)🕒 \(HTML.strong(connection.departureTime)) \(HTML.escape(connection.departureStation)) → \(HTML.strong(connection.arrivalTime)) \(HTML.escape(connection.arrivalStation))</h2>
+                    """
+                    let details = [
+                        connection.duration.isEmpty
+                            ? nil
+                            : "<p>⏱️ <strong>\(HTML.escape(localization.text(.duration))):</strong> \(HTML.escape(connection.duration))</p>",
+                        output.verbose
+                            ? "<p>🆔 <strong>\(HTML.escape(localization.text(.identifier))):</strong> \(HTML.code(connection.id))</p>"
+                            : nil,
+                    ].compactMap(\.self).joined(separator: "\n")
+                    let rows = connection.legs.map { leg in
+                        if output.verbose {
+                            return [
+                                HTML.lineName(leg),
+                                leg.id.map(HTML.code) ?? "",
+                                HTML.escape(leg.fromStation),
+                                HTML.escape(leg.fromTariffZone ?? ""),
+                                HTML.escape(leg.fromPlatform ?? ""),
+                                HTML.strong(leg.departureTime),
+                                HTML.escape(leg.toStation),
+                                HTML.escape(leg.toTariffZone ?? ""),
+                                HTML.escape(leg.toPlatform ?? ""),
+                                HTML.strong(leg.arrivalTime),
+                                HTML.escape(leg.carrier ?? ""),
+                                HTML.escape(localization.delayStatus(leg.delay) ?? ""),
+                            ]
+                        }
+
+                        return [
+                            HTML.lineName(leg),
+                            HTML.escape(leg.fromStation),
+                            HTML.strong(leg.departureTime),
+                            HTML.escape(leg.toStation),
+                            HTML.strong(leg.arrivalTime),
+                        ]
+                    }
+                    let headers = output.verbose
+                        ? [
+                            localization.text(.line), localization.text(.serviceIdentifier),
+                            localization.text(.from), localization.text(.fromTariffZone),
+                            localization.text(.fromPlatform), localization.text(.departure),
+                            localization.text(.to), localization.text(.toTariffZone),
+                            localization.text(.toPlatform), localization.text(.arrival),
+                            localization.text(.carrier), localization.text(.delay),
+                        ]
+                        : [
+                            localization.text(.line), localization.text(.from),
+                            localization.text(.departure), localization.text(.to),
+                            localization.text(.arrival),
+                        ]
+                    return "<section>\n\(heading)\n\(details)\n\(HTML.table(headers: headers, rows: rows))\n</section>"
+                }.joined(separator: "\n")
+            }
+
+            return HTML.document(
+                title: title,
+                language: localization.language,
+                body: """
+                <h1>🧭 \(HTML.escape(title))</h1>
+                \(HTML.definitionList(requestDetails))
+                \(content)
+                """
+            )
         case .json:
             return try JSON.write(output)
         case .ics:
@@ -1058,6 +1215,57 @@ private enum OutputFormat: String {
             | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- |
             \(rows)\(information)
             """
+        case .html:
+            var details = [
+                (label: localization.text(.serviceIdentifier), value: service.id),
+            ]
+            if let date = service.date {
+                details.append((label: localization.text(.date), value: date))
+            }
+            details.append((
+                label: localization.text(.timetable),
+                value: localization.timetableName(service.timetable)
+            ))
+            let rows = service.stops.enumerated().map { index, stop in
+                [
+                    HTML.escape(String(index + 1)),
+                    HTML.escape(stop.name),
+                    HTML.strong(stop.arrivalTime ?? ""),
+                    HTML.strong(stop.departureTime ?? ""),
+                    HTML.escape(stop.tariffZone ?? ""),
+                    HTML.escape(stop.platform ?? ""),
+                    HTML.escape(stop.track ?? ""),
+                    HTML.escape(stop.platformTrack ?? ""),
+                    HTML.escape(stop.distance ?? ""),
+                    stop.notes.map { HTML.escape(ServiceStopNote.render($0)) }.joined(separator: "<br>"),
+                ]
+            }
+            let information = service.information.isEmpty ? "" : """
+            <h2>ℹ️ \(HTML.escape(localization.text(.information)))</h2>
+            <ul>
+            \(service.serviceInformation.map { "<li>\(HTML.escape($0.displayText))</li>" }.joined(separator: "\n"))
+            </ul>
+            """
+            return HTML.document(
+                title: "\(service.name) · \(localization.text(.service))",
+                language: localization.language,
+                body: """
+                <h1>\(HTML.serviceName(service)) · \(HTML.escape(localization.text(.service)))</h1>
+                \(HTML.definitionList(details))
+                <h2>🛤️ \(HTML.escape(localization.text(.route)))</h2>
+                \(HTML.table(
+                    headers: [
+                        "#", localization.text(.station), localization.text(.arrival),
+                        localization.text(.departure), localization.text(.tariffZone),
+                        localization.text(.platform), localization.text(.track),
+                        localization.text(.platformTrack), localization.text(.distance),
+                        localization.text(.notes),
+                    ],
+                    rows: rows
+                ))
+                \(information)
+                """
+            )
         case .json:
             return try JSON.write(output)
         case .ics:
@@ -1081,6 +1289,21 @@ private enum OutputFormat: String {
             **\(localization.text(.connection)):** \(Markdown.bold(output.connection.departureTime)) \(Markdown.escape(output.connection.departureStation)) → \(Markdown.bold(output.connection.arrivalTime)) \(Markdown.escape(output.connection.arrivalStation))
             **\(localization.text(.file)):** `\(Markdown.escape(output.path))`
             """
+        case .html:
+            let title = localization.text(.calendarImport)
+            return HTML.document(
+                title: title,
+                language: localization.language,
+                body: """
+                <h1>📅 \(HTML.escape(title))</h1>
+                <dl>
+                  <dt>\(HTML.escape(localization.text(.connection)))</dt>
+                  <dd>\(HTML.strong(output.connection.departureTime)) \(HTML.escape(output.connection.departureStation)) → \(HTML.strong(output.connection.arrivalTime)) \(HTML.escape(output.connection.arrivalStation))</dd>
+                  <dt>\(HTML.escape(localization.text(.file)))</dt>
+                  <dd>\(HTML.code(output.path))</dd>
+                </dl>
+                """
+            )
         case .json:
             return try JSON.write(output)
         }
@@ -1145,6 +1368,64 @@ private enum OutputFormat: String {
             \(tableHeader)
             \(rows)
             """
+        case .html:
+            let content: String
+            if output.departures.isEmpty {
+                content = "<p>\(HTML.escape(localization.text(output.request.isArrival ? .noArrivals : .noDepartures)))</p>"
+            } else {
+                let rows = output.departures.enumerated().map { index, departure in
+                    if output.verbose {
+                        return [
+                            HTML.escape(String(index + 1)),
+                            HTML.strong(departure.time),
+                            HTML.departureLineName(departure),
+                            HTML.escape(departure.destination),
+                            HTML.escape(departure.tariffZone ?? ""),
+                            HTML.escape(departure.platform ?? ""),
+                            HTML.escape(departure.via ?? ""),
+                            HTML.escape(departure.carrier ?? ""),
+                            HTML.escape(localization.delayStatus(departure.delay) ?? ""),
+                            HTML.code(departure.id),
+                        ]
+                    }
+
+                    return [
+                        HTML.escape(String(index + 1)),
+                        HTML.strong(departure.time),
+                        HTML.departureLineName(departure),
+                        HTML.escape(departure.destination),
+                        HTML.escape(departure.via ?? ""),
+                    ]
+                }
+                let headers = output.verbose
+                    ? [
+                        "#", localization.text(.time), localization.text(.line),
+                        localization.text(.destination), localization.text(.tariffZone),
+                        localization.text(.platform), localization.text(.via),
+                        localization.text(.carrier), localization.text(.delay),
+                        localization.text(.identifier),
+                    ]
+                    : [
+                        "#", localization.text(.time), localization.text(.line),
+                        localization.text(.destination), localization.text(.via),
+                    ]
+                content = HTML.table(headers: headers, rows: rows)
+            }
+            return HTML.document(
+                title: title,
+                language: localization.language,
+                body: """
+                <h1>🚏 \(HTML.escape(title))</h1>
+                \(HTML.definitionList([
+                    (label: localization.text(.station), value: stationName),
+                    (
+                        label: localization.text(.timetable),
+                        value: localization.timetableName(output.request.timetable)
+                    ),
+                ]))
+                \(content)
+                """
+            )
         case .json:
             return try JSON.write(output)
         case .ics:
@@ -1251,6 +1532,70 @@ private enum OutputFormat: String {
 
             \(schedules)\(notes)
             """
+        case .html:
+            let routeRows = result.stops.enumerated().map { index, stop in
+                [
+                    HTML.escape(String(index + 1)),
+                    HTML.escape(stop.name),
+                    HTML.escape(stop.minuteOffset.map(String.init) ?? "—"),
+                    HTML.escape(stop.tariffZone ?? ""),
+                    HTML.escape(stop.platform ?? ""),
+                    HTML.escape(localization.text(stop.isSelected ? .yes : .no)),
+                    stop.notes.map(HTML.escape).joined(separator: "<br>"),
+                ]
+            }
+            let schedules = result.schedules.map { schedule in
+                let rows = schedule.hours.map { hour in
+                    [
+                        HTML.strong(hour.hour),
+                        HTML.escape(hour.departures.isEmpty ? "—" : hour.departures.joined(separator: " ")),
+                    ]
+                }
+                return """
+                <h2>🕒 \(HTML.escape(schedule.label))</h2>
+                \(HTML.table(
+                    headers: [localization.text(.hour), localization.text(.departures)],
+                    rows: rows
+                ))
+                """
+            }.joined(separator: "\n")
+            let lockout = result.isLockout
+                ? "<p class=\"warning\">🚧 <strong>\(HTML.escape(localization.text(.lockoutTimetable)))</strong></p>"
+                : ""
+            let notes = result.notes.isEmpty ? "" : """
+            <h2>ℹ️ \(HTML.escape(localization.text(.notes)))</h2>
+            <ul>
+            \(result.notes.map { "<li>\(HTML.escape($0))</li>" }.joined(separator: "\n"))
+            </ul>
+            """
+            return HTML.document(
+                title: localization.text(.stationTimetable),
+                language: localization.language,
+                body: """
+                <h1>🗓️ \(HTML.escape(localization.text(.stationTimetable)))</h1>
+                \(HTML.definitionList([
+                    (label: localization.text(.line), value: lineName),
+                    (label: localization.text(.from), value: result.fromStop),
+                    (label: localization.text(.to), value: result.toStop),
+                    (
+                        label: localization.text(.timetable),
+                        value: localization.timetableName(result.timetable)
+                    ),
+                ]))
+                \(lockout)
+                <h2>🛤️ \(HTML.escape(localization.text(.route)))</h2>
+                \(HTML.table(
+                    headers: [
+                        "#", localization.text(.station), localization.text(.minutes),
+                        localization.text(.tariffZone), localization.text(.stationTimetablePlatform),
+                        localization.text(.selected), localization.text(.notes),
+                    ],
+                    rows: routeRows
+                ))
+                \(schedules)
+                \(notes)
+                """
+            )
         case .json:
             return try JSON.write(output)
         case .ics:
@@ -1286,6 +1631,27 @@ private enum OutputFormat: String {
 
             \(localization.text(.customTimetableHint).replacingOccurrences(of: "--timetable", with: "`--timetable`"))
             """
+        case .html:
+            let rows = output.timetables.map { timetable in
+                [
+                    HTML.code(timetable.slug),
+                    HTML.escape(localization.timetableName(timetable)),
+                ]
+            }
+            let hint = HTML.escape(localization.text(.customTimetableHint))
+                .replacingOccurrences(of: "--timetable", with: HTML.code("--timetable"))
+            return HTML.document(
+                title: title,
+                language: localization.language,
+                body: """
+                <h1>🗂 \(HTML.escape(title))</h1>
+                \(HTML.table(
+                    headers: [localization.text(.slug), localization.text(.name)],
+                    rows: rows
+                ))
+                <p>\(hint)</p>
+                """
+            )
         case .json:
             return try JSON.write(output)
         case .ics:
@@ -1335,6 +1701,36 @@ private enum OutputFormat: String {
 
             \(localization.text(.database)): `\(Markdown.escape(output.path))`
             """
+        case .html:
+            let content: String
+            if output.aliases.isEmpty {
+                content = "<p>\(HTML.escape(localization.text(.noStopAliases)))</p>"
+            } else {
+                let rows = output.aliases.map { alias in
+                    [
+                        HTML.code(alias.name),
+                        HTML.escape(alias.station),
+                        HTML.escape(localization.timetableName(alias.timetable)),
+                        HTML.code(alias.timetable.slug),
+                    ]
+                }
+                content = HTML.table(
+                    headers: [
+                        localization.text(.alias), localization.text(.station),
+                        localization.text(.timetable), localization.text(.slug),
+                    ],
+                    rows: rows
+                )
+            }
+            return HTML.document(
+                title: title,
+                language: localization.language,
+                body: """
+                <h1>🌰 \(HTML.escape(title))</h1>
+                \(content)
+                <p><strong>\(HTML.escape(localization.text(.database))):</strong> \(HTML.code(output.path))</p>
+                """
+            )
         case .json:
             return try JSON.write(output)
         case .ics:
@@ -1356,6 +1752,24 @@ private enum OutputFormat: String {
             **\(localization.text(.timetable)):** \(Markdown.escape(localization.timetableName(output.alias.timetable)))
             **\(localization.text(.database)):** `\(Markdown.escape(output.path))`
             """
+        case .html:
+            let title = localization.text(.stopAliasMutation, action.capitalized)
+            return HTML.document(
+                title: title,
+                language: localization.language,
+                body: """
+                <h1>🌰 \(HTML.escape(title))</h1>
+                \(HTML.definitionList([
+                    (label: localization.text(.alias), value: output.alias.name),
+                    (label: localization.text(.station), value: output.alias.station),
+                    (
+                        label: localization.text(.timetable),
+                        value: localization.timetableName(output.alias.timetable)
+                    ),
+                    (label: localization.text(.database), value: output.path),
+                ]))
+                """
+            )
         case .json:
             return try JSON.write(output)
         case .ics:
@@ -1373,6 +1787,13 @@ private enum OutputFormat: String {
 
             `\(Markdown.escape(output.path))`
             """
+        case .html:
+            let title = localization.text(.aliasDatabase)
+            return HTML.document(
+                title: title,
+                language: localization.language,
+                body: "<h1>🌰 \(HTML.escape(title))</h1>\n<p>\(HTML.code(output.path))</p>"
+            )
         case .json:
             return try JSON.write(output)
         case .ics:
@@ -1929,6 +2350,134 @@ private enum Markdown {
             .replacingOccurrences(of: "<", with: "&lt;")
             .replacingOccurrences(of: ">", with: "&gt;")
             .replacingOccurrences(of: "\"", with: "&quot;")
+    }
+}
+
+/// Builds standalone, portable HTML documents for files, browsers, and rich email bodies.
+private enum HTML {
+    static func document(title: String, language: AppLanguage, body: String) -> String {
+        """
+        <!doctype html>
+        <html lang="\(language.rawValue)">
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>\(escape(title))</title>
+          <style>
+            :root { color-scheme: light dark; }
+            body { color: #24292f; background: #ffffff; font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 32px auto; max-width: 1040px; padding: 0 20px; }
+            h1, h2 { line-height: 1.25; margin: 24px 0 12px; }
+            h1 { font-size: 1.6em; }
+            h2 { font-size: 1.25em; }
+            p { margin: 8px 0 16px; }
+            dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 8px 0 20px; }
+            dt { font-weight: 600; }
+            dd { margin: 0; }
+            table { border-collapse: collapse; margin: 12px 0 24px; width: 100%; }
+            th, td { border: 1px solid #d0d7de; padding: 6px 10px; text-align: left; vertical-align: top; }
+            th { background: #f6f8fa; font-weight: 600; }
+            code { background: #f6f8fa; border-radius: 4px; padding: 0.15em 0.35em; overflow-wrap: anywhere; }
+            .error, .warning { border-left: 4px solid #cf222e; padding-left: 12px; }
+            .badges { font-weight: 600; }
+            .muted { color: #57606a; }
+            @media (prefers-color-scheme: dark) {
+              body { color: #f0f6fc; background: #0d1117; }
+              th, td { border-color: #30363d; }
+              th, code { background: #161b22; }
+              .muted { color: #8b949e; }
+            }
+          </style>
+        </head>
+        <body>
+        \(body)
+        </body>
+        </html>
+        """
+    }
+
+    static func escape(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "'", with: "&#39;")
+    }
+
+    static func text(_ value: String) -> String {
+        escape(value).replacingOccurrences(of: "\n", with: "<br>\n")
+    }
+
+    static func strong(_ value: String) -> String {
+        guard !value.isEmpty else { return "" }
+        return "<strong>\(escape(value))</strong>"
+    }
+
+    static func code(_ value: String) -> String {
+        "<code>\(escape(value))</code>"
+    }
+
+    /// Renders escaped headers and trusted, already-escaped cell markup.
+    static func table(headers: [String], rows: [[String]]) -> String {
+        let header = headers.map { "<th scope=\"col\">\(escape($0))</th>" }.joined()
+        let body = rows.map { row in
+            "<tr>\(row.map { "<td>\($0)</td>" }.joined())</tr>"
+        }.joined(separator: "\n")
+        return """
+        <table>
+          <thead><tr>\(header)</tr></thead>
+          <tbody>
+        \(body)
+          </tbody>
+        </table>
+        """
+    }
+
+    static func definitionList(_ items: [(label: String, value: String)]) -> String {
+        let rows = items.map { item in
+            "<dt>\(escape(item.label))</dt><dd>\(text(item.value))</dd>"
+        }.joined(separator: "\n")
+        return "<dl>\n\(rows)\n</dl>"
+    }
+
+    static func lineName(_ leg: IDOSConnectionLeg) -> String {
+        styledName(
+            leg.name,
+            prefix: leg.transportMode.map { "\($0.emoji) " } ?? "🛣️ ",
+            color: leg.color
+        )
+    }
+
+    static func departureLineName(_ departure: IDOSDeparture) -> String {
+        styledName(
+            departure.lineName,
+            prefix: departure.transportMode.map { "\($0.emoji) " } ?? "",
+            color: departure.lineColor
+        )
+    }
+
+    static func serviceName(_ service: IDOSServiceDetail) -> String {
+        styledName(
+            service.name,
+            prefix: service.transportMode.map { "\($0.emoji) " } ?? "",
+            color: service.color
+        )
+    }
+
+    private static func styledName(_ name: String, prefix: String, color: String?) -> String {
+        let escapedName = escape(name)
+        guard let color, isSafeColor(color) else {
+            return "\(prefix)\(escapedName)"
+        }
+        return "\(prefix)<span style=\"color: \(color)\">\(escapedName)</span>"
+    }
+
+    /// IDOS currently supplies hexadecimal line colors; rejecting anything else keeps style attributes inert.
+    private static func isSafeColor(_ value: String) -> Bool {
+        value.range(
+            of: #"^#(?:[0-9A-Fa-f]{3}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})$"#,
+            options: .regularExpression
+        ) != nil
     }
 }
 

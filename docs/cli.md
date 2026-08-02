@@ -202,13 +202,17 @@ Uncategorized information keeps its full text and uses a generic information mar
 
 ## Output Formats
 
-Data and alias commands support `text`, `markdown`, and `json`; text is the default. Connections also support
-`ics` for the first returned connection. On macOS, `--add-to-calendar` opens that IDOS calendar file in the
-system calendar application. Human-readable text in either calendar form follows the selected CLI language.
+Data and alias commands support `text`, `markdown`, `html`, and `json`; text is the default. HTML output is a
+self-contained UTF-8 document with the same localized semantic labels, transport symbols, line colors, and
+result details as the other human-readable formats. Redirect it to a file to open the result in a browser or
+use it as a rich message body. Connections also support `ics` for the first returned connection. On macOS,
+`--add-to-calendar` opens that IDOS calendar file in the system calendar application. Human-readable text in
+either calendar form follows the selected CLI language.
 
 ```sh
 swift run kastan suggest Praha --format json
 swift run kastan connections Praha Brno --format markdown
+swift run kastan connections Praha Brno --format html > connections.html
 swift run kastan connections Praha Brno --verbose
 swift run kastan connections Praha Brno --format ics > connection.ics
 swift run kastan connections Praha Brno --add-to-calendar
@@ -217,13 +221,14 @@ swift run kastan station-timetables -L 154 -f "Strašnická" -t "Sídliště Lib
 swift run kastan timetables --format json
 ```
 
-Text and Markdown retain IDOS line colors as ANSI colors, use transport and status emoji, and emphasize times.
-Connection headings identify direct and shortest displayed results. `--verbose` adds IDs, tariff zones,
-platforms, carriers, and delay information when IDOS supplies them. Human-readable connection rows use
-semantic markers for their time summary, identifiers, carrier, delay status, and transport mode; an unknown
-transport mode uses a generic route marker. Known Czech and English IDOS on-time and delayed arrival or
-departure states follow the selected language in text and Markdown, while JSON exposes the original stable
-fields without relying on terminal styling.
+Text retains IDOS line colors as ANSI colors. Markdown and HTML retain them as portable inline styles. All
+three human-readable formats use transport and status emoji and emphasize times; HTML escapes values received
+from IDOS before placing them in the document. Connection headings identify direct and shortest displayed
+results. `--verbose` adds IDs, tariff zones, platforms, carriers, and delay information when IDOS supplies
+them. Human-readable connection rows use semantic markers for their time summary, identifiers, carrier, delay
+status, and transport mode; an unknown transport mode uses a generic route marker. Known Czech and English
+IDOS on-time and delayed arrival or departure states follow the selected language in text, Markdown, and HTML,
+while JSON exposes the original stable fields without relying on presentation styling.
 
 Unknown options are rejected. Network failures are returned as normal command errors in the selected format.
 Ambiguous place names are reported together with the possible IDOS choices.

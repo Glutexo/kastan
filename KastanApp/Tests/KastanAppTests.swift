@@ -1185,6 +1185,43 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(englishText.contains(connection.id))
     }
 
+    func testConnectionHTMLForMailEscapesIDOSAndIntroductoryContent() throws {
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        let connection = IDOSConnection(
+            id: "connection-unsafe",
+            departureTime: "12:00",
+            departureStation: "Praha <script>alert(1)</script>",
+            arrivalTime: "14:30",
+            arrivalStation: "Brno & okolí",
+            duration: "2 h 30 min",
+            legs: [
+                IDOSConnectionLeg(
+                    name: "R <script>alert(2)</script>",
+                    color: "red; background: url(unsafe)",
+                    transportMode: .train,
+                    departureTime: "12:00",
+                    fromStation: "Praha <hl.n.>",
+                    arrivalTime: "14:30",
+                    toStation: "Brno & okolí"
+                ),
+            ]
+        )
+
+        let html = CLIPlainTextPresentation(bundle: english).connectionHTML(
+            connection,
+            timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
+            introductoryText: "Prepared <strong>by IDOS</strong> & Kaštan"
+        )
+
+        XCTAssertTrue(html.hasPrefix("<!doctype html>"))
+        XCTAssertTrue(html.contains("Prepared &lt;strong&gt;by IDOS&lt;/strong&gt; &amp; Kaštan"))
+        XCTAssertTrue(html.contains("Praha &lt;script&gt;alert(1)&lt;/script&gt;"))
+        XCTAssertTrue(html.contains("Brno &amp; okolí"))
+        XCTAssertTrue(html.contains("R &lt;script&gt;alert(2)&lt;/script&gt;"))
+        XCTAssertFalse(html.contains("<script>"))
+        XCTAssertFalse(html.contains("background: url(unsafe)"))
+    }
+
     func testServiceSharedTextIncludesTheCompleteCLIStyleRoute() throws {
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
         let service = IDOSServiceDetail(
@@ -3536,6 +3573,17 @@ final class KastanAppTests: XCTestCase {
                 in: "Prepared by IDOS at https://idos.cz"
             )
         )
+        XCTAssertTrue(draft.htmlMessage.hasPrefix("<!doctype html>"))
+        XCTAssertTrue(draft.htmlMessage.contains("Prepared by IDOS at https://idos.cz"))
+        XCTAssertTrue(draft.htmlMessage.contains("<table>"))
+        XCTAssertTrue(draft.htmlMessage.contains("connection-mail-draft") == false)
+        XCTAssertTrue(draft.htmlMessage.contains("Praha hl.n."))
+        XCTAssertTrue(draft.htmlMessage.contains("Brno hl.n."))
+        let richMessage = try draft.attributedMessage()
+        XCTAssertTrue(richMessage.string.contains("Prepared by IDOS at https://idos.cz"))
+        XCTAssertTrue(richMessage.string.contains(AppLocalization.string("Connections")))
+        XCTAssertTrue(richMessage.string.contains("Praha hl.n."))
+        XCTAssertTrue(richMessage.string.contains("Brno hl.n."))
         XCTAssertEqual(draft.attachments.map(\.fileName), ["connection.pdf", "connection.ics"])
         XCTAssertEqual(
             String(data: draft.attachments[0].data, encoding: .utf8),
