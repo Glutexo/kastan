@@ -1311,34 +1311,63 @@ final class KastanAppTests: XCTestCase {
 
     func testCompactConnectionFormKeepsNativeControlsInsideWindow() {
         let width = KastanApp.minimumMainWindowWidth
-        let client = MockIDOSClient()
-        let model = ConnectionsViewModel(client: client)
-        let hostingView = NSHostingView(
-            rootView: ConnectionsView(model: model, client: client)
-                .frame(width: width, height: 600)
-        )
-        hostingView.frame = NSRect(x: 0, y: 0, width: width, height: 600)
-        let window = NSWindow(
-            contentRect: hostingView.frame,
-            styleMask: .borderless,
-            backing: .buffered,
-            defer: false
-        )
-        window.contentView = hostingView
-        window.makeKeyAndOrderFront(nil)
-        hostingView.layoutSubtreeIfNeeded()
-        defer { window.orderOut(nil) }
+        func assertControlsStayInsideWindow(
+            model: ConnectionsViewModel,
+            client: MockIDOSClient,
+            context: String
+        ) {
+            let hostingView = NSHostingView(
+                rootView: ConnectionsView(model: model, client: client)
+                    .frame(width: width, height: 600)
+            )
+            hostingView.frame = NSRect(x: 0, y: 0, width: width, height: 600)
+            let window = NSWindow(
+                contentRect: hostingView.frame,
+                styleMask: .borderless,
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = hostingView
+            window.makeKeyAndOrderFront(nil)
+            hostingView.layoutSubtreeIfNeeded()
+            defer { window.orderOut(nil) }
 
-        let visibleControls = hostingView.allDescendantViews
-            .compactMap { $0 as? NSControl }
-            .filter { !$0.isHidden && $0.alphaValue > 0 && !$0.visibleRect.isEmpty }
+            let visibleControls = hostingView.allDescendantViews
+                .compactMap { $0 as? NSControl }
+                .filter { !$0.isHidden && $0.alphaValue > 0 && !$0.visibleRect.isEmpty }
 
-        XCTAssertFalse(visibleControls.isEmpty)
-        for control in visibleControls {
-            let frame = hostingView.convert(control.bounds, from: control)
-            XCTAssertGreaterThanOrEqual(frame.minX, -1, "\(type(of: control)) exceeds the left edge")
-            XCTAssertLessThanOrEqual(frame.maxX, width + 1, "\(type(of: control)) exceeds the right edge")
+            XCTAssertFalse(visibleControls.isEmpty, context)
+            for control in visibleControls {
+                let frame = hostingView.convert(control.bounds, from: control)
+                XCTAssertGreaterThanOrEqual(
+                    frame.minX,
+                    -1,
+                    "\(context): \(type(of: control)) exceeds the left edge"
+                )
+                XCTAssertLessThanOrEqual(
+                    frame.maxX,
+                    width + 1,
+                    "\(context): \(type(of: control)) exceeds the right edge"
+                )
+            }
         }
+
+        let currentClient = MockIDOSClient()
+        assertControlsStayInsideWindow(
+            model: ConnectionsViewModel(client: currentClient),
+            client: currentClient,
+            context: "Current instant"
+        )
+
+        let customClient = MockIDOSClient()
+        let customModel = ConnectionsViewModel(client: customClient)
+        customModel.date = serviceDate(2026, 12, 31)
+        customModel.time = serviceDate(2026, 12, 31).addingTimeInterval(23 * 60 * 60 + 59 * 60)
+        assertControlsStayInsideWindow(
+            model: customModel,
+            client: customClient,
+            context: "Custom instant"
+        )
     }
 
     func testTimetablePickerAppearsAbovePrimaryInputInEverySearchMode() throws {
@@ -1662,6 +1691,12 @@ final class KastanAppTests: XCTestCase {
 
     func testSearchDateTimeEditorsRemainAbsentUntilThePopoverOpens() {
         let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
+        let compactPicker = NSHostingView(rootView: JourneyDateTimePicker(
+            date: .constant(fixedDate),
+            time: .constant(fixedDate),
+            usesCurrentDateAndTime: true,
+            selectCurrentDateAndTime: {}
+        ))
         let controls = JourneySearchControls(
             date: .constant(fixedDate),
             time: .constant(fixedDate),
@@ -1688,6 +1723,7 @@ final class KastanAppTests: XCTestCase {
         defer { window.orderOut(nil) }
 
         XCTAssertTrue(hostingView.allDescendantViews.compactMap { $0 as? NSDatePicker }.isEmpty)
+        XCTAssertLessThanOrEqual(compactPicker.fittingSize.height, 30)
         XCTAssertEqual(JourneyDateTimePicker.buttonContentWidth, 150)
         XCTAssertEqual(JourneyDateTimePicker.editorFieldWidth, 180)
     }

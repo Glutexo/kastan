@@ -426,32 +426,26 @@ struct JourneyDateTimePicker: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Date and time")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Button {
-                if usesCurrentDateAndTime {
-                    selectCurrentDateAndTime()
-                }
-                isEditorPresented.toggle()
-            } label: {
-                HStack(spacing: 6) {
-                    Text(buttonTitle)
-                        .lineLimit(1)
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.down")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(width: Self.buttonContentWidth, alignment: .leading)
+        Button {
+            if usesCurrentDateAndTime {
+                selectCurrentDateAndTime()
             }
-            .accessibilityLabel(Text("Date and time"))
-            .accessibilityValue(Text(buttonTitle))
-            .popover(isPresented: $isEditorPresented, arrowEdge: .bottom) {
-                editor
+            isEditorPresented.toggle()
+        } label: {
+            HStack(spacing: 6) {
+                Text(buttonTitle)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.down")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
+            .frame(width: Self.buttonContentWidth, alignment: .leading)
+        }
+        .accessibilityLabel(Text("Date and time"))
+        .accessibilityValue(Text(buttonTitle))
+        .popover(isPresented: $isEditorPresented, arrowEdge: .bottom) {
+            editor
         }
     }
 
