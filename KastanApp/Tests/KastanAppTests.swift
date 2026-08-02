@@ -625,6 +625,44 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testConnectionEmailMessageCreditsKastanInLocalizedIDOSFooter() throws {
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        let projectWebsite = ConnectionEmailMessage.projectWebsite.absoluteString
+        let czechAttribution = String(
+            format: czech.localizedString(forKey: "using the Kaštan app %@", value: nil, table: nil),
+            projectWebsite
+        )
+        let englishAttribution = String(
+            format: english.localizedString(forKey: "using the Kaštan app %@", value: nil, table: nil),
+            projectWebsite
+        )
+
+        let czechMessage = ConnectionEmailMessage.creditingKastan(
+            in: "Vyhledáno na webu https://idos.cz",
+            attribution: czechAttribution
+        )
+        XCTAssertEqual(
+            czechMessage,
+            "Vyhledáno na webu https://idos.cz pomocí aplikace Kaštan \(projectWebsite)"
+        )
+        XCTAssertEqual(
+            ConnectionEmailMessage.creditingKastan(
+                in: "Searched on the website https://idos.cz",
+                attribution: englishAttribution
+            ),
+            "Searched on the website https://idos.cz using the Kaštan app \(projectWebsite)"
+        )
+        XCTAssertEqual(
+            ConnectionEmailMessage.creditingKastan(in: czechMessage, attribution: czechAttribution),
+            czechMessage
+        )
+        XCTAssertEqual(
+            ConnectionEmailMessage.creditingKastan(in: "Prepared by IDOS", attribution: englishAttribution),
+            "Prepared by IDOS"
+        )
+    }
+
     func testConnectionDetailToolbarOffersEveryAvailableActionSeparately() {
         XCTAssertEqual(
             ResultDetailAction.allCases.map(\.systemImage),
@@ -2948,7 +2986,12 @@ final class KastanAppTests: XCTestCase {
 
         await model.load()
 
-        XCTAssertEqual(model.message, "Prepared by IDOS")
+        let expectedAttribution = AppLocalization.string(
+            "using the Kaštan app %@",
+            ConnectionEmailMessage.projectWebsite.absoluteString
+        )
+        let expectedMessage = "Prepared by IDOS at https://idos.cz \(expectedAttribution)"
+        XCTAssertEqual(model.message, expectedMessage)
         XCTAssertEqual(model.draft?.attachmentFileNames, ["connection.pdf", "connection.ics"])
         XCTAssertFalse(model.canSend)
         model.recipient = " alice@example.com; bob@example.org "
@@ -2961,7 +3004,7 @@ final class KastanAppTests: XCTestCase {
         let sentTimetable = await client.lastEmailTimetable
         let language = await client.lastEmailLanguage
         XCTAssertEqual(recipient, "alice@example.com, bob@example.org")
-        XCTAssertEqual(message, "Prepared by IDOS")
+        XCTAssertEqual(message, expectedMessage)
         XCTAssertEqual(sentTimetable, timetable)
         XCTAssertEqual(language, AppLanguagePreference.idosLanguage)
         XCTAssertEqual(model.sentRecipient, recipient)
@@ -3399,7 +3442,7 @@ private actor MockIDOSClient: IDOSClienting {
         lastEmailTimetable = timetable
         lastEmailLanguage = language
         return IDOSConnectionEmailDraft(
-            message: "Prepared by IDOS",
+            message: "Prepared by IDOS at https://idos.cz",
             description: "Connection detail",
             attachmentFileNames: ["connection.pdf", "connection.ics"]
         )

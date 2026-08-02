@@ -72,6 +72,25 @@ private enum ConnectionEmailAttachmentKind {
     }
 }
 
+/// Credits Kaštan in IDOS's editable website attribution while keeping both destinations visible as plain URLs.
+enum ConnectionEmailMessage {
+    static let projectWebsite = URL(string: "https://github.com/Glutexo/kastan")!
+    private static let idosWebsite = "https://idos.cz"
+
+    static func creditingKastan(in message: String, attribution: String) -> String {
+        guard !message.contains(projectWebsite.absoluteString),
+              let websiteRange = message.range(of: idosWebsite, options: .backwards)
+        else {
+            return message
+        }
+
+        return message.replacingCharacters(
+            in: websiteRange,
+            with: "\(idosWebsite) \(attribution)"
+        )
+    }
+}
+
 /// Owns one user-confirmed IDOS email delivery without retaining the recipient after the sheet closes.
 @MainActor
 final class ConnectionEmailViewModel: ObservableObject {
@@ -157,7 +176,14 @@ final class ConnectionEmailViewModel: ObservableObject {
             )
             guard !Task.isCancelled else { return }
             self.draft = draft
-            message = draft.message
+            let attribution = AppLocalization.string(
+                "using the Kaštan app %@",
+                ConnectionEmailMessage.projectWebsite.absoluteString
+            )
+            message = ConnectionEmailMessage.creditingKastan(
+                in: draft.message,
+                attribution: attribution
+            )
         } catch {
             guard !Task.isCancelled else { return }
             errorMessage = AppErrorPresentation.message(for: error)
