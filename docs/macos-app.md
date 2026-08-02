@@ -125,9 +125,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   interval published by the current IDOS timetable. When opened, the calendar scrolls to the current month or
   to the nearest month covered by that timetable. Option-clicking a calendar note also lists the operating rule
   or note-applicability rule and every individual date or range recognized from it.
-- Permanent connection and service-detail links using the IDOS language that matches the app, available for
-  opening in IDOS or sharing through the standard macOS share sheet. Every service-detail action is an
-  individually visible control in that window's native toolbar.
+- Permanent connection and service-detail links using the IDOS language that matches the app, shared through
+  the standard macOS picker. Alongside the system sharing services, that picker offers Open in IDOS without a
+  redundant standalone result action. Every service-detail action is an individually visible control in that
+  window's native toolbar.
 - Localized IDOS calendar and PDF exports matching the app language for connection results and dated service
   details. Add to Calendar opens the generated event in the user's calendar application from result menus, service
   menus, detail toolbars, and the File menu. Holding Option changes that action everywhere to Download ICS File and

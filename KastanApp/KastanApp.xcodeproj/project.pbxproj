@@ -33,6 +33,7 @@
 		A00000000000000000000227 /* ResultContextMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000127 /* ResultContextMenu.swift */; };
 		A00000000000000000000228 /* ConnectionEmail.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000128 /* ConnectionEmail.swift */; };
 		A00000000000000000000229 /* OptionAlternateButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000129 /* OptionAlternateButton.swift */; };
+		A0000000000000000000022A /* IDOSShareLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000012A /* IDOSShareLink.swift */; };
 		A00000000000000000000230 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000132 /* Localizable.strings */; };
 		A00000000000000000000231 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000133 /* Assets.xcassets */; };
 		A00000000000000000000232 /* Localizable.stringsdict in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000136 /* Localizable.stringsdict */; };
@@ -81,6 +82,7 @@
 		A00000000000000000000127 /* ResultContextMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultContextMenu.swift; sourceTree = "<group>"; };
 		A00000000000000000000128 /* ConnectionEmail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionEmail.swift; sourceTree = "<group>"; };
 		A00000000000000000000129 /* OptionAlternateButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OptionAlternateButton.swift; sourceTree = "<group>"; };
+		A0000000000000000000012A /* IDOSShareLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IDOSShareLink.swift; sourceTree = "<group>"; };
 		A00000000000000000000130 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A00000000000000000000131 /* cs */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = cs; path = cs.lproj/Localizable.strings; sourceTree = "<group>"; };
 		A00000000000000000000133 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -194,6 +196,7 @@
 				A0000000000000000000011A /* CalendarImporter.swift */,
 				A00000000000000000000125 /* CurrentLocationProvider.swift */,
 				A00000000000000000000124 /* ForceClickPreview.swift */,
+				A0000000000000000000012A /* IDOSShareLink.swift */,
 				A0000000000000000000011E /* PDFExporter.swift */,
 				A00000000000000000000126 /* ResultClipboard.swift */,
 				A00000000000000000000127 /* ResultContextMenu.swift */,
@@ -367,6 +370,7 @@
 				A00000000000000000000227 /* ResultContextMenu.swift in Sources */,
 				A00000000000000000000228 /* ConnectionEmail.swift in Sources */,
 				A00000000000000000000229 /* OptionAlternateButton.swift in Sources */,
+				A0000000000000000000022A /* IDOSShareLink.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

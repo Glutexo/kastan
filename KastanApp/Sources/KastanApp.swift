@@ -265,7 +265,6 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
     case addToCalendar
     case openPDF
     case shareLink
-    case openInIDOS
 
     var id: Self { self }
 
@@ -281,8 +280,6 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
             PDFExportAction.openInPreview.title
         case .shareLink:
             "Share Link"
-        case .openInIDOS:
-            "Open in IDOS"
         }
     }
 
@@ -298,8 +295,6 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
             PDFExportAction.openInPreview.systemImage
         case .shareLink:
             "square.and.arrow.up"
-        case .openInIDOS:
-            "arrow.up.right.square"
         }
     }
 
@@ -343,7 +338,7 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
                 true
             case .sendByEmail:
                 hasPermanentLink && canSendByEmail
-            case .shareLink, .openInIDOS:
+            case .shareLink:
                 hasPermanentLink
             }
         }
@@ -359,7 +354,6 @@ struct ResultDetailCommandContext {
     let sendByEmail: (() -> Void)?
     let performCalendarAction: (CalendarExportAction) -> Void
     let performPDFAction: (PDFExportAction) -> Void
-    let openInIDOS: () -> Void
 
     init(
         hasLoadedResult: Bool,
@@ -368,8 +362,7 @@ struct ResultDetailCommandContext {
         copyToClipboard: @escaping () -> Void,
         sendByEmail: (() -> Void)? = nil,
         performCalendarAction: @escaping (CalendarExportAction) -> Void,
-        performPDFAction: @escaping (PDFExportAction) -> Void,
-        openInIDOS: @escaping () -> Void
+        performPDFAction: @escaping (PDFExportAction) -> Void
     ) {
         self.hasLoadedResult = hasLoadedResult
         self.isPerformingExport = isPerformingExport
@@ -378,7 +371,6 @@ struct ResultDetailCommandContext {
         self.sendByEmail = sendByEmail
         self.performCalendarAction = performCalendarAction
         self.performPDFAction = performPDFAction
-        self.openInIDOS = openInIDOS
     }
 
     func isEnabled(_ action: ResultDetailAction) -> Bool {
@@ -389,7 +381,7 @@ struct ResultDetailCommandContext {
             return hasLoadedResult
         case .sendByEmail:
             return hasLoadedResult && permanentLink != nil && sendByEmail != nil
-        case .shareLink, .openInIDOS:
+        case .shareLink:
             return permanentLink != nil
         }
     }
@@ -432,15 +424,12 @@ struct ResultDetailCommands: Commands {
             .disabled(context?.isEnabled(.openPDF) != true)
 
             if let url = context?.permanentLink {
-                ShareLink(item: url) {
+                IDOSShareLink(item: url) {
                     actionLabel(.shareLink)
                 }
                 .disabled(context?.isEnabled(.shareLink) != true)
             } else {
                 actionButton(.shareLink) {}
-            }
-            actionButton(.openInIDOS) {
-                context?.openInIDOS()
             }
         }
     }

@@ -926,7 +926,6 @@ struct ConnectionDetailView: View {
     private static let scrollCoordinateSpace = "connection-detail-scroll"
 
     @Environment(\.openWindow) private var openWindow
-    @Environment(\.openURL) private var openURL
     @StateObject private var actionsModel: ConnectionsViewModel
     @State private var timeIsUnderTitle = false
     @State private var isEmailPresented = false
@@ -1078,11 +1077,6 @@ struct ConnectionDetailView: View {
                         for: selection.connection
                     )
                 }
-            },
-            openInIDOS: {
-                if let connectionActionURL {
-                    openURL(connectionActionURL)
-                }
             }
         )
     }
@@ -1149,21 +1143,10 @@ struct ConnectionDetailView: View {
             .disabled(isPerformingExport)
         case .shareLink:
             if let url {
-                ShareLink(item: url) {
+                IDOSShareLink(item: url) {
                     connectionActionLabel(action)
                 }
                 .disabled(isPerformingExport)
-                .help(action.title)
-            }
-        case .openInIDOS:
-            if let url {
-                Button {
-                    openURL(url)
-                } label: {
-                    connectionActionLabel(action)
-                }
-                .disabled(isPerformingExport)
-                .accessibilityLabel(action.title)
                 .help(action.title)
             }
         }

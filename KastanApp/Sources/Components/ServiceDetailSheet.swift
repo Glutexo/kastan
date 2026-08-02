@@ -338,7 +338,6 @@ struct ServiceDetailView: View {
 
     private static let scrollCoordinateSpace = "service-detail-scroll"
 
-    @Environment(\.openURL) private var openURL
     @StateObject private var model: ServiceDetailViewModel
     @State private var dateIsUnderTitle = false
     @State private var hasAppliedInitialRoutePosition = false
@@ -428,11 +427,6 @@ struct ServiceDetailView: View {
             },
             performPDFAction: { pdfExportAction in
                 Task { await model.performPDFAction(pdfExportAction) }
-            },
-            openInIDOS: {
-                if let serviceActionURL {
-                    openURL(serviceActionURL)
-                }
             }
         )
     }
@@ -478,21 +472,10 @@ struct ServiceDetailView: View {
             .disabled(model.isPerformingExport)
         case .shareLink:
             if let url {
-                ShareLink(item: url) {
+                IDOSShareLink(item: url) {
                     serviceActionLabel(action)
                 }
                 .disabled(model.isPerformingExport)
-                .help(action.title)
-            }
-        case .openInIDOS:
-            if let url {
-                Button {
-                    openURL(url)
-                } label: {
-                    serviceActionLabel(action)
-                }
-                .disabled(model.isPerformingExport)
-                .accessibilityLabel(action.title)
                 .help(action.title)
             }
         }

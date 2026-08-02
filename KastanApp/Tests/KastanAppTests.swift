@@ -37,7 +37,6 @@ final class KastanAppTests: XCTestCase {
             "Open PDF in Preview",
             "Download PDF File",
             "Share Link",
-            "Open in IDOS",
             "Favorite timetables",
         ]
 
@@ -57,6 +56,11 @@ final class KastanAppTests: XCTestCase {
             XCTAssertTrue(alternateItem.isAlternate)
             XCTAssertTrue(alternateItem.keyEquivalentModifierMask.contains(.option))
         }
+
+        XCTAssertFalse(
+            menuItems.contains { $0.title == AppLocalization.string("Open in IDOS") },
+            "Opening IDOS belongs inside the sharing picker instead of the application menu"
+        )
     }
 
     func testFavoriteTimetablesWindowCommandUsesAnIcon() throws {
@@ -77,7 +81,6 @@ final class KastanAppTests: XCTestCase {
             "Open PDF in Preview",
             "Download PDF File",
             "Share Link",
-            "Open in IDOS",
         ].map { AppLocalization.string($0) }
         let fileMenu = try XCTUnwrap(
             NSApplication.shared.mainMenu?.items
@@ -624,13 +627,13 @@ final class KastanAppTests: XCTestCase {
         ))!
     }
 
-    func testResultDetailToolbarAndFileMenuShareSixLocalizedActions() throws {
+    func testResultDetailToolbarAndFileMenuShareFiveLocalizedActions() throws {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
 
         XCTAssertEqual(
             ResultDetailAction.allCases,
-            [.copyToClipboard, .sendByEmail, .addToCalendar, .openPDF, .shareLink, .openInIDOS]
+            [.copyToClipboard, .sendByEmail, .addToCalendar, .openPDF, .shareLink]
         )
         let keys = [
             "Copy to Clipboard",
@@ -638,7 +641,6 @@ final class KastanAppTests: XCTestCase {
             "Add to Calendar",
             "Open PDF in Preview",
             "Share Link",
-            "Open in IDOS",
         ]
         XCTAssertEqual(
             keys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
@@ -648,12 +650,19 @@ final class KastanAppTests: XCTestCase {
                 "Přidat do Kalendáře",
                 "Otevřít PDF v Náhledu",
                 "Sdílet odkaz",
-                "Otevřít v IDOSu",
             ]
         )
         XCTAssertEqual(
             keys.map { english.localizedString(forKey: $0, value: nil, table: nil) },
             keys
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Open in IDOS", value: nil, table: nil),
+            "Otevřít v IDOSu"
+        )
+        XCTAssertEqual(
+            english.localizedString(forKey: "Open in IDOS", value: nil, table: nil),
+            "Open in IDOS"
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Download ICS File", value: nil, table: nil),
@@ -742,7 +751,6 @@ final class KastanAppTests: XCTestCase {
                 "calendar.badge.plus",
                 "doc.text.magnifyingglass",
                 "square.and.arrow.up",
-                "arrow.up.right.square",
             ]
         )
         XCTAssertEqual(
@@ -755,7 +763,7 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             ResultDetailAction.availableActions(hasPermanentLink: true, canSendByEmail: false),
-            [.copyToClipboard, .addToCalendar, .openPDF, .shareLink, .openInIDOS]
+            [.copyToClipboard, .addToCalendar, .openPDF, .shareLink]
         )
     }
 
@@ -856,7 +864,6 @@ final class KastanAppTests: XCTestCase {
                 .detail(.addToCalendar),
                 .detail(.openPDF),
                 .detail(.shareLink),
-                .detail(.openInIDOS),
             ]
         )
         XCTAssertEqual(
@@ -879,7 +886,6 @@ final class KastanAppTests: XCTestCase {
                 .detail(.addToCalendar),
                 .detail(.openPDF),
                 .detail(.shareLink),
-                .detail(.openInIDOS),
             ]
         )
 
@@ -915,20 +921,49 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(requestCount, 0)
     }
 
-    func testDeferredServiceShareLinkLoadsAndLocalizesItsPermanentURL() async throws {
+    func testDeferredServiceShareLinkLoadsAndLocalizesItsPermanentURL() async {
         let sourceURL = "https://idos.cz/en/vlaky/spojeni/prehled/?p=context-menu"
         let client = MockIDOSClient()
         await client.configureServiceShareURL(sourceURL)
         let model = ServiceDetailViewModel(id: "service-share", client: client)
 
-        let data = try await DeferredServicePermanentLink(model: model).exportedData()
+        let url = await model.localizedPermanentLink()
 
         XCTAssertEqual(
-            String(decoding: data, as: UTF8.self),
-            AppLanguagePreference.localizedIDOSURL(from: sourceURL)?.absoluteString
+            url,
+            AppLanguagePreference.localizedIDOSURL(from: sourceURL)
         )
         let requestCount = await client.serviceDetailRequestCount
         XCTAssertEqual(requestCount, 1)
+    }
+
+    func testSharingPickerKeepsSystemServicesAndAddsOpeningInIDOS() throws {
+        let url = try XCTUnwrap(URL(string: "https://idos.cz/en/vlaky/spojeni/prehled/?p=share"))
+        var openedURL: URL?
+        let presenter = IDOSSharingServicePickerPresenter { openedURL = $0 }
+        let nativeService = NSSharingService(
+            title: "Native service",
+            image: NSImage(size: NSSize(width: 18, height: 18)),
+            alternateImage: nil,
+            handler: {}
+        )
+        let picker = NSSharingServicePicker(items: [url])
+
+        let services = presenter.sharingServicePicker(
+            picker,
+            sharingServicesForItems: [url],
+            proposedSharingServices: [nativeService]
+        )
+
+        XCTAssertEqual(services.count, 2)
+        XCTAssertIdentical(services.first, nativeService)
+        let openService = try XCTUnwrap(services.last)
+        XCTAssertEqual(openService.title, AppLocalization.string("Open in IDOS"))
+        XCTAssertEqual(openService.menuItemTitle, AppLocalization.string("Open in IDOS"))
+
+        openService.perform(withItems: [url])
+
+        XCTAssertEqual(openedURL, url)
     }
 
     func testResultDetailCommandsFollowTheFocusedWindowState() {
@@ -939,8 +974,7 @@ final class KastanAppTests: XCTestCase {
             copyToClipboard: {},
             sendByEmail: {},
             performCalendarAction: { _ in },
-            performPDFAction: { _ in },
-            openInIDOS: {}
+            performPDFAction: { _ in }
         )
         let loading = ResultDetailCommandContext(
             hasLoadedResult: false,
@@ -948,8 +982,7 @@ final class KastanAppTests: XCTestCase {
             permanentLink: nil,
             copyToClipboard: {},
             performCalendarAction: { _ in },
-            performPDFAction: { _ in },
-            openInIDOS: {}
+            performPDFAction: { _ in }
         )
         let exporting = ResultDetailCommandContext(
             hasLoadedResult: true,
@@ -957,8 +990,7 @@ final class KastanAppTests: XCTestCase {
             permanentLink: URL(string: "https://idos.cz/"),
             copyToClipboard: {},
             performCalendarAction: { _ in },
-            performPDFAction: { _ in },
-            openInIDOS: {}
+            performPDFAction: { _ in }
         )
 
         XCTAssertTrue(ResultDetailAction.allCases.allSatisfy(ready.isEnabled))

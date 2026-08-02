@@ -287,17 +287,12 @@ struct StationTimetablesView: View {
             if let value = result.shareURL,
                let url = AppLanguagePreference.localizedIDOSURL(from: value)
             {
-                Menu {
-                    ShareLink(item: url) {
-                        Label("Share Link", systemImage: "square.and.arrow.up")
-                    }
-                    Link(destination: url) {
-                        Label("Open in IDOS", systemImage: "arrow.up.right.square")
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
+                IDOSShareLink(item: url) {
+                    Image(systemName: "square.and.arrow.up")
                 }
-                .menuStyle(.borderlessButton)
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Share Link")
+                .help("Share Link")
             }
         }
     }
