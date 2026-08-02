@@ -283,6 +283,7 @@ struct JourneySearchControls: View {
 
             GridRow(alignment: .firstTextBaseline) {
                 supplement.leading
+                    .fixedSize(horizontal: true, vertical: false)
                 supplement.modeAligned
                 Color.clear
                     .frame(height: 0)
@@ -305,8 +306,10 @@ struct JourneySearchControls: View {
 
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 supplement.leading
-                Spacer(minLength: 0)
+                    .fixedSize(horizontal: true, vertical: false)
                 supplement.modeAligned
+                    .fixedSize(horizontal: true, vertical: false)
+                Spacer(minLength: 0)
             }
         }
     }
@@ -318,6 +321,7 @@ struct JourneySearchControls: View {
     ) -> some View {
         GridRow(alignment: .firstTextBaseline) {
             supplement.leading
+                .fixedSize(horizontal: true, vertical: false)
             supplement.modeAligned
                 .frame(width: modeWidth, alignment: .leading)
             Color.clear

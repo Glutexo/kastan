@@ -1500,6 +1500,71 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(modeFrame.minX, shortcutFrame.minX, accuracy: 1)
     }
 
+    func testWiderSearchDoesNotSeparateTheJourneyControlPairs() throws {
+        struct Frames {
+            let mode: CGRect
+            let options: CGRect
+            let directOnly: CGRect
+        }
+
+        func renderedFrames(width: CGFloat) throws -> Frames {
+            let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
+            let controls = JourneySearchControls(
+                date: .constant(fixedDate),
+                time: .constant(fixedDate),
+                isArrival: .constant(false),
+                modeLabel: "Time means",
+                departureLabel: "Departure",
+                arrivalLabel: "Arrival",
+                isSearching: false,
+                canSearch: true,
+                usesStackedLayout: false,
+                supplement: JourneySearchControlsSupplement(
+                    leading: JourneyOptionsDisclosureHeader(isExpanded: .constant(false))
+                        .background(SearchSupplementLayoutProbe(name: "options")),
+                    modeAligned: SearchSupplementLayoutProbe(name: "direct-only")
+                        .frame(width: 150, height: 22),
+                    details: EmptyView()
+                ),
+                search: {}
+            )
+            .frame(width: width, height: 140, alignment: .topLeading)
+            let hostingView = NSHostingView(rootView: controls)
+            hostingView.frame = NSRect(x: 0, y: 0, width: width, height: 140)
+            let window = NSWindow(
+                contentRect: hostingView.frame,
+                styleMask: .borderless,
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = hostingView
+            window.makeKeyAndOrderFront(nil)
+            hostingView.layoutSubtreeIfNeeded()
+            defer { window.orderOut(nil) }
+
+            let descendants = hostingView.allDescendantViews
+            let probes = descendants.compactMap { $0 as? SearchSupplementLayoutProbeView }
+            let mode = try XCTUnwrap(descendants.compactMap { $0 as? NSSegmentedControl }.first)
+            let options = try XCTUnwrap(probes.first { $0.name == "options" })
+            let directOnly = try XCTUnwrap(probes.first { $0.name == "direct-only" })
+
+            return Frames(
+                mode: hostingView.convert(mode.bounds, from: mode),
+                options: hostingView.convert(options.bounds, from: options),
+                directOnly: hostingView.convert(directOnly.bounds, from: directOnly)
+            )
+        }
+
+        let baseline = try renderedFrames(width: 880)
+        let expanded = try renderedFrames(width: 1_200)
+
+        XCTAssertEqual(baseline.mode.minX, expanded.mode.minX, accuracy: 1)
+        XCTAssertEqual(baseline.directOnly.minX, expanded.directOnly.minX, accuracy: 1)
+        XCTAssertEqual(baseline.options.minX, expanded.options.minX, accuracy: 1)
+        XCTAssertEqual(baseline.mode.minX, baseline.directOnly.minX, accuracy: 1)
+        XCTAssertEqual(expanded.mode.minX, expanded.directOnly.minX, accuracy: 1)
+    }
+
     func testExpandedSearchSupplementKeepsModeAndLabelsInPlace() throws {
         struct Frames {
             let mode: CGRect
