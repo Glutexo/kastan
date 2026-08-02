@@ -263,7 +263,7 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
     case copyToClipboard
     case sendByEmail
     case addToCalendar
-    case saveAsPDF
+    case openPDF
     case shareLink
     case openInIDOS
 
@@ -277,8 +277,8 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
             "Send by Email"
         case .addToCalendar:
             "Add to Calendar"
-        case .saveAsPDF:
-            "Save as PDF"
+        case .openPDF:
+            PDFExportAction.openInPreview.title
         case .shareLink:
             "Share Link"
         case .openInIDOS:
@@ -294,8 +294,8 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
             "envelope"
         case .addToCalendar:
             "calendar.badge.plus"
-        case .saveAsPDF:
-            "arrow.down.doc"
+        case .openPDF:
+            PDFExportAction.openInPreview.systemImage
         case .shareLink:
             "square.and.arrow.up"
         case .openInIDOS:
@@ -303,13 +303,33 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
         }
     }
 
-    /// Replaces only the calendar action's presentation when its Option alternate is active.
-    func title(for calendarExportAction: CalendarExportAction) -> LocalizedStringKey {
-        self == .addToCalendar ? calendarExportAction.title : title
+    /// Replaces export presentations when their Option alternates are active.
+    func title(
+        calendarExportAction: CalendarExportAction = .addToCalendar,
+        pdfExportAction: PDFExportAction = .openInPreview
+    ) -> LocalizedStringKey {
+        switch self {
+        case .addToCalendar:
+            calendarExportAction.title
+        case .openPDF:
+            pdfExportAction.title
+        default:
+            title
+        }
     }
 
-    func systemImage(for calendarExportAction: CalendarExportAction) -> String {
-        self == .addToCalendar ? calendarExportAction.systemImage : systemImage
+    func systemImage(
+        calendarExportAction: CalendarExportAction = .addToCalendar,
+        pdfExportAction: PDFExportAction = .openInPreview
+    ) -> String {
+        switch self {
+        case .addToCalendar:
+            calendarExportAction.systemImage
+        case .openPDF:
+            pdfExportAction.systemImage
+        default:
+            systemImage
+        }
     }
 
     /// Filters link-backed actions for the selected result while keeping email connection-specific.
@@ -319,7 +339,7 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
     ) -> [Self] {
         allCases.filter { action in
             switch action {
-            case .copyToClipboard, .addToCalendar, .saveAsPDF:
+            case .copyToClipboard, .addToCalendar, .openPDF:
                 true
             case .sendByEmail:
                 hasPermanentLink && canSendByEmail
@@ -338,7 +358,7 @@ struct ResultDetailCommandContext {
     let copyToClipboard: () -> Void
     let sendByEmail: (() -> Void)?
     let performCalendarAction: (CalendarExportAction) -> Void
-    let saveAsPDF: () -> Void
+    let performPDFAction: (PDFExportAction) -> Void
     let openInIDOS: () -> Void
 
     init(
@@ -348,7 +368,7 @@ struct ResultDetailCommandContext {
         copyToClipboard: @escaping () -> Void,
         sendByEmail: (() -> Void)? = nil,
         performCalendarAction: @escaping (CalendarExportAction) -> Void,
-        saveAsPDF: @escaping () -> Void,
+        performPDFAction: @escaping (PDFExportAction) -> Void,
         openInIDOS: @escaping () -> Void
     ) {
         self.hasLoadedResult = hasLoadedResult
@@ -357,7 +377,7 @@ struct ResultDetailCommandContext {
         self.copyToClipboard = copyToClipboard
         self.sendByEmail = sendByEmail
         self.performCalendarAction = performCalendarAction
-        self.saveAsPDF = saveAsPDF
+        self.performPDFAction = performPDFAction
         self.openInIDOS = openInIDOS
     }
 
@@ -365,7 +385,7 @@ struct ResultDetailCommandContext {
         guard !isPerformingExport else { return false }
 
         switch action {
-        case .copyToClipboard, .addToCalendar, .saveAsPDF:
+        case .copyToClipboard, .addToCalendar, .openPDF:
             return hasLoadedResult
         case .sendByEmail:
             return hasLoadedResult && permanentLink != nil && sendByEmail != nil
@@ -404,9 +424,12 @@ struct ResultDetailCommands: Commands {
                 actionLabel(.addToCalendar, calendarExportAction: calendarExportAction)
             }
             .disabled(context?.isEnabled(.addToCalendar) != true)
-            actionButton(.saveAsPDF) {
-                context?.saveAsPDF()
+            PDFExportButton(placement: .menu) { pdfExportAction in
+                context?.performPDFAction(pdfExportAction)
+            } label: { pdfExportAction in
+                actionLabel(.openPDF, pdfExportAction: pdfExportAction)
             }
+            .disabled(context?.isEnabled(.openPDF) != true)
 
             if let url = context?.permanentLink {
                 ShareLink(item: url) {
@@ -434,11 +457,18 @@ struct ResultDetailCommands: Commands {
 
     private func actionLabel(
         _ action: ResultDetailAction,
-        calendarExportAction: CalendarExportAction = .addToCalendar
+        calendarExportAction: CalendarExportAction = .addToCalendar,
+        pdfExportAction: PDFExportAction = .openInPreview
     ) -> some View {
         Label(
-            action.title(for: calendarExportAction),
-            systemImage: action.systemImage(for: calendarExportAction)
+            action.title(
+                calendarExportAction: calendarExportAction,
+                pdfExportAction: pdfExportAction
+            ),
+            systemImage: action.systemImage(
+                calendarExportAction: calendarExportAction,
+                pdfExportAction: pdfExportAction
+            )
         )
     }
 }

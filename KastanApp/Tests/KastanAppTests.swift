@@ -34,7 +34,8 @@ final class KastanAppTests: XCTestCase {
             "Send by Email",
             "Add to Calendar",
             "Download ICS File",
-            "Save as PDF",
+            "Open PDF in Preview",
+            "Download PDF File",
             "Share Link",
             "Open in IDOS",
             "Favorite timetables",
@@ -49,11 +50,13 @@ final class KastanAppTests: XCTestCase {
             )
         }
 
-        let downloadICSItem = try XCTUnwrap(
-            menuItems.first { $0.title == AppLocalization.string("Download ICS File") }
-        )
-        XCTAssertTrue(downloadICSItem.isAlternate)
-        XCTAssertTrue(downloadICSItem.keyEquivalentModifierMask.contains(.option))
+        for key in ["Download ICS File", "Download PDF File"] {
+            let alternateItem = try XCTUnwrap(
+                menuItems.first { $0.title == AppLocalization.string(key) }
+            )
+            XCTAssertTrue(alternateItem.isAlternate)
+            XCTAssertTrue(alternateItem.keyEquivalentModifierMask.contains(.option))
+        }
     }
 
     func testFavoriteTimetablesWindowCommandUsesAnIcon() throws {
@@ -71,7 +74,8 @@ final class KastanAppTests: XCTestCase {
             "Send by Email",
             "Add to Calendar",
             "Download ICS File",
-            "Save as PDF",
+            "Open PDF in Preview",
+            "Download PDF File",
             "Share Link",
             "Open in IDOS",
         ].map { AppLocalization.string($0) }
@@ -584,13 +588,13 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertEqual(
             ResultDetailAction.allCases,
-            [.copyToClipboard, .sendByEmail, .addToCalendar, .saveAsPDF, .shareLink, .openInIDOS]
+            [.copyToClipboard, .sendByEmail, .addToCalendar, .openPDF, .shareLink, .openInIDOS]
         )
         let keys = [
             "Copy to Clipboard",
             "Send by Email",
             "Add to Calendar",
-            "Save as PDF",
+            "Open PDF in Preview",
             "Share Link",
             "Open in IDOS",
         ]
@@ -600,7 +604,7 @@ final class KastanAppTests: XCTestCase {
                 "Zkopírovat do schránky",
                 "Poslat na e-mail",
                 "Přidat do Kalendáře",
-                "Uložit jako PDF",
+                "Otevřít PDF v Náhledu",
                 "Sdílet odkaz",
                 "Otevřít v IDOSu",
             ]
@@ -616,6 +620,14 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(
             english.localizedString(forKey: "Download ICS File", value: nil, table: nil),
             "Download ICS File"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Download PDF File", value: nil, table: nil),
+            "Stáhnout soubor PDF"
+        )
+        XCTAssertEqual(
+            english.localizedString(forKey: "Download PDF File", value: nil, table: nil),
+            "Download PDF File"
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Refresh connections", value: nil, table: nil),
@@ -686,7 +698,7 @@ final class KastanAppTests: XCTestCase {
                 "doc.on.doc",
                 "envelope",
                 "calendar.badge.plus",
-                "arrow.down.doc",
+                "doc.text.magnifyingglass",
                 "square.and.arrow.up",
                 "arrow.up.right.square",
             ]
@@ -697,19 +709,19 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             ResultDetailAction.availableActions(hasPermanentLink: false, canSendByEmail: true),
-            [.copyToClipboard, .addToCalendar, .saveAsPDF]
+            [.copyToClipboard, .addToCalendar, .openPDF]
         )
         XCTAssertEqual(
             ResultDetailAction.availableActions(hasPermanentLink: true, canSendByEmail: false),
-            [.copyToClipboard, .addToCalendar, .saveAsPDF, .shareLink, .openInIDOS]
+            [.copyToClipboard, .addToCalendar, .openPDF, .shareLink, .openInIDOS]
         )
     }
 
     func testOptionChangesAddToCalendarToICSDownload() {
-        XCTAssertTrue(CalendarExportButtonPlacement.menu.usesNativeAlternateWhenAvailable)
-        XCTAssertFalse(CalendarExportButtonPlacement.toolbar.usesNativeAlternateWhenAvailable)
-        XCTAssertFalse(CalendarExportButtonPlacement.menu.reservesAlternateLabelWidth)
-        XCTAssertTrue(CalendarExportButtonPlacement.toolbar.reservesAlternateLabelWidth)
+        XCTAssertTrue(OptionAlternateButtonPlacement.menu.usesNativeAlternateWhenAvailable)
+        XCTAssertFalse(OptionAlternateButtonPlacement.toolbar.usesNativeAlternateWhenAvailable)
+        XCTAssertFalse(OptionAlternateButtonPlacement.menu.reservesAlternateLabelWidth)
+        XCTAssertTrue(OptionAlternateButtonPlacement.toolbar.reservesAlternateLabelWidth)
         XCTAssertEqual(CalendarExportAction.preferred(for: []), .addToCalendar)
         XCTAssertEqual(CalendarExportAction.preferred(for: [.command]), .addToCalendar)
         XCTAssertEqual(CalendarExportAction.preferred(for: [.option]), .download)
@@ -720,14 +732,16 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(CalendarExportAction.addToCalendar.systemImage, "calendar.badge.plus")
         XCTAssertEqual(CalendarExportAction.download.systemImage, "arrow.down.to.line")
         XCTAssertEqual(
-            ResultDetailAction.addToCalendar.systemImage(for: .download),
+            ResultDetailAction.addToCalendar.systemImage(calendarExportAction: .download),
             CalendarExportAction.download.systemImage
         )
     }
 
     func testCalendarToolbarKeepsItsWidthWhenOptionChangesAction() {
         let addToCalendar = NSHostingView(
-            rootView: CalendarExportButtonLabel(
+            rootView: OptionAlternateButtonLabel(
+                primaryAction: CalendarExportAction.addToCalendar,
+                alternateAction: CalendarExportAction.download,
                 presentedAction: .addToCalendar,
                 reservesAlternateWidth: true
             ) { action in
@@ -736,7 +750,9 @@ final class KastanAppTests: XCTestCase {
             }
         )
         let download = NSHostingView(
-            rootView: CalendarExportButtonLabel(
+            rootView: OptionAlternateButtonLabel(
+                primaryAction: CalendarExportAction.addToCalendar,
+                alternateAction: CalendarExportAction.download,
                 presentedAction: .download,
                 reservesAlternateWidth: true
             ) { action in
@@ -748,6 +764,45 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(addToCalendar.fittingSize, download.fittingSize)
     }
 
+    func testOptionChangesPDFOpeningToDownload() {
+        XCTAssertEqual(PDFExportAction.preferred(for: []), .openInPreview)
+        XCTAssertEqual(PDFExportAction.preferred(for: [.command]), .openInPreview)
+        XCTAssertEqual(PDFExportAction.preferred(for: [.option]), .download)
+        XCTAssertEqual(PDFExportAction.openInPreview.systemImage, "doc.text.magnifyingglass")
+        XCTAssertEqual(PDFExportAction.download.systemImage, "arrow.down.doc")
+        XCTAssertEqual(
+            ResultDetailAction.openPDF.systemImage(pdfExportAction: .download),
+            PDFExportAction.download.systemImage
+        )
+    }
+
+    func testPDFToolbarKeepsItsWidthWhenOptionChangesAction() {
+        let openInPreview = NSHostingView(
+            rootView: OptionAlternateButtonLabel(
+                primaryAction: PDFExportAction.openInPreview,
+                alternateAction: PDFExportAction.download,
+                presentedAction: .openInPreview,
+                reservesAlternateWidth: true
+            ) { action in
+                Label(action.title, systemImage: action.systemImage)
+                    .labelStyle(.iconOnly)
+            }
+        )
+        let download = NSHostingView(
+            rootView: OptionAlternateButtonLabel(
+                primaryAction: PDFExportAction.openInPreview,
+                alternateAction: PDFExportAction.download,
+                presentedAction: .download,
+                reservesAlternateWidth: true
+            ) { action in
+                Label(action.title, systemImage: action.systemImage)
+                    .labelStyle(.iconOnly)
+            }
+        )
+
+        XCTAssertEqual(openInPreview.fittingSize, download.fittingSize)
+    }
+
     func testResultContextMenusKeepConnectionAndServiceActionsDistinct() throws {
         XCTAssertEqual(
             ResultContextAction.availableActions(for: .connection, hasPermanentLink: true),
@@ -757,7 +812,7 @@ final class KastanAppTests: XCTestCase {
                 .detail(.copyToClipboard),
                 .detail(.sendByEmail),
                 .detail(.addToCalendar),
-                .detail(.saveAsPDF),
+                .detail(.openPDF),
                 .detail(.shareLink),
                 .detail(.openInIDOS),
             ]
@@ -769,7 +824,7 @@ final class KastanAppTests: XCTestCase {
                 .separator,
                 .detail(.copyToClipboard),
                 .detail(.addToCalendar),
-                .detail(.saveAsPDF),
+                .detail(.openPDF),
             ]
         )
         XCTAssertEqual(
@@ -780,7 +835,7 @@ final class KastanAppTests: XCTestCase {
                 .separator,
                 .detail(.copyToClipboard),
                 .detail(.addToCalendar),
-                .detail(.saveAsPDF),
+                .detail(.openPDF),
                 .detail(.shareLink),
                 .detail(.openInIDOS),
             ]
@@ -842,7 +897,7 @@ final class KastanAppTests: XCTestCase {
             copyToClipboard: {},
             sendByEmail: {},
             performCalendarAction: { _ in },
-            saveAsPDF: {},
+            performPDFAction: { _ in },
             openInIDOS: {}
         )
         let loading = ResultDetailCommandContext(
@@ -851,7 +906,7 @@ final class KastanAppTests: XCTestCase {
             permanentLink: nil,
             copyToClipboard: {},
             performCalendarAction: { _ in },
-            saveAsPDF: {},
+            performPDFAction: { _ in },
             openInIDOS: {}
         )
         let exporting = ResultDetailCommandContext(
@@ -860,7 +915,7 @@ final class KastanAppTests: XCTestCase {
             permanentLink: URL(string: "https://idos.cz/"),
             copyToClipboard: {},
             performCalendarAction: { _ in },
-            saveAsPDF: {},
+            performPDFAction: { _ in },
             openInIDOS: {}
         )
 
@@ -1679,7 +1734,7 @@ final class KastanAppTests: XCTestCase {
             copyToClipboard: {},
             sendByEmail: {},
             performCalendarAction: { _ in },
-            saveAsPDF: {}
+            performPDFAction: { _ in }
         )
         let hostingView = NSHostingView(rootView: card.frame(width: 700))
         hostingView.frame = NSRect(x: 0, y: 0, width: 700, height: 300)
@@ -3037,33 +3092,61 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(model.timetableValidity?.validThrough, serviceDate(2026, 12, 12))
     }
 
-    func testServicePDFExportUsesDocumentReturnedByIDOS() async {
+    func testServicePDFOpensDocumentReturnedByIDOSInPreview() async {
         let client = MockIDOSClient()
+        let opener = RecordingPDFOpener()
         let exporter = RecordingPDFExporter()
         let model = ServiceDetailViewModel(
             id: "service-1",
             client: client,
+            pdfOpener: opener,
             pdfExporter: exporter
         )
 
-        await model.load()
-        await model.saveAsPDF()
+        await model.performPDFAction(.openInPreview)
 
-        XCTAssertEqual(exporter.pdfData, Data("%PDF-1.4\nKaštan".utf8))
-        XCTAssertTrue(exporter.suggestedFileName?.contains("Ostrava-Svinov") == true)
-        XCTAssertTrue(exporter.suggestedFileName?.hasSuffix(".pdf") == true)
+        XCTAssertEqual(opener.pdfData, Data("%PDF-1.4\nKaštan".utf8))
+        XCTAssertTrue(opener.suggestedFileName?.contains("Ostrava-Svinov") == true)
+        XCTAssertTrue(opener.suggestedFileName?.hasSuffix(".pdf") == true)
+        XCTAssertNil(exporter.pdfData)
         let serviceID = await client.lastPDFServiceID
         let language = await client.lastServicePDFLanguage
         XCTAssertEqual(serviceID, "service-1")
         XCTAssertEqual(language, AppLanguagePreference.idosLanguage)
-        XCTAssertFalse(model.isSavingPDF)
+        XCTAssertFalse(model.isProcessingPDF)
         XCTAssertNil(model.actionErrorMessage)
     }
 
-    func testPDFExportUsesDocumentReturnedByIDOSAndRouteFileName() async {
+    func testServicePDFDownloadSavesWithoutOpeningPreview() async {
         let client = MockIDOSClient()
+        let opener = RecordingPDFOpener()
         let exporter = RecordingPDFExporter()
-        let model = ConnectionsViewModel(client: client, pdfExporter: exporter)
+        let model = ServiceDetailViewModel(
+            id: "service-1",
+            client: client,
+            pdfOpener: opener,
+            pdfExporter: exporter
+        )
+
+        await model.performPDFAction(.download)
+
+        XCTAssertNil(opener.pdfData)
+        XCTAssertEqual(exporter.pdfData, Data("%PDF-1.4\nKaštan".utf8))
+        XCTAssertTrue(exporter.suggestedFileName?.contains("Ostrava-Svinov") == true)
+        XCTAssertTrue(exporter.suggestedFileName?.hasSuffix(".pdf") == true)
+        XCTAssertFalse(model.isProcessingPDF)
+        XCTAssertNil(model.actionErrorMessage)
+    }
+
+    func testConnectionPDFOpensDocumentReturnedByIDOSInPreview() async {
+        let client = MockIDOSClient()
+        let opener = RecordingPDFOpener()
+        let exporter = RecordingPDFExporter()
+        let model = ConnectionsViewModel(
+            client: client,
+            pdfOpener: opener,
+            pdfExporter: exporter
+        )
         let connection = IDOSConnection(
             id: "connection-1",
             departureTime: "12:00",
@@ -3074,8 +3157,39 @@ final class KastanAppTests: XCTestCase {
             legs: []
         )
 
-        await model.saveAsPDF(connection)
+        await model.performPDFAction(.openInPreview, for: connection)
 
+        XCTAssertEqual(opener.pdfData, Data("%PDF-1.4\nKaštan".utf8))
+        XCTAssertTrue(opener.suggestedFileName?.hasSuffix(".pdf") == true)
+        XCTAssertNil(exporter.pdfData)
+        let exportedLanguage = await client.lastPDFLanguage
+        XCTAssertEqual(exportedLanguage, AppLanguagePreference.idosLanguage)
+        XCTAssertNil(model.errorMessage)
+        XCTAssertNil(model.processingPDFConnectionID)
+    }
+
+    func testConnectionPDFDownloadUsesRouteFileNameWithoutOpeningPreview() async {
+        let client = MockIDOSClient()
+        let opener = RecordingPDFOpener()
+        let exporter = RecordingPDFExporter()
+        let model = ConnectionsViewModel(
+            client: client,
+            pdfOpener: opener,
+            pdfExporter: exporter
+        )
+        let connection = IDOSConnection(
+            id: "connection-1",
+            departureTime: "12:00",
+            departureStation: "Praha / centrum",
+            arrivalTime: "14:30",
+            arrivalStation: "Brno: hlavní",
+            duration: "2 h 30 min",
+            legs: []
+        )
+
+        await model.performPDFAction(.download, for: connection)
+
+        XCTAssertNil(opener.pdfData)
         XCTAssertEqual(exporter.pdfData, Data("%PDF-1.4\nKaštan".utf8))
         XCTAssertTrue(exporter.suggestedFileName?.contains("Praha") == true)
         XCTAssertTrue(exporter.suggestedFileName?.contains("Brno") == true)
@@ -3086,7 +3200,7 @@ final class KastanAppTests: XCTestCase {
         let exportedLanguage = await client.lastPDFLanguage
         XCTAssertEqual(exportedLanguage, AppLanguagePreference.idosLanguage)
         XCTAssertNil(model.errorMessage)
-        XCTAssertNil(model.exportingPDFConnectionID)
+        XCTAssertNil(model.processingPDFConnectionID)
     }
 
     func testPlaceSuggestionsAreDebouncedAndUseSelectedTimetable() async throws {
@@ -3340,7 +3454,7 @@ private func connectionCardOpenCount(afterDoubleClickAt location: NSPoint) -> In
         copyToClipboard: {},
         sendByEmail: {},
         performCalendarAction: { _ in },
-        saveAsPDF: {}
+        performPDFAction: { _ in }
     )
     let hostingView = NSHostingView(
         rootView: card.frame(width: 700, height: 140, alignment: .topLeading)
@@ -3475,6 +3589,17 @@ private final class RecordingCalendarSaver: CalendarSaving {
 
     func save(calendarText: String, suggestedFileName: String) throws {
         self.calendarText = calendarText
+        self.suggestedFileName = suggestedFileName
+    }
+}
+
+@MainActor
+private final class RecordingPDFOpener: PDFOpening {
+    private(set) var pdfData: Data?
+    private(set) var suggestedFileName: String?
+
+    func open(pdfData: Data, suggestedFileName: String) async throws {
+        self.pdfData = pdfData
         self.suggestedFileName = suggestedFileName
     }
 }

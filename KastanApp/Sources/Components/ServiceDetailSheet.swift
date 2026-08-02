@@ -8,7 +8,7 @@ final class ServiceDetailViewModel: ObservableObject {
     @Published private(set) var timetableValidity: IDOSTimetableValidity?
     @Published private(set) var isLoading = false
     @Published private(set) var isProcessingCalendar = false
-    @Published private(set) var isSavingPDF = false
+    @Published private(set) var isProcessingPDF = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var actionErrorMessage: String?
 
@@ -16,6 +16,7 @@ final class ServiceDetailViewModel: ObservableObject {
     private let client: any IDOSClienting
     private let calendarImporter: any CalendarImporting
     private let calendarSaver: any CalendarSaving
+    private let pdfOpener: any PDFOpening
     private let pdfExporter: any PDFExporting
     private var activeLoadTask: Task<IDOSServiceDetail, Error>?
     private var activeLoadIdentifier: UUID?
@@ -25,17 +26,19 @@ final class ServiceDetailViewModel: ObservableObject {
         client: any IDOSClienting,
         calendarImporter: any CalendarImporting = WorkspaceCalendarImporter(),
         calendarSaver: any CalendarSaving = WorkspaceCalendarSaver(),
+        pdfOpener: any PDFOpening = WorkspacePDFOpener(),
         pdfExporter: any PDFExporting = WorkspacePDFExporter()
     ) {
         self.id = id
         self.client = client
         self.calendarImporter = calendarImporter
         self.calendarSaver = calendarSaver
+        self.pdfOpener = pdfOpener
         self.pdfExporter = pdfExporter
     }
 
     var isPerformingExport: Bool {
-        isProcessingCalendar || isSavingPDF
+        isProcessingCalendar || isProcessingPDF
     }
 
     func load() async {
@@ -126,28 +129,31 @@ final class ServiceDetailViewModel: ObservableObject {
         }
     }
 
-    /// Saves the dated service's native IDOS PDF to a location chosen by the user.
-    func saveAsPDF() async {
+    /// Fetches the dated service's PDF and either opens it in Preview or lets the user retain its file.
+    func performPDFAction(_ action: PDFExportAction) async {
         guard !isPerformingExport,
               let service = await loadedService(),
               !isPerformingExport
         else { return }
-        isSavingPDF = true
+        isProcessingPDF = true
         actionErrorMessage = nil
-        defer { isSavingPDF = false }
+        defer { isProcessingPDF = false }
 
         do {
             let data = try await client.servicePDF(
                 for: service,
                 language: AppLanguagePreference.idosLanguage
             )
-            try await pdfExporter.save(
-                pdfData: data,
-                suggestedFileName: PDFExportFileName.connection(
-                    from: service.stops.first?.name ?? service.name,
-                    to: service.stops.last?.name ?? service.name
-                )
+            let fileName = PDFExportFileName.connection(
+                from: service.stops.first?.name ?? service.name,
+                to: service.stops.last?.name ?? service.name
             )
+            switch action {
+            case .openInPreview:
+                try await pdfOpener.open(pdfData: data, suggestedFileName: fileName)
+            case .download:
+                try await pdfExporter.save(pdfData: data, suggestedFileName: fileName)
+            }
         } catch {
             actionErrorMessage = AppErrorPresentation.message(for: error)
         }
@@ -420,8 +426,8 @@ struct ServiceDetailView: View {
             performCalendarAction: { calendarExportAction in
                 Task { await model.performCalendarAction(calendarExportAction) }
             },
-            saveAsPDF: {
-                Task { await model.saveAsPDF() }
+            performPDFAction: { pdfExportAction in
+                Task { await model.performPDFAction(pdfExportAction) }
             },
             openInIDOS: {
                 if let serviceActionURL {
@@ -459,15 +465,17 @@ struct ServiceDetailView: View {
                 )
             }
             .disabled(model.isPerformingExport)
-        case .saveAsPDF:
-            Button {
-                Task { await model.saveAsPDF() }
-            } label: {
-                exportActionLabel(action, isPerforming: model.isSavingPDF)
+        case .openPDF:
+            PDFExportButton(placement: .toolbar) { pdfExportAction in
+                Task { await model.performPDFAction(pdfExportAction) }
+            } label: { pdfExportAction in
+                exportActionLabel(
+                    action,
+                    pdfExportAction: pdfExportAction,
+                    isPerforming: model.isProcessingPDF
+                )
             }
             .disabled(model.isPerformingExport)
-            .accessibilityLabel(action.title)
-            .help(action.title)
         case .shareLink:
             if let url {
                 ShareLink(item: url) {
@@ -494,23 +502,35 @@ struct ServiceDetailView: View {
     private func exportActionLabel(
         _ action: ResultDetailAction,
         calendarExportAction: CalendarExportAction = .addToCalendar,
+        pdfExportAction: PDFExportAction = .openInPreview,
         isPerforming: Bool
     ) -> some View {
         if isPerforming {
             ProgressView()
                 .controlSize(.small)
         } else {
-            serviceActionLabel(action, calendarExportAction: calendarExportAction)
+            serviceActionLabel(
+                action,
+                calendarExportAction: calendarExportAction,
+                pdfExportAction: pdfExportAction
+            )
         }
     }
 
     private func serviceActionLabel(
         _ action: ResultDetailAction,
-        calendarExportAction: CalendarExportAction = .addToCalendar
+        calendarExportAction: CalendarExportAction = .addToCalendar,
+        pdfExportAction: PDFExportAction = .openInPreview
     ) -> some View {
         Label(
-            action.title(for: calendarExportAction),
-            systemImage: action.systemImage(for: calendarExportAction)
+            action.title(
+                calendarExportAction: calendarExportAction,
+                pdfExportAction: pdfExportAction
+            ),
+            systemImage: action.systemImage(
+                calendarExportAction: calendarExportAction,
+                pdfExportAction: pdfExportAction
+            )
         )
             .labelStyle(.iconOnly)
     }

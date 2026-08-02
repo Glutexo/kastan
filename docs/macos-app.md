@@ -130,7 +130,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Localized IDOS calendar and PDF exports matching the app language for connection results and dated service
   details. Add to Calendar opens the generated event in the user's calendar application from result menus, service
   menus, detail toolbars, and the File menu. Holding Option changes that action everywhere to Download ICS File and
-  saves the same calendar through the native macOS save panel. PDF exports use their own save panel.
+  saves the same calendar through the native macOS save panel. Open PDF in Preview opens the generated document in
+  Apple's Preview application from the same locations. Holding Option changes that action everywhere to Download PDF
+  File and saves the document through its own native panel.
 - English and Czech interface localization.
 - An app-information window describing the data source and linking to IDOS, its terms, and the Kaštan repository.
 - A Help menu that repeats the About window's maintained links to IDOS, its terms, and the Kaštan repository
@@ -160,9 +162,9 @@ xcodebuild test \
 
 The app target is sandboxed and permits outgoing network connections for IDOS. Location access is requested only
 after the user clicks a Here shortcut or searches with the exact localized My location phrase. The first request
-opens the localized macOS permission prompt, and the decision can later be changed in System Settings. Calendar files
-are written to a temporary app directory before macOS opens them; PDF exports, downloaded ICS files, and downloaded
-email attachments can be written only to a location explicitly selected by the user.
+opens the localized macOS permission prompt, and the decision can later be changed in System Settings. Calendar and
+PDF files are written to a temporary app directory before macOS opens them; downloaded PDF and ICS files and
+downloaded email attachments can be written only to a location explicitly selected by the user.
 
 ## Data Source
 

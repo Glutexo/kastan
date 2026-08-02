@@ -47,6 +47,7 @@
 "Download Attachment" = "Download Attachment";
 "Download attachment %@" = "Download attachment %@";
 "Download ICS File" = "Download ICS File";
+"Download PDF File" = "Download PDF File";
 "Done" = "Done";
 "Does not run" = "Does not run";
 "Does not run %@" = "Does not run %@";
@@ -124,6 +125,7 @@
 "Open in IDOS" = "Open in IDOS";
 "Open attachment %@" = "Open attachment %@";
 "Open connection in new window" = "Open connection in new window";
+"Open PDF in Preview" = "Open PDF in Preview";
 "Open service in new window" = "Open service in new window";
 "IDOS website" = "IDOS website";
 "Opens in the default application" = "Opens in the default application";
@@ -135,6 +137,7 @@
 "place" = "place";
 "Powered by public IDOS web data" = "Powered by public IDOS web data";
 "Preparing email…" = "Preparing email…";
+"Preview is not available." = "Preview is not available.";
 "Preview service" = "Preview service";
 "public transport" = "public transport";
 "Recognized conditions" = "Recognized conditions";
@@ -155,7 +158,6 @@
 "Route" = "Route";
 "Search" = "Search";
 "Search mode" = "Search mode";
-"Save as PDF" = "Save as PDF";
 "Searches" = "Search";
 "Searching connections…" = "Searching connections…";
 "Send" = "Send";

@@ -98,13 +98,14 @@ final class ConnectionsViewModel: ObservableObject {
     @Published private(set) var isLoadingEarlier = false
     @Published private(set) var isLoadingLater = false
     @Published private(set) var processingCalendarConnectionID: String?
-    @Published private(set) var exportingPDFConnectionID: String?
+    @Published private(set) var processingPDFConnectionID: String?
     @Published private(set) var locatingEndpoint: ConnectionEndpoint?
     @Published var errorMessage: String?
 
     let client: any IDOSClienting
     private let calendarImporter: any CalendarImporting
     private let calendarSaver: any CalendarSaving
+    private let pdfOpener: any PDFOpening
     private let pdfExporter: any PDFExporting
     private let currentLocationProvider: any CurrentLocationProviding
     private var resultPage: IDOSConnectionPage?
@@ -115,12 +116,14 @@ final class ConnectionsViewModel: ObservableObject {
         client: any IDOSClienting,
         calendarImporter: any CalendarImporting = WorkspaceCalendarImporter(),
         calendarSaver: any CalendarSaving = WorkspaceCalendarSaver(),
+        pdfOpener: any PDFOpening = WorkspacePDFOpener(),
         pdfExporter: any PDFExporting = WorkspacePDFExporter(),
         currentLocationProvider: any CurrentLocationProviding = SystemCurrentLocationProvider()
     ) {
         self.client = client
         self.calendarImporter = calendarImporter
         self.calendarSaver = calendarSaver
+        self.pdfOpener = pdfOpener
         self.pdfExporter = pdfExporter
         self.currentLocationProvider = currentLocationProvider
     }
@@ -460,11 +463,14 @@ final class ConnectionsViewModel: ObservableObject {
         }
     }
 
-    /// Downloads the native IDOS PDF and lets the user choose its destination through macOS.
-    func saveAsPDF(_ connection: IDOSConnection) async {
-        exportingPDFConnectionID = connection.id
+    /// Fetches one native IDOS PDF and either opens it in Preview or lets the user retain its file.
+    func performPDFAction(
+        _ action: PDFExportAction,
+        for connection: IDOSConnection
+    ) async {
+        processingPDFConnectionID = connection.id
         errorMessage = nil
-        defer { exportingPDFConnectionID = nil }
+        defer { processingPDFConnectionID = nil }
 
         do {
             let data = try await client.connectionPDF(
@@ -472,13 +478,16 @@ final class ConnectionsViewModel: ObservableObject {
                 timetable: timetable,
                 language: AppLanguagePreference.idosLanguage
             )
-            try await pdfExporter.save(
-                pdfData: data,
-                suggestedFileName: PDFExportFileName.connection(
-                    from: connection.departureStation,
-                    to: connection.arrivalStation
-                )
+            let fileName = PDFExportFileName.connection(
+                from: connection.departureStation,
+                to: connection.arrivalStation
             )
+            switch action {
+            case .openInPreview:
+                try await pdfOpener.open(pdfData: data, suggestedFileName: fileName)
+            case .download:
+                try await pdfExporter.save(pdfData: data, suggestedFileName: fileName)
+            }
         } catch {
             errorMessage = AppErrorPresentation.message(for: error)
         }

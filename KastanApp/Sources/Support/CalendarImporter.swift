@@ -31,57 +31,14 @@ enum CalendarExportAction: Equatable {
     }
 }
 
-/// Selects the native presentation that can reliably replace a calendar action for its location.
-enum CalendarExportButtonPlacement: Equatable {
-    case menu
-    case toolbar
-
-    /// Menus preserve both native items; visible toolbar controls instead redraw one monitored button.
-    var usesNativeAlternateWhenAvailable: Bool {
-        self == .menu
-    }
-
-    /// A single toolbar item keeps the wider of both symbols so neighboring actions remain stationary.
-    var reservesAlternateLabelWidth: Bool {
-        self == .toolbar
-    }
-}
-
-/// Keeps a live toolbar action as wide as either of its calendar presentations without fixed pixel sizing.
-struct CalendarExportButtonLabel<Label: View>: View {
-    let presentedAction: CalendarExportAction
-    let reservesAlternateWidth: Bool
-    let label: (CalendarExportAction) -> Label
-
-    @ViewBuilder
-    var body: some View {
-        if reservesAlternateWidth {
-            ZStack {
-                label(.addToCalendar)
-                    .hidden()
-                    .accessibilityHidden(true)
-                label(.download)
-                    .hidden()
-                    .accessibilityHidden(true)
-                label(presentedAction)
-            }
-        } else {
-            label(presentedAction)
-        }
-    }
-}
-
 /// Presents Add to Calendar as the primary action and Download ICS File while Option is held.
 struct CalendarExportButton<Label: View>: View {
-    @State private var optionIsPressed = CalendarExportAction.preferred(
-        for: NSEvent.modifierFlags
-    ) == .download
-    let placement: CalendarExportButtonPlacement
+    let placement: OptionAlternateButtonPlacement
     let perform: (CalendarExportAction) -> Void
     let label: (CalendarExportAction) -> Label
 
     init(
-        placement: CalendarExportButtonPlacement,
+        placement: OptionAlternateButtonPlacement,
         perform: @escaping (CalendarExportAction) -> Void,
         @ViewBuilder label: @escaping (CalendarExportAction) -> Label
     ) {
@@ -90,47 +47,13 @@ struct CalendarExportButton<Label: View>: View {
         self.label = label
     }
 
-    @ViewBuilder
     var body: some View {
-        if #available(macOS 15.0, *), placement.usesNativeAlternateWhenAvailable {
-            button(for: .addToCalendar)
-                .modifierKeyAlternate(.option) {
-                    button(for: .download)
-                }
-        } else {
-            monitoredButton(for: optionIsPressed ? .download : .addToCalendar)
-                .background {
-                    OptionModifierMonitor(isPressed: $optionIsPressed)
-                        .frame(width: 0, height: 0)
-                }
-        }
-    }
-
-    private func button(for action: CalendarExportAction) -> some View {
-        Button {
-            perform(action)
-        } label: {
-            presentedLabel(for: action)
-        }
-        .accessibilityLabel(action.title)
-        .help(action.title)
-    }
-
-    /// Resolves modifiers again on activation so the action remains correct between live presentation updates.
-    private func monitoredButton(for presentedAction: CalendarExportAction) -> some View {
-        Button {
-            perform(CalendarExportAction.preferred(for: NSEvent.modifierFlags))
-        } label: {
-            presentedLabel(for: presentedAction)
-        }
-        .accessibilityLabel(presentedAction.title)
-        .help(presentedAction.title)
-    }
-
-    private func presentedLabel(for action: CalendarExportAction) -> some View {
-        CalendarExportButtonLabel(
-            presentedAction: action,
-            reservesAlternateWidth: placement.reservesAlternateLabelWidth,
+        OptionAlternateButton(
+            placement: placement,
+            primaryAction: CalendarExportAction.addToCalendar,
+            alternateAction: CalendarExportAction.download,
+            title: { $0.title },
+            perform: perform,
             label: label
         )
     }

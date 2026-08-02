@@ -557,7 +557,7 @@ struct ConnectionsView: View {
                         client: client,
                         isShortest: shortestConnectionIDs.contains(connection.id),
                         isPerformingExport: model.processingCalendarConnectionID == connection.id ||
-                            model.exportingPDFConnectionID == connection.id,
+                            model.processingPDFConnectionID == connection.id,
                         showsActionMenu: true,
                         timeFrameCoordinateSpace: nil,
                         openConnection: {
@@ -581,7 +581,14 @@ struct ConnectionsView: View {
                                 )
                             }
                         },
-                        saveAsPDF: { Task { await model.saveAsPDF(connection) } }
+                        performPDFAction: { pdfExportAction in
+                            Task {
+                                await model.performPDFAction(
+                                    pdfExportAction,
+                                    for: connection
+                                )
+                            }
+                        }
                     )
                 }
             }
@@ -762,7 +769,7 @@ struct ConnectionCard: View {
     let copyToClipboard: () -> Void
     let sendByEmail: () -> Void
     let performCalendarAction: (CalendarExportAction) -> Void
-    let saveAsPDF: () -> Void
+    let performPDFAction: (PDFExportAction) -> Void
 
     @ViewBuilder
     var body: some View {
@@ -905,7 +912,7 @@ struct ConnectionCard: View {
             copyToClipboard: copyToClipboard,
             sendByEmail: sendByEmail,
             performCalendarAction: performCalendarAction,
-            saveAsPDF: saveAsPDF
+            performPDFAction: performPDFAction
         )
     }
 }
@@ -955,7 +962,7 @@ struct ConnectionDetailView: View {
                     client: client,
                     isShortest: false,
                     isPerformingExport: actionsModel.processingCalendarConnectionID == selection.connection.id ||
-                        actionsModel.exportingPDFConnectionID == selection.connection.id,
+                        actionsModel.processingPDFConnectionID == selection.connection.id,
                     showsActionMenu: false,
                     timeFrameCoordinateSpace: Self.scrollCoordinateSpace,
                     openConnection: nil,
@@ -977,8 +984,13 @@ struct ConnectionDetailView: View {
                             )
                         }
                     },
-                    saveAsPDF: {
-                        Task { await actionsModel.saveAsPDF(selection.connection) }
+                    performPDFAction: { pdfExportAction in
+                        Task {
+                            await actionsModel.performPDFAction(
+                                pdfExportAction,
+                                for: selection.connection
+                            )
+                        }
                     }
                 )
             }
@@ -1034,7 +1046,7 @@ struct ConnectionDetailView: View {
 
     private var isPerformingExport: Bool {
         actionsModel.processingCalendarConnectionID == selection.connection.id ||
-            actionsModel.exportingPDFConnectionID == selection.connection.id
+            actionsModel.processingPDFConnectionID == selection.connection.id
     }
 
     private var resultDetailCommandContext: ResultDetailCommandContext {
@@ -1059,8 +1071,13 @@ struct ConnectionDetailView: View {
                     )
                 }
             },
-            saveAsPDF: {
-                Task { await actionsModel.saveAsPDF(selection.connection) }
+            performPDFAction: { pdfExportAction in
+                Task {
+                    await actionsModel.performPDFAction(
+                        pdfExportAction,
+                        for: selection.connection
+                    )
+                }
             },
             openInIDOS: {
                 if let connectionActionURL {
@@ -1114,18 +1131,22 @@ struct ConnectionDetailView: View {
                 )
             }
             .disabled(isPerformingExport)
-        case .saveAsPDF:
-            Button {
-                Task { await actionsModel.saveAsPDF(selection.connection) }
-            } label: {
+        case .openPDF:
+            PDFExportButton(placement: .toolbar) { pdfExportAction in
+                Task {
+                    await actionsModel.performPDFAction(
+                        pdfExportAction,
+                        for: selection.connection
+                    )
+                }
+            } label: { pdfExportAction in
                 exportActionLabel(
                     action,
-                    isPerforming: actionsModel.exportingPDFConnectionID == selection.connection.id
+                    pdfExportAction: pdfExportAction,
+                    isPerforming: actionsModel.processingPDFConnectionID == selection.connection.id
                 )
             }
             .disabled(isPerformingExport)
-            .accessibilityLabel(action.title)
-            .help(action.title)
         case .shareLink:
             if let url {
                 ShareLink(item: url) {
@@ -1152,23 +1173,35 @@ struct ConnectionDetailView: View {
     private func exportActionLabel(
         _ action: ResultDetailAction,
         calendarExportAction: CalendarExportAction = .addToCalendar,
+        pdfExportAction: PDFExportAction = .openInPreview,
         isPerforming: Bool
     ) -> some View {
         if isPerforming {
             ProgressView()
                 .controlSize(.small)
         } else {
-            connectionActionLabel(action, calendarExportAction: calendarExportAction)
+            connectionActionLabel(
+                action,
+                calendarExportAction: calendarExportAction,
+                pdfExportAction: pdfExportAction
+            )
         }
     }
 
     private func connectionActionLabel(
         _ action: ResultDetailAction,
-        calendarExportAction: CalendarExportAction = .addToCalendar
+        calendarExportAction: CalendarExportAction = .addToCalendar,
+        pdfExportAction: PDFExportAction = .openInPreview
     ) -> some View {
         Label(
-            action.title(for: calendarExportAction),
-            systemImage: action.systemImage(for: calendarExportAction)
+            action.title(
+                calendarExportAction: calendarExportAction,
+                pdfExportAction: pdfExportAction
+            ),
+            systemImage: action.systemImage(
+                calendarExportAction: calendarExportAction,
+                pdfExportAction: pdfExportAction
+            )
         )
             .labelStyle(.iconOnly)
     }
