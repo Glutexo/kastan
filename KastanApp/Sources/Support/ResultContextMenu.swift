@@ -57,17 +57,20 @@ private struct ResultContextActionLabel: View {
     let target: ResultContextTarget
     let calendarExportAction: CalendarExportAction
     let pdfExportAction: PDFExportAction
+    let sharingAction: ResultSharingAction
 
     init(
         action: ResultContextAction,
         target: ResultContextTarget,
         calendarExportAction: CalendarExportAction = .addToCalendar,
-        pdfExportAction: PDFExportAction = .openInPreview
+        pdfExportAction: PDFExportAction = .openInPreview,
+        sharingAction: ResultSharingAction = .link
     ) {
         self.action = action
         self.target = target
         self.calendarExportAction = calendarExportAction
         self.pdfExportAction = pdfExportAction
+        self.sharingAction = sharingAction
     }
 
     @ViewBuilder
@@ -81,11 +84,13 @@ private struct ResultContextActionLabel: View {
             Label(
                 action.title(
                     calendarExportAction: calendarExportAction,
-                    pdfExportAction: pdfExportAction
+                    pdfExportAction: pdfExportAction,
+                    sharingAction: sharingAction
                 ),
                 systemImage: action.systemImage(
                     calendarExportAction: calendarExportAction,
-                    pdfExportAction: pdfExportAction
+                    pdfExportAction: pdfExportAction,
+                    sharingAction: sharingAction
                 )
             )
         case .separator:
@@ -97,9 +102,9 @@ private struct ResultContextActionLabel: View {
 /// Renders the complete connection action set in both its ellipsis and whole-card context menus.
 struct ConnectionContextMenuContent: View {
     let permanentLink: URL?
+    let shareText: String
     let isPerformingExport: Bool
     let openInNewWindow: () -> Void
-    let copyToClipboard: () -> Void
     let sendByEmail: () -> Void
     let performCalendarAction: (CalendarExportAction) -> Void
     let performPDFAction: (PDFExportAction) -> Void
@@ -126,11 +131,6 @@ struct ConnectionContextMenuContent: View {
             }
         case .separator:
             Divider()
-        case .detail(.copyToClipboard):
-            Button(action: copyToClipboard) {
-                ResultContextActionLabel(action: action, target: .connection)
-            }
-            .disabled(isPerformingExport)
         case .detail(.sendByEmail):
             Button(action: sendByEmail) {
                 ResultContextActionLabel(action: action, target: .connection)
@@ -160,13 +160,19 @@ struct ConnectionContextMenuContent: View {
                 )
             }
             .disabled(isPerformingExport)
-        case .detail(.shareLink):
-            if let permanentLink {
-                IDOSShareLink(item: permanentLink) {
-                    ResultContextActionLabel(action: action, target: .connection)
-                }
-                .disabled(isPerformingExport)
+        case .detail(.share):
+            ResultShareButton(
+                link: permanentLink,
+                text: shareText,
+                placement: .menu
+            ) { sharingAction in
+                ResultContextActionLabel(
+                    action: action,
+                    target: .connection,
+                    sharingAction: sharingAction
+                )
             }
+            .disabled(isPerformingExport)
         }
     }
 }
@@ -201,17 +207,6 @@ struct ServiceContextMenuContent: View {
             }
         case .separator:
             Divider()
-        case .detail(.copyToClipboard):
-            Button {
-                Task {
-                    if let service = await model.loadedService() {
-                        ResultClipboard.copy(service: service)
-                    }
-                }
-            } label: {
-                ResultContextActionLabel(action: action, target: .service)
-            }
-            .disabled(detailActionsAreDisabled)
         case .detail(.sendByEmail):
             EmptyView()
         case .detail(.addToCalendar):
@@ -236,9 +231,17 @@ struct ServiceContextMenuContent: View {
                 )
             }
             .disabled(detailActionsAreDisabled)
-        case .detail(.shareLink):
-            IDOSShareLink(resolving: model.localizedPermanentLink) {
-                ResultContextActionLabel(action: action, target: .service)
+        case .detail(.share):
+            ResultShareButton(
+                placement: .menu,
+                resolvingLink: model.localizedPermanentLink,
+                resolvingText: model.localizedShareText
+            ) { sharingAction in
+                ResultContextActionLabel(
+                    action: action,
+                    target: .service,
+                    sharingAction: sharingAction
+                )
             }
             .disabled(detailActionsAreDisabled)
         }

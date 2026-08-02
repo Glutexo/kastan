@@ -260,54 +260,52 @@ struct AppHelpCommands: Commands {
 
 /// Defines the result-detail actions shared by the active window's toolbar and the File menu.
 enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
-    case copyToClipboard
     case sendByEmail
     case addToCalendar
     case openPDF
-    case shareLink
+    case share
 
     var id: Self { self }
 
     var title: LocalizedStringKey {
         switch self {
-        case .copyToClipboard:
-            "Copy to Clipboard"
         case .sendByEmail:
             "Send by Email"
         case .addToCalendar:
             "Add to Calendar"
         case .openPDF:
             PDFExportAction.openInPreview.title
-        case .shareLink:
-            "Share Link"
+        case .share:
+            ResultSharingAction.link.title
         }
     }
 
     var systemImage: String {
         switch self {
-        case .copyToClipboard:
-            "doc.on.doc"
         case .sendByEmail:
             "envelope"
         case .addToCalendar:
             "calendar.badge.plus"
         case .openPDF:
             PDFExportAction.openInPreview.systemImage
-        case .shareLink:
-            "square.and.arrow.up"
+        case .share:
+            ResultSharingAction.link.systemImage
         }
     }
 
     /// Replaces export presentations when their Option alternates are active.
     func title(
         calendarExportAction: CalendarExportAction = .addToCalendar,
-        pdfExportAction: PDFExportAction = .openInPreview
+        pdfExportAction: PDFExportAction = .openInPreview,
+        sharingAction: ResultSharingAction = .link
     ) -> LocalizedStringKey {
         switch self {
         case .addToCalendar:
             calendarExportAction.title
         case .openPDF:
             pdfExportAction.title
+        case .share:
+            sharingAction.title
         default:
             title
         }
@@ -315,31 +313,32 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
 
     func systemImage(
         calendarExportAction: CalendarExportAction = .addToCalendar,
-        pdfExportAction: PDFExportAction = .openInPreview
+        pdfExportAction: PDFExportAction = .openInPreview,
+        sharingAction: ResultSharingAction = .link
     ) -> String {
         switch self {
         case .addToCalendar:
             calendarExportAction.systemImage
         case .openPDF:
             pdfExportAction.systemImage
+        case .share:
+            sharingAction.systemImage
         default:
             systemImage
         }
     }
 
-    /// Filters link-backed actions for the selected result while keeping email connection-specific.
+    /// Keeps email connection-specific while every loaded result retains portable text sharing.
     static func availableActions(
         hasPermanentLink: Bool,
         canSendByEmail: Bool
     ) -> [Self] {
         allCases.filter { action in
             switch action {
-            case .copyToClipboard, .addToCalendar, .openPDF:
+            case .addToCalendar, .openPDF, .share:
                 true
             case .sendByEmail:
                 hasPermanentLink && canSendByEmail
-            case .shareLink:
-                hasPermanentLink
             }
         }
     }
@@ -350,7 +349,7 @@ struct ResultDetailCommandContext {
     let hasLoadedResult: Bool
     let isPerformingExport: Bool
     let permanentLink: URL?
-    let copyToClipboard: () -> Void
+    let shareText: String?
     let sendByEmail: (() -> Void)?
     let performCalendarAction: (CalendarExportAction) -> Void
     let performPDFAction: (PDFExportAction) -> Void
@@ -359,7 +358,7 @@ struct ResultDetailCommandContext {
         hasLoadedResult: Bool,
         isPerformingExport: Bool,
         permanentLink: URL?,
-        copyToClipboard: @escaping () -> Void,
+        shareText: String?,
         sendByEmail: (() -> Void)? = nil,
         performCalendarAction: @escaping (CalendarExportAction) -> Void,
         performPDFAction: @escaping (PDFExportAction) -> Void
@@ -367,7 +366,7 @@ struct ResultDetailCommandContext {
         self.hasLoadedResult = hasLoadedResult
         self.isPerformingExport = isPerformingExport
         self.permanentLink = permanentLink
-        self.copyToClipboard = copyToClipboard
+        self.shareText = shareText
         self.sendByEmail = sendByEmail
         self.performCalendarAction = performCalendarAction
         self.performPDFAction = performPDFAction
@@ -377,12 +376,12 @@ struct ResultDetailCommandContext {
         guard !isPerformingExport else { return false }
 
         switch action {
-        case .copyToClipboard, .addToCalendar, .openPDF:
+        case .addToCalendar, .openPDF:
             return hasLoadedResult
         case .sendByEmail:
             return hasLoadedResult && permanentLink != nil && sendByEmail != nil
-        case .shareLink:
-            return permanentLink != nil
+        case .share:
+            return hasLoadedResult && (permanentLink != nil || shareText?.isEmpty == false)
         }
     }
 }
@@ -404,9 +403,6 @@ struct ResultDetailCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .importExport) {
-            actionButton(.copyToClipboard) {
-                context?.copyToClipboard()
-            }
             actionButton(.sendByEmail) {
                 context?.sendByEmail?()
             }
@@ -423,14 +419,14 @@ struct ResultDetailCommands: Commands {
             }
             .disabled(context?.isEnabled(.openPDF) != true)
 
-            if let url = context?.permanentLink {
-                IDOSShareLink(item: url) {
-                    actionLabel(.shareLink)
-                }
-                .disabled(context?.isEnabled(.shareLink) != true)
-            } else {
-                actionButton(.shareLink) {}
+            ResultShareButton(
+                link: context?.permanentLink,
+                text: context?.shareText,
+                placement: .menu
+            ) { sharingAction in
+                actionLabel(.share, sharingAction: sharingAction)
             }
+            .disabled(context?.isEnabled(.share) != true)
         }
     }
 
@@ -447,16 +443,19 @@ struct ResultDetailCommands: Commands {
     private func actionLabel(
         _ action: ResultDetailAction,
         calendarExportAction: CalendarExportAction = .addToCalendar,
-        pdfExportAction: PDFExportAction = .openInPreview
+        pdfExportAction: PDFExportAction = .openInPreview,
+        sharingAction: ResultSharingAction = .link
     ) -> some View {
         Label(
             action.title(
                 calendarExportAction: calendarExportAction,
-                pdfExportAction: pdfExportAction
+                pdfExportAction: pdfExportAction,
+                sharingAction: sharingAction
             ),
             systemImage: action.systemImage(
                 calendarExportAction: calendarExportAction,
-                pdfExportAction: pdfExportAction
+                pdfExportAction: pdfExportAction,
+                sharingAction: sharingAction
             )
         )
     }

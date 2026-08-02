@@ -27,7 +27,6 @@
 "Close Tab" = "Zavřít panel";
 "Close Window" = "Zavřít okno";
 "Could not build the IDOS URL." = "Adresu URL pro IDOS se nepodařilo sestavit.";
-"Copy to Clipboard" = "Zkopírovat do schránky";
 "Currently no delay" = "Aktuálně bez zpoždění";
 "Connection %lld" = "Spojení %lld";
 "Connection %@ – %@" = "Spojení %@ – %@";
@@ -164,6 +163,7 @@
 "Send by Email" = "Poslat na e-mail";
 "Send Connection by Email" = "Poslat spojení na e-mail";
 "Share Link" = "Sdílet odkaz";
+"Share Text" = "Sdílet text";
 "Shortest" = "Nejrychlejší";
 "Show note calendar" = "Zobrazit kalendář platnosti poznámky";
 "Show note calendar; hold Option for recognized conditions" = "Zobrazit kalendář platnosti poznámky; podržte Option pro rozpoznané podmínky";

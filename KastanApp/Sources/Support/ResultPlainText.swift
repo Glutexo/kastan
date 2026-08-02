@@ -1,11 +1,10 @@
-import AppKit
 import Foundation
 import Kastan
 
-/// Produces the localized plain-text representation that a passenger can paste outside Kaštan.
+/// Produces the localized plain-text representation that a passenger can share outside Kaštan.
 ///
 /// The layout and semantic markers mirror the CLI's default text output for one selected result. Terminal-only
-/// ANSI colors and emphasis are intentionally omitted so the clipboard always contains portable plain text.
+/// ANSI colors and emphasis are intentionally omitted so every receiving application gets portable plain text.
 struct CLIPlainTextPresentation {
     private let bundle: Bundle
 
@@ -162,26 +161,5 @@ struct CLIPlainTextPresentation {
     private func text(_ key: String, _ arguments: CVarArg...) -> String {
         let format = bundle.localizedString(forKey: key, value: key, table: nil)
         return String(format: format, locale: .current, arguments: arguments)
-    }
-}
-
-/// Places complete connection and service details on the system clipboard as portable localized text.
-@MainActor
-enum ResultClipboard {
-    /// Copies a complete connection with its timetable context in the same shape as a one-result CLI search.
-    static func copy(connection: IDOSConnection, timetable: IDOSTimetable) {
-        copy(CLIPlainTextPresentation().connection(connection, timetable: timetable))
-    }
-
-    /// Copies every stop and information row shown by a complete service detail.
-    static func copy(service: IDOSServiceDetail) {
-        copy(CLIPlainTextPresentation().service(service))
-    }
-
-    /// Replaces the clipboard atomically so a paste cannot mix a stale representation with the new result.
-    @discardableResult
-    static func copy(_ text: String, to pasteboard: NSPasteboard = .general) -> Bool {
-        pasteboard.clearContents()
-        return pasteboard.setString(text, forType: .string)
     }
 }

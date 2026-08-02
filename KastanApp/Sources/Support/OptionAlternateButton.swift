@@ -50,6 +50,7 @@ struct OptionAlternateButton<Action, Label: View>: View {
     let primaryAction: Action
     let alternateAction: Action
     let title: (Action) -> LocalizedStringKey
+    let isEnabled: (Action) -> Bool
     let perform: (Action) -> Void
     let label: (Action) -> Label
 
@@ -58,6 +59,7 @@ struct OptionAlternateButton<Action, Label: View>: View {
         primaryAction: Action,
         alternateAction: Action,
         title: @escaping (Action) -> LocalizedStringKey,
+        isEnabled: @escaping (Action) -> Bool = { _ in true },
         perform: @escaping (Action) -> Void,
         @ViewBuilder label: @escaping (Action) -> Label
     ) {
@@ -65,6 +67,7 @@ struct OptionAlternateButton<Action, Label: View>: View {
         self.primaryAction = primaryAction
         self.alternateAction = alternateAction
         self.title = title
+        self.isEnabled = isEnabled
         self.perform = perform
         self.label = label
     }
@@ -93,6 +96,7 @@ struct OptionAlternateButton<Action, Label: View>: View {
         }
         .accessibilityLabel(title(action))
         .help(title(action))
+        .disabled(!isEnabled(action))
     }
 
     /// Resolves modifiers again on activation so the action remains correct between live presentation updates.
@@ -104,6 +108,7 @@ struct OptionAlternateButton<Action, Label: View>: View {
         }
         .accessibilityLabel(title(presentedAction))
         .help(title(presentedAction))
+        .disabled(!isEnabled(presentedAction))
     }
 
     private func presentedLabel(for action: Action) -> some View {

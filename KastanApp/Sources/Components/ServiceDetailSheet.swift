@@ -97,6 +97,11 @@ final class ServiceDetailViewModel: ObservableObject {
         (await loadedService())?.shareURL.flatMap(AppLanguagePreference.localizedIDOSURL)
     }
 
+    /// Formats the same complete localized service detail that Kaštan exposes from loaded result windows.
+    func localizedShareText() async -> String? {
+        (await loadedService()).map(CLIPlainTextPresentation().service)
+    }
+
     /// Fetches the dated service's calendar and either opens it or lets the user retain its ICS file.
     func performCalendarAction(_ action: CalendarExportAction) async {
         guard !isPerformingExport,
@@ -412,16 +417,16 @@ struct ServiceDetailView: View {
         model.service?.shareURL.flatMap(AppLanguagePreference.localizedIDOSURL)
     }
 
+    private var serviceShareText: String? {
+        model.service.map(CLIPlainTextPresentation().service)
+    }
+
     private var resultDetailCommandContext: ResultDetailCommandContext {
         ResultDetailCommandContext(
             hasLoadedResult: model.service != nil,
             isPerformingExport: model.isPerformingExport,
             permanentLink: serviceActionURL,
-            copyToClipboard: {
-                if let service = model.service {
-                    ResultClipboard.copy(service: service)
-                }
-            },
+            shareText: serviceShareText,
             performCalendarAction: { calendarExportAction in
                 Task { await model.performCalendarAction(calendarExportAction) }
             },
@@ -435,17 +440,6 @@ struct ServiceDetailView: View {
     @ViewBuilder
     private func serviceActionControl(_ action: ResultDetailAction, url: URL?) -> some View {
         switch action {
-        case .copyToClipboard:
-            Button {
-                if let service = model.service {
-                    ResultClipboard.copy(service: service)
-                }
-            } label: {
-                serviceActionLabel(action)
-            }
-            .disabled(model.isPerformingExport)
-            .accessibilityLabel(action.title)
-            .help(action.title)
         case .sendByEmail:
             EmptyView()
         case .addToCalendar:
@@ -470,14 +464,15 @@ struct ServiceDetailView: View {
                 )
             }
             .disabled(model.isPerformingExport)
-        case .shareLink:
-            if let url {
-                IDOSShareLink(item: url) {
-                    serviceActionLabel(action)
-                }
-                .disabled(model.isPerformingExport)
-                .help(action.title)
+        case .share:
+            ResultShareButton(
+                link: url,
+                text: serviceShareText,
+                placement: .toolbar
+            ) { sharingAction in
+                serviceActionLabel(action, sharingAction: sharingAction)
             }
+            .disabled(model.isPerformingExport)
         }
     }
 
@@ -503,16 +498,19 @@ struct ServiceDetailView: View {
     private func serviceActionLabel(
         _ action: ResultDetailAction,
         calendarExportAction: CalendarExportAction = .addToCalendar,
-        pdfExportAction: PDFExportAction = .openInPreview
+        pdfExportAction: PDFExportAction = .openInPreview,
+        sharingAction: ResultSharingAction = .link
     ) -> some View {
         Label(
             action.title(
                 calendarExportAction: calendarExportAction,
-                pdfExportAction: pdfExportAction
+                pdfExportAction: pdfExportAction,
+                sharingAction: sharingAction
             ),
             systemImage: action.systemImage(
                 calendarExportAction: calendarExportAction,
-                pdfExportAction: pdfExportAction
+                pdfExportAction: pdfExportAction,
+                sharingAction: sharingAction
             )
         )
             .labelStyle(.iconOnly)

@@ -567,9 +567,6 @@ struct ConnectionsView: View {
                             )
                         },
                         openService: { openWindow(id: AppWindow.serviceDetail, value: $0) },
-                        copyToClipboard: {
-                            ResultClipboard.copy(connection: connection, timetable: model.timetable)
-                        },
                         sendByEmail: {
                             emailSelection = selection
                         },
@@ -766,7 +763,6 @@ struct ConnectionCard: View {
     let timeFrameCoordinateSpace: String?
     let openConnection: (() -> Void)?
     let openService: (ServiceSelection) -> Void
-    let copyToClipboard: () -> Void
     let sendByEmail: () -> Void
     let performCalendarAction: (CalendarExportAction) -> Void
     let performPDFAction: (PDFExportAction) -> Void
@@ -904,12 +900,16 @@ struct ConnectionCard: View {
         connection.shareURL.flatMap(AppLanguagePreference.localizedIDOSURL)
     }
 
+    private var connectionShareText: String {
+        CLIPlainTextPresentation().connection(connection, timetable: timetable)
+    }
+
     private func actionMenuContent(openInNewWindow: @escaping () -> Void) -> some View {
         ConnectionContextMenuContent(
             permanentLink: connectionActionURL,
+            shareText: connectionShareText,
             isPerformingExport: isPerformingExport,
             openInNewWindow: openInNewWindow,
-            copyToClipboard: copyToClipboard,
             sendByEmail: sendByEmail,
             performCalendarAction: performCalendarAction,
             performPDFAction: performPDFAction
@@ -966,12 +966,6 @@ struct ConnectionDetailView: View {
                     timeFrameCoordinateSpace: Self.scrollCoordinateSpace,
                     openConnection: nil,
                     openService: { openWindow(id: AppWindow.serviceDetail, value: $0) },
-                    copyToClipboard: {
-                        ResultClipboard.copy(
-                            connection: selection.connection,
-                            timetable: selection.timetable
-                        )
-                    },
                     sendByEmail: {
                         isEmailPresented = true
                     },
@@ -1043,6 +1037,13 @@ struct ConnectionDetailView: View {
         selection.connection.shareURL.flatMap(AppLanguagePreference.localizedIDOSURL)
     }
 
+    private var connectionShareText: String {
+        CLIPlainTextPresentation().connection(
+            selection.connection,
+            timetable: selection.timetable
+        )
+    }
+
     private var isPerformingExport: Bool {
         actionsModel.processingCalendarConnectionID == selection.connection.id ||
             actionsModel.processingPDFConnectionID == selection.connection.id
@@ -1053,12 +1054,7 @@ struct ConnectionDetailView: View {
             hasLoadedResult: true,
             isPerformingExport: isPerformingExport,
             permanentLink: connectionActionURL,
-            copyToClipboard: {
-                ResultClipboard.copy(
-                    connection: selection.connection,
-                    timetable: selection.timetable
-                )
-            },
+            shareText: connectionShareText,
             sendByEmail: {
                 isEmailPresented = true
             },
@@ -1088,18 +1084,6 @@ struct ConnectionDetailView: View {
         url: URL?
     ) -> some View {
         switch action {
-        case .copyToClipboard:
-            Button {
-                ResultClipboard.copy(
-                    connection: selection.connection,
-                    timetable: selection.timetable
-                )
-            } label: {
-                connectionActionLabel(action)
-            }
-            .disabled(isPerformingExport)
-            .accessibilityLabel(action.title)
-            .help(action.title)
         case .sendByEmail:
             Button {
                 isEmailPresented = true
@@ -1141,14 +1125,15 @@ struct ConnectionDetailView: View {
                 )
             }
             .disabled(isPerformingExport)
-        case .shareLink:
-            if let url {
-                IDOSShareLink(item: url) {
-                    connectionActionLabel(action)
-                }
-                .disabled(isPerformingExport)
-                .help(action.title)
+        case .share:
+            ResultShareButton(
+                link: url,
+                text: connectionShareText,
+                placement: .toolbar
+            ) { sharingAction in
+                connectionActionLabel(action, sharingAction: sharingAction)
             }
+            .disabled(isPerformingExport)
         }
     }
 
@@ -1174,16 +1159,19 @@ struct ConnectionDetailView: View {
     private func connectionActionLabel(
         _ action: ResultDetailAction,
         calendarExportAction: CalendarExportAction = .addToCalendar,
-        pdfExportAction: PDFExportAction = .openInPreview
+        pdfExportAction: PDFExportAction = .openInPreview,
+        sharingAction: ResultSharingAction = .link
     ) -> some View {
         Label(
             action.title(
                 calendarExportAction: calendarExportAction,
-                pdfExportAction: pdfExportAction
+                pdfExportAction: pdfExportAction,
+                sharingAction: sharingAction
             ),
             systemImage: action.systemImage(
                 calendarExportAction: calendarExportAction,
-                pdfExportAction: pdfExportAction
+                pdfExportAction: pdfExportAction,
+                sharingAction: sharingAction
             )
         )
             .labelStyle(.iconOnly)

@@ -287,7 +287,12 @@ struct StationTimetablesView: View {
             if let value = result.shareURL,
                let url = AppLanguagePreference.localizedIDOSURL(from: value)
             {
-                IDOSShareLink(item: url) {
+                ResultShareButton(
+                    link: url,
+                    text: nil,
+                    placement: .toolbar,
+                    offersTextAlternate: false
+                ) { _ in
                     Image(systemName: "square.and.arrow.up")
                 }
                 .buttonStyle(.borderless)

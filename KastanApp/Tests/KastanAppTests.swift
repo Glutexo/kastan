@@ -30,13 +30,13 @@ final class KastanAppTests: XCTestCase {
         let mainMenu = try XCTUnwrap(NSApplication.shared.mainMenu)
         let menuItems = mainMenu.items.compactMap(\.submenu).flatMap(\.items)
         let actionKeys = [
-            "Copy to Clipboard",
             "Send by Email",
             "Add to Calendar",
             "Download ICS File",
             "Open PDF in Preview",
             "Download PDF File",
             "Share Link",
+            "Share Text",
             "Favorite timetables",
         ]
 
@@ -49,7 +49,7 @@ final class KastanAppTests: XCTestCase {
             )
         }
 
-        for key in ["Download ICS File", "Download PDF File"] {
+        for key in ["Download ICS File", "Download PDF File", "Share Text"] {
             let alternateItem = try XCTUnwrap(
                 menuItems.first { $0.title == AppLocalization.string(key) }
             )
@@ -74,13 +74,13 @@ final class KastanAppTests: XCTestCase {
 
     func testResultDetailMenuActionsStayInOneGroup() throws {
         let expectedTitles = [
-            "Copy to Clipboard",
             "Send by Email",
             "Add to Calendar",
             "Download ICS File",
             "Open PDF in Preview",
             "Download PDF File",
             "Share Link",
+            "Share Text",
         ].map { AppLocalization.string($0) }
         let fileMenu = try XCTUnwrap(
             NSApplication.shared.mainMenu?.items
@@ -627,16 +627,15 @@ final class KastanAppTests: XCTestCase {
         ))!
     }
 
-    func testResultDetailToolbarAndFileMenuShareFiveLocalizedActions() throws {
+    func testResultDetailToolbarAndFileMenuShareFourPrimaryActions() throws {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
 
         XCTAssertEqual(
             ResultDetailAction.allCases,
-            [.copyToClipboard, .sendByEmail, .addToCalendar, .openPDF, .shareLink]
+            [.sendByEmail, .addToCalendar, .openPDF, .share]
         )
         let keys = [
-            "Copy to Clipboard",
             "Send by Email",
             "Add to Calendar",
             "Open PDF in Preview",
@@ -645,7 +644,6 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(
             keys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
             [
-                "Zkopírovat do schránky",
                 "Poslat na e-mail",
                 "Přidat do Kalendáře",
                 "Otevřít PDF v Náhledu",
@@ -655,6 +653,14 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(
             keys.map { english.localizedString(forKey: $0, value: nil, table: nil) },
             keys
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Share Text", value: nil, table: nil),
+            "Sdílet text"
+        )
+        XCTAssertEqual(
+            english.localizedString(forKey: "Share Text", value: nil, table: nil),
+            "Share Text"
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Open in IDOS", value: nil, table: nil),
@@ -746,7 +752,6 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(
             ResultDetailAction.allCases.map(\.systemImage),
             [
-                "doc.on.doc",
                 "envelope",
                 "calendar.badge.plus",
                 "doc.text.magnifyingglass",
@@ -759,12 +764,55 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             ResultDetailAction.availableActions(hasPermanentLink: false, canSendByEmail: true),
-            [.copyToClipboard, .addToCalendar, .openPDF]
+            [.addToCalendar, .openPDF, .share]
         )
         XCTAssertEqual(
             ResultDetailAction.availableActions(hasPermanentLink: true, canSendByEmail: false),
-            [.copyToClipboard, .addToCalendar, .openPDF, .shareLink]
+            [.addToCalendar, .openPDF, .share]
         )
+    }
+
+    func testOptionChangesLinkSharingToPortableText() {
+        XCTAssertEqual(ResultSharingAction.preferred(for: []), .link)
+        XCTAssertEqual(ResultSharingAction.preferred(for: [.command]), .link)
+        XCTAssertEqual(ResultSharingAction.preferred(for: [.option]), .text)
+        XCTAssertEqual(
+            ResultSharingAction.preferred(for: [.option, .shift]),
+            .text
+        )
+        XCTAssertEqual(ResultSharingAction.link.systemImage, "square.and.arrow.up")
+        XCTAssertEqual(ResultSharingAction.text.systemImage, "doc.plaintext")
+        XCTAssertEqual(
+            ResultDetailAction.share.systemImage(sharingAction: .text),
+            ResultSharingAction.text.systemImage
+        )
+    }
+
+    func testShareToolbarKeepsItsWidthWhenOptionChangesRepresentation() {
+        let link = NSHostingView(
+            rootView: OptionAlternateButtonLabel(
+                primaryAction: ResultSharingAction.link,
+                alternateAction: ResultSharingAction.text,
+                presentedAction: .link,
+                reservesAlternateWidth: true
+            ) { action in
+                Label(action.title, systemImage: action.systemImage)
+                    .labelStyle(.iconOnly)
+            }
+        )
+        let text = NSHostingView(
+            rootView: OptionAlternateButtonLabel(
+                primaryAction: ResultSharingAction.link,
+                alternateAction: ResultSharingAction.text,
+                presentedAction: .text,
+                reservesAlternateWidth: true
+            ) { action in
+                Label(action.title, systemImage: action.systemImage)
+                    .labelStyle(.iconOnly)
+            }
+        )
+
+        XCTAssertEqual(link.fittingSize, text.fittingSize)
     }
 
     func testOptionChangesAddToCalendarToICSDownload() {
@@ -859,11 +907,10 @@ final class KastanAppTests: XCTestCase {
             [
                 .openInNewWindow,
                 .separator,
-                .detail(.copyToClipboard),
                 .detail(.sendByEmail),
                 .detail(.addToCalendar),
                 .detail(.openPDF),
-                .detail(.shareLink),
+                .detail(.share),
             ]
         )
         XCTAssertEqual(
@@ -871,9 +918,9 @@ final class KastanAppTests: XCTestCase {
             [
                 .openInNewWindow,
                 .separator,
-                .detail(.copyToClipboard),
                 .detail(.addToCalendar),
                 .detail(.openPDF),
+                .detail(.share),
             ]
         )
         XCTAssertEqual(
@@ -882,10 +929,9 @@ final class KastanAppTests: XCTestCase {
                 .preview,
                 .openInNewWindow,
                 .separator,
-                .detail(.copyToClipboard),
                 .detail(.addToCalendar),
                 .detail(.openPDF),
-                .detail(.shareLink),
+                .detail(.share),
             ]
         )
 
@@ -937,10 +983,22 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(requestCount, 1)
     }
 
+    func testDeferredServiceTextSharingLoadsTheCompletePlainTextResult() async {
+        let client = MockIDOSClient()
+        let model = ServiceDetailViewModel(id: "service-text-share", client: client)
+
+        let text = await model.localizedShareText()
+
+        XCTAssertEqual(text, model.service.map(CLIPlainTextPresentation().service))
+        XCTAssertFalse(text?.isEmpty ?? true)
+        let requestCount = await client.serviceDetailRequestCount
+        XCTAssertEqual(requestCount, 1)
+    }
+
     func testSharingPickerKeepsSystemServicesAndAddsOpeningInIDOS() throws {
         let url = try XCTUnwrap(URL(string: "https://idos.cz/en/vlaky/spojeni/prehled/?p=share"))
         var openedURL: URL?
-        let presenter = IDOSSharingServicePickerPresenter { openedURL = $0 }
+        let presenter = ResultSharingServicePickerPresenter { openedURL = $0 }
         let nativeService = NSSharingService(
             title: "Native service",
             image: NSImage(size: NSSize(width: 18, height: 18)),
@@ -966,12 +1024,32 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(openedURL, url)
     }
 
+    func testTextSharingKeepsSystemServicesWithoutOfferingIDOSOpening() {
+        let presenter = ResultSharingServicePickerPresenter()
+        let nativeService = NSSharingService(
+            title: "Native service",
+            image: NSImage(size: NSSize(width: 18, height: 18)),
+            alternateImage: nil,
+            handler: {}
+        )
+        let picker = NSSharingServicePicker(items: ["Portable result"])
+
+        let services = presenter.sharingServicePicker(
+            picker,
+            sharingServicesForItems: ["Portable result"],
+            proposedSharingServices: [nativeService]
+        )
+
+        XCTAssertEqual(services.count, 1)
+        XCTAssertIdentical(services.first, nativeService)
+    }
+
     func testResultDetailCommandsFollowTheFocusedWindowState() {
         let ready = ResultDetailCommandContext(
             hasLoadedResult: true,
             isPerformingExport: false,
             permanentLink: URL(string: "https://idos.cz/"),
-            copyToClipboard: {},
+            shareText: "Portable result",
             sendByEmail: {},
             performCalendarAction: { _ in },
             performPDFAction: { _ in }
@@ -980,7 +1058,7 @@ final class KastanAppTests: XCTestCase {
             hasLoadedResult: false,
             isPerformingExport: false,
             permanentLink: nil,
-            copyToClipboard: {},
+            shareText: nil,
             performCalendarAction: { _ in },
             performPDFAction: { _ in }
         )
@@ -988,7 +1066,15 @@ final class KastanAppTests: XCTestCase {
             hasLoadedResult: true,
             isPerformingExport: true,
             permanentLink: URL(string: "https://idos.cz/"),
-            copyToClipboard: {},
+            shareText: "Portable result",
+            performCalendarAction: { _ in },
+            performPDFAction: { _ in }
+        )
+        let textOnly = ResultDetailCommandContext(
+            hasLoadedResult: true,
+            isPerformingExport: false,
+            permanentLink: nil,
+            shareText: "Portable result",
             performCalendarAction: { _ in },
             performPDFAction: { _ in }
         )
@@ -996,9 +1082,11 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(ResultDetailAction.allCases.allSatisfy(ready.isEnabled))
         XCTAssertTrue(ResultDetailAction.allCases.allSatisfy { !loading.isEnabled($0) })
         XCTAssertTrue(ResultDetailAction.allCases.allSatisfy { !exporting.isEnabled($0) })
+        XCTAssertTrue(textOnly.isEnabled(.share))
+        XCTAssertFalse(textOnly.isEnabled(.sendByEmail))
     }
 
-    func testConnectionClipboardTextMatchesTheLocalizedPlainCLIShape() throws {
+    func testConnectionSharedTextMatchesTheLocalizedPlainCLIShape() throws {
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let connection = IDOSConnection(
@@ -1044,7 +1132,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(englishText.contains(connection.id))
     }
 
-    func testServiceClipboardTextIncludesTheCompleteCLIStyleRoute() throws {
+    func testServiceSharedTextIncludesTheCompleteCLIStyleRoute() throws {
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
         let service = IDOSServiceDetail(
             id: "vlaky:service-1",
@@ -1092,14 +1180,6 @@ final class KastanAppTests: XCTestCase {
             """
         )
         XCTAssertFalse(text.contains("\u{001B}"))
-    }
-
-    func testResultClipboardReplacesExistingPlainText() {
-        let pasteboard = NSPasteboard.withUniqueName()
-        pasteboard.setString("stale", forType: .string)
-
-        XCTAssertTrue(ResultClipboard.copy("new result", to: pasteboard))
-        XCTAssertEqual(pasteboard.string(forType: .string), "new result")
     }
 
     func testDetailLayoutStacksControlsAtCompactWidths() {
@@ -1805,7 +1885,6 @@ final class KastanAppTests: XCTestCase {
             timeFrameCoordinateSpace: nil,
             openConnection: {},
             openService: { _ in },
-            copyToClipboard: {},
             sendByEmail: {},
             performCalendarAction: { _ in },
             performPDFAction: { _ in }
@@ -3525,7 +3604,6 @@ private func connectionCardOpenCount(afterDoubleClickAt location: NSPoint) -> In
         timeFrameCoordinateSpace: nil,
         openConnection: { openCount += 1 },
         openService: { _ in },
-        copyToClipboard: {},
         sendByEmail: {},
         performCalendarAction: { _ in },
         performPDFAction: { _ in }

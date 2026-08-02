@@ -27,7 +27,6 @@
 "Close Tab" = "Close Tab";
 "Close Window" = "Close Window";
 "Could not build the IDOS URL." = "Could not build the IDOS URL.";
-"Copy to Clipboard" = "Copy to Clipboard";
 "Currently no delay" = "Currently no delay";
 "Connection %lld" = "Connection %lld";
 "Connection %@ – %@" = "Connection %@ – %@";
@@ -164,6 +163,7 @@
 "Send by Email" = "Send by Email";
 "Send Connection by Email" = "Send Connection by Email";
 "Share Link" = "Share Link";
+"Share Text" = "Share Text";
 "Shortest" = "Shortest";
 "Show note calendar" = "Show note calendar";
 "Show note calendar; hold Option for recognized conditions" = "Show note calendar; hold Option for recognized conditions";
