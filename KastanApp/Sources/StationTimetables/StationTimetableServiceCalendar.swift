@@ -14,17 +14,24 @@ struct StationTimetableServiceCalendar: Equatable {
             case none
             case everyDay
             case workingDays
-            case selectedWeekdays(Set<Int>)
+            case selectedDays(
+                weekdays: Set<Int>,
+                includesSundaysAndPublicHolidays: Bool
+            )
         }
 
-        /// Keeps a dated exclusion either unconditional or limited to IDOS's Monday-first weekdays.
+        /// Keeps a dated exclusion either unconditional or limited to IDOS's operating-day notation.
         enum NonRunningCondition: Equatable {
             case dates(ClosedRange<Date>)
-            case selectedWeekdays(Set<Int>, within: ClosedRange<Date>)
+            case selectedDays(
+                weekdays: Set<Int>,
+                includesSundaysAndPublicHolidays: Bool,
+                within: ClosedRange<Date>
+            )
 
             var range: ClosedRange<Date> {
                 switch self {
-                case let .dates(range), let .selectedWeekdays(_, within: range):
+                case let .dates(range), let .selectedDays(_, _, within: range):
                     return range
                 }
             }
@@ -99,8 +106,13 @@ struct StationTimetableServiceCalendar: Equatable {
             switch condition {
             case let .dates(range):
                 return range.contains(day)
-            case let .selectedWeekdays(weekdays, within: range):
-                return range.contains(day) && weekdays.contains(Self.idosWeekday(for: day, calendar: calendar))
+            case let .selectedDays(weekdays, includesSundaysAndPublicHolidays, within: range):
+                return range.contains(day) && Self.matchesOperatingDay(
+                    day,
+                    weekdays: weekdays,
+                    includesSundaysAndPublicHolidays: includesSundaysAndPublicHolidays,
+                    calendar: calendar
+                )
             }
         }) {
             return .doesNotRun
@@ -119,8 +131,13 @@ struct StationTimetableServiceCalendar: Equatable {
             return .runs
         case .workingDays:
             return Self.isCzechWorkingDay(day, calendar: calendar) ? .runs : .doesNotRun
-        case let .selectedWeekdays(weekdays):
-            return weekdays.contains(Self.idosWeekday(for: day, calendar: calendar))
+        case let .selectedDays(weekdays, includesSundaysAndPublicHolidays):
+            return Self.matchesOperatingDay(
+                day,
+                weekdays: weekdays,
+                includesSundaysAndPublicHolidays: includesSundaysAndPublicHolidays,
+                calendar: calendar
+            )
                 ? .runs
                 : .doesNotRun
         }
@@ -157,9 +174,10 @@ struct StationTimetableServiceCalendar: Equatable {
         let year: Int?
     }
 
-    /// Keeps the parsed weekdays together with the exact source text that should open a note calendar.
-    private struct NumberedWeekdayCondition {
+    /// Keeps parsed IDOS operating days together with the exact source text that should open a note calendar.
+    private struct OperatingDayCondition {
         let weekdays: Set<Int>
+        let includesSundaysAndPublicHolidays: Bool
         let sourceRange: NSRange
     }
 
@@ -245,8 +263,8 @@ struct StationTimetableServiceCalendar: Equatable {
         let negativeRunPattern = #"\bnejede\b|\bdoes\s+not\s+run\b"#
         let hasPositiveRule = normalized.range(of: positiveRunPattern, options: .regularExpression) != nil
         let hasNegativeRule = normalized.range(of: negativeRunPattern, options: .regularExpression) != nil
-        let standaloneWeekdayCondition = numberedWeekdayCondition(in: note)
-        guard hasPositiveRule || hasNegativeRule || standaloneWeekdayCondition != nil else { return nil }
+        let standaloneDayCondition = operatingDayCondition(in: note)
+        guard hasPositiveRule || hasNegativeRule || standaloneDayCondition != nil else { return nil }
 
         let source = note as NSString
         let negativeMatch = try? NSRegularExpression(
@@ -272,12 +290,15 @@ struct StationTimetableServiceCalendar: Equatable {
         ) != nil
         let workingDayPattern =
             #"\bjede\s+v\s+(?:x\b|pracovnich\s+dnech\b)|(?<!not )\bruns?\s+(?:on\s+)?(?:working\s+days?|weekdays?|workdays?)\b"#
-        let positiveWeekdayCondition = numberedWeekdayCondition(in: positiveNote)
+        let positiveDayCondition = operatingDayCondition(in: positiveNote)
         let recurrence: Rule.Recurrence
         if positiveNormalized.range(of: workingDayPattern, options: .regularExpression) != nil {
             recurrence = .workingDays
-        } else if let condition = positiveWeekdayCondition {
-            recurrence = .selectedWeekdays(condition.weekdays)
+        } else if let condition = positiveDayCondition {
+            recurrence = .selectedDays(
+                weekdays: condition.weekdays,
+                includesSundaysAndPublicHolidays: condition.includesSundaysAndPublicHolidays
+            )
         } else if runsThroughBoundary || !hasPositiveRule {
             recurrence = .everyDay
         } else {
@@ -296,7 +317,7 @@ struct StationTimetableServiceCalendar: Equatable {
                     validityStart: validityStart,
                     validityEnd: validityEnd
                 ),
-                weekdayConditions: numberedWeekdayConditions(in: note)
+                dayConditions: operatingDayConditions(in: note)
             )
         } ?? []
 
@@ -323,7 +344,7 @@ struct StationTimetableServiceCalendar: Equatable {
 
         let hasRecurringCondition: Bool
         switch recurrence {
-        case .workingDays, .selectedWeekdays:
+        case .workingDays, .selectedDays:
             hasRecurringCondition = true
         case .everyDay:
             hasRecurringCondition = hasExplicitOperatingRange
@@ -343,7 +364,7 @@ struct StationTimetableServiceCalendar: Equatable {
             nonRunningConditions: nonRunningConditions,
             noteApplicabilityRange: hasPositiveRule || hasNegativeRule
                 ? nil
-                : standaloneWeekdayCondition?.sourceRange
+                : standaloneDayCondition?.sourceRange
         )
         var recognizedDateRanges = additionalRunningRanges + nonRunningConditions.map(\.range)
         if hasExplicitOperatingRange {
@@ -359,15 +380,16 @@ struct StationTimetableServiceCalendar: Equatable {
         )
     }
 
-    /// Reads individual numbers and ranges in IDOS's Monday-first weekday notation and preserves their source range.
-    private static func numberedWeekdayCondition(in note: String) -> NumberedWeekdayCondition? {
-        numberedWeekdayConditions(in: note).first
+    /// Reads IDOS's Monday-first weekdays and `+` symbol while preserving their source range.
+    private static func operatingDayCondition(in note: String) -> OperatingDayCondition? {
+        operatingDayConditions(in: note).first
     }
 
-    /// Finds every weekday clause without consuming the leading number of a following date such as `30.VII.`.
-    private static func numberedWeekdayConditions(in note: String) -> [NumberedWeekdayCondition] {
+    /// Finds every operating-day clause without consuming the leading number of a date such as `30.VII.`.
+    private static func operatingDayConditions(in note: String) -> [OperatingDayCondition] {
         let weekday = #"[1-7](?!\d|\s*\.)"#
-        let element = weekday + #"(?:\s*[-–—]\s*"# + weekday + #")?"#
+        let numberedElement = weekday + #"(?:\s*[-–—]\s*"# + weekday + #")?"#
+        let element = #"(?:"# + numberedElement + #"|\+(?!\s*\d))"#
         let pattern = #"\b(?:v|on)\s+("# + element + #"(?:\s*,\s*"# + element + #")*)"#
         guard let expression = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
             return []
@@ -380,9 +402,15 @@ struct StationTimetableServiceCalendar: Equatable {
             guard match.numberOfRanges >= 2 else { return nil }
             let values = source.substring(with: match.range(at: 1))
             var weekdays = Set<Int>()
+            var includesSundaysAndPublicHolidays = false
             let rangeSeparators = CharacterSet(charactersIn: "-–—")
             for element in values.split(separator: ",") {
-                let bounds = element.components(separatedBy: rangeSeparators).compactMap { value in
+                let value = element.trimmingCharacters(in: .whitespaces)
+                if value == "+" {
+                    includesSundaysAndPublicHolidays = true
+                    continue
+                }
+                let bounds = value.components(separatedBy: rangeSeparators).compactMap { value in
                     Int(value.trimmingCharacters(in: .whitespaces))
                 }
                 switch bounds.count {
@@ -394,27 +422,35 @@ struct StationTimetableServiceCalendar: Equatable {
                     continue
                 }
             }
-            guard !weekdays.isEmpty else { return nil }
-            return NumberedWeekdayCondition(weekdays: weekdays, sourceRange: match.range)
+            guard !weekdays.isEmpty || includesSundaysAndPublicHolidays else { return nil }
+            return OperatingDayCondition(
+                weekdays: weekdays,
+                includesSundaysAndPublicHolidays: includesSundaysAndPublicHolidays,
+                sourceRange: match.range
+            )
         }
     }
 
-    /// Applies each weekday clause to the closest dated range before it while preserving all other exclusions.
+    /// Applies each operating-day clause to the closest dated range before it while preserving all other exclusions.
     private static func makeNonRunningConditions(
         from interpretation: DateInterpretation,
-        weekdayConditions: [NumberedWeekdayCondition]
+        dayConditions: [OperatingDayCondition]
     ) -> [Rule.NonRunningCondition] {
-        var weekdaysByRangeIndex: [Int: Set<Int>] = [:]
-        for condition in weekdayConditions {
+        var daysByRangeIndex: [Int: OperatingDayCondition] = [:]
+        for condition in dayConditions {
             guard let rangeIndex = interpretation.datedRanges.indices.last(where: {
                 NSMaxRange(interpretation.datedRanges[$0].sourceRange) <= condition.sourceRange.location
             }) else { continue }
-            weekdaysByRangeIndex[rangeIndex] = condition.weekdays
+            daysByRangeIndex[rangeIndex] = condition
         }
 
         return interpretation.datedRanges.enumerated().map { index, datedRange in
-            if let weekdays = weekdaysByRangeIndex[index] {
-                return .selectedWeekdays(weekdays, within: datedRange.range)
+            if let days = daysByRangeIndex[index] {
+                return .selectedDays(
+                    weekdays: days.weekdays,
+                    includesSundaysAndPublicHolidays: days.includesSundaysAndPublicHolidays,
+                    within: datedRange.range
+                )
             }
             return .dates(datedRange.range)
         }
@@ -426,32 +462,51 @@ struct StationTimetableServiceCalendar: Equatable {
         return (foundationWeekday + 5) % 7 + 1
     }
 
-    /// Treats the Czech `X` timetable symbol as Monday through Friday except Czech public holidays.
-    private static func isCzechWorkingDay(_ date: Date, calendar: Calendar) -> Bool {
-        let components = calendar.dateComponents([.year, .month, .day, .weekday], from: date)
-        guard let year = components.year,
-              let month = components.month,
-              let day = components.day,
-              let weekday = components.weekday,
-              (2...6).contains(weekday)
-        else {
-            return false
+    /// Matches numbered weekdays and IDOS's `+` symbol for Sundays and Czech public holidays.
+    private static func matchesOperatingDay(
+        _ date: Date,
+        weekdays: Set<Int>,
+        includesSundaysAndPublicHolidays: Bool,
+        calendar: Calendar
+    ) -> Bool {
+        let weekday = idosWeekday(for: date, calendar: calendar)
+        if weekdays.contains(weekday) {
+            return true
         }
-
-        let fixedHolidayCode = month * 100 + day
-        guard !fixedCzechHolidayCodes.contains(fixedHolidayCode),
-              let easterSunday = easterSunday(in: year, calendar: calendar),
-              let goodFriday = calendar.date(byAdding: .day, value: -2, to: easterSunday),
-              let easterMonday = calendar.date(byAdding: .day, value: 1, to: easterSunday)
-        else {
-            return false
-        }
-
-        let civilDate = calendar.startOfDay(for: date)
-        return civilDate != goodFriday && civilDate != easterMonday
+        guard includesSundaysAndPublicHolidays else { return false }
+        return weekday == 7 || isCzechPublicHoliday(date, calendar: calendar)
     }
 
-    /// Calculates Easter Sunday so the two movable Czech holidays can be excluded from working days.
+    /// Treats the Czech `X` timetable symbol as Monday through Friday except Czech public holidays.
+    private static func isCzechWorkingDay(_ date: Date, calendar: Calendar) -> Bool {
+        let weekday = calendar.component(.weekday, from: date)
+        guard (2...6).contains(weekday) else {
+            return false
+        }
+        return !isCzechPublicHoliday(date, calendar: calendar)
+    }
+
+    /// Recognizes the fixed and movable Czech public holidays represented by IDOS's `+` symbol.
+    private static func isCzechPublicHoliday(_ date: Date, calendar: Calendar) -> Bool {
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        guard let year = components.year,
+              let month = components.month,
+              let day = components.day
+        else { return false }
+        let fixedHolidayCode = month * 100 + day
+        if fixedCzechHolidayCodes.contains(fixedHolidayCode) {
+            return true
+        }
+        guard let easterSunday = easterSunday(in: year, calendar: calendar),
+              let goodFriday = calendar.date(byAdding: .day, value: -2, to: easterSunday),
+              let easterMonday = calendar.date(byAdding: .day, value: 1, to: easterSunday)
+        else { return false }
+
+        let civilDate = calendar.startOfDay(for: date)
+        return civilDate == goodFriday || civilDate == easterMonday
+    }
+
+    /// Calculates Easter Sunday so Good Friday and Easter Monday are recognized as movable public holidays.
     private static func easterSunday(in year: Int, calendar: Calendar) -> Date? {
         guard year >= 1583 else { return nil }
         let a = year % 19
@@ -948,11 +1003,14 @@ private struct StationTimetableServiceCalendarView: View {
                             AppLocalization.string("Does not run %@", recognizedRangeDescription(range)),
                             systemImage: "minus.circle"
                         )
-                    case let .selectedWeekdays(weekdays, within: range):
+                    case let .selectedDays(weekdays, includesSundaysAndPublicHolidays, within: range):
                         Label(
                             AppLocalization.string(
                                 "Does not run on days %@ within %@",
-                                weekdays.sorted().map(String.init).joined(separator: ", "),
+                                operatingDayDescription(
+                                    weekdays: weekdays,
+                                    includesSundaysAndPublicHolidays: includesSundaysAndPublicHolidays
+                                ),
                                 recognizedRangeDescription(range)
                             ),
                             systemImage: "minus.circle"
@@ -968,9 +1026,12 @@ private struct StationTimetableServiceCalendarView: View {
 
     private var recognizedRuleDescription: String {
         if serviceCalendar.rule.subject == .noteApplicability,
-           case let .selectedWeekdays(weekdays) = serviceCalendar.rule.recurrence
+           case let .selectedDays(weekdays, includesSundaysAndPublicHolidays) = serviceCalendar.rule.recurrence
         {
-            let values = weekdays.sorted().map(String.init).joined(separator: ", ")
+            let values = operatingDayDescription(
+                weekdays: weekdays,
+                includesSundaysAndPublicHolidays: includesSundaysAndPublicHolidays
+            )
             return AppLocalization.string(
                 "Applies on days %@ throughout timetable validity",
                 values
@@ -986,10 +1047,25 @@ private struct StationTimetableServiceCalendarView: View {
             return AppLocalization.string("Runs throughout timetable validity except the listed dates")
         case .workingDays:
             return AppLocalization.string("Runs on working days except the listed dates")
-        case let .selectedWeekdays(weekdays):
-            let values = weekdays.sorted().map(String.init).joined(separator: ", ")
+        case let .selectedDays(weekdays, includesSundaysAndPublicHolidays):
+            let values = operatingDayDescription(
+                weekdays: weekdays,
+                includesSundaysAndPublicHolidays: includesSundaysAndPublicHolidays
+            )
             return AppLocalization.string("Runs on days %@ within the listed date range", values)
         }
+    }
+
+    /// Preserves IDOS's concise day notation in the optional interpretation details.
+    private func operatingDayDescription(
+        weekdays: Set<Int>,
+        includesSundaysAndPublicHolidays: Bool
+    ) -> String {
+        var values = weekdays.sorted().map(String.init)
+        if includesSundaysAndPublicHolidays {
+            values.append("+")
+        }
+        return values.joined(separator: ", ")
     }
 
     private var calendarTitle: String {

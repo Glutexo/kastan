@@ -220,13 +220,15 @@ final class KastanAppTests: XCTestCase {
         ))
 
         XCTAssertEqual(serviceCalendar.rule.nonRunningConditions, [
-            .selectedWeekdays(
-                Set([2, 3]),
+            .selectedDays(
+                weekdays: Set([2, 3]),
+                includesSundaysAndPublicHolidays: false,
                 within: serviceDate(2026, 7, 22)...serviceDate(2026, 7, 29)
             ),
             .dates(serviceDate(2026, 7, 30)...serviceDate(2026, 7, 30)),
-            .selectedWeekdays(
-                Set([1, 6, 7]),
+            .selectedDays(
+                weekdays: Set([1, 6, 7]),
+                includesSundaysAndPublicHolidays: false,
                 within: serviceDate(2026, 8, 10)...serviceDate(2026, 8, 17)
             ),
             .dates(serviceDate(2026, 8, 18)...serviceDate(2026, 8, 18)),
@@ -305,6 +307,31 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 28)), .doesNotRun)
     }
 
+    func testSaturdaySundayAndPublicHolidayRuleCombinesWithNonRunningRange() throws {
+        let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(
+            note: "jede v 6,+,nejede od 10.VIII. do 4.IX.",
+            validityStart: serviceDate(2025, 12, 14),
+            validityEnd: serviceDate(2026, 12, 12)
+        ))
+
+        XCTAssertEqual(
+            serviceCalendar.rule.recurrence,
+            .selectedDays(weekdays: Set([6]), includesSundaysAndPublicHolidays: true)
+        )
+        XCTAssertEqual(
+            serviceCalendar.rule.nonRunningRanges,
+            [serviceDate(2026, 8, 10)...serviceDate(2026, 9, 4)]
+        )
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 8)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 9)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 15)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 8, 16)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 5)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 6)), .runs)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 7)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 9, 28)), .runs)
+    }
+
     func testSingleDateRangesExpandToTheNamedTimetableBoundary() throws {
         let validityStart = serviceDate(2025, 12, 14)
         let validityEnd = serviceDate(2026, 12, 12)
@@ -369,7 +396,10 @@ final class KastanAppTests: XCTestCase {
             validityEnd: serviceDate(2026, 12, 12)
         ))
 
-        XCTAssertEqual(serviceCalendar.rule.recurrence, .selectedWeekdays(Set([6, 7])))
+        XCTAssertEqual(
+            serviceCalendar.rule.recurrence,
+            .selectedDays(weekdays: Set([6, 7]), includesSundaysAndPublicHolidays: false)
+        )
         XCTAssertEqual(serviceCalendar.listedDates.first, validityStart)
         XCTAssertEqual(serviceCalendar.listedDates.last, serviceDate(2026, 8, 29))
         XCTAssertEqual(serviceCalendar.status(on: validityStart), .runs)
@@ -387,7 +417,10 @@ final class KastanAppTests: XCTestCase {
             validityEnd: serviceDate(2026, 12, 12)
         ))
 
-        XCTAssertEqual(serviceCalendar.rule.recurrence, .selectedWeekdays(Set(1...6)))
+        XCTAssertEqual(
+            serviceCalendar.rule.recurrence,
+            .selectedDays(weekdays: Set(1...6), includesSundaysAndPublicHolidays: false)
+        )
         XCTAssertEqual(serviceCalendar.rule.operatingRange, validityStart...serviceDate(2026, 11, 3))
         XCTAssertEqual(
             serviceCalendar.rule.additionalRunningRanges,
@@ -417,7 +450,10 @@ final class KastanAppTests: XCTestCase {
             validityEnd: serviceDate(2026, 12, 12)
         ))
 
-        XCTAssertEqual(serviceCalendar.rule.recurrence, .selectedWeekdays(Set(1...6)))
+        XCTAssertEqual(
+            serviceCalendar.rule.recurrence,
+            .selectedDays(weekdays: Set(1...6), includesSundaysAndPublicHolidays: false)
+        )
         XCTAssertEqual(
             serviceCalendar.rule.additionalRunningRanges,
             [serviceDate(2026, 9, 6)...serviceDate(2026, 9, 6)]
@@ -435,7 +471,13 @@ final class KastanAppTests: XCTestCase {
         ))
 
         XCTAssertEqual(serviceCalendar.rule.subject, .noteApplicability)
-        XCTAssertEqual(serviceCalendar.rule.recurrence, .selectedWeekdays(Set([1, 2, 3, 4, 5, 7])))
+        XCTAssertEqual(
+            serviceCalendar.rule.recurrence,
+            .selectedDays(
+                weekdays: Set([1, 2, 3, 4, 5, 7]),
+                includesSundaysAndPublicHolidays: false
+            )
+        )
         XCTAssertTrue(serviceCalendar.listedDates.isEmpty)
         let destination = ServiceNotesView.calendarDestination(for: 0)
         let linkedContent = ServiceCalendarLink.noteApplicabilityContent(
