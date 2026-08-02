@@ -367,7 +367,7 @@ struct ConnectionsView: View {
             usesStackedLayout: stacked,
             supplement: JourneySearchControlsSupplement(
                 leading: journeyOptionsHeader,
-                adjacent: directConnectionsOnlyToggle,
+                adjacent: directConnectionsOnlyShortcut,
                 details: journeyOptionsDetails
             )
         ) {
@@ -383,6 +383,14 @@ struct ConnectionsView: View {
         ))
         .toggleStyle(.checkbox)
         .fixedSize(horizontal: true, vertical: false)
+    }
+
+    /// Reveals the direct-only shortcut only while its containing journey options are open.
+    @ViewBuilder
+    private var directConnectionsOnlyShortcut: some View {
+        if isJourneyOptionsExpanded {
+            directConnectionsOnlyToggle
+        }
     }
 
     private var searchSummary: SearchSummaryPresentation {
@@ -413,12 +421,12 @@ struct ConnectionsView: View {
         }
     }
 
-    /// Keeps the disclosure affordance in the stable supplemental row while its content expands below the grid.
+    /// Keeps the disclosure affordance on the shared action row while its content expands below it.
     private var journeyOptionsHeader: some View {
         JourneyOptionsDisclosureHeader(isExpanded: $isJourneyOptionsExpanded)
     }
 
-    /// Uses the complete search width without changing the measured positions of the controls above it.
+    /// Uses the complete search width below the stable action row.
     @ViewBuilder
     private var journeyOptionsDetails: some View {
         if isJourneyOptionsExpanded {

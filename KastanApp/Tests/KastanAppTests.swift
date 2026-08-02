@@ -1296,7 +1296,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(layout.usesStackedSearchControls)
         XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: true), 80)
         XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: false), 140)
-        XCTAssertEqual(JourneySearchControls.wideSearchButtonTrailingPadding, 5)
+        XCTAssertEqual(JourneySearchControls.trailingControlInset, 10)
         XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: true), -8)
         XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: false), 2)
         XCTAssertEqual(SearchTimetablePicker.pickerWidth, 240)
@@ -1491,6 +1491,7 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertLessThan(controlsFrame.height, 120)
         XCTAssertEqual(shortcutFrame.minX - optionsFrame.maxX, 12, accuracy: 1)
+        XCTAssertEqual(optionsFrame.midY, shortcutFrame.midY, accuracy: 1)
     }
 
     func testSearchWidthKeepsSupplementalControlsClustered() throws {
@@ -1553,14 +1554,14 @@ final class KastanAppTests: XCTestCase {
         }
     }
 
-    func testExpandedSearchSupplementKeepsLabelsInPlace() throws {
+    func testExpandedSearchSupplementRevealsShortcutWithoutMovingHeading() throws {
         struct Frames {
             let options: CGRect
-            let shortcut: CGRect
+            let shortcut: CGRect?
             let details: CGRect
         }
 
-        func renderedFrames(width: CGFloat, detailsHeight: CGFloat) throws -> Frames {
+        func renderedFrames(width: CGFloat, isExpanded: Bool) throws -> Frames {
             let controls = JourneySearchControls(
                 isSearching: false,
                 canSearch: true,
@@ -1568,10 +1569,14 @@ final class KastanAppTests: XCTestCase {
                 supplement: JourneySearchControlsSupplement(
                     leading: SearchSupplementLayoutProbe(name: "options")
                         .frame(width: 180, height: 22),
-                    adjacent: SearchSupplementLayoutProbe(name: "shortcut")
-                        .frame(width: 150, height: 22),
+                    adjacent: Group {
+                        if isExpanded {
+                            SearchSupplementLayoutProbe(name: "shortcut")
+                                .frame(width: 150, height: 22)
+                        }
+                    },
                     details: SearchSupplementLayoutProbe(name: "details")
-                        .frame(height: detailsHeight)
+                        .frame(height: isExpanded ? 120 : 0)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 ),
                 search: {}
@@ -1593,12 +1598,13 @@ final class KastanAppTests: XCTestCase {
             let descendants = hostingView.allDescendantViews
             let probes = descendants.compactMap { $0 as? SearchSupplementLayoutProbeView }
             let options = try XCTUnwrap(probes.first { $0.name == "options" })
-            let shortcut = try XCTUnwrap(probes.first { $0.name == "shortcut" })
             let details = try XCTUnwrap(probes.first { $0.name == "details" })
 
             return Frames(
                 options: hostingView.convert(options.bounds, from: options),
-                shortcut: hostingView.convert(shortcut.bounds, from: shortcut),
+                shortcut: probes.first { $0.name == "shortcut" }.map {
+                    hostingView.convert($0.bounds, from: $0)
+                },
                 details: hostingView.convert(details.bounds, from: details)
             )
         }
@@ -1608,18 +1614,14 @@ final class KastanAppTests: XCTestCase {
             DetailLayout(availableWidth: KastanApp.minimumMainWindowWidth).contentWidth,
         ]
         for width in widths {
-            let collapsed = try renderedFrames(width: width, detailsHeight: 0)
-            let expanded = try renderedFrames(width: width, detailsHeight: 120)
+            let collapsed = try renderedFrames(width: width, isExpanded: false)
+            let expanded = try renderedFrames(width: width, isExpanded: true)
+            let expandedShortcut = try XCTUnwrap(expanded.shortcut)
 
             XCTAssertEqual(collapsed.options.minX, expanded.options.minX, accuracy: 1)
-            XCTAssertEqual(collapsed.shortcut.minX, expanded.shortcut.minX, accuracy: 1)
-            XCTAssertEqual(
-                collapsed.shortcut.minY - collapsed.options.minY,
-                expanded.shortcut.minY - expanded.options.minY,
-                accuracy: 1
-            )
-            XCTAssertEqual(collapsed.options.midY, collapsed.shortcut.midY, accuracy: 1)
-            XCTAssertEqual(expanded.options.midY, expanded.shortcut.midY, accuracy: 1)
+            XCTAssertNil(collapsed.shortcut)
+            XCTAssertEqual(expanded.options.midY, expandedShortcut.midY, accuracy: 1)
+            XCTAssertEqual(expandedShortcut.minX - expanded.options.maxX, 12, accuracy: 1)
             XCTAssertLessThanOrEqual(expanded.details.maxX, width + 1)
         }
     }
@@ -1762,6 +1764,7 @@ final class KastanAppTests: XCTestCase {
 
         assertClosedPicker(isArrival: false)
         assertClosedPicker(isArrival: true)
+        let currentInstant = AppLocalization.string("Now").lowercased(with: .current)
         XCTAssertEqual(
             JourneyDateTimePresentation.closedTitle(
                 date: fixedDate,
@@ -1771,7 +1774,7 @@ final class KastanAppTests: XCTestCase {
                 arrivalLabel: "Arrival",
                 usesCurrentDateAndTime: true
             ),
-            "\(AppLocalization.string("Departure")) · \(AppLocalization.string("Now"))"
+            "\(AppLocalization.string("Departure")) \(currentInstant)"
         )
         XCTAssertEqual(
             JourneyDateTimePresentation.closedTitle(
@@ -1782,7 +1785,7 @@ final class KastanAppTests: XCTestCase {
                 arrivalLabel: "Arrival",
                 usesCurrentDateAndTime: true
             ),
-            "\(AppLocalization.string("Arrival")) · \(AppLocalization.string("Now"))"
+            "\(AppLocalization.string("Arrival")) \(currentInstant)"
         )
         XCTAssertEqual(JourneyDateTimePicker.buttonContentWidth, 190)
     }

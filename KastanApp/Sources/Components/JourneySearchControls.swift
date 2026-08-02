@@ -169,6 +169,7 @@ struct JourneySearchHeader: View {
                 selectCurrentDateAndTime: selectCurrentDateAndTime
             )
             .fixedSize(horizontal: true, vertical: false)
+            .offset(x: -JourneySearchControls.trailingControlInset)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -176,8 +177,8 @@ struct JourneySearchHeader: View {
 
 /// Keeps search actions and connection-specific options visually identical across journey searches.
 struct JourneySearchControls: View {
-    /// Balances the large native search button's trailing chrome with the visible leading control inset.
-    static let wideSearchButtonTrailingPadding: CGFloat = 5
+    /// Pulls native button chrome back to the same visible trailing edge as the text fields.
+    static let trailingControlInset: CGFloat = 10
 
     /// Keeps the search action compact in narrow forms and comfortably wide otherwise.
     static func searchButtonContentWidth(usesStackedLayout: Bool) -> CGFloat {
@@ -207,17 +208,10 @@ struct JourneySearchControls: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if let supplement {
-                VStack(alignment: .leading, spacing: 14) {
-                    searchRow
-                    supplementalRow(supplement: supplement)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                controlsRow(supplement: supplement)
+                supplement.details
             } else {
                 searchRow
-            }
-
-            if let supplement {
-                supplement.details
             }
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -228,21 +222,20 @@ struct JourneySearchControls: View {
         HStack(alignment: .bottom, spacing: 12) {
             Spacer(minLength: 0)
             searchButton
-                .padding(
-                    .trailing,
-                    usesStackedLayout ? 0 : Self.wideSearchButtonTrailingPadding
-                )
+                .offset(x: -Self.trailingControlInset)
         }
     }
 
-    /// Keeps connection-specific shortcuts together instead of letting wider windows separate them.
-    private func supplementalRow(supplement: JourneySearchControlsSupplement) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
+    /// Shares one visual level between journey options, their shortcut, and the primary action.
+    private func controlsRow(supplement: JourneySearchControlsSupplement) -> some View {
+        HStack(alignment: .center, spacing: 12) {
             supplement.leading
                 .fixedSize(horizontal: true, vertical: false)
             supplement.adjacent
                 .fixedSize(horizontal: true, vertical: false)
             Spacer(minLength: 0)
+            searchButton
+                .offset(x: -Self.trailingControlInset)
         }
     }
 
@@ -320,7 +313,14 @@ enum JourneyDateTimePresentation {
             locale: locale,
             calendar: calendar
         )
-        return "\(mode) · \(instant)"
+        let displayedInstant: String
+        if usesCurrentDateAndTime, let firstCharacter = instant.first {
+            displayedInstant = String(firstCharacter).lowercased(with: locale) +
+                String(instant.dropFirst())
+        } else {
+            displayedInstant = instant
+        }
+        return "\(mode) \(displayedInstant)"
     }
 }
 
