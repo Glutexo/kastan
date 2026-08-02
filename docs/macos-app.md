@@ -16,11 +16,11 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   current location only when clicked and fills that endpoint with IDOS's exact My location object. Typing the exact
   localized My location phrase into either field does the same when the search starts. A single compact Now control
   replaces the separate date, time, and Departure/Arrival controls. It opens a popover with native date and time
-  editors, the time-mode selector, a Now reset, and a Done action; after either value is edited, the closed control
-  shows the localized selected date and time. Until either value is edited or a search is submitted, the launch
-  default follows the current moment when the form appears, the app becomes active, and immediately before searching,
-  so an app left open overnight does not silently query yesterday. Station-board searches use the same current-moment
-  behavior and compact editor, with their Departures/Arrivals selector inside the popover. Searches also
+  editors, a heading-free time-mode selector at the top, a Now reset, and a Done action; after either value is edited,
+  the closed control shows the localized selected date and time. Until either value is edited or a search is submitted,
+  the launch default follows the current moment when the form appears, the app becomes active, and immediately before
+  searching, so an app left open overnight does not silently query yesterday. Station-board searches use the same
+  current-moment behavior and compact editor, with their Departures/Arrivals selector inside the popover. Searches also
   support arrival mode and an extensible journey-options builder modeled after native macOS rule editors. Selecting
   the same exact departure and arrival shows inline guidance and disables Search before any IDOS request can start.
   Each condition first selects either Via or Maximum number of transfers, then presents the corresponding text

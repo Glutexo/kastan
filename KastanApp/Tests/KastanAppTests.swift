@@ -1792,7 +1792,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(JourneyDateTimePicker.editorFieldWidth, 180)
     }
 
-    func testTimeModeIsEditedInsideDateTimePopover() throws {
+    func testTimeModeReplacesDateTimePopoverHeading() throws {
         let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
         var isArrival = false
         let editor = JourneyDateTimeEditor(
@@ -1823,6 +1823,9 @@ final class KastanAppTests: XCTestCase {
 
         let descendants = hostingView.allDescendantViews
         XCTAssertEqual(descendants.compactMap { $0 as? NSDatePicker }.count, 2)
+        let visibleLabels = descendants.compactMap { $0 as? NSTextField }.map(\.stringValue)
+        XCTAssertFalse(visibleLabels.contains(AppLocalization.string("Date and time")))
+        XCTAssertFalse(visibleLabels.contains(AppLocalization.string("Time means")))
 
         let mode = try XCTUnwrap(descendants.compactMap { $0 as? NSSegmentedControl }.first)
         XCTAssertEqual(mode.segmentCount, 2)

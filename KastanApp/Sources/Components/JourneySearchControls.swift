@@ -380,8 +380,16 @@ struct JourneyDateTimeEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Date and time")
-                .font(.headline)
+            Picker(modeLabel, selection: $isArrival) {
+                Text(departureLabel).tag(false)
+                Text(arrivalLabel).tag(true)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(
+                width: JourneyDateTimePicker.editorFieldWidth,
+                alignment: .leading
+            )
 
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 10) {
                 GridRow {
@@ -404,20 +412,6 @@ struct JourneyDateTimeEditor: View {
                             width: JourneyDateTimePicker.editorFieldWidth,
                             alignment: .leading
                         )
-                }
-
-                GridRow {
-                    Text(modeLabel)
-                    Picker(modeLabel, selection: $isArrival) {
-                        Text(departureLabel).tag(false)
-                        Text(arrivalLabel).tag(true)
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .frame(
-                        width: JourneyDateTimePicker.editorFieldWidth,
-                        alignment: .leading
-                    )
                 }
             }
 
