@@ -75,9 +75,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   individually visible controls in the native toolbar instead of repeating the result-card action menu, and
   each of its services can still open a separate complete route. The active connection or service detail repeats
   every toolbar action in the File menu, with all commands disabled while an export or Mail draft is being prepared
-  and email disabled until IDOS supplies a permanent link. Complete connections open at 620 points wide, while
-  service routes open at a compact 540-point width and remain usable down to 480 points. When scrolling hides the
-  connection's main time range, that range moves into the window title until its content label is visible again.
+  and email disabled until IDOS supplies a permanent link. Complete connections open at 620 points wide and remain
+  usable down to 480 points, while service routes open at a compact 540-point width and share that same minimum.
+  When scrolling hides the connection's main time range, that range moves into the window title until its content
+  label is visible again.
 - Connection cards, complete connections, and complete service routes share their permanent link by default.
   Holding Option changes that same action to Share Text. The shared text follows the app language and the CLI's
   default human-readable layout, including its semantic emoji and the complete route for a service, while omitting
