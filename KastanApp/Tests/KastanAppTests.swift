@@ -2572,6 +2572,7 @@ final class KastanAppTests: XCTestCase {
             isShortest: true,
             isPerformingAction: false,
             showsActionMenu: true,
+            showsOpenConnectionButton: false,
             timeFrameCoordinateSpace: nil,
             openConnection: {},
             openService: { _ in },
@@ -2599,6 +2600,44 @@ final class KastanAppTests: XCTestCase {
     func testDoubleClickingAnywhereInConnectionSummaryOpensItsWindow() {
         XCTAssertEqual(connectionCardOpenCount(afterDoubleClickAt: NSPoint(x: 300, y: 112)), 1)
         XCTAssertEqual(connectionCardOpenCount(afterDoubleClickAt: NSPoint(x: 300, y: 82)), 1)
+    }
+
+    func testConnectionHeaderOpenButtonAppearsOnlyWhileOptionIsPressed() {
+        func openButtonCount(optionIsPressed: Bool) -> Int {
+            let card = ConnectionCard(
+                number: 1,
+                connection: connection(id: "connection-open-button"),
+                timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
+                client: MockIDOSClient(),
+                isShortest: false,
+                isPerformingAction: false,
+                showsActionMenu: true,
+                showsOpenConnectionButton: optionIsPressed,
+                timeFrameCoordinateSpace: nil,
+                openConnection: {},
+                openService: { _ in },
+                performEmailAction: { _ in },
+                performCalendarAction: { _ in },
+                performPDFAction: { _ in }
+            )
+            let hostingView = NSHostingView(rootView: card.frame(width: 700))
+            hostingView.frame = NSRect(x: 0, y: 0, width: 700, height: 180)
+            let window = NSWindow(
+                contentRect: hostingView.frame,
+                styleMask: .borderless,
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = hostingView
+            window.makeKeyAndOrderFront(nil)
+            hostingView.layoutSubtreeIfNeeded()
+            defer { window.orderOut(nil) }
+
+            return hostingView.allDescendantViews.compactMap { $0 as? NSButton }.count
+        }
+
+        let hiddenButtonCount = openButtonCount(optionIsPressed: false)
+        XCTAssertEqual(openButtonCount(optionIsPressed: true), hiddenButtonCount + 1)
     }
 
     func testNativeToolbarKeepsTheModePickerAheadOfOverflowActions() throws {
@@ -4423,6 +4462,7 @@ private func connectionCardOpenCount(afterDoubleClickAt location: NSPoint) -> In
         isShortest: false,
         isPerformingAction: false,
         showsActionMenu: false,
+        showsOpenConnectionButton: false,
         timeFrameCoordinateSpace: nil,
         openConnection: { openCount += 1 },
         openService: { _ in },

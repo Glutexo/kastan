@@ -176,7 +176,7 @@ struct ConnectionsView: View {
     @State private var hasUsedDirectConnectionsShortcut = false
     @State private var isSearchFormCollapsed = false
     @State private var emailSelection: ConnectionSelection?
-    @State private var showsSearchShortcuts = SearchShortcutPresentation.isVisible(
+    @State private var optionIsPressed = SearchShortcutPresentation.isVisible(
         for: NSEvent.modifierFlags
     )
 
@@ -216,7 +216,7 @@ struct ConnectionsView: View {
             .animation(.easeInOut(duration: 0.18), value: isSearchFormCollapsed)
         }
         .background {
-            OptionModifierMonitor(isPressed: $showsSearchShortcuts)
+            OptionModifierMonitor(isPressed: $optionIsPressed)
                 .frame(width: 0, height: 0)
         }
         .focusedSceneValue(\.searchEditCommandContext, searchEditCommandContext)
@@ -278,7 +278,7 @@ struct ConnectionsView: View {
                 selectCurrentDateAndTime: {
                     model.selectCurrentDateAndTime()
                 },
-                showsCurrentDateAndTimeShortcut: showsSearchShortcuts,
+                showsCurrentDateAndTimeShortcut: optionIsPressed,
                 usesCompactLayout: layout.usesStackedSearchControls
             )
 
@@ -324,7 +324,7 @@ struct ConnectionsView: View {
             scope: .places,
             client: client,
             headerShortcutTitle: "Here",
-            showsHeaderShortcut: showsSearchShortcuts,
+            showsHeaderShortcut: optionIsPressed,
             isPerformingHeaderShortcut: model.locatingEndpoint == .from,
             isHeaderShortcutDisabled: model.locatingEndpoint != nil
         ) {
@@ -342,7 +342,7 @@ struct ConnectionsView: View {
             scope: .places,
             client: client,
             headerShortcutTitle: "Here",
-            showsHeaderShortcut: showsSearchShortcuts,
+            showsHeaderShortcut: optionIsPressed,
             isPerformingHeaderShortcut: model.locatingEndpoint == .to,
             isHeaderShortcutDisabled: model.locatingEndpoint != nil
         ) {
@@ -388,7 +388,7 @@ struct ConnectionsView: View {
     private var directConnectionsOnlyShortcut: some View {
         if DirectConnectionsShortcutPresentation.isVisible(
             journeyOptionsAreExpanded: isJourneyOptionsExpanded,
-            optionIsPressed: showsSearchShortcuts,
+            optionIsPressed: optionIsPressed,
             hasBeenUsed: hasUsedDirectConnectionsShortcut
         ) {
             directConnectionsOnlyToggle
@@ -613,6 +613,7 @@ struct ConnectionsView: View {
                             model.processingCalendarConnectionID == connection.id ||
                             model.processingPDFConnectionID == connection.id,
                         showsActionMenu: true,
+                        showsOpenConnectionButton: optionIsPressed,
                         timeFrameCoordinateSpace: nil,
                         openConnection: {
                             openWindow(
@@ -810,7 +811,7 @@ private struct ConnectionTimeFramePreferenceKey: PreferenceKey {
     }
 }
 
-/// Contains one complete journey and all of its legs in a distinct native result card.
+/// Contains one complete journey and reveals its new-window header shortcut while Option is held.
 struct ConnectionCard: View {
     let number: Int?
     let connection: IDOSConnection
@@ -819,6 +820,7 @@ struct ConnectionCard: View {
     let isShortest: Bool
     let isPerformingAction: Bool
     let showsActionMenu: Bool
+    let showsOpenConnectionButton: Bool
     let timeFrameCoordinateSpace: String?
     let openConnection: (() -> Void)?
     let openService: (ServiceSelection) -> Void
@@ -882,7 +884,7 @@ struct ConnectionCard: View {
                     .onTapGesture(count: 2) {
                         openConnection?()
                     }
-                    if let openConnection {
+                    if showsOpenConnectionButton, let openConnection {
                         Button(action: openConnection) {
                             Label("Open connection in new window", systemImage: "macwindow")
                                 .labelStyle(.iconOnly)
@@ -1022,6 +1024,7 @@ struct ConnectionDetailView: View {
                     isShortest: false,
                     isPerformingAction: isPerformingAction,
                     showsActionMenu: false,
+                    showsOpenConnectionButton: false,
                     timeFrameCoordinateSpace: Self.scrollCoordinateSpace,
                     openConnection: nil,
                     openService: { openWindow(id: AppWindow.serviceDetail, value: $0) },
