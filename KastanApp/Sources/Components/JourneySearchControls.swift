@@ -199,6 +199,9 @@ struct JourneySearchHeader: View {
 
 /// Keeps search actions and connection-specific options visually identical across journey searches.
 struct JourneySearchControls: View {
+    /// Matches the painted search-action edge to the trailing overdraw of native text fields.
+    static let searchButtonTrailingVisualOffset: CGFloat = 1
+
     /// Keeps the search action compact in narrow forms and comfortably wide otherwise.
     static func searchButtonContentWidth(usesStackedLayout: Bool) -> CGFloat {
         usesStackedLayout ? 80 : 140
@@ -273,6 +276,7 @@ struct JourneySearchControls: View {
         .controlSize(.large)
         .keyboardShortcut(.defaultAction)
         .disabled(!canSearch)
+        .offset(x: Self.searchButtonTrailingVisualOffset)
     }
 }
 

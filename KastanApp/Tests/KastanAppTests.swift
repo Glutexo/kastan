@@ -1397,7 +1397,12 @@ final class KastanAppTests: XCTestCase {
                 context
             )
 
-            XCTAssertEqual(renderedTrailingEdge, width, accuracy: 1, context)
+            XCTAssertEqual(
+                renderedTrailingEdge,
+                width + JourneySearchControls.searchButtonTrailingVisualOffset,
+                accuracy: 0.1,
+                context
+            )
         }
 
         for (width, usesStackedLayout) in [(490.0, true), (880.0, false)] {
