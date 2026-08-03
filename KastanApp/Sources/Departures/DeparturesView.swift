@@ -102,8 +102,6 @@ struct DeparturesView: View {
             )
             .frame(maxWidth: .infinity)
 
-            Divider()
-
             searchControls(stacked: stacked)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
