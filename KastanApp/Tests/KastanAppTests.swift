@@ -3594,7 +3594,7 @@ final class KastanAppTests: XCTestCase {
     }
 
     func testCompleteServiceDetailRendersAtCompactWindowWidth() {
-        XCTAssertEqual(ServiceDetailView.defaultWindowWidth, 540)
+        XCTAssertEqual(ServiceDetailView.defaultWindowWidth, 480)
         XCTAssertEqual(ServiceDetailView.minimumWindowWidth, 480)
 
         let hostingView = NSHostingView(

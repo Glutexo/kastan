@@ -338,9 +338,9 @@ enum ServiceRouteInitialScroll {
 
 /// Shows every stop and piece of service information supplied by IDOS in its own window.
 struct ServiceDetailView: View {
-    /// Keeps new service windows compact while leaving room for the adaptive route and information layout.
-    static let defaultWindowWidth: CGFloat = 540
+    /// Opens new service routes at the compact width already supported by the adaptive route layout.
     static let minimumWindowWidth: CGFloat = 480
+    static let defaultWindowWidth = minimumWindowWidth
 
     private static let scrollCoordinateSpace = "service-detail-scroll"
 
