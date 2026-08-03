@@ -3221,7 +3221,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(didSelect)
     }
 
-    func testDelayPresentationLocalizesKnownStateAndPreservesCarrierDetail() throws {
+    func testDelayPresentationLocalizesKnownStatesAndLiveMinuteCounts() throws {
         let knownStates: [(key: String, czechSource: String)] = [
             ("Currently no delay", "Aktuálně bez zpoždění"),
             ("Departure tends to be on time", "Odjezd bývá včas"),
@@ -3239,6 +3239,26 @@ final class KastanAppTests: XCTestCase {
 
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        XCTAssertEqual(
+            ResultMetadata.delay(" Current delay of 1 minute ", bundle: czech),
+            "Aktuální zpoždění 1 minuta"
+        )
+        XCTAssertEqual(
+            ResultMetadata.delay("Current delay of 4 minutes", bundle: czech),
+            "Aktuální zpoždění 4 minuty"
+        )
+        XCTAssertEqual(
+            ResultMetadata.delay("Current delay of 7 minutes", bundle: czech),
+            "Aktuální zpoždění 7 minut"
+        )
+        XCTAssertEqual(
+            ResultMetadata.delay("Aktuální zpoždění 1 minuta", bundle: english),
+            "Current delay of 1 minute"
+        )
+        XCTAssertEqual(
+            ResultMetadata.delay("Aktuální zpoždění 4 minuty", bundle: english),
+            "Current delay of 4 minutes"
+        )
         XCTAssertEqual(
             knownStates.map { czech.localizedString(forKey: $0.key, value: nil, table: nil) },
             [

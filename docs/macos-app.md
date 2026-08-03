@@ -121,8 +121,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   the shortest displayed duration; complete-connection windows follow the same setting. Badge text never wraps or
   forces the connection time and duration onto extra lines: each badge collapses to its semantic emoji when the
   complete localized title does not fit, and hovering that compact badge reveals the title. The neighboring Show item
-  details setting is likewise off initially, global, and persistent. Enabling it reveals carriers, localized Czech or
-  English IDOS punctuality states, via descriptions, tariff zones, platforms or stands, tracks, and distances across
+  details setting is likewise off initially, global, and persistent. Enabling it reveals carriers and localized Czech
+  or English IDOS punctuality states, including live delay minute counts. It also reveals via descriptions, tariff
+  zones, platforms or stands, tracks, and distances across
   connection services, station boards, station timetables, complete service windows, and Force Click previews.
   Operational stop notes and complete service information remain visible independently of this presentation choice.
   Cards always retain line colors and transport symbols. Right-clicking anywhere on a connection card

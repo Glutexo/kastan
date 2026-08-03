@@ -427,6 +427,13 @@ enum ResultItemDetailsPreference {
 
 /// Keeps optional metadata compact, readable, and governed by the global View preference.
 enum ResultMetadata {
+    private static let currentDelayExpressions = [
+        #"^Current\s+delay\s+of\s+([0-9]+)\s+minutes?$"#,
+        #"^Aktuální\s+zpoždění\s+([0-9]+)\s+minut(?:a|y)?$"#,
+    ].compactMap {
+        try? NSRegularExpression(pattern: $0, options: [.caseInsensitive])
+    }
+
     static func joined(_ values: String?...) -> String? {
         joined(values)
     }
@@ -452,10 +459,19 @@ enum ResultMetadata {
         )
     }
 
-    /// Localizes known Czech or English IDOS punctuality states while preserving other messages verbatim.
-    static func delay(_ value: String?) -> String? {
+    /// Localizes known Czech or English IDOS punctuality states and live minute counts while
+    /// preserving other messages.
+    static func delay(_ value: String?, bundle: Bundle = .main) -> String? {
         guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
             return nil
+        }
+
+        if let minutes = currentDelayMinutes(from: value) {
+            return AppLocalization.plural(
+                "Current delay of %lld minutes",
+                count: minutes,
+                bundle: bundle
+            )
         }
 
         let knownStates: [(key: String, sourceVariants: [String])] = [
@@ -470,9 +486,26 @@ enum ResultMetadata {
                 value.compare($0, options: .caseInsensitive) == .orderedSame
             }
         }) {
-            return AppLocalization.string(state.key)
+            return bundle.localizedString(forKey: state.key, value: state.key, table: nil)
         }
         return value
+    }
+
+    /// Reads the equivalent English and Czech live-delay sentences emitted by IDOS.
+    private static func currentDelayMinutes(from value: String) -> Int? {
+        let fullRange = NSRange(value.startIndex..<value.endIndex, in: value)
+
+        for expression in currentDelayExpressions {
+            guard let match = expression.firstMatch(in: value, range: fullRange),
+               match.range == fullRange,
+               let numberRange = Range(match.range(at: 1), in: value),
+               let minutes = Int(value[numberRange])
+            else {
+                continue
+            }
+            return minutes
+        }
+        return nil
     }
 }
 
