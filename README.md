@@ -41,16 +41,20 @@ full feature descriptions, every CLI command, the Swift API, and MCP configurati
 
 ## Development
 
-On macOS, the Makefile provides the common build and test workflow for the Swift package, MCP server, and app:
+On macOS, the Makefile provides the common build, test, and packaging workflow for the Swift package, MCP server,
+and app:
 
 ```sh
 make build
 make test
+make
 ```
 
-Run `make help` to list the individual test targets. The CLI and MCP guides retain their platform-specific
+`make` writes a universal macOS DMG and a ZIP of the committed buildable sources to `dist/`. Run `make help`
+to list the individual build, test, and archive targets. The CLI and MCP guides retain their platform-specific
 commands for contributors working without Xcode. GitHub Actions runs all three test suites for changes to `main`
-and for pull requests.
+and for pull requests. The [macOS guide](docs/macos-app.md#create-download-archives) documents archive contents and
+the signing limitation of locally generated builds.
 
 ## Why Kaštan?
 
