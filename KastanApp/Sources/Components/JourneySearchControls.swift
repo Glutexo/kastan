@@ -46,6 +46,7 @@ struct SearchTimetablePicker: View {
         usesCompactLayout ? -8 : 2
     }
 
+    @Environment(\.openWindow) private var openWindow
     @AppStorage(TimetableFavorites.storageKey) private var serializedTimetableFavorites = "[]"
     @Binding private var timetable: IDOSTimetable
 
@@ -87,6 +88,13 @@ struct SearchTimetablePicker: View {
                 .buttonStyle(.borderless)
                 .accessibilityLabel(Text(favoriteButtonLabel))
                 .help(Text(favoriteButtonLabel))
+                .contextMenu {
+                    TimetableFavoriteContextMenu(
+                        openFavoriteTimetables: {
+                            openWindow(id: AppWindow.favoriteTimetables)
+                        }
+                    )
+                }
             }
             .fixedSize(horizontal: true, vertical: false)
         }
@@ -120,6 +128,33 @@ struct SearchTimetablePicker: View {
             }
         )
     }
+}
+
+/// Offers the favorites manager as the star button's sole secondary action.
+struct TimetableFavoriteContextMenu: View {
+    let openFavoriteTimetables: () -> Void
+
+    var body: some View {
+        ForEach(TimetableFavoriteContextAction.allCases) { action in
+            Button(LocalizedStringKey(action.rawValue)) {
+                perform(action)
+            }
+        }
+    }
+
+    func perform(_ action: TimetableFavoriteContextAction) {
+        switch action {
+        case .openManager:
+            openFavoriteTimetables()
+        }
+    }
+}
+
+/// Defines the complete one-command catalog shown by a secondary click on the favorite star.
+enum TimetableFavoriteContextAction: String, CaseIterable, Hashable, Identifiable {
+    case openManager = "Favorite timetables"
+
+    var id: Self { self }
 }
 
 /// Keeps the timetable context and journey instant on one stable row across journey searches.

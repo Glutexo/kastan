@@ -2592,6 +2592,23 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(TimetableFavorites(serialized: favorites.serialized), favorites)
     }
 
+    func testFavoriteStarContextMenuOffersOnlyTheFavoritesManager() {
+        XCTAssertEqual(TimetableFavoriteContextAction.allCases, [.openManager])
+        XCTAssertEqual(
+            AppLocalization.string(TimetableFavoriteContextAction.openManager.rawValue),
+            AppLocalization.string("Favorite timetables")
+        )
+
+        var didOpenFavoriteTimetables = false
+        let menu = TimetableFavoriteContextMenu(
+            openFavoriteTimetables: { didOpenFavoriteTimetables = true }
+        )
+
+        menu.perform(.openManager)
+
+        XCTAssertTrue(didOpenFavoriteTimetables)
+    }
+
     func testFavoriteTimetablesRemainInTheirCatalogSections() {
         let options = AppTimetablePickerOptions(favoriteSlugs: ["vlaky", "odis"])
 
