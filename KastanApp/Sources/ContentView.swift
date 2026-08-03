@@ -195,13 +195,15 @@ struct SearchWorkspace<SearchContent: View, ResultsContent: View>: View {
 struct ContentView: View {
     @Environment(\.openWindow) private var openWindow
     private let client: any IDOSClienting
+    private let showsConnectionBadges: Bool
     @StateObject private var connectionsModel: ConnectionsViewModel
     @StateObject private var departuresModel: DeparturesViewModel
     @StateObject private var stationTimetablesModel: StationTimetablesViewModel
     @State private var selection = AppSection.connections
 
-    init(client: any IDOSClienting) {
+    init(client: any IDOSClienting, showsConnectionBadges: Bool) {
         self.client = client
+        self.showsConnectionBadges = showsConnectionBadges
         _connectionsModel = StateObject(wrappedValue: ConnectionsViewModel(client: client))
         _departuresModel = StateObject(wrappedValue: DeparturesViewModel(client: client))
         _stationTimetablesModel = StateObject(wrappedValue: StationTimetablesViewModel(client: client))
@@ -223,7 +225,11 @@ struct ContentView: View {
     private var selectedContent: some View {
         switch selection {
         case .connections:
-            ConnectionsView(model: connectionsModel, client: client)
+            ConnectionsView(
+                model: connectionsModel,
+                client: client,
+                showsConnectionBadges: showsConnectionBadges
+            )
         case .departures:
             DeparturesView(model: departuresModel, client: client)
         case .stationTimetables:

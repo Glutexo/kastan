@@ -75,7 +75,7 @@ enum ConnectionResultsPresentation: Equatable {
 }
 
 /// Identifies a connection badge's stable symbol, passenger wording, and visual category.
-enum ConnectionBadgeKind {
+enum ConnectionBadgeKind: Hashable {
     case direct
     case shortest
 
@@ -115,8 +115,32 @@ enum ConnectionBadgeKind {
     }
 }
 
-/// Keeps both connection-result badges visibly semantic and aligned with their CLI counterparts.
+/// Defines the application-wide persisted choice for showing semantic badges on connections.
+enum ConnectionBadgePreference {
+    static let storageKey = "showsConnectionBadges"
+    static let defaultValue = false
+}
+
+/// Builds semantic connection-result badges and filters them through the global View preference.
 enum ConnectionBadgePresentation {
+    /// Returns the badges allowed by the global View preference for one displayed connection.
+    static func visibleKinds(
+        showsBadges: Bool,
+        isDirect: Bool,
+        isShortest: Bool
+    ) -> [ConnectionBadgeKind] {
+        guard showsBadges else { return [] }
+
+        var kinds: [ConnectionBadgeKind] = []
+        if isDirect {
+            kinds.append(.direct)
+        }
+        if isShortest {
+            kinds.append(.shortest)
+        }
+        return kinds
+    }
+
     static func direct(bundle: Bundle = .main) -> String {
         ConnectionBadgeKind.direct.title(bundle: bundle)
     }
@@ -172,6 +196,7 @@ struct ConnectionsView: View {
     @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: ConnectionsViewModel
     let client: any IDOSClienting
+    let showsConnectionBadges: Bool
     @State private var isJourneyOptionsExpanded = false
     @State private var hasUsedDirectConnectionsShortcut = false
     @State private var isSearchFormCollapsed = false
@@ -609,6 +634,7 @@ struct ConnectionsView: View {
                         timetable: model.timetable,
                         client: client,
                         isShortest: shortestConnectionIDs.contains(connection.id),
+                        showsConnectionBadges: showsConnectionBadges,
                         isPerformingAction: model.processingEmailConnectionID == connection.id ||
                             model.processingCalendarConnectionID == connection.id ||
                             model.processingPDFConnectionID == connection.id,
@@ -818,6 +844,7 @@ struct ConnectionCard: View {
     let timetable: IDOSTimetable
     let client: any IDOSClienting
     let isShortest: Bool
+    let showsConnectionBadges: Bool
     let isPerformingAction: Bool
     let showsActionMenu: Bool
     let showsOpenConnectionButton: Bool
@@ -872,11 +899,15 @@ struct ConnectionCard: View {
                             .lineLimit(1)
                             .fixedSize(horizontal: true, vertical: false)
                             .layoutPriority(1)
-                        if connection.legs.count <= 1 {
-                            AdaptiveConnectionBadge(kind: .direct)
-                        }
-                        if isShortest {
-                            AdaptiveConnectionBadge(kind: .shortest)
+                        ForEach(
+                            ConnectionBadgePresentation.visibleKinds(
+                                showsBadges: showsConnectionBadges,
+                                isDirect: connection.legs.count <= 1,
+                                isShortest: isShortest
+                            ),
+                            id: \.self
+                        ) { kind in
+                            AdaptiveConnectionBadge(kind: kind)
                         }
                         Spacer(minLength: 0)
                     }
@@ -993,13 +1024,16 @@ struct ConnectionDetailView: View {
     @State private var isEmailPresented = false
     private let selection: ConnectionSelection
     private let client: any IDOSClienting
+    private let showsConnectionBadges: Bool
 
     init(
         selection: ConnectionSelection,
-        client: any IDOSClienting
+        client: any IDOSClienting,
+        showsConnectionBadges: Bool
     ) {
         self.selection = selection
         self.client = client
+        self.showsConnectionBadges = showsConnectionBadges
         let actionsModel = ConnectionsViewModel(client: client)
         actionsModel.timetable = selection.timetable
         _actionsModel = StateObject(wrappedValue: actionsModel)
@@ -1022,6 +1056,7 @@ struct ConnectionDetailView: View {
                     timetable: selection.timetable,
                     client: client,
                     isShortest: false,
+                    showsConnectionBadges: showsConnectionBadges,
                     isPerformingAction: isPerformingAction,
                     showsActionMenu: false,
                     showsOpenConnectionButton: false,

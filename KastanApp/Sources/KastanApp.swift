@@ -576,15 +576,20 @@ struct ResultDetailCommands: Commands {
     }
 }
 
-/// Keeps search-mode navigation available from the standard View menu.
+/// Keeps search navigation and application-wide result presentation in the standard View menu.
 struct AppSectionCommands: Commands {
     @FocusedValue(\.appSectionSelection) private var selection: Binding<AppSection>?
+    @Binding var showsConnectionBadges: Bool
 
     var body: some Commands {
         CommandGroup(after: .toolbar) {
             sectionToggle(.connections)
             sectionToggle(.departures)
             sectionToggle(.stationTimetables)
+
+            Divider()
+
+            Toggle("Show connection badges", isOn: $showsConnectionBadges)
 
             Divider()
         }
@@ -617,6 +622,8 @@ struct KastanApp: App {
     /// Opens new main windows directly in the fully supported compact layout.
     static let defaultMainWindowWidth = minimumMainWindowWidth
 
+    @AppStorage(ConnectionBadgePreference.storageKey)
+    private var showsConnectionBadges = ConnectionBadgePreference.defaultValue
     private let client = IDOSClient()
 
     init() {
@@ -626,14 +633,17 @@ struct KastanApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(client: client)
+            ContentView(
+                client: client,
+                showsConnectionBadges: showsConnectionBadges
+            )
                 .frame(minWidth: Self.minimumMainWindowWidth, minHeight: 520)
         }
         .defaultSize(width: Self.defaultMainWindowWidth, height: 720)
         .commands {
             AppWindowCommands()
             ResultDetailCommands()
-            AppSectionCommands()
+            AppSectionCommands(showsConnectionBadges: $showsConnectionBadges)
             SearchEditCommands()
             AppInformationCommands()
             AppHelpCommands()
@@ -663,7 +673,11 @@ struct KastanApp: App {
 
         WindowGroup("Connection detail", id: AppWindow.connectionDetail, for: ConnectionSelection.self) { selection in
             if let selection = selection.wrappedValue {
-                ConnectionDetailView(selection: selection, client: client)
+                ConnectionDetailView(
+                    selection: selection,
+                    client: client,
+                    showsConnectionBadges: showsConnectionBadges
+                )
             }
         }
         .defaultSize(width: ConnectionDetailView.defaultWindowWidth, height: 640)

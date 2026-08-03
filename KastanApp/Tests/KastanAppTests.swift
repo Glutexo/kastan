@@ -64,6 +64,33 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testViewMenuOffersThePersistentConnectionBadgeSetting() throws {
+        let title = AppLocalization.string("Show connection badges")
+        let menus = try XCTUnwrap(NSApplication.shared.mainMenu).items
+            .compactMap(\.submenu)
+            .filter { menu in menu.items.contains { $0.title == title } }
+
+        XCTAssertEqual(menus.count, 1)
+        let item = try XCTUnwrap(menus[0].items.first { $0.title == title })
+        let storedValue = UserDefaults.standard.object(
+            forKey: ConnectionBadgePreference.storageKey
+        ) as? Bool
+        let badgesAreShown = storedValue ?? ConnectionBadgePreference.defaultValue
+        XCTAssertEqual(item.state, badgesAreShown ? .on : .off)
+        XCTAssertFalse(ConnectionBadgePreference.defaultValue)
+
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Show connection badges", value: nil, table: nil),
+            "Zobrazit štítky spojení"
+        )
+        XCTAssertEqual(
+            english.localizedString(forKey: "Show connection badges", value: nil, table: nil),
+            "Show connection badges"
+        )
+    }
+
     func testEditMenuSeparatesFillCurrentFromRouteSwapping() throws {
         let mainMenu = try XCTUnwrap(NSApplication.shared.mainMenu)
         let fillCurrentTitle = AppLocalization.string("Fill Current")
@@ -1384,7 +1411,11 @@ final class KastanAppTests: XCTestCase {
             context: String
         ) {
             let hostingView = NSHostingView(
-                rootView: ConnectionsView(model: model, client: client)
+                rootView: ConnectionsView(
+                    model: model,
+                    client: client,
+                    showsConnectionBadges: false
+                )
                     .frame(width: width, height: 600)
             )
             hostingView.frame = NSRect(x: 0, y: 0, width: width, height: 600)
@@ -1603,7 +1634,8 @@ final class KastanAppTests: XCTestCase {
         try assertTimetablePrecedesInput(
             ConnectionsView(
                 model: ConnectionsViewModel(client: connectionsClient),
-                client: connectionsClient
+                client: connectionsClient,
+                showsConnectionBadges: false
             ),
             prompts: ["Departure place", "Arrival place"],
             mode: "Connections"
@@ -2441,6 +2473,33 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(ConnectionBadgePresentation.shortest(bundle: czech), "⚡ Nejrychlejší")
     }
 
+    func testConnectionBadgesFollowTheGlobalVisibilityPreference() {
+        XCTAssertEqual(
+            ConnectionBadgePresentation.visibleKinds(
+                showsBadges: false,
+                isDirect: true,
+                isShortest: true
+            ),
+            []
+        )
+        XCTAssertEqual(
+            ConnectionBadgePresentation.visibleKinds(
+                showsBadges: true,
+                isDirect: true,
+                isShortest: true
+            ),
+            [.direct, .shortest]
+        )
+        XCTAssertEqual(
+            ConnectionBadgePresentation.visibleKinds(
+                showsBadges: true,
+                isDirect: false,
+                isShortest: true
+            ),
+            [.shortest]
+        )
+    }
+
     func testAdaptiveConnectionBadgeStaysOneLineAtCompactWidth() throws {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let full = NSHostingView(
@@ -2570,6 +2629,7 @@ final class KastanAppTests: XCTestCase {
             timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
             client: MockIDOSClient(),
             isShortest: true,
+            showsConnectionBadges: false,
             isPerformingAction: false,
             showsActionMenu: true,
             showsOpenConnectionButton: false,
@@ -2598,8 +2658,22 @@ final class KastanAppTests: XCTestCase {
     }
 
     func testDoubleClickingAnywhereInConnectionSummaryOpensItsWindow() {
-        XCTAssertEqual(connectionCardOpenCount(afterDoubleClickAt: NSPoint(x: 300, y: 112)), 1)
-        XCTAssertEqual(connectionCardOpenCount(afterDoubleClickAt: NSPoint(x: 300, y: 82)), 1)
+        for showsConnectionBadges in [false, true] {
+            XCTAssertEqual(
+                connectionCardOpenCount(
+                    afterDoubleClickAt: NSPoint(x: 300, y: 120),
+                    showsConnectionBadges: showsConnectionBadges
+                ),
+                1
+            )
+            XCTAssertEqual(
+                connectionCardOpenCount(
+                    afterDoubleClickAt: NSPoint(x: 300, y: 90),
+                    showsConnectionBadges: showsConnectionBadges
+                ),
+                1
+            )
+        }
     }
 
     func testConnectionHeaderOpenButtonAppearsOnlyWhileOptionIsPressed() {
@@ -2610,6 +2684,7 @@ final class KastanAppTests: XCTestCase {
                 timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
                 client: MockIDOSClient(),
                 isShortest: false,
+                showsConnectionBadges: false,
                 isPerformingAction: false,
                 showsActionMenu: true,
                 showsOpenConnectionButton: optionIsPressed,
@@ -3408,7 +3483,11 @@ final class KastanAppTests: XCTestCase {
             timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains")
         )
         let hostingView = NSHostingView(
-            rootView: ConnectionDetailView(selection: selection, client: MockIDOSClient())
+            rootView: ConnectionDetailView(
+                selection: selection,
+                client: MockIDOSClient(),
+                showsConnectionBadges: false
+            )
                 .frame(width: ConnectionDetailView.minimumWindowWidth, height: 500)
         )
         hostingView.frame = NSRect(
@@ -4450,9 +4529,12 @@ private func connection(id: String, duration: String = "2 h 30 min") -> IDOSConn
     )
 }
 
-/// Delivers a native double-click to a rendered connection card and records detail-window openings.
+/// Delivers a native double-click to the rendered connection summary in either badge layout.
 @MainActor
-private func connectionCardOpenCount(afterDoubleClickAt location: NSPoint) -> Int {
+private func connectionCardOpenCount(
+    afterDoubleClickAt location: NSPoint,
+    showsConnectionBadges: Bool
+) -> Int {
     var openCount = 0
     let card = ConnectionCard(
         number: 1,
@@ -4460,6 +4542,7 @@ private func connectionCardOpenCount(afterDoubleClickAt location: NSPoint) -> In
         timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
         client: MockIDOSClient(),
         isShortest: false,
+        showsConnectionBadges: showsConnectionBadges,
         isPerformingAction: false,
         showsActionMenu: false,
         showsOpenConnectionButton: false,
