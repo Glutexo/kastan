@@ -425,6 +425,98 @@ enum ResultItemDetailsPreference {
     static let defaultValue = false
 }
 
+/// Defines the application-wide persisted choice for replacing compact stop symbols with the
+/// complete note text supplied by IDOS.
+enum StopNoteTextPreference {
+    static let storageKey = "showsStopNoteText"
+    static let defaultValue = false
+}
+
+/// Keeps common stop properties next to the stop name while retaining any note that cannot be
+/// represented unambiguously by a passenger-facing symbol.
+struct StopNotePresentation: Equatable {
+    struct Symbol: Equatable {
+        let emoji: String
+        let note: String
+    }
+
+    let symbols: [Symbol]
+    let textNotes: [String]
+
+    init(notes: [String], showsText: Bool) {
+        guard !showsText else {
+            symbols = []
+            textNotes = notes
+            return
+        }
+
+        var symbols: [Symbol] = []
+        var textNotes: [String] = []
+        for note in notes {
+            if let emoji = Self.emoji(for: note) {
+                symbols.append(Symbol(emoji: emoji, note: note))
+            } else {
+                textNotes.append(note)
+            }
+        }
+        self.symbols = symbols
+        self.textNotes = textNotes
+    }
+
+    private static func emoji(for note: String) -> String? {
+        let normalized = note
+            .folding(
+                options: [.diacriticInsensitive, .caseInsensitive],
+                locale: Locale(identifier: "en_US_POSIX")
+            )
+            .lowercased()
+
+        if normalized.contains("wheelchair accessible") || normalized.contains("bezbarier") {
+            return "♿"
+        }
+        if normalized.contains("rail station") ||
+            normalized.contains("railway station") ||
+            normalized.contains("zeleznicni stanice") ||
+            normalized.contains("zeleznicni dopravu")
+        {
+            return "🚉"
+        }
+        if normalized.contains("undeground") ||
+            normalized.contains("underground") ||
+            normalized.contains("metro")
+        {
+            return "🚇"
+        }
+        if normalized.contains("traffic restriction") ||
+            normalized.contains("vyluk") ||
+            normalized.contains("omezeni provozu")
+        {
+            return "🚧"
+        }
+        if normalized.contains("stops on signal") ||
+            normalized.contains("request stop") ||
+            normalized.contains("na znameni")
+        {
+            return "🔔"
+        }
+        return nil
+    }
+}
+
+/// Exposes the original IDOS wording to VoiceOver and on hover without taking the compact symbol
+/// away from the stop title.
+struct StopNoteSymbols: View {
+    let values: [StopNotePresentation.Symbol]
+
+    var body: some View {
+        ForEach(Array(values.enumerated()), id: \.offset) { _, value in
+            Text(value.emoji)
+                .accessibilityLabel(Text(verbatim: value.note))
+                .help(value.note)
+        }
+    }
+}
+
 /// Keeps optional metadata compact, readable, and governed by the global View preference.
 enum ResultMetadata {
     private static let currentDelayExpressions = [

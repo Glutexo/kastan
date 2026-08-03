@@ -198,6 +198,7 @@ struct ConnectionsView: View {
     let client: any IDOSClienting
     let showsConnectionBadges: Bool
     let showsItemDetails: Bool
+    let showsStopNoteText: Bool
     @State private var isJourneyOptionsExpanded = false
     @State private var hasUsedDirectConnectionsShortcut = false
     @State private var isSearchFormCollapsed = false
@@ -637,6 +638,7 @@ struct ConnectionsView: View {
                         isShortest: shortestConnectionIDs.contains(connection.id),
                         showsConnectionBadges: showsConnectionBadges,
                         showsItemDetails: showsItemDetails,
+                        showsStopNoteText: showsStopNoteText,
                         isPerformingAction: model.processingEmailConnectionID == connection.id ||
                             model.processingCalendarConnectionID == connection.id ||
                             model.processingPDFConnectionID == connection.id,
@@ -848,6 +850,7 @@ struct ConnectionCard: View {
     let isShortest: Bool
     let showsConnectionBadges: Bool
     let showsItemDetails: Bool
+    let showsStopNoteText: Bool
     let isPerformingAction: Bool
     let showsActionMenu: Bool
     let showsOpenConnectionButton: Bool
@@ -976,6 +979,7 @@ struct ConnectionCard: View {
                                 leg: leg,
                                 client: client,
                                 showsItemDetails: showsItemDetails,
+                                showsStopNoteText: showsStopNoteText,
                                 openService: openService
                             )
                             .id("\(index):\(leg.id ?? "unavailable")")
@@ -1030,17 +1034,20 @@ struct ConnectionDetailView: View {
     private let client: any IDOSClienting
     private let showsConnectionBadges: Bool
     private let showsItemDetails: Bool
+    private let showsStopNoteText: Bool
 
     init(
         selection: ConnectionSelection,
         client: any IDOSClienting,
         showsConnectionBadges: Bool,
-        showsItemDetails: Bool
+        showsItemDetails: Bool,
+        showsStopNoteText: Bool
     ) {
         self.selection = selection
         self.client = client
         self.showsConnectionBadges = showsConnectionBadges
         self.showsItemDetails = showsItemDetails
+        self.showsStopNoteText = showsStopNoteText
         let actionsModel = ConnectionsViewModel(client: client)
         actionsModel.timetable = selection.timetable
         _actionsModel = StateObject(wrappedValue: actionsModel)
@@ -1065,6 +1072,7 @@ struct ConnectionDetailView: View {
                     isShortest: false,
                     showsConnectionBadges: showsConnectionBadges,
                     showsItemDetails: showsItemDetails,
+                    showsStopNoteText: showsStopNoteText,
                     isPerformingAction: isPerformingAction,
                     showsActionMenu: false,
                     showsOpenConnectionButton: false,
@@ -1313,6 +1321,7 @@ private struct ConnectionLegRow: View {
     let leg: IDOSConnectionLeg
     let client: any IDOSClienting
     let showsItemDetails: Bool
+    let showsStopNoteText: Bool
     let openService: (ServiceSelection) -> Void
     @StateObject private var contextMenuModel: ServiceDetailViewModel
     @State private var suppressesPrimaryAction = false
@@ -1322,11 +1331,13 @@ private struct ConnectionLegRow: View {
         leg: IDOSConnectionLeg,
         client: any IDOSClienting,
         showsItemDetails: Bool,
+        showsStopNoteText: Bool,
         openService: @escaping (ServiceSelection) -> Void
     ) {
         self.leg = leg
         self.client = client
         self.showsItemDetails = showsItemDetails
+        self.showsStopNoteText = showsStopNoteText
         self.openService = openService
         _contextMenuModel = StateObject(
             wrappedValue: ServiceDetailViewModel(id: leg.id ?? "", client: client)
@@ -1436,6 +1447,7 @@ private struct ConnectionLegRow: View {
                         selection: selection,
                         client: client,
                         showsItemDetails: showsItemDetails,
+                        showsStopNoteText: showsStopNoteText,
                         presentation: .preview
                     )
                 }

@@ -353,16 +353,19 @@ struct ServiceDetailView: View {
     private let routeHighlight: ServiceRouteHighlight?
     private let presentation: ResultDetailPresentation
     private let showsItemDetails: Bool
+    private let showsStopNoteText: Bool
 
     init(
         selection: ServiceSelection,
         client: any IDOSClienting,
         showsItemDetails: Bool,
+        showsStopNoteText: Bool,
         presentation: ResultDetailPresentation = .window
     ) {
         routeHighlight = selection.highlight
         self.presentation = presentation
         self.showsItemDetails = showsItemDetails
+        self.showsStopNoteText = showsStopNoteText
         _model = StateObject(wrappedValue: ServiceDetailViewModel(id: selection.id, client: client))
     }
 
@@ -573,7 +576,8 @@ struct ServiceDetailView: View {
                                                 index >= $0.lowerBound && index < $0.upperBound
                                             } ?? false,
                                             highlightedColor: highlightedColor,
-                                            showsItemDetails: showsItemDetails
+                                            showsItemDetails: showsItemDetails,
+                                            showsStopNoteText: showsStopNoteText
                                         )
                                         .background {
                                             if index == departureIndex {
@@ -782,6 +786,7 @@ struct ServiceStopRow: View {
     let bottomIsHighlighted: Bool
     let highlightedColor: Color
     let showsItemDetails: Bool
+    let showsStopNoteText: Bool
 
     var body: some View {
         let metadata = ResultMetadata.visible(
@@ -789,6 +794,10 @@ struct ServiceStopRow: View {
             ResultMetadata.station(tariffZone: stop.tariffZone, platform: stop.platform),
             stop.track.map { AppLocalization.string("Track %@", $0) },
             stop.distance
+        )
+        let notePresentation = StopNotePresentation(
+            notes: stop.notes,
+            showsText: showsStopNoteText
         )
 
         HStack(alignment: .serviceStopMarkerCenter, spacing: 12) {
@@ -828,9 +837,12 @@ struct ServiceStopRow: View {
 
             VStack(alignment: .leading, spacing: ServiceStopTimelineLayout.metadataSpacing) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(stop.name)
-                        .font(.headline)
-                        .foregroundStyle(isDimmed ? Color.secondary : Color.primary)
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        Text(stop.name)
+                        StopNoteSymbols(values: notePresentation.symbols)
+                    }
+                    .font(.headline)
+                    .foregroundStyle(isDimmed ? Color.secondary : Color.primary)
                     Spacer()
                     Text(stopTimes)
                         .font(.body.monospacedDigit())
@@ -846,7 +858,7 @@ struct ServiceStopRow: View {
                         .foregroundStyle(.secondary)
                 }
 
-                ForEach(stop.notes, id: \.self) { note in
+                ForEach(notePresentation.textNotes, id: \.self) { note in
                     NoteText(note)
                         .font(.caption)
                         .foregroundStyle(.secondary)

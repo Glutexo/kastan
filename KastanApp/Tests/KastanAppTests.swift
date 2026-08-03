@@ -67,44 +67,60 @@ final class KastanAppTests: XCTestCase {
     func testViewMenuOffersPersistentResultPresentationSettings() throws {
         let badgeTitle = AppLocalization.string("Show connection badges")
         let detailsTitle = AppLocalization.string("Show item details")
+        let stopNoteTextTitle = AppLocalization.string("Show stop note text")
         let menus = try XCTUnwrap(NSApplication.shared.mainMenu).items
             .compactMap(\.submenu)
             .filter { menu in
                 menu.items.contains { $0.title == badgeTitle } &&
-                    menu.items.contains { $0.title == detailsTitle }
+                    menu.items.contains { $0.title == detailsTitle } &&
+                    menu.items.contains { $0.title == stopNoteTextTitle }
             }
 
         XCTAssertEqual(menus.count, 1)
         let badgeItem = try XCTUnwrap(menus[0].items.first { $0.title == badgeTitle })
         let detailsItem = try XCTUnwrap(menus[0].items.first { $0.title == detailsTitle })
+        let stopNoteTextItem = try XCTUnwrap(
+            menus[0].items.first { $0.title == stopNoteTextTitle }
+        )
         let storedBadgeValue = UserDefaults.standard.object(
             forKey: ConnectionBadgePreference.storageKey
         ) as? Bool
         let storedDetailsValue = UserDefaults.standard.object(
             forKey: ResultItemDetailsPreference.storageKey
         ) as? Bool
+        let storedStopNoteTextValue = UserDefaults.standard.object(
+            forKey: StopNoteTextPreference.storageKey
+        ) as? Bool
         let badgesAreShown = storedBadgeValue ?? ConnectionBadgePreference.defaultValue
         let detailsAreShown = storedDetailsValue ?? ResultItemDetailsPreference.defaultValue
+        let stopNoteTextIsShown = storedStopNoteTextValue ?? StopNoteTextPreference.defaultValue
         XCTAssertEqual(badgeItem.state, badgesAreShown ? .on : .off)
         XCTAssertEqual(detailsItem.state, detailsAreShown ? .on : .off)
+        XCTAssertEqual(stopNoteTextItem.state, stopNoteTextIsShown ? .on : .off)
         XCTAssertNotNil(badgeItem.image)
         XCTAssertNotNil(detailsItem.image)
+        XCTAssertNotNil(stopNoteTextItem.image)
         XCTAssertFalse(ConnectionBadgePreference.defaultValue)
         XCTAssertFalse(ResultItemDetailsPreference.defaultValue)
+        XCTAssertFalse(StopNoteTextPreference.defaultValue)
 
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
         XCTAssertEqual(
-            ["Show connection badges", "Show item details"].map {
+            ["Show connection badges", "Show item details", "Show stop note text"].map {
                 czech.localizedString(forKey: $0, value: nil, table: nil)
             },
-            ["Zobrazit štítky spojení", "Zobrazit podrobnosti položek"]
+            [
+                "Zobrazit štítky spojení",
+                "Zobrazit podrobnosti položek",
+                "Zobrazit text poznámek zastávek",
+            ]
         )
         XCTAssertEqual(
-            ["Show connection badges", "Show item details"].map {
+            ["Show connection badges", "Show item details", "Show stop note text"].map {
                 english.localizedString(forKey: $0, value: nil, table: nil)
             },
-            ["Show connection badges", "Show item details"]
+            ["Show connection badges", "Show item details", "Show stop note text"]
         )
     }
 
@@ -1492,7 +1508,8 @@ final class KastanAppTests: XCTestCase {
                     model: model,
                     client: client,
                     showsConnectionBadges: false,
-                    showsItemDetails: false
+                    showsItemDetails: false,
+                    showsStopNoteText: false
                 )
                     .frame(width: width, height: 600)
             )
@@ -1714,7 +1731,8 @@ final class KastanAppTests: XCTestCase {
                 model: ConnectionsViewModel(client: connectionsClient),
                 client: connectionsClient,
                 showsConnectionBadges: false,
-                showsItemDetails: false
+                showsItemDetails: false,
+                showsStopNoteText: false
             ),
             prompts: ["Departure place", "Arrival place"],
             mode: "Connections"
@@ -1725,7 +1743,8 @@ final class KastanAppTests: XCTestCase {
             DeparturesView(
                 model: DeparturesViewModel(client: departuresClient),
                 client: departuresClient,
-                showsItemDetails: false
+                showsItemDetails: false,
+                showsStopNoteText: false
             ),
             prompts: ["Station or stop"],
             mode: "Departures"
@@ -1736,7 +1755,8 @@ final class KastanAppTests: XCTestCase {
             StationTimetablesView(
                 model: StationTimetablesViewModel(client: stationTimetablesClient),
                 client: stationTimetablesClient,
-                showsItemDetails: false
+                showsItemDetails: false,
+                showsStopNoteText: false
             ),
             prompts: ["Line number or name", "Direction from", "Direction to"],
             mode: "Station Timetables"
@@ -2605,6 +2625,32 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testStopNotesUseSymbolsUntilTheTextPreferenceIsEnabled() {
+        let notes = [
+            "zastávka na znamení",
+            "wheelchair accessible stop",
+            "železniční stanice",
+            "přestup na Metro",
+            "Traffic restrictions",
+            "Board using the front door",
+        ]
+
+        let compact = StopNotePresentation(
+            notes: notes,
+            showsText: StopNoteTextPreference.defaultValue
+        )
+        XCTAssertEqual(
+            compact.symbols.map(\.emoji),
+            ["🔔", "♿", "🚉", "🚇", "🚧"]
+        )
+        XCTAssertEqual(compact.symbols.map(\.note), Array(notes.prefix(5)))
+        XCTAssertEqual(compact.textNotes, ["Board using the front door"])
+
+        let textual = StopNotePresentation(notes: notes, showsText: true)
+        XCTAssertTrue(textual.symbols.isEmpty)
+        XCTAssertEqual(textual.textNotes, notes)
+    }
+
     func testRenderedServiceStopAlignsItsMarkerAndTitleWithoutDetails() throws {
         let row = ServiceStopRow(
             stop: IDOSServiceStop(name: "Ostrava střed"),
@@ -2616,7 +2662,8 @@ final class KastanAppTests: XCTestCase {
             topIsHighlighted: false,
             bottomIsHighlighted: false,
             highlightedColor: .blue,
-            showsItemDetails: false
+            showsItemDetails: false,
+            showsStopNoteText: false
         )
         let hostingView = NSHostingView(
             rootView: row
@@ -2781,6 +2828,7 @@ final class KastanAppTests: XCTestCase {
             isShortest: true,
             showsConnectionBadges: false,
             showsItemDetails: false,
+            showsStopNoteText: false,
             isPerformingAction: false,
             showsActionMenu: true,
             showsOpenConnectionButton: false,
@@ -2837,6 +2885,7 @@ final class KastanAppTests: XCTestCase {
                 isShortest: false,
                 showsConnectionBadges: false,
                 showsItemDetails: false,
+                showsStopNoteText: false,
                 isPerformingAction: false,
                 showsActionMenu: true,
                 showsOpenConnectionButton: optionIsPressed,
@@ -3552,7 +3601,8 @@ final class KastanAppTests: XCTestCase {
             rootView: ServiceDetailView(
                 selection: ServiceSelection(id: "service-1"),
                 client: MockIDOSClient(),
-                showsItemDetails: false
+                showsItemDetails: false,
+                showsStopNoteText: false
             )
             .frame(width: ServiceDetailView.minimumWindowWidth, height: 520)
         )
@@ -3668,7 +3718,8 @@ final class KastanAppTests: XCTestCase {
                 selection: selection,
                 client: MockIDOSClient(),
                 showsConnectionBadges: false,
-                showsItemDetails: false
+                showsItemDetails: false,
+                showsStopNoteText: false
             )
                 .frame(width: ConnectionDetailView.minimumWindowWidth, height: 500)
         )
@@ -4726,6 +4777,7 @@ private func connectionCardOpenCount(
         isShortest: false,
         showsConnectionBadges: showsConnectionBadges,
         showsItemDetails: false,
+        showsStopNoteText: false,
         isPerformingAction: false,
         showsActionMenu: false,
         showsOpenConnectionButton: false,
@@ -4805,6 +4857,7 @@ private struct PresentedServicePreviewTestHost: View {
                     selection: selection,
                     client: client,
                     showsItemDetails: false,
+                    showsStopNoteText: false,
                     presentation: .preview
                 )
             }

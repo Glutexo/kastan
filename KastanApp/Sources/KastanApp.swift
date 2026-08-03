@@ -581,6 +581,7 @@ struct AppSectionCommands: Commands {
     @FocusedValue(\.appSectionSelection) private var selection: Binding<AppSection>?
     @Binding var showsConnectionBadges: Bool
     @Binding var showsItemDetails: Bool
+    @Binding var showsStopNoteText: Bool
 
     var body: some Commands {
         CommandGroup(after: .toolbar) {
@@ -595,6 +596,9 @@ struct AppSectionCommands: Commands {
             }
             Toggle(isOn: $showsItemDetails) {
                 Label("Show item details", systemImage: "info.circle")
+            }
+            Toggle(isOn: $showsStopNoteText) {
+                Label("Show stop note text", systemImage: "text.bubble")
             }
 
             Divider()
@@ -632,6 +636,8 @@ struct KastanApp: App {
     private var showsConnectionBadges = ConnectionBadgePreference.defaultValue
     @AppStorage(ResultItemDetailsPreference.storageKey)
     private var showsItemDetails = ResultItemDetailsPreference.defaultValue
+    @AppStorage(StopNoteTextPreference.storageKey)
+    private var showsStopNoteText = StopNoteTextPreference.defaultValue
     private let client = IDOSClient()
 
     init() {
@@ -644,7 +650,8 @@ struct KastanApp: App {
             ContentView(
                 client: client,
                 showsConnectionBadges: showsConnectionBadges,
-                showsItemDetails: showsItemDetails
+                showsItemDetails: showsItemDetails,
+                showsStopNoteText: showsStopNoteText
             )
                 .frame(minWidth: Self.minimumMainWindowWidth, minHeight: 520)
         }
@@ -654,7 +661,8 @@ struct KastanApp: App {
             ResultDetailCommands()
             AppSectionCommands(
                 showsConnectionBadges: $showsConnectionBadges,
-                showsItemDetails: $showsItemDetails
+                showsItemDetails: $showsItemDetails,
+                showsStopNoteText: $showsStopNoteText
             )
             SearchEditCommands()
             AppInformationCommands()
@@ -681,7 +689,8 @@ struct KastanApp: App {
                 ServiceDetailView(
                     selection: selection,
                     client: client,
-                    showsItemDetails: showsItemDetails
+                    showsItemDetails: showsItemDetails,
+                    showsStopNoteText: showsStopNoteText
                 )
             }
         }
@@ -693,7 +702,8 @@ struct KastanApp: App {
                     selection: selection,
                     client: client,
                     showsConnectionBadges: showsConnectionBadges,
-                    showsItemDetails: showsItemDetails
+                    showsItemDetails: showsItemDetails,
+                    showsStopNoteText: showsStopNoteText
                 )
             }
         }

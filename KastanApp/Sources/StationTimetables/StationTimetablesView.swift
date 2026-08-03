@@ -7,6 +7,7 @@ struct StationTimetablesView: View {
     @ObservedObject var model: StationTimetablesViewModel
     let client: any IDOSClienting
     let showsItemDetails: Bool
+    let showsStopNoteText: Bool
     @State private var isSearchFormCollapsed = false
 
     var body: some View {
@@ -294,6 +295,10 @@ struct StationTimetablesView: View {
         GroupBox("Stops") {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(result.stops.enumerated()), id: \.offset) { index, stop in
+                    let notePresentation = StopNotePresentation(
+                        notes: stop.notes,
+                        showsText: showsStopNoteText
+                    )
                     VStack(alignment: .leading, spacing: 0) {
                         Button {
                             Task { await model.selectStop(at: index) }
@@ -308,9 +313,12 @@ struct StationTimetablesView: View {
                                     .frame(width: 8, height: 8)
                                     .padding(.top, 5)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(stop.name)
-                                        .fontWeight(stop.isSelected ? .semibold : .regular)
-                                        .foregroundStyle(.primary)
+                                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                                        Text(stop.name)
+                                        StopNoteSymbols(values: notePresentation.symbols)
+                                    }
+                                    .fontWeight(stop.isSelected ? .semibold : .regular)
+                                    .foregroundStyle(.primary)
                                     if let metadata = ResultMetadata.visible(
                                         showsDetails: showsItemDetails,
                                         stopMetadata(stop)
@@ -324,15 +332,15 @@ struct StationTimetablesView: View {
                             }
                             .padding(.horizontal, 8)
                             .padding(.top, 6)
-                            .padding(.bottom, stop.notes.isEmpty ? 6 : 2)
+                            .padding(.bottom, notePresentation.textNotes.isEmpty ? 6 : 2)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .disabled(stop.isSelected || model.isSearching)
 
-                        if !stop.notes.isEmpty {
-                            NoteText(stop.notes.joined(separator: " · "))
+                        if !notePresentation.textNotes.isEmpty {
+                            NoteText(notePresentation.textNotes.joined(separator: " · "))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .padding(.leading, 64)

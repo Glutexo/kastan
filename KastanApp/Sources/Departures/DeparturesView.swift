@@ -8,6 +8,7 @@ struct DeparturesView: View {
     @ObservedObject var model: DeparturesViewModel
     let client: any IDOSClienting
     let showsItemDetails: Bool
+    let showsStopNoteText: Bool
     @State private var isSearchFormCollapsed = false
     @State private var showsSearchShortcuts = SearchShortcutPresentation.isVisible(
         for: NSEvent.modifierFlags
@@ -193,7 +194,8 @@ struct DeparturesView: View {
                         departure: departure,
                         selection: selection,
                         client: client,
-                        showsItemDetails: showsItemDetails
+                        showsItemDetails: showsItemDetails,
+                        showsStopNoteText: showsStopNoteText
                     ) {
                         openWindow(
                             id: AppWindow.serviceDetail,
@@ -215,6 +217,7 @@ private struct DepartureRow: View {
     let selection: ServiceSelection
     let client: any IDOSClienting
     let showsItemDetails: Bool
+    let showsStopNoteText: Bool
     let openService: () -> Void
     @StateObject private var contextMenuModel: ServiceDetailViewModel
     @State private var suppressesPrimaryAction = false
@@ -225,12 +228,14 @@ private struct DepartureRow: View {
         selection: ServiceSelection,
         client: any IDOSClienting,
         showsItemDetails: Bool,
+        showsStopNoteText: Bool,
         openService: @escaping () -> Void
     ) {
         self.departure = departure
         self.selection = selection
         self.client = client
         self.showsItemDetails = showsItemDetails
+        self.showsStopNoteText = showsStopNoteText
         self.openService = openService
         _contextMenuModel = StateObject(
             wrappedValue: ServiceDetailViewModel(id: selection.id, client: client)
@@ -300,6 +305,7 @@ private struct DepartureRow: View {
                 selection: selection,
                 client: client,
                 showsItemDetails: showsItemDetails,
+                showsStopNoteText: showsStopNoteText,
                 presentation: .preview
             )
         }

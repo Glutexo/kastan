@@ -44,7 +44,11 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, optional tariff zones and platforms or stands, lockout labels, explanatory notes, and links back to
-  the matching IDOS result. Their service date uses the same compact popover treatment as the other search modes while
+  the matching IDOS result. Common stop properties appear directly after the stop name as semantic emoji: request
+  stops use 🔔, wheelchair accessibility uses ♿, rail stations use 🚉, Metro transfers use 🚇, and traffic
+  restrictions use 🚧. Hovering a symbol reveals the original IDOS note, VoiceOver reads that note, and unrecognized
+  operational notes retain their complete text. Their service date uses the same compact popover treatment as the
+  other search modes while
   exposing only the date supported by IDOS; its fixed caption height keeps the search header's top inset aligned with
   the other modes. Whole week lives in that popover and remains visible in the closed control.
   Dated service notes such as a connection that runs or does not run on listed dates, or
@@ -124,10 +128,13 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   details setting is likewise off initially, global, and persistent. Enabling it reveals carriers and localized Czech
   or English IDOS punctuality states, including live delay minute counts. It also reveals via descriptions, tariff
   zones, platforms or stands, tracks, and distances across connection services, station boards, station timetables,
-  complete service windows, and Force Click previews.
+  complete service windows, and Force Click previews. Show stop note text is a third global, persistent setting that is
+  off initially. Enabling it replaces recognized stop-note emoji with the complete wording supplied by IDOS in station
+  timetables, complete service windows, and Force Click previews.
   Complete-route markers remain centered beside each stop title whether optional metadata is visible or hidden.
-  Operational stop notes remain visible independently of this presentation choice. Complete service information is
-  likewise independent of the setting, but starts collapsed beneath its own route-level disclosure heading.
+  Stop-note meaning remains visible independently of the item-details choice and the selected symbol-or-text form.
+  Complete service information is likewise independent of the setting, but starts collapsed beneath its own route-level
+  disclosure heading.
   Cards always retain line colors and transport symbols. Right-clicking anywhere on a connection card
   opens the same complete action menu as its ellipsis button, with Open connection in new window ahead of email,
   calendar, PDF, sharing, and IDOS actions. Right-clicking a particular service row stays scoped to that service and

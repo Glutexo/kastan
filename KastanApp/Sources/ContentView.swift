@@ -197,6 +197,7 @@ struct ContentView: View {
     private let client: any IDOSClienting
     private let showsConnectionBadges: Bool
     private let showsItemDetails: Bool
+    private let showsStopNoteText: Bool
     @StateObject private var connectionsModel: ConnectionsViewModel
     @StateObject private var departuresModel: DeparturesViewModel
     @StateObject private var stationTimetablesModel: StationTimetablesViewModel
@@ -205,11 +206,13 @@ struct ContentView: View {
     init(
         client: any IDOSClienting,
         showsConnectionBadges: Bool,
-        showsItemDetails: Bool
+        showsItemDetails: Bool,
+        showsStopNoteText: Bool
     ) {
         self.client = client
         self.showsConnectionBadges = showsConnectionBadges
         self.showsItemDetails = showsItemDetails
+        self.showsStopNoteText = showsStopNoteText
         _connectionsModel = StateObject(wrappedValue: ConnectionsViewModel(client: client))
         _departuresModel = StateObject(wrappedValue: DeparturesViewModel(client: client))
         _stationTimetablesModel = StateObject(wrappedValue: StationTimetablesViewModel(client: client))
@@ -235,19 +238,22 @@ struct ContentView: View {
                 model: connectionsModel,
                 client: client,
                 showsConnectionBadges: showsConnectionBadges,
-                showsItemDetails: showsItemDetails
+                showsItemDetails: showsItemDetails,
+                showsStopNoteText: showsStopNoteText
             )
         case .departures:
             DeparturesView(
                 model: departuresModel,
                 client: client,
-                showsItemDetails: showsItemDetails
+                showsItemDetails: showsItemDetails,
+                showsStopNoteText: showsStopNoteText
             )
         case .stationTimetables:
             StationTimetablesView(
                 model: stationTimetablesModel,
                 client: client,
-                showsItemDetails: showsItemDetails
+                showsItemDetails: showsItemDetails,
+                showsStopNoteText: showsStopNoteText
             )
         }
     }
