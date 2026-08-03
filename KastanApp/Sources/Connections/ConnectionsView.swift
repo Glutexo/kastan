@@ -197,6 +197,7 @@ struct ConnectionsView: View {
     @ObservedObject var model: ConnectionsViewModel
     let client: any IDOSClienting
     let showsConnectionBadges: Bool
+    let showsItemDetails: Bool
     @State private var isJourneyOptionsExpanded = false
     @State private var hasUsedDirectConnectionsShortcut = false
     @State private var isSearchFormCollapsed = false
@@ -635,6 +636,7 @@ struct ConnectionsView: View {
                         client: client,
                         isShortest: shortestConnectionIDs.contains(connection.id),
                         showsConnectionBadges: showsConnectionBadges,
+                        showsItemDetails: showsItemDetails,
                         isPerformingAction: model.processingEmailConnectionID == connection.id ||
                             model.processingCalendarConnectionID == connection.id ||
                             model.processingPDFConnectionID == connection.id,
@@ -845,6 +847,7 @@ struct ConnectionCard: View {
     let client: any IDOSClienting
     let isShortest: Bool
     let showsConnectionBadges: Bool
+    let showsItemDetails: Bool
     let isPerformingAction: Bool
     let showsActionMenu: Bool
     let showsOpenConnectionButton: Bool
@@ -972,6 +975,7 @@ struct ConnectionCard: View {
                             ConnectionLegRow(
                                 leg: leg,
                                 client: client,
+                                showsItemDetails: showsItemDetails,
                                 openService: openService
                             )
                             .id("\(index):\(leg.id ?? "unavailable")")
@@ -1025,15 +1029,18 @@ struct ConnectionDetailView: View {
     private let selection: ConnectionSelection
     private let client: any IDOSClienting
     private let showsConnectionBadges: Bool
+    private let showsItemDetails: Bool
 
     init(
         selection: ConnectionSelection,
         client: any IDOSClienting,
-        showsConnectionBadges: Bool
+        showsConnectionBadges: Bool,
+        showsItemDetails: Bool
     ) {
         self.selection = selection
         self.client = client
         self.showsConnectionBadges = showsConnectionBadges
+        self.showsItemDetails = showsItemDetails
         let actionsModel = ConnectionsViewModel(client: client)
         actionsModel.timetable = selection.timetable
         _actionsModel = StateObject(wrappedValue: actionsModel)
@@ -1057,6 +1064,7 @@ struct ConnectionDetailView: View {
                     client: client,
                     isShortest: false,
                     showsConnectionBadges: showsConnectionBadges,
+                    showsItemDetails: showsItemDetails,
                     isPerformingAction: isPerformingAction,
                     showsActionMenu: false,
                     showsOpenConnectionButton: false,
@@ -1304,6 +1312,7 @@ struct ConnectionDetailView: View {
 private struct ConnectionLegRow: View {
     let leg: IDOSConnectionLeg
     let client: any IDOSClienting
+    let showsItemDetails: Bool
     let openService: (ServiceSelection) -> Void
     @StateObject private var contextMenuModel: ServiceDetailViewModel
     @State private var suppressesPrimaryAction = false
@@ -1312,10 +1321,12 @@ private struct ConnectionLegRow: View {
     init(
         leg: IDOSConnectionLeg,
         client: any IDOSClienting,
+        showsItemDetails: Bool,
         openService: @escaping (ServiceSelection) -> Void
     ) {
         self.leg = leg
         self.client = client
+        self.showsItemDetails = showsItemDetails
         self.openService = openService
         _contextMenuModel = StateObject(
             wrappedValue: ServiceDetailViewModel(id: leg.id ?? "", client: client)
@@ -1399,7 +1410,8 @@ private struct ConnectionLegRow: View {
                             Text(leg.toStation)
                         }
                     }
-                    if let metadata = ResultMetadata.joined(
+                    if let metadata = ResultMetadata.visible(
+                        showsDetails: showsItemDetails,
                         leg.carrier,
                         ResultMetadata.delay(leg.delay),
                         ResultMetadata.station(tariffZone: leg.fromTariffZone, platform: leg.fromPlatform)
@@ -1423,6 +1435,7 @@ private struct ConnectionLegRow: View {
                     ServiceDetailView(
                         selection: selection,
                         client: client,
+                        showsItemDetails: showsItemDetails,
                         presentation: .preview
                     )
                 }

@@ -350,14 +350,17 @@ struct ServiceDetailView: View {
     @State private var initialRouteBottomClearance: CGFloat = 0
     private let routeHighlight: ServiceRouteHighlight?
     private let presentation: ResultDetailPresentation
+    private let showsItemDetails: Bool
 
     init(
         selection: ServiceSelection,
         client: any IDOSClienting,
+        showsItemDetails: Bool,
         presentation: ResultDetailPresentation = .window
     ) {
         routeHighlight = selection.highlight
         self.presentation = presentation
+        self.showsItemDetails = showsItemDetails
         _model = StateObject(wrappedValue: ServiceDetailViewModel(id: selection.id, client: client))
     }
 
@@ -567,7 +570,8 @@ struct ServiceDetailView: View {
                                             bottomIsHighlighted: highlightedRange.map {
                                                 index >= $0.lowerBound && index < $0.upperBound
                                             } ?? false,
-                                            highlightedColor: highlightedColor
+                                            highlightedColor: highlightedColor,
+                                            showsItemDetails: showsItemDetails
                                         )
                                         .background {
                                             if index == departureIndex {
@@ -716,6 +720,7 @@ private struct ServiceStopRow: View {
     let topIsHighlighted: Bool
     let bottomIsHighlighted: Bool
     let highlightedColor: Color
+    let showsItemDetails: Bool
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -755,7 +760,8 @@ private struct ServiceStopRow: View {
                         .foregroundStyle(isDimmed ? Color.secondary : Color.primary)
                 }
 
-                if let metadata = ResultMetadata.joined(
+                if let metadata = ResultMetadata.visible(
+                    showsDetails: showsItemDetails,
                     ResultMetadata.station(tariffZone: stop.tariffZone, platform: stop.platform),
                     stop.track.map { AppLocalization.string("Track %@", $0) },
                     stop.distance

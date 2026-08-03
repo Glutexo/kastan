@@ -7,6 +7,7 @@ struct DeparturesView: View {
     @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: DeparturesViewModel
     let client: any IDOSClienting
+    let showsItemDetails: Bool
     @State private var isSearchFormCollapsed = false
     @State private var showsSearchShortcuts = SearchShortcutPresentation.isVisible(
         for: NSEvent.modifierFlags
@@ -191,7 +192,8 @@ struct DeparturesView: View {
                     DepartureRow(
                         departure: departure,
                         selection: selection,
-                        client: client
+                        client: client,
+                        showsItemDetails: showsItemDetails
                     ) {
                         openWindow(
                             id: AppWindow.serviceDetail,
@@ -212,6 +214,7 @@ private struct DepartureRow: View {
     let departure: IDOSDeparture
     let selection: ServiceSelection
     let client: any IDOSClienting
+    let showsItemDetails: Bool
     let openService: () -> Void
     @StateObject private var contextMenuModel: ServiceDetailViewModel
     @State private var suppressesPrimaryAction = false
@@ -221,11 +224,13 @@ private struct DepartureRow: View {
         departure: IDOSDeparture,
         selection: ServiceSelection,
         client: any IDOSClienting,
+        showsItemDetails: Bool,
         openService: @escaping () -> Void
     ) {
         self.departure = departure
         self.selection = selection
         self.client = client
+        self.showsItemDetails = showsItemDetails
         self.openService = openService
         _contextMenuModel = StateObject(
             wrappedValue: ServiceDetailViewModel(id: selection.id, client: client)
@@ -257,7 +262,8 @@ private struct DepartureRow: View {
                             .font(.headline)
                         Text("→ \(departure.destination)")
                     }
-                    if let metadata = ResultMetadata.joined(
+                    if let metadata = ResultMetadata.visible(
+                        showsDetails: showsItemDetails,
                         ResultMetadata.station(tariffZone: departure.tariffZone, platform: departure.platform),
                         departure.via.map { AppLocalization.string("via %@", $0) },
                         departure.carrier,
@@ -293,6 +299,7 @@ private struct DepartureRow: View {
             ServiceDetailView(
                 selection: selection,
                 client: client,
+                showsItemDetails: showsItemDetails,
                 presentation: .preview
             )
         }

@@ -6,6 +6,7 @@ import SwiftUI
 struct StationTimetablesView: View {
     @ObservedObject var model: StationTimetablesViewModel
     let client: any IDOSClienting
+    let showsItemDetails: Bool
     @State private var isSearchFormCollapsed = false
 
     var body: some View {
@@ -310,7 +311,10 @@ struct StationTimetablesView: View {
                                     Text(stop.name)
                                         .fontWeight(stop.isSelected ? .semibold : .regular)
                                         .foregroundStyle(.primary)
-                                    if let metadata = stopMetadata(stop) {
+                                    if let metadata = ResultMetadata.visible(
+                                        showsDetails: showsItemDetails,
+                                        stopMetadata(stop)
+                                    ) {
                                         Text(metadata)
                                             .font(.caption)
                                             .foregroundStyle(.secondary)

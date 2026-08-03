@@ -580,6 +580,7 @@ struct ResultDetailCommands: Commands {
 struct AppSectionCommands: Commands {
     @FocusedValue(\.appSectionSelection) private var selection: Binding<AppSection>?
     @Binding var showsConnectionBadges: Bool
+    @Binding var showsItemDetails: Bool
 
     var body: some Commands {
         CommandGroup(after: .toolbar) {
@@ -591,6 +592,9 @@ struct AppSectionCommands: Commands {
 
             Toggle(isOn: $showsConnectionBadges) {
                 Label("Show connection badges", systemImage: "tag")
+            }
+            Toggle(isOn: $showsItemDetails) {
+                Label("Show item details", systemImage: "info.circle")
             }
 
             Divider()
@@ -626,6 +630,8 @@ struct KastanApp: App {
 
     @AppStorage(ConnectionBadgePreference.storageKey)
     private var showsConnectionBadges = ConnectionBadgePreference.defaultValue
+    @AppStorage(ResultItemDetailsPreference.storageKey)
+    private var showsItemDetails = ResultItemDetailsPreference.defaultValue
     private let client = IDOSClient()
 
     init() {
@@ -637,7 +643,8 @@ struct KastanApp: App {
         WindowGroup {
             ContentView(
                 client: client,
-                showsConnectionBadges: showsConnectionBadges
+                showsConnectionBadges: showsConnectionBadges,
+                showsItemDetails: showsItemDetails
             )
                 .frame(minWidth: Self.minimumMainWindowWidth, minHeight: 520)
         }
@@ -645,7 +652,10 @@ struct KastanApp: App {
         .commands {
             AppWindowCommands()
             ResultDetailCommands()
-            AppSectionCommands(showsConnectionBadges: $showsConnectionBadges)
+            AppSectionCommands(
+                showsConnectionBadges: $showsConnectionBadges,
+                showsItemDetails: $showsItemDetails
+            )
             SearchEditCommands()
             AppInformationCommands()
             AppHelpCommands()
@@ -668,7 +678,11 @@ struct KastanApp: App {
 
         WindowGroup("Service route", id: AppWindow.serviceDetail, for: ServiceSelection.self) { selection in
             if let selection = selection.wrappedValue {
-                ServiceDetailView(selection: selection, client: client)
+                ServiceDetailView(
+                    selection: selection,
+                    client: client,
+                    showsItemDetails: showsItemDetails
+                )
             }
         }
         .defaultSize(width: ServiceDetailView.defaultWindowWidth, height: 640)
@@ -678,7 +692,8 @@ struct KastanApp: App {
                 ConnectionDetailView(
                     selection: selection,
                     client: client,
-                    showsConnectionBadges: showsConnectionBadges
+                    showsConnectionBadges: showsConnectionBadges,
+                    showsItemDetails: showsItemDetails
                 )
             }
         }

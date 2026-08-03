@@ -196,14 +196,20 @@ struct ContentView: View {
     @Environment(\.openWindow) private var openWindow
     private let client: any IDOSClienting
     private let showsConnectionBadges: Bool
+    private let showsItemDetails: Bool
     @StateObject private var connectionsModel: ConnectionsViewModel
     @StateObject private var departuresModel: DeparturesViewModel
     @StateObject private var stationTimetablesModel: StationTimetablesViewModel
     @State private var selection = AppSection.connections
 
-    init(client: any IDOSClienting, showsConnectionBadges: Bool) {
+    init(
+        client: any IDOSClienting,
+        showsConnectionBadges: Bool,
+        showsItemDetails: Bool
+    ) {
         self.client = client
         self.showsConnectionBadges = showsConnectionBadges
+        self.showsItemDetails = showsItemDetails
         _connectionsModel = StateObject(wrappedValue: ConnectionsViewModel(client: client))
         _departuresModel = StateObject(wrappedValue: DeparturesViewModel(client: client))
         _stationTimetablesModel = StateObject(wrappedValue: StationTimetablesViewModel(client: client))
@@ -228,12 +234,21 @@ struct ContentView: View {
             ConnectionsView(
                 model: connectionsModel,
                 client: client,
-                showsConnectionBadges: showsConnectionBadges
+                showsConnectionBadges: showsConnectionBadges,
+                showsItemDetails: showsItemDetails
             )
         case .departures:
-            DeparturesView(model: departuresModel, client: client)
+            DeparturesView(
+                model: departuresModel,
+                client: client,
+                showsItemDetails: showsItemDetails
+            )
         case .stationTimetables:
-            StationTimetablesView(model: stationTimetablesModel, client: client)
+            StationTimetablesView(
+                model: stationTimetablesModel,
+                client: client,
+                showsItemDetails: showsItemDetails
+            )
         }
     }
 }

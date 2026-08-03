@@ -43,8 +43,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   clearing it removes that condition.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
-  route stops, tariff zones, platforms or stands, lockout labels, explanatory notes, and links back to the
-  matching IDOS result. Their service date uses the same compact popover treatment as the other search modes while
+  route stops, optional tariff zones and platforms or stands, lockout labels, explanatory notes, and links back to
+  the matching IDOS result. Their service date uses the same compact popover treatment as the other search modes while
   exposing only the date supported by IDOS; its fixed caption height keeps the search header's top inset aligned with
   the other modes. Whole week lives in that popover and remains visible in the closed control.
   Dated service notes such as a connection that runs or does not run on listed dates, or
@@ -120,9 +120,12 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   launches. When enabled, connection cards use semantic emoji to mark direct journeys and every connection tied for
   the shortest displayed duration; complete-connection windows follow the same setting. Badge text never wraps or
   forces the connection time and duration onto extra lines: each badge collapses to its semantic emoji when the
-  complete localized title does not fit, and hovering that compact badge reveals the title. Cards also retain line
-  colors, transport symbols, platforms, tariff zones, carriers, and localized Czech or English IDOS states for on-time
-  or delayed arrivals and departures. Right-clicking anywhere on a connection card
+  complete localized title does not fit, and hovering that compact badge reveals the title. The neighboring Show item
+  details setting is likewise off initially, global, and persistent. Enabling it reveals carriers, localized Czech or
+  English IDOS punctuality states, via descriptions, tariff zones, platforms or stands, tracks, and distances across
+  connection services, station boards, station timetables, complete service windows, and Force Click previews.
+  Operational stop notes and complete service information remain visible independently of this presentation choice.
+  Cards always retain line colors and transport symbols. Right-clicking anywhere on a connection card
   opens the same complete action menu as its ellipsis button, with Open connection in new window ahead of email,
   calendar, PDF, sharing, and IDOS actions. Right-clicking a particular service row stays scoped to that service and
   offers its own preview and new-window actions followed by calendar, PDF, sharing, and IDOS actions rather

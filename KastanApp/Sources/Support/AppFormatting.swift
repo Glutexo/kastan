@@ -419,9 +419,25 @@ extension IDOSTimetable {
     }
 }
 
-/// Keeps optional metadata compact and readable in result rows.
+/// Defines the application-wide persisted choice for showing optional item metadata.
+enum ResultItemDetailsPreference {
+    static let storageKey = "showsItemDetails"
+    static let defaultValue = false
+}
+
+/// Keeps optional metadata compact, readable, and governed by the global View preference.
 enum ResultMetadata {
     static func joined(_ values: String?...) -> String? {
+        joined(values)
+    }
+
+    /// Returns joined metadata only when the user has enabled item details for the application.
+    static func visible(showsDetails: Bool, _ values: String?...) -> String? {
+        guard showsDetails else { return nil }
+        return joined(values)
+    }
+
+    private static func joined(_ values: [String?]) -> String? {
         let content = values
             .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }

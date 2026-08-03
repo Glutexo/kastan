@@ -64,31 +64,47 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testViewMenuOffersThePersistentConnectionBadgeSetting() throws {
-        let title = AppLocalization.string("Show connection badges")
+    func testViewMenuOffersPersistentResultPresentationSettings() throws {
+        let badgeTitle = AppLocalization.string("Show connection badges")
+        let detailsTitle = AppLocalization.string("Show item details")
         let menus = try XCTUnwrap(NSApplication.shared.mainMenu).items
             .compactMap(\.submenu)
-            .filter { menu in menu.items.contains { $0.title == title } }
+            .filter { menu in
+                menu.items.contains { $0.title == badgeTitle } &&
+                    menu.items.contains { $0.title == detailsTitle }
+            }
 
         XCTAssertEqual(menus.count, 1)
-        let item = try XCTUnwrap(menus[0].items.first { $0.title == title })
-        let storedValue = UserDefaults.standard.object(
+        let badgeItem = try XCTUnwrap(menus[0].items.first { $0.title == badgeTitle })
+        let detailsItem = try XCTUnwrap(menus[0].items.first { $0.title == detailsTitle })
+        let storedBadgeValue = UserDefaults.standard.object(
             forKey: ConnectionBadgePreference.storageKey
         ) as? Bool
-        let badgesAreShown = storedValue ?? ConnectionBadgePreference.defaultValue
-        XCTAssertEqual(item.state, badgesAreShown ? .on : .off)
-        XCTAssertNotNil(item.image)
+        let storedDetailsValue = UserDefaults.standard.object(
+            forKey: ResultItemDetailsPreference.storageKey
+        ) as? Bool
+        let badgesAreShown = storedBadgeValue ?? ConnectionBadgePreference.defaultValue
+        let detailsAreShown = storedDetailsValue ?? ResultItemDetailsPreference.defaultValue
+        XCTAssertEqual(badgeItem.state, badgesAreShown ? .on : .off)
+        XCTAssertEqual(detailsItem.state, detailsAreShown ? .on : .off)
+        XCTAssertNotNil(badgeItem.image)
+        XCTAssertNotNil(detailsItem.image)
         XCTAssertFalse(ConnectionBadgePreference.defaultValue)
+        XCTAssertFalse(ResultItemDetailsPreference.defaultValue)
 
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
         XCTAssertEqual(
-            czech.localizedString(forKey: "Show connection badges", value: nil, table: nil),
-            "Zobrazit štítky spojení"
+            ["Show connection badges", "Show item details"].map {
+                czech.localizedString(forKey: $0, value: nil, table: nil)
+            },
+            ["Zobrazit štítky spojení", "Zobrazit podrobnosti položek"]
         )
         XCTAssertEqual(
-            english.localizedString(forKey: "Show connection badges", value: nil, table: nil),
-            "Show connection badges"
+            ["Show connection badges", "Show item details"].map {
+                english.localizedString(forKey: $0, value: nil, table: nil)
+            },
+            ["Show connection badges", "Show item details"]
         )
     }
 
@@ -1415,7 +1431,8 @@ final class KastanAppTests: XCTestCase {
                 rootView: ConnectionsView(
                     model: model,
                     client: client,
-                    showsConnectionBadges: false
+                    showsConnectionBadges: false,
+                    showsItemDetails: false
                 )
                     .frame(width: width, height: 600)
             )
@@ -1636,7 +1653,8 @@ final class KastanAppTests: XCTestCase {
             ConnectionsView(
                 model: ConnectionsViewModel(client: connectionsClient),
                 client: connectionsClient,
-                showsConnectionBadges: false
+                showsConnectionBadges: false,
+                showsItemDetails: false
             ),
             prompts: ["Departure place", "Arrival place"],
             mode: "Connections"
@@ -1646,7 +1664,8 @@ final class KastanAppTests: XCTestCase {
         try assertTimetablePrecedesInput(
             DeparturesView(
                 model: DeparturesViewModel(client: departuresClient),
-                client: departuresClient
+                client: departuresClient,
+                showsItemDetails: false
             ),
             prompts: ["Station or stop"],
             mode: "Departures"
@@ -1656,7 +1675,8 @@ final class KastanAppTests: XCTestCase {
         try assertTimetablePrecedesInput(
             StationTimetablesView(
                 model: StationTimetablesViewModel(client: stationTimetablesClient),
-                client: stationTimetablesClient
+                client: stationTimetablesClient,
+                showsItemDetails: false
             ),
             prompts: ["Line number or name", "Direction from", "Direction to"],
             mode: "Station Timetables"
@@ -2501,6 +2521,30 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testItemDetailsFollowTheGlobalVisibilityPreference() {
+        XCTAssertNil(
+            ResultMetadata.visible(
+                showsDetails: false,
+                "Czech Railways",
+                "Delay 12 min",
+                "Zone P",
+                "Track 2",
+                "0 km"
+            )
+        )
+        XCTAssertEqual(
+            ResultMetadata.visible(
+                showsDetails: true,
+                "Czech Railways",
+                "Delay 12 min",
+                "Zone P",
+                "Track 2",
+                "0 km"
+            ),
+            "Czech Railways · Delay 12 min · Zone P · Track 2 · 0 km"
+        )
+    }
+
     func testAdaptiveConnectionBadgeStaysOneLineAtCompactWidth() throws {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let full = NSHostingView(
@@ -2631,6 +2675,7 @@ final class KastanAppTests: XCTestCase {
             client: MockIDOSClient(),
             isShortest: true,
             showsConnectionBadges: false,
+            showsItemDetails: false,
             isPerformingAction: false,
             showsActionMenu: true,
             showsOpenConnectionButton: false,
@@ -2686,6 +2731,7 @@ final class KastanAppTests: XCTestCase {
                 client: MockIDOSClient(),
                 isShortest: false,
                 showsConnectionBadges: false,
+                showsItemDetails: false,
                 isPerformingAction: false,
                 showsActionMenu: true,
                 showsOpenConnectionButton: optionIsPressed,
@@ -3372,7 +3418,8 @@ final class KastanAppTests: XCTestCase {
         let hostingView = NSHostingView(
             rootView: ServiceDetailView(
                 selection: ServiceSelection(id: "service-1"),
-                client: MockIDOSClient()
+                client: MockIDOSClient(),
+                showsItemDetails: false
             )
             .frame(width: ServiceDetailView.minimumWindowWidth, height: 520)
         )
@@ -3487,7 +3534,8 @@ final class KastanAppTests: XCTestCase {
             rootView: ConnectionDetailView(
                 selection: selection,
                 client: MockIDOSClient(),
-                showsConnectionBadges: false
+                showsConnectionBadges: false,
+                showsItemDetails: false
             )
                 .frame(width: ConnectionDetailView.minimumWindowWidth, height: 500)
         )
@@ -4544,6 +4592,7 @@ private func connectionCardOpenCount(
         client: MockIDOSClient(),
         isShortest: false,
         showsConnectionBadges: showsConnectionBadges,
+        showsItemDetails: false,
         isPerformingAction: false,
         showsActionMenu: false,
         showsOpenConnectionButton: false,
@@ -4622,6 +4671,7 @@ private struct PresentedServicePreviewTestHost: View {
                 ServiceDetailView(
                     selection: selection,
                     client: client,
+                    showsItemDetails: false,
                     presentation: .preview
                 )
             }
