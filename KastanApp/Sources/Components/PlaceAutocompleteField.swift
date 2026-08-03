@@ -12,6 +12,35 @@ extension VerticalAlignment {
     static let placeInputCenter = VerticalAlignment(PlaceInputCenterAlignment.self)
 }
 
+/// Gives every pair of place inputs the same borderless direction-swap affordance.
+struct PlaceInputSwapButton: View {
+    static let iconSize: CGFloat = 24
+
+    private let accessibilityLabel: LocalizedStringKey
+    private let action: () -> Void
+
+    init(
+        accessibilityLabel: LocalizedStringKey,
+        action: @escaping () -> Void
+    ) {
+        self.accessibilityLabel = accessibilityLabel
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "arrow.left.arrow.right")
+                .frame(width: Self.iconSize, height: Self.iconSize)
+        }
+        .buttonStyle(.borderless)
+        .alignmentGuide(.placeInputCenter) { dimensions in
+            dimensions[VerticalAlignment.center]
+        }
+        .accessibilityLabel(Text(accessibilityLabel))
+        .help(Text(accessibilityLabel))
+    }
+}
+
 /// Routes each autocomplete field to the IDOS catalog matching its product input.
 enum PlaceSuggestionScope {
     case places

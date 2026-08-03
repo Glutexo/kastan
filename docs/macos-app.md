@@ -29,6 +29,7 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   disabled. Searches also
   support arrival mode and an extensible journey-options builder modeled after native macOS rule editors. Selecting
   the same exact departure and arrival shows inline guidance and disables Search before any IDOS request can start.
+  Connections and Station Timetables share the same borderless 24-point direction-swap control between their fields.
   Each condition first selects either Via or Maximum number of transfers, then presents the corresponding text
   or compact, left-aligned number field with native stepper arrows. Both editors share one row height and follow the
   condition menu sized from the longest supported localized option at standard control spacing; fixed-size controls

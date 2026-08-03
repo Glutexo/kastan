@@ -351,14 +351,9 @@ struct ConnectionsView: View {
     }
 
     private var swapButton: some View {
-        Button {
+        PlaceInputSwapButton(accessibilityLabel: "Swap departure and arrival") {
             model.swapEndpoints()
-        } label: {
-            Image(systemName: "arrow.left.arrow.right")
         }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
-        .help("Swap departure and arrival")
     }
 
     private var searchControls: some View {

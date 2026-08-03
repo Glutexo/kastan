@@ -127,18 +127,9 @@ struct StationTimetablesView: View {
     }
 
     private var swapButton: some View {
-        Button {
+        PlaceInputSwapButton(accessibilityLabel: "Swap direction stops") {
             model.swapDirectionStops()
-        } label: {
-            Image(systemName: "arrow.left.arrow.right")
-                .frame(width: 24, height: 24)
         }
-        .buttonStyle(.borderless)
-        .alignmentGuide(.placeInputCenter) { dimensions in
-            dimensions[VerticalAlignment.center]
-        }
-        .accessibilityLabel("Swap direction stops")
-        .help("Swap direction stops")
     }
 
     private var searchButton: some View {

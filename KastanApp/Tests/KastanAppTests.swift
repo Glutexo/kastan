@@ -1416,6 +1416,35 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testPlaceInputSwapButtonUsesBorderlessStationTimetableStyle() throws {
+        var didSwap = false
+        let hostingView = NSHostingView(rootView: PlaceInputSwapButton(
+            accessibilityLabel: "Swap departure and arrival",
+            action: { didSwap = true }
+        ))
+        hostingView.frame = NSRect(x: 0, y: 0, width: 48, height: 48)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        let button = try XCTUnwrap(
+            hostingView.allDescendantViews.compactMap { $0 as? NSButton }.first
+        )
+        XCTAssertEqual(PlaceInputSwapButton.iconSize, 24)
+        XCTAssertFalse(button.isBordered)
+
+        button.performClick(nil)
+
+        XCTAssertTrue(didSwap)
+    }
+
     func testSearchActionAlignsWithTheTrailingSearchEdge() throws {
         func assertTrailingAlignment(
             controls: JourneySearchControls,
