@@ -1401,7 +1401,7 @@ final class KastanAppTests: XCTestCase {
 
             XCTAssertEqual(
                 renderedTrailingEdge,
-                width + JourneySearchControls.searchButtonTrailingVisualOffset,
+                width + SearchActionButton.trailingVisualOffset,
                 accuracy: 0.1,
                 context
             )
@@ -1894,7 +1894,55 @@ final class KastanAppTests: XCTestCase {
             ),
             "\(AppLocalization.string("Arrival")) \(currentInstant)"
         )
-        XCTAssertEqual(JourneyDateTimePicker.buttonContentWidth, 190)
+        XCTAssertEqual(SearchDatePickerLayout.buttonContentWidth, 190)
+    }
+
+    func testStationTimetableUsesTheCompactDateControlWithoutUnsupportedTime() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+        let date = try XCTUnwrap(calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 2,
+            hour: 16,
+            minute: 45
+        )))
+        let title = StationTimetableDatePresentation.title(
+            date: date,
+            locale: Locale(identifier: "en_GB"),
+            calendar: calendar
+        )
+        XCTAssertTrue(title.contains("02/08/2026"))
+        XCTAssertFalse(title.contains("16:45"))
+
+        let closedPicker = NSHostingView(rootView: StationTimetableDatePicker(
+            date: .constant(date)
+        ))
+        closedPicker.frame = NSRect(x: 0, y: 0, width: 240, height: 40)
+        closedPicker.layoutSubtreeIfNeeded()
+        XCTAssertTrue(closedPicker.allDescendantViews.compactMap { $0 as? NSDatePicker }.isEmpty)
+        XCTAssertLessThanOrEqual(closedPicker.fittingSize.height, 30)
+
+        let editor = NSHostingView(rootView: StationTimetableDateEditor(
+            date: .constant(date)
+        ))
+        editor.layoutSubtreeIfNeeded()
+        XCTAssertEqual(editor.allDescendantViews.compactMap { $0 as? NSDatePicker }.count, 1)
+    }
+
+    func testStationTimetableSearchHeaderFitsTheMinimumPaddedContentWidth() {
+        let model = StationTimetablesViewModel(client: MockIDOSClient())
+        let layout = DetailLayout(availableWidth: KastanApp.minimumMainWindowWidth)
+        let header = StationTimetableSearchHeader(
+            timetable: .constant(model.timetable),
+            date: .constant(model.date),
+            usesCompactLayout: true
+        )
+        let hostingView = NSHostingView(rootView: header)
+
+        hostingView.layoutSubtreeIfNeeded()
+
+        XCTAssertLessThanOrEqual(hostingView.fittingSize.width, layout.contentWidth)
     }
 
     func testTimeModeHeadsContentSizedDateTimePopoverWithoutActions() throws {

@@ -197,9 +197,10 @@ struct JourneySearchHeader: View {
     }
 }
 
-/// Gives every search mode the same prominent action size and loading presentation.
+/// Gives every search mode the same prominent action size, alignment, and loading presentation.
 struct SearchActionButton: View {
     static let contentWidth: CGFloat = 140
+    static let trailingVisualOffset: CGFloat = 1
 
     let isSearching: Bool
     let canSearch: Bool
@@ -222,14 +223,12 @@ struct SearchActionButton: View {
         .controlSize(.large)
         .keyboardShortcut(.defaultAction)
         .disabled(!canSearch)
+        .offset(x: Self.trailingVisualOffset)
     }
 }
 
 /// Keeps search actions and connection-specific options visually identical across journey searches.
 struct JourneySearchControls: View {
-    /// Matches the painted search-action edge to the trailing overdraw of native text fields.
-    static let searchButtonTrailingVisualOffset: CGFloat = 1
-
     private let isSearching: Bool
     private let canSearch: Bool
     private let supplement: JourneySearchControlsSupplement?
@@ -285,7 +284,6 @@ struct JourneySearchControls: View {
             canSearch: canSearch,
             action: search
         )
-        .offset(x: Self.searchButtonTrailingVisualOffset)
     }
 }
 
@@ -354,14 +352,61 @@ enum JourneyDateTimePresentation {
     }
 }
 
+/// Keeps date-based search criteria visually identical until their native editors are opened.
+enum SearchDatePickerLayout {
+    static let buttonContentWidth: CGFloat = 190
+}
+
+/// Presents one compact date-selection button and its lazily opened editor.
+struct SearchDatePickerButton<Editor: View>: View {
+    @State private var isEditorPresented = false
+
+    private let title: String
+    private let accessibilityLabel: LocalizedStringKey
+    private let prepareToPresent: () -> Void
+    private let editor: Editor
+
+    init(
+        title: String,
+        accessibilityLabel: LocalizedStringKey,
+        prepareToPresent: @escaping () -> Void = {},
+        @ViewBuilder editor: () -> Editor
+    ) {
+        self.title = title
+        self.accessibilityLabel = accessibilityLabel
+        self.prepareToPresent = prepareToPresent
+        self.editor = editor()
+    }
+
+    var body: some View {
+        Button {
+            prepareToPresent()
+            isEditorPresented.toggle()
+        } label: {
+            HStack(spacing: 6) {
+                Text(title)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.down")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(width: SearchDatePickerLayout.buttonContentWidth, alignment: .leading)
+        }
+        .accessibilityLabel(Text(accessibilityLabel))
+        .accessibilityValue(Text(title))
+        .popover(isPresented: $isEditorPresented, arrowEdge: .bottom) {
+            editor
+        }
+    }
+}
+
 /// Keeps the common journey instant compact until the user opens its date-and-time editor.
 struct JourneyDateTimePicker: View {
-    static let buttonContentWidth: CGFloat = 190
-
     @Binding private var date: Date
     @Binding private var time: Date
     @Binding private var isArrival: Bool
-    @State private var isEditorPresented = false
 
     private let modeLabel: String
     private let departureLabel: String
@@ -390,26 +435,15 @@ struct JourneyDateTimePicker: View {
     }
 
     var body: some View {
-        Button {
-            if usesCurrentDateAndTime {
-                selectCurrentDateAndTime()
+        SearchDatePickerButton(
+            title: buttonTitle,
+            accessibilityLabel: "Date and time",
+            prepareToPresent: {
+                if usesCurrentDateAndTime {
+                    selectCurrentDateAndTime()
+                }
             }
-            isEditorPresented.toggle()
-        } label: {
-            HStack(spacing: 6) {
-                Text(buttonTitle)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.down")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            .frame(width: Self.buttonContentWidth, alignment: .leading)
-        }
-        .accessibilityLabel(Text("Date and time"))
-        .accessibilityValue(Text(buttonTitle))
-        .popover(isPresented: $isEditorPresented, arrowEdge: .bottom) {
+        ) {
             editor
         }
     }

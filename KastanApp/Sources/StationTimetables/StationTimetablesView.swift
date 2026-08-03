@@ -1,3 +1,4 @@
+import Foundation
 import Kastan
 import SwiftUI
 
@@ -53,9 +54,9 @@ struct StationTimetablesView: View {
 
     private func searchPanel(usesCompactLayout: Bool) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            SearchTimetablePicker(
+            StationTimetableSearchHeader(
                 timetable: timetableBinding,
-                allowedTimetables: AppTimetableGroup.stationTimetables,
+                date: $model.date,
                 usesCompactLayout: usesCompactLayout
             )
 
@@ -76,12 +77,9 @@ struct StationTimetablesView: View {
                 }
             }
 
-            Divider()
-
-            HStack(alignment: .bottom, spacing: 12) {
-                datePicker
+            HStack(alignment: .center, spacing: 12) {
                 wholeWeekToggle
-                Spacer(minLength: 8)
+                Spacer(minLength: 0)
                 searchButton
             }
         }
@@ -144,21 +142,9 @@ struct StationTimetablesView: View {
         .help("Swap direction stops")
     }
 
-    private var datePicker: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Date")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            DatePicker("Date", selection: $model.date, displayedComponents: .date)
-                .labelsHidden()
-                .datePickerStyle(.field)
-        }
-    }
-
     private var wholeWeekToggle: some View {
         Toggle("Whole week", isOn: $model.wholeWeek)
             .fixedSize()
-            .padding(.bottom, 5)
     }
 
     private var searchButton: some View {
@@ -396,5 +382,95 @@ struct StationTimetablesView: View {
             stop.platform.map { AppLocalization.string("Station timetable platform %@", $0) },
         ].compactMap(\.self)
         return values.isEmpty ? nil : values.joined(separator: " · ")
+    }
+}
+
+/// Aligns the station-timetable service date with the shared timetable-first search header.
+struct StationTimetableSearchHeader: View {
+    @Binding private var timetable: IDOSTimetable
+    @Binding private var date: Date
+
+    private let usesCompactLayout: Bool
+
+    init(
+        timetable: Binding<IDOSTimetable>,
+        date: Binding<Date>,
+        usesCompactLayout: Bool
+    ) {
+        _timetable = timetable
+        _date = date
+        self.usesCompactLayout = usesCompactLayout
+    }
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 0) {
+            SearchTimetablePicker(
+                timetable: $timetable,
+                allowedTimetables: AppTimetableGroup.stationTimetables,
+                usesCompactLayout: usesCompactLayout
+            )
+
+            Spacer(minLength: usesCompactLayout ? 8 : 12)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Date")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                StationTimetableDatePicker(date: $date)
+            }
+            .fixedSize(horizontal: true, vertical: false)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Uses the shared compact date control without exposing a time unsupported by station timetables.
+struct StationTimetableDatePicker: View {
+    @Binding var date: Date
+
+    var body: some View {
+        SearchDatePickerButton(
+            title: StationTimetableDatePresentation.title(date: date),
+            accessibilityLabel: "Date"
+        ) {
+            StationTimetableDateEditor(date: $date)
+        }
+    }
+}
+
+/// Formats the selected station-timetable service date for the compact closed control.
+enum StationTimetableDatePresentation {
+    static func title(
+        date: Date,
+        locale: Locale = .autoupdatingCurrent,
+        calendar: Calendar = .autoupdatingCurrent
+    ) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateStyle = .short
+        formatter.timeStyle = .none
+        return formatter.string(from: date)
+    }
+}
+
+/// Edits the service date used by either a single-day or whole-week station timetable request.
+struct StationTimetableDateEditor: View {
+    @Binding var date: Date
+
+    var body: some View {
+        Grid(alignment: .leading, horizontalSpacing: 12) {
+            GridRow {
+                Text("Date")
+                DatePicker("Date", selection: $date, displayedComponents: .date)
+                    .labelsHidden()
+                    .datePickerStyle(.stepperField)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+        }
+        .padding(16)
+        .fixedSize(horizontal: true, vertical: true)
     }
 }
