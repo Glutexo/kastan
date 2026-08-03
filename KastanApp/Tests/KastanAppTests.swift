@@ -3035,6 +3035,12 @@ final class KastanAppTests: XCTestCase {
                 region: "district Frýdek-Místek"
             )
         )
+        let genericStation = PlaceSuggestionPresentation(
+            suggestion: IDOSSuggestion(
+                text: "Frýdek-Místek",
+                description: "station, district Frýdek-Místek"
+            )
+        )
         let busStop = PlaceSuggestionPresentation(
             suggestion: IDOSSuggestion(
                 text: "Frýdek-Místek,Frýdek,magistrát",
@@ -3051,6 +3057,8 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(municipality.kind, .municipality)
         XCTAssertEqual(station.emoji, "🚆")
         XCTAssertEqual(station.kind, .train)
+        XCTAssertEqual(genericStation.emoji, "🚉")
+        XCTAssertEqual(genericStation.kind, .station)
         XCTAssertEqual(busStop.kind, .bus)
         XCTAssertEqual(station.detail?.components(separatedBy: " · ").count, 3)
         XCTAssertEqual(

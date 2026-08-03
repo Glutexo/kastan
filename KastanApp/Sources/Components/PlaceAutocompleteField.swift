@@ -191,7 +191,9 @@ enum PlaceSuggestionKind: Equatable {
             "🚋"
         case .stop:
             "🚏"
-        case .address, .station, .place:
+        case .station:
+            "🚉"
+        case .address, .place:
             "📍"
         }
     }
