@@ -1909,14 +1909,24 @@ final class KastanAppTests: XCTestCase {
         )))
         let title = StationTimetableDatePresentation.title(
             date: date,
+            wholeWeek: false,
             locale: Locale(identifier: "en_GB"),
             calendar: calendar
         )
         XCTAssertTrue(title.contains("02/08/2026"))
         XCTAssertFalse(title.contains("16:45"))
+        let wholeWeekTitle = StationTimetableDatePresentation.title(
+            date: date,
+            wholeWeek: true,
+            locale: Locale(identifier: "en_GB"),
+            calendar: calendar
+        )
+        XCTAssertTrue(wholeWeekTitle.contains("02/08/2026"))
+        XCTAssertTrue(wholeWeekTitle.contains(AppLocalization.string("Whole week")))
 
         let closedPicker = NSHostingView(rootView: StationTimetableDatePicker(
-            date: .constant(date)
+            date: .constant(date),
+            wholeWeek: .constant(true)
         ))
         closedPicker.frame = NSRect(x: 0, y: 0, width: 240, height: 40)
         closedPicker.layoutSubtreeIfNeeded()
@@ -1924,7 +1934,8 @@ final class KastanAppTests: XCTestCase {
         XCTAssertLessThanOrEqual(closedPicker.fittingSize.height, 30)
 
         let editor = NSHostingView(rootView: StationTimetableDateEditor(
-            date: .constant(date)
+            date: .constant(date),
+            wholeWeek: .constant(false)
         ))
         editor.layoutSubtreeIfNeeded()
         XCTAssertEqual(editor.allDescendantViews.compactMap { $0 as? NSDatePicker }.count, 1)
@@ -1936,6 +1947,7 @@ final class KastanAppTests: XCTestCase {
         let header = StationTimetableSearchHeader(
             timetable: .constant(model.timetable),
             date: .constant(model.date),
+            wholeWeek: .constant(model.wholeWeek),
             usesCompactLayout: true
         )
         let hostingView = NSHostingView(rootView: header)

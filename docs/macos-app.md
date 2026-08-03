@@ -39,8 +39,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, tariff zones, platforms or stands, lockout labels, explanatory notes, and links back to the
   matching IDOS result. Their service date uses the same compact popover treatment as the other search modes while
-  exposing only the date supported by IDOS; Whole week remains visible beside Search. Dated service notes such as a
-  connection that runs or does not run on listed dates, or
+  exposing only the date supported by IDOS; Whole week lives in that popover and remains visible in the closed control.
+  Dated service notes such as a connection that runs or does not run on listed dates, or
   runs through a named date such as `3.XII.`, open an operating calendar. Working-day rules compose with dated
   exceptions and exclude weekends and Czech public holidays, while numbered weekday rules such as `v 6,7`
   or `v 1-6` restrict a dated operating range to the selected weekdays. The IDOS `+` symbol adds Sundays and Czech

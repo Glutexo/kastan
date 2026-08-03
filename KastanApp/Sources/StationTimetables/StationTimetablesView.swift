@@ -57,6 +57,7 @@ struct StationTimetablesView: View {
             StationTimetableSearchHeader(
                 timetable: timetableBinding,
                 date: $model.date,
+                wholeWeek: $model.wholeWeek,
                 usesCompactLayout: usesCompactLayout
             )
 
@@ -78,7 +79,6 @@ struct StationTimetablesView: View {
             }
 
             HStack(alignment: .center, spacing: 12) {
-                wholeWeekToggle
                 Spacer(minLength: 0)
                 searchButton
             }
@@ -140,11 +140,6 @@ struct StationTimetablesView: View {
         }
         .accessibilityLabel("Swap direction stops")
         .help("Swap direction stops")
-    }
-
-    private var wholeWeekToggle: some View {
-        Toggle("Whole week", isOn: $model.wholeWeek)
-            .fixedSize()
     }
 
     private var searchButton: some View {
@@ -389,16 +384,19 @@ struct StationTimetablesView: View {
 struct StationTimetableSearchHeader: View {
     @Binding private var timetable: IDOSTimetable
     @Binding private var date: Date
+    @Binding private var wholeWeek: Bool
 
     private let usesCompactLayout: Bool
 
     init(
         timetable: Binding<IDOSTimetable>,
         date: Binding<Date>,
+        wholeWeek: Binding<Bool>,
         usesCompactLayout: Bool
     ) {
         _timetable = timetable
         _date = date
+        _wholeWeek = wholeWeek
         self.usesCompactLayout = usesCompactLayout
     }
 
@@ -417,7 +415,10 @@ struct StationTimetableSearchHeader: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                StationTimetableDatePicker(date: $date)
+                StationTimetableDatePicker(
+                    date: $date,
+                    wholeWeek: $wholeWeek
+                )
             }
             .fixedSize(horizontal: true, vertical: false)
         }
@@ -428,21 +429,29 @@ struct StationTimetableSearchHeader: View {
 /// Uses the shared compact date control without exposing a time unsupported by station timetables.
 struct StationTimetableDatePicker: View {
     @Binding var date: Date
+    @Binding var wholeWeek: Bool
 
     var body: some View {
         SearchDatePickerButton(
-            title: StationTimetableDatePresentation.title(date: date),
+            title: StationTimetableDatePresentation.title(
+                date: date,
+                wholeWeek: wholeWeek
+            ),
             accessibilityLabel: "Date"
         ) {
-            StationTimetableDateEditor(date: $date)
+            StationTimetableDateEditor(
+                date: $date,
+                wholeWeek: $wholeWeek
+            )
         }
     }
 }
 
-/// Formats the selected station-timetable service date for the compact closed control.
+/// Keeps the selected date and whole-week scope visible after the compact editor closes.
 enum StationTimetableDatePresentation {
     static func title(
         date: Date,
+        wholeWeek: Bool,
         locale: Locale = .autoupdatingCurrent,
         calendar: Calendar = .autoupdatingCurrent
     ) -> String {
@@ -452,23 +461,31 @@ enum StationTimetableDatePresentation {
         formatter.timeZone = calendar.timeZone
         formatter.dateStyle = .short
         formatter.timeStyle = .none
-        return formatter.string(from: date)
+        let dateTitle = formatter.string(from: date)
+        guard wholeWeek else { return dateTitle }
+        return "\(dateTitle) · \(AppLocalization.string("Whole week"))"
     }
 }
 
 /// Edits the service date used by either a single-day or whole-week station timetable request.
 struct StationTimetableDateEditor: View {
     @Binding var date: Date
+    @Binding var wholeWeek: Bool
 
     var body: some View {
-        Grid(alignment: .leading, horizontalSpacing: 12) {
-            GridRow {
-                Text("Date")
-                DatePicker("Date", selection: $date, displayedComponents: .date)
-                    .labelsHidden()
-                    .datePickerStyle(.stepperField)
-                    .fixedSize(horizontal: true, vertical: false)
+        VStack(alignment: .leading, spacing: 12) {
+            Grid(alignment: .leading, horizontalSpacing: 12) {
+                GridRow {
+                    Text("Date")
+                    DatePicker("Date", selection: $date, displayedComponents: .date)
+                        .labelsHidden()
+                        .datePickerStyle(.stepperField)
+                        .fixedSize(horizontal: true, vertical: false)
+                }
             }
+
+            Toggle("Whole week", isOn: $wholeWeek)
+                .fixedSize()
         }
         .padding(16)
         .fixedSize(horizontal: true, vertical: true)
