@@ -656,6 +656,66 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(ServiceNotesView.informationLineSpacing, 8)
     }
 
+    func testServiceInformationStaysHiddenUntilDisclosureExpands() throws {
+        let note = "Wi-Fi connection is available on board."
+        func renderedHeight(isExpanded: Bool) -> CGFloat {
+            let hostingView = NSHostingView(
+                rootView: ServiceInformationDisclosure(
+                    notes: [note],
+                    isExpanded: .constant(isExpanded)
+                )
+                .frame(width: 400, alignment: .topLeading)
+            )
+            hostingView.layoutSubtreeIfNeeded()
+            return hostingView.fittingSize.height
+        }
+
+        let collapsedHeight = renderedHeight(isExpanded: false)
+        let expandedHeight = renderedHeight(isExpanded: true)
+        XCTAssertGreaterThan(expandedHeight, collapsedHeight)
+
+        var isExpanded = false
+        let disclosure = ServiceInformationDisclosure(
+            notes: [note],
+            isExpanded: Binding(
+                get: { isExpanded },
+                set: { isExpanded = $0 }
+            )
+        )
+            .frame(width: 400, height: 28, alignment: .leading)
+        let hostingView = NSHostingView(rootView: disclosure)
+        hostingView.frame = NSRect(x: 0, y: 0, width: 400, height: 28)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        for eventType in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            let event = NSEvent.mouseEvent(
+                with: eventType,
+                location: NSPoint(x: 200, y: hostingView.bounds.midY),
+                modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                clickCount: 1,
+                pressure: eventType == .leftMouseDown ? 1 : 0
+            )
+            if let event {
+                window.sendEvent(event)
+            }
+        }
+
+        XCTAssertTrue(isExpanded)
+    }
+
     func testSelectableServiceNoteFlowRetainsCalendarPhoneAndWebLinks() {
         let view = ServiceNotesView(
             notes: ["jede v 1-5", "Informace: +420 123 456 789", "Web: www.KODIS.cz"],

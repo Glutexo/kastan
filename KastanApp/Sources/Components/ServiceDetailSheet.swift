@@ -349,6 +349,7 @@ struct ServiceDetailView: View {
     @State private var hasAppliedInitialRoutePosition = false
     @State private var hasScheduledInitialRoutePosition = false
     @State private var initialRouteBottomClearance: CGFloat = 0
+    @State private var isServiceInformationExpanded = false
     private let routeHighlight: ServiceRouteHighlight?
     private let presentation: ResultDetailPresentation
     private let showsItemDetails: Bool
@@ -606,13 +607,11 @@ struct ServiceDetailView: View {
                             }
 
                             if !service.information.isEmpty {
-                                GroupBox("Service information") {
-                                    ServiceNotesView(
-                                        notes: service.information,
-                                        timetableValidity: model.timetableValidity
-                                    )
-                                        .textSelection(.enabled)
-                                }
+                                ServiceInformationDisclosure(
+                                    notes: service.information,
+                                    timetableValidity: model.timetableValidity,
+                                    isExpanded: $isServiceInformationExpanded
+                                )
                             }
                         }
                         .padding(24)
@@ -708,6 +707,46 @@ struct ServiceDetailView: View {
             proxy.scrollTo(departureIndex, anchor: scrollAnchor)
             hasAppliedInitialRoutePosition = true
         }
+    }
+}
+
+/// Keeps supporting service notes out of the route overview until the passenger asks to see them.
+struct ServiceInformationDisclosure: View {
+    let notes: [String]
+    let timetableValidity: IDOSTimetableValidity?
+    @Binding var isExpanded: Bool
+
+    init(
+        notes: [String],
+        timetableValidity: IDOSTimetableValidity? = nil,
+        isExpanded: Binding<Bool>
+    ) {
+        self.notes = notes
+        self.timetableValidity = timetableValidity
+        _isExpanded = isExpanded
+    }
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            ServiceNotesView(
+                notes: notes,
+                timetableValidity: timetableValidity
+            )
+            .textSelection(.enabled)
+            .padding(.top, 8)
+        } label: {
+            Label("Service information", systemImage: "info.circle")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation {
+                        isExpanded.toggle()
+                    }
+                }
+        }
+        .accessibilityLabel("Service information")
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

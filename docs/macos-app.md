@@ -126,7 +126,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   zones, platforms or stands, tracks, and distances across connection services, station boards, station timetables,
   complete service windows, and Force Click previews.
   Complete-route markers remain centered beside each stop title whether optional metadata is visible or hidden.
-  Operational stop notes and complete service information remain visible independently of this presentation choice.
+  Operational stop notes remain visible independently of this presentation choice. Complete service information is
+  likewise independent of the setting, but starts collapsed beneath its own route-level disclosure heading.
   Cards always retain line colors and transport symbols. Right-clicking anywhere on a connection card
   opens the same complete action menu as its ellipsis button, with Open connection in new window ahead of email,
   calendar, PDF, sharing, and IDOS actions. Right-clicking a particular service row stays scoped to that service and
@@ -143,7 +144,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   complete route fits in the viewport, the natural position is preserved without artificial trailing space. The
   search-relevant segment remains highlighted without implying live vehicle position. When scrolling hides a
   service date, the date moves into the window title until its content label is visible again.
-- Selectable service-information text whose visibly separated rows use semantic emoji for replacement buses,
+- Complete service information starts collapsed beneath a disclosure heading at the same level as Stops. Expanding it
+  reveals selectable text whose visibly separated rows use semantic emoji for replacement buses,
   onboard amenities, sleeping and couchette cars, through coaches, on-route train-designation changes,
   seating-class restrictions, self-service passenger handling, accessibility, family and bicycle services,
   tickets, baggage, passenger and reservation restrictions, cancellation policies, routes, carriers, and
