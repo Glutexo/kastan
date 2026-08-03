@@ -1296,7 +1296,14 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(layout.usesStackedSearchControls)
         XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: true), 80)
         XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: false), 140)
-        XCTAssertEqual(JourneySearchControls.trailingControlInset, 10)
+        XCTAssertEqual(
+            JourneySearchControls.trailingControlInset(usesCompactLayout: true),
+            10
+        )
+        XCTAssertEqual(
+            JourneySearchControls.trailingControlInset(usesCompactLayout: false),
+            0
+        )
         XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: true), -8)
         XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: false), 2)
         XCTAssertEqual(SearchTimetablePicker.pickerWidth, 240)
@@ -1673,6 +1680,29 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(SearchShortcutPresentation.isVisible(for: [.command]))
     }
 
+    func testDirectConnectionsShortcutAppearsForContextAndSticksAfterUse() {
+        XCTAssertFalse(DirectConnectionsShortcutPresentation.isVisible(
+            journeyOptionsAreExpanded: false,
+            optionIsPressed: false,
+            hasBeenUsed: false
+        ))
+        XCTAssertTrue(DirectConnectionsShortcutPresentation.isVisible(
+            journeyOptionsAreExpanded: true,
+            optionIsPressed: false,
+            hasBeenUsed: false
+        ))
+        XCTAssertTrue(DirectConnectionsShortcutPresentation.isVisible(
+            journeyOptionsAreExpanded: false,
+            optionIsPressed: true,
+            hasBeenUsed: false
+        ))
+        XCTAssertTrue(DirectConnectionsShortcutPresentation.isVisible(
+            journeyOptionsAreExpanded: false,
+            optionIsPressed: false,
+            hasBeenUsed: true
+        ))
+    }
+
     func testSearchDateTimePresentationCombinesTheChosenDateAndTime() throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
@@ -1790,7 +1820,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(JourneyDateTimePicker.buttonContentWidth, 190)
     }
 
-    func testTimeModeHeadsContentSizedDateTimePopover() throws {
+    func testTimeModeHeadsContentSizedDateTimePopoverWithoutActions() throws {
         let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
         var isArrival = false
         let editor = JourneyDateTimeEditor(
@@ -1802,9 +1832,7 @@ final class KastanAppTests: XCTestCase {
             ),
             modeLabel: "Time means",
             departureLabel: "Departure",
-            arrivalLabel: "Arrival",
-            selectCurrentDateAndTime: {},
-            done: {}
+            arrivalLabel: "Arrival"
         )
         let hostingView = NSHostingView(rootView: editor)
         hostingView.frame = NSRect(x: 0, y: 0, width: 360, height: 240)
@@ -1825,6 +1853,11 @@ final class KastanAppTests: XCTestCase {
         let visibleLabels = descendants.compactMap { $0 as? NSTextField }.map(\.stringValue)
         XCTAssertFalse(visibleLabels.contains(AppLocalization.string("Date and time")))
         XCTAssertFalse(visibleLabels.contains(AppLocalization.string("Time means")))
+        XCTAssertFalse(visibleLabels.contains(AppLocalization.string("Now")))
+        XCTAssertFalse(visibleLabels.contains(AppLocalization.string("Done")))
+        let buttonTitles = descendants.compactMap { $0 as? NSButton }.map(\.title)
+        XCTAssertFalse(buttonTitles.contains(AppLocalization.string("Now")))
+        XCTAssertFalse(buttonTitles.contains(AppLocalization.string("Done")))
 
         let mode = try XCTUnwrap(descendants.compactMap { $0 as? NSSegmentedControl }.first)
         XCTAssertEqual(mode.segmentCount, 2)
@@ -1836,15 +1869,15 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(isArrival)
     }
 
-    func testSearchFieldShortcutDoesNotResizeItsHeader() {
+    func testDateTimeNowShortcutDoesNotResizeItsHeader() {
         let hiddenHeader = NSHostingView(rootView: SearchFieldHeader(
-            title: "Time",
+            title: "Date and time",
             shortcutTitle: "Now",
             showsShortcut: false,
             action: {}
         ))
         let visibleHeader = NSHostingView(rootView: SearchFieldHeader(
-            title: "Time",
+            title: "Date and time",
             shortcutTitle: "Now",
             showsShortcut: true,
             action: {}

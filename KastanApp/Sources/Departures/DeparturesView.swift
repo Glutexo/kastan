@@ -8,6 +8,9 @@ struct DeparturesView: View {
     @ObservedObject var model: DeparturesViewModel
     let client: any IDOSClienting
     @State private var isSearchFormCollapsed = false
+    @State private var showsSearchShortcuts = SearchShortcutPresentation.isVisible(
+        for: NSEvent.modifierFlags
+    )
 
     var body: some View {
         GeometryReader { geometry in
@@ -50,6 +53,10 @@ struct DeparturesView: View {
                 model.refreshCurrentDateAndTime()
             }
         }
+        .background {
+            OptionModifierMonitor(isPressed: $showsSearchShortcuts)
+                .frame(width: 0, height: 0)
+        }
     }
 
     private var resultsPanel: some View {
@@ -80,6 +87,7 @@ struct DeparturesView: View {
                 selectCurrentDateAndTime: {
                     model.selectCurrentDateAndTime()
                 },
+                showsCurrentDateAndTimeShortcut: showsSearchShortcuts,
                 usesCompactLayout: stacked
             )
 

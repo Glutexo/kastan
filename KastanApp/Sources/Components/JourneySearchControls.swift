@@ -9,6 +9,17 @@ enum SearchShortcutPresentation {
     }
 }
 
+/// Keeps the direct-only shortcut available for explicit context or after the user first operates it.
+enum DirectConnectionsShortcutPresentation {
+    static func isVisible(
+        journeyOptionsAreExpanded: Bool,
+        optionIsPressed: Bool,
+        hasBeenUsed: Bool
+    ) -> Bool {
+        journeyOptionsAreExpanded || optionIsPressed || hasBeenUsed
+    }
+}
+
 /// Adds stable connection-specific controls and full-width details to the shared search layout.
 struct JourneySearchControlsSupplement {
     let leading: AnyView
@@ -123,6 +134,7 @@ struct JourneySearchHeader: View {
     private let arrivalLabel: String
     private let usesCurrentDateAndTime: Bool
     private let selectCurrentDateAndTime: () -> Void
+    private let showsCurrentDateAndTimeShortcut: Bool
     private let usesCompactLayout: Bool
 
     init(
@@ -135,6 +147,7 @@ struct JourneySearchHeader: View {
         arrivalLabel: String,
         usesCurrentDateAndTime: Bool,
         selectCurrentDateAndTime: @escaping () -> Void,
+        showsCurrentDateAndTimeShortcut: Bool,
         usesCompactLayout: Bool
     ) {
         _timetable = timetable
@@ -146,6 +159,7 @@ struct JourneySearchHeader: View {
         self.arrivalLabel = arrivalLabel
         self.usesCurrentDateAndTime = usesCurrentDateAndTime
         self.selectCurrentDateAndTime = selectCurrentDateAndTime
+        self.showsCurrentDateAndTimeShortcut = showsCurrentDateAndTimeShortcut
         self.usesCompactLayout = usesCompactLayout
     }
 
@@ -158,18 +172,31 @@ struct JourneySearchHeader: View {
 
             Spacer(minLength: usesCompactLayout ? 8 : 12)
 
-            JourneyDateTimePicker(
-                date: $date,
-                time: $time,
-                isArrival: $isArrival,
-                modeLabel: modeLabel,
-                departureLabel: departureLabel,
-                arrivalLabel: arrivalLabel,
-                usesCurrentDateAndTime: usesCurrentDateAndTime,
-                selectCurrentDateAndTime: selectCurrentDateAndTime
-            )
+            VStack(alignment: .leading, spacing: 6) {
+                SearchFieldHeader(
+                    title: "Date and time",
+                    shortcutTitle: "Now",
+                    showsShortcut: showsCurrentDateAndTimeShortcut,
+                    action: selectCurrentDateAndTime
+                )
+
+                JourneyDateTimePicker(
+                    date: $date,
+                    time: $time,
+                    isArrival: $isArrival,
+                    modeLabel: modeLabel,
+                    departureLabel: departureLabel,
+                    arrivalLabel: arrivalLabel,
+                    usesCurrentDateAndTime: usesCurrentDateAndTime,
+                    selectCurrentDateAndTime: selectCurrentDateAndTime
+                )
+            }
             .fixedSize(horizontal: true, vertical: false)
-            .offset(x: -JourneySearchControls.trailingControlInset)
+            .offset(
+                x: -JourneySearchControls.trailingControlInset(
+                    usesCompactLayout: usesCompactLayout
+                )
+            )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -177,8 +204,10 @@ struct JourneySearchHeader: View {
 
 /// Keeps search actions and connection-specific options visually identical across journey searches.
 struct JourneySearchControls: View {
-    /// Pulls native button chrome back to the same visible trailing edge as the text fields.
-    static let trailingControlInset: CGFloat = 10
+    /// Corrects native button overdraw only where the minimum-width form makes it visible.
+    static func trailingControlInset(usesCompactLayout: Bool) -> CGFloat {
+        usesCompactLayout ? 10 : 0
+    }
 
     /// Keeps the search action compact in narrow forms and comfortably wide otherwise.
     static func searchButtonContentWidth(usesStackedLayout: Bool) -> CGFloat {
@@ -222,7 +251,9 @@ struct JourneySearchControls: View {
         HStack(alignment: .bottom, spacing: 12) {
             Spacer(minLength: 0)
             searchButton
-                .offset(x: -Self.trailingControlInset)
+                .offset(
+                    x: -Self.trailingControlInset(usesCompactLayout: usesStackedLayout)
+                )
         }
     }
 
@@ -235,7 +266,9 @@ struct JourneySearchControls: View {
                 .fixedSize(horizontal: true, vertical: false)
             Spacer(minLength: 0)
             searchButton
-                .offset(x: -Self.trailingControlInset)
+                .offset(
+                    x: -Self.trailingControlInset(usesCompactLayout: usesStackedLayout)
+                )
         }
     }
 
@@ -402,9 +435,7 @@ struct JourneyDateTimePicker: View {
             isArrival: $isArrival,
             modeLabel: modeLabel,
             departureLabel: departureLabel,
-            arrivalLabel: arrivalLabel,
-            selectCurrentDateAndTime: selectCurrentDateAndTime,
-            done: { isEditorPresented = false }
+            arrivalLabel: arrivalLabel
         )
     }
 }
@@ -418,8 +449,6 @@ struct JourneyDateTimeEditor: View {
     let modeLabel: String
     let departureLabel: String
     let arrivalLabel: String
-    let selectCurrentDateAndTime: () -> Void
-    let done: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -447,18 +476,6 @@ struct JourneyDateTimeEditor: View {
                         .datePickerStyle(.stepperField)
                         .fixedSize(horizontal: true, vertical: false)
                 }
-            }
-
-            Divider()
-
-            HStack {
-                Button("Now") {
-                    selectCurrentDateAndTime()
-                    done()
-                }
-                Spacer()
-                Button("Done", action: done)
-                    .keyboardShortcut(.defaultAction)
             }
         }
         .padding(16)

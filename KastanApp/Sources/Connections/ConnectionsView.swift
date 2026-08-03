@@ -173,9 +173,10 @@ struct ConnectionsView: View {
     @ObservedObject var model: ConnectionsViewModel
     let client: any IDOSClienting
     @State private var isJourneyOptionsExpanded = false
+    @State private var hasUsedDirectConnectionsShortcut = false
     @State private var isSearchFormCollapsed = false
     @State private var emailSelection: ConnectionSelection?
-    @State private var showsEndpointShortcuts = SearchShortcutPresentation.isVisible(
+    @State private var showsSearchShortcuts = SearchShortcutPresentation.isVisible(
         for: NSEvent.modifierFlags
     )
 
@@ -215,7 +216,7 @@ struct ConnectionsView: View {
             .animation(.easeInOut(duration: 0.18), value: isSearchFormCollapsed)
         }
         .background {
-            OptionModifierMonitor(isPressed: $showsEndpointShortcuts)
+            OptionModifierMonitor(isPressed: $showsSearchShortcuts)
                 .frame(width: 0, height: 0)
         }
         .sheet(item: $emailSelection) { selection in
@@ -276,6 +277,7 @@ struct ConnectionsView: View {
                 selectCurrentDateAndTime: {
                     model.selectCurrentDateAndTime()
                 },
+                showsCurrentDateAndTimeShortcut: showsSearchShortcuts,
                 usesCompactLayout: layout.usesStackedSearchControls
             )
 
@@ -291,8 +293,6 @@ struct ConnectionsView: View {
                     .background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
                     .transition(.opacity)
             }
-
-            Divider()
 
             searchControls(stacked: layout.usesStackedSearchControls)
         }
@@ -323,7 +323,7 @@ struct ConnectionsView: View {
             scope: .places,
             client: client,
             headerShortcutTitle: "Here",
-            showsHeaderShortcut: showsEndpointShortcuts,
+            showsHeaderShortcut: showsSearchShortcuts,
             isPerformingHeaderShortcut: model.locatingEndpoint == .from,
             isHeaderShortcutDisabled: model.locatingEndpoint != nil
         ) {
@@ -341,7 +341,7 @@ struct ConnectionsView: View {
             scope: .places,
             client: client,
             headerShortcutTitle: "Here",
-            showsHeaderShortcut: showsEndpointShortcuts,
+            showsHeaderShortcut: showsSearchShortcuts,
             isPerformingHeaderShortcut: model.locatingEndpoint == .to,
             isHeaderShortcutDisabled: model.locatingEndpoint != nil
         ) {
@@ -379,16 +379,23 @@ struct ConnectionsView: View {
     private var directConnectionsOnlyToggle: some View {
         Toggle("Direct connections only", isOn: Binding(
             get: { model.onlyDirect },
-            set: { model.setOnlyDirect($0) }
+            set: {
+                hasUsedDirectConnectionsShortcut = true
+                model.setOnlyDirect($0)
+            }
         ))
         .toggleStyle(.checkbox)
         .fixedSize(horizontal: true, vertical: false)
     }
 
-    /// Reveals the direct-only shortcut only while its containing journey options are open.
+    /// Reveals the direct-only shortcut for context and keeps it after its first explicit use.
     @ViewBuilder
     private var directConnectionsOnlyShortcut: some View {
-        if isJourneyOptionsExpanded {
+        if DirectConnectionsShortcutPresentation.isVisible(
+            journeyOptionsAreExpanded: isJourneyOptionsExpanded,
+            optionIsPressed: showsSearchShortcuts,
+            hasBeenUsed: hasUsedDirectConnectionsShortcut
+        ) {
             directConnectionsOnlyToggle
         }
     }
