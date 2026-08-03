@@ -77,6 +77,7 @@ final class KastanAppTests: XCTestCase {
         ) as? Bool
         let badgesAreShown = storedValue ?? ConnectionBadgePreference.defaultValue
         XCTAssertEqual(item.state, badgesAreShown ? .on : .off)
+        XCTAssertNotNil(item.image)
         XCTAssertFalse(ConnectionBadgePreference.defaultValue)
 
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))

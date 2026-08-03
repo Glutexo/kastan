@@ -589,7 +589,9 @@ struct AppSectionCommands: Commands {
 
             Divider()
 
-            Toggle("Show connection badges", isOn: $showsConnectionBadges)
+            Toggle(isOn: $showsConnectionBadges) {
+                Label("Show connection badges", systemImage: "tag")
+            }
 
             Divider()
         }
