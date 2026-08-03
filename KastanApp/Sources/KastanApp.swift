@@ -258,15 +258,16 @@ struct AppHelpCommands: Commands {
     }
 }
 
-/// Defines the current-value shortcuts that remain visible in one stable main-menu structure.
+/// Defines the search-input shortcuts that remain visible in one stable main-menu structure.
 enum FillCurrentAction: CaseIterable, Hashable, Identifiable {
     case fromPlace
     case toPlace
+    case swapPlaces
     case dateAndTime
     case date
     case time
 
-    static let placeActions: [Self] = [.fromPlace, .toPlace]
+    static let placeActions: [Self] = [.fromPlace, .toPlace, .swapPlaces]
     static let temporalActions: [Self] = [.dateAndTime, .date, .time]
 
     var id: Self { self }
@@ -277,6 +278,8 @@ enum FillCurrentAction: CaseIterable, Hashable, Identifiable {
             "From Place"
         case .toPlace:
             "To Place"
+        case .swapPlaces:
+            "Swap From and To"
         case .dateAndTime:
             "Date and time"
         case .date:
@@ -290,6 +293,8 @@ enum FillCurrentAction: CaseIterable, Hashable, Identifiable {
         switch self {
         case .fromPlace, .toPlace:
             "location"
+        case .swapPlaces:
+            "arrow.left.arrow.right"
         case .dateAndTime:
             "calendar.badge.clock"
         case .date:
@@ -307,12 +312,12 @@ enum FillCurrentAction: CaseIterable, Hashable, Identifiable {
         case .departures:
             Set(temporalActions)
         case .stationTimetables:
-            [.date]
+            [.swapPlaces, .date]
         }
     }
 }
 
-/// Connects current-value commands to the editable search in the focused main window.
+/// Connects search-input commands to the editable search in the focused main window.
 struct FillCurrentCommandContext {
     let enabledActions: Set<FillCurrentAction>
     let perform: (FillCurrentAction) -> Void
@@ -333,7 +338,7 @@ extension FocusedValues {
     }
 }
 
-/// Adds one main-menu home for filling the active search with current place and time values.
+/// Adds one main-menu home for current values and route-direction shortcuts in the active search.
 struct FillCurrentCommands: Commands {
     @FocusedValue(\.fillCurrentCommandContext) private var context
 

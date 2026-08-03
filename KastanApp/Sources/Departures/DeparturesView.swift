@@ -146,7 +146,7 @@ struct DeparturesView: View {
             model.selectCurrentDate()
         case .time:
             model.selectCurrentTime()
-        case .fromPlace, .toPlace:
+        case .fromPlace, .toPlace, .swapPlaces:
             break
         }
     }

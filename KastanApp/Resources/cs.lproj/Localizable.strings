@@ -191,6 +191,7 @@
 "Stops" = "Zastávky";
 "Swap departure and arrival" = "Prohodit výchozí a cílové místo";
 "Swap direction stops" = "Prohodit zastávky směru";
+"Swap From and To" = "Prohodit odkud a kam";
 "tariff zone %@" = "tarifní zóna %@";
 "The calendar data could not be saved." = "Data kalendáře se nepodařilo uložit.";
 "The connection was sent to %@." = "Spojení bylo odesláno na %@.";

@@ -56,6 +56,11 @@ final class StationTimetablesViewModel: ObservableObject {
         date = now
     }
 
+    /// Swaps both direction stops without repeating the current station-timetable search.
+    func swapDirectionStops() {
+        swap(&from, &to)
+    }
+
     func search() async {
         let line = line.trimmingCharacters(in: .whitespacesAndNewlines)
         let from = from.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -108,7 +113,7 @@ final class StationTimetablesViewModel: ObservableObject {
 
     func reverseDirection() async {
         guard !isSearching else { return }
-        swap(&from, &to)
+        swapDirectionStops()
         await search()
     }
 }

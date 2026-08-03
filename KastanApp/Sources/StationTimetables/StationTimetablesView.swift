@@ -128,9 +128,7 @@ struct StationTimetablesView: View {
 
     private var swapButton: some View {
         Button {
-            let previousFrom = model.from
-            model.from = model.to
-            model.to = previousFrom
+            model.swapDirectionStops()
         } label: {
             Image(systemName: "arrow.left.arrow.right")
                 .frame(width: 24, height: 24)
@@ -184,8 +182,13 @@ struct StationTimetablesView: View {
         guard FillCurrentAction.supportedActions(for: .stationTimetables).contains(action) else { return }
         editSearch()
 
-        if action == .date {
+        switch action {
+        case .swapPlaces:
+            model.swapDirectionStops()
+        case .date:
             model.selectCurrentDate()
+        case .fromPlace, .toPlace, .dateAndTime, .time:
+            break
         }
     }
 

@@ -436,6 +436,8 @@ struct ConnectionsView: View {
         case .toPlace:
             guard model.locatingEndpoint == nil else { return }
             Task { await model.fillCurrentLocation(in: .to) }
+        case .swapPlaces:
+            model.swapEndpoints()
         case .dateAndTime:
             model.selectCurrentDateAndTime()
         case .date:

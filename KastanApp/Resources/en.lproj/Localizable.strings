@@ -191,6 +191,7 @@
 "Stops" = "Stops";
 "Swap departure and arrival" = "Swap departure and arrival";
 "Swap direction stops" = "Swap direction stops";
+"Swap From and To" = "Swap From and To";
 "tariff zone %@" = "tariff zone %@";
 "The calendar data could not be saved." = "The calendar data could not be saved.";
 "The connection was sent to %@." = "The connection was sent to %@.";

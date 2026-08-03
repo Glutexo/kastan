@@ -72,6 +72,7 @@ final class KastanAppTests: XCTestCase {
         let requestedTitles = [
             "From Place",
             "To Place",
+            "Swap From and To",
             "|",
             "Date and time",
             "Date",
@@ -84,7 +85,7 @@ final class KastanAppTests: XCTestCase {
             menu.items.map { item in item.isSeparatorItem ? "|" : item.title },
             requestedTitles
         )
-        XCTAssertEqual(FillCurrentAction.placeActions, [.fromPlace, .toPlace])
+        XCTAssertEqual(FillCurrentAction.placeActions, [.fromPlace, .toPlace, .swapPlaces])
         XCTAssertEqual(FillCurrentAction.temporalActions, [.dateAndTime, .date, .time])
         XCTAssertEqual(
             FillCurrentAction.supportedActions(for: .connections),
@@ -94,14 +95,17 @@ final class KastanAppTests: XCTestCase {
             FillCurrentAction.supportedActions(for: .departures),
             Set(FillCurrentAction.temporalActions)
         )
-        XCTAssertEqual(FillCurrentAction.supportedActions(for: .stationTimetables), [.date])
+        XCTAssertEqual(
+            FillCurrentAction.supportedActions(for: .stationTimetables),
+            [.swapPlaces, .date]
+        )
 
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         XCTAssertEqual(
-            ["Fill Current", "From Place", "To Place"].map {
+            ["Fill Current", "From Place", "To Place", "Swap From and To"].map {
                 czech.localizedString(forKey: $0, value: nil, table: nil)
             },
-            ["Vyplnit aktuální", "Místo odkud", "Místo kam"]
+            ["Vyplnit aktuální", "Místo odkud", "Místo kam", "Prohodit odkud a kam"]
         )
     }
 
@@ -1914,6 +1918,27 @@ final class KastanAppTests: XCTestCase {
         stationTimetables.date = original
         stationTimetables.selectCurrentDate(now: current)
         XCTAssertEqual(stationTimetables.date, current)
+    }
+
+    func testFillCurrentSwapActionSupportsConnectionAndStationTimetableRoutes() {
+        let connections = ConnectionsViewModel(
+            client: MockIDOSClient(),
+            calendarImporter: RecordingCalendarImporter()
+        )
+        connections.from = "Praha"
+        connections.to = "Brno"
+        connections.swapEndpoints()
+
+        XCTAssertEqual(connections.from, "Brno")
+        XCTAssertEqual(connections.to, "Praha")
+
+        let stationTimetables = StationTimetablesViewModel(client: MockIDOSClient())
+        stationTimetables.from = "Výchozí zastávka"
+        stationTimetables.to = "Cílová zastávka"
+        stationTimetables.swapDirectionStops()
+
+        XCTAssertEqual(stationTimetables.from, "Cílová zastávka")
+        XCTAssertEqual(stationTimetables.to, "Výchozí zastávka")
     }
 
     func testClosedSearchDateTimePickerShowsModeWithoutEagerEditors() {
