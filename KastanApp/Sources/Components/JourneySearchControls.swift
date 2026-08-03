@@ -136,8 +136,10 @@ struct TimetableFavoriteContextMenu: View {
 
     var body: some View {
         ForEach(TimetableFavoriteContextAction.allCases) { action in
-            Button(LocalizedStringKey(action.rawValue)) {
+            Button {
                 perform(action)
+            } label: {
+                Label(LocalizedStringKey(action.rawValue), systemImage: action.systemImage)
             }
         }
     }
@@ -155,6 +157,13 @@ enum TimetableFavoriteContextAction: String, CaseIterable, Hashable, Identifiabl
     case openManager = "Favorite timetables"
 
     var id: Self { self }
+
+    var systemImage: String {
+        switch self {
+        case .openManager:
+            "star"
+        }
+    }
 }
 
 /// Keeps the timetable context and journey instant on one stable row across journey searches.

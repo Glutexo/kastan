@@ -2598,6 +2598,7 @@ final class KastanAppTests: XCTestCase {
             AppLocalization.string(TimetableFavoriteContextAction.openManager.rawValue),
             AppLocalization.string("Favorite timetables")
         )
+        XCTAssertEqual(TimetableFavoriteContextAction.openManager.systemImage, "star")
 
         var didOpenFavoriteTimetables = false
         let menu = TimetableFavoriteContextMenu(
