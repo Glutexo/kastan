@@ -1377,6 +1377,29 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testJourneySearchHeaderFitsTheMinimumPaddedContentWidth() {
+        let client = MockIDOSClient()
+        let model = ConnectionsViewModel(client: client)
+        let layout = DetailLayout(availableWidth: KastanApp.minimumMainWindowWidth)
+        let hostingView = NSHostingView(rootView: JourneySearchHeader(
+            timetable: .constant(model.timetable),
+            date: .constant(model.date),
+            time: .constant(model.time),
+            isArrival: .constant(model.isArrival),
+            modeLabel: "Time means",
+            departureLabel: "Departure",
+            arrivalLabel: "Arrival",
+            usesCurrentDateAndTime: model.usesCurrentDateAndTime,
+            selectCurrentDateAndTime: {},
+            showsCurrentDateAndTimeShortcut: false,
+            usesCompactLayout: true
+        ))
+
+        hostingView.layoutSubtreeIfNeeded()
+
+        XCTAssertLessThanOrEqual(hostingView.fittingSize.width, layout.contentWidth)
+    }
+
     func testTimetablePickerAppearsAbovePrimaryInputInEverySearchMode() throws {
         let width = KastanApp.minimumMainWindowWidth
         func assertTimetablePrecedesInput<Content: View>(

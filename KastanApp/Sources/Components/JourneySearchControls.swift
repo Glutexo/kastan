@@ -164,7 +164,7 @@ struct JourneySearchHeader: View {
     }
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 12) {
+        HStack(alignment: .bottom, spacing: 0) {
             SearchTimetablePicker(
                 timetable: $timetable,
                 usesCompactLayout: usesCompactLayout
@@ -192,11 +192,6 @@ struct JourneySearchHeader: View {
                 )
             }
             .fixedSize(horizontal: true, vertical: false)
-            .offset(
-                x: -JourneySearchControls.trailingControlInset(
-                    usesCompactLayout: usesCompactLayout
-                )
-            )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
