@@ -258,6 +258,109 @@ struct AppHelpCommands: Commands {
     }
 }
 
+/// Defines the current-value shortcuts that remain visible in one stable main-menu structure.
+enum FillCurrentAction: CaseIterable, Hashable, Identifiable {
+    case fromPlace
+    case toPlace
+    case dateAndTime
+    case date
+    case time
+
+    static let placeActions: [Self] = [.fromPlace, .toPlace]
+    static let temporalActions: [Self] = [.dateAndTime, .date, .time]
+
+    var id: Self { self }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .fromPlace:
+            "From Place"
+        case .toPlace:
+            "To Place"
+        case .dateAndTime:
+            "Date and time"
+        case .date:
+            "Date"
+        case .time:
+            "Time"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .fromPlace, .toPlace:
+            "location"
+        case .dateAndTime:
+            "calendar.badge.clock"
+        case .date:
+            "calendar"
+        case .time:
+            "clock"
+        }
+    }
+
+    /// Keeps unsupported values visible but disabled as the active search mode changes.
+    static func supportedActions(for section: AppSection) -> Set<Self> {
+        switch section {
+        case .connections:
+            Set(allCases)
+        case .departures:
+            Set(temporalActions)
+        case .stationTimetables:
+            [.date]
+        }
+    }
+}
+
+/// Connects current-value commands to the editable search in the focused main window.
+struct FillCurrentCommandContext {
+    let enabledActions: Set<FillCurrentAction>
+    let perform: (FillCurrentAction) -> Void
+
+    func isEnabled(_ action: FillCurrentAction) -> Bool {
+        enabledActions.contains(action)
+    }
+}
+
+struct FillCurrentCommandContextKey: FocusedValueKey {
+    typealias Value = FillCurrentCommandContext
+}
+
+extension FocusedValues {
+    var fillCurrentCommandContext: FillCurrentCommandContext? {
+        get { self[FillCurrentCommandContextKey.self] }
+        set { self[FillCurrentCommandContextKey.self] = newValue }
+    }
+}
+
+/// Adds one main-menu home for filling the active search with current place and time values.
+struct FillCurrentCommands: Commands {
+    @FocusedValue(\.fillCurrentCommandContext) private var context
+
+    var body: some Commands {
+        CommandMenu("Fill Current") {
+            ForEach(FillCurrentAction.placeActions) { action in
+                actionButton(action)
+            }
+
+            Divider()
+
+            ForEach(FillCurrentAction.temporalActions) { action in
+                actionButton(action)
+            }
+        }
+    }
+
+    private func actionButton(_ action: FillCurrentAction) -> some View {
+        Button {
+            context?.perform(action)
+        } label: {
+            Label(action.title, systemImage: action.systemImage)
+        }
+        .disabled(context?.isEnabled(action) != true)
+    }
+}
+
 /// Defines the result-detail actions shared by the active window's toolbar and the File menu.
 enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
     case sendByEmail
@@ -517,6 +620,7 @@ struct KastanApp: App {
             AppWindowCommands()
             ResultDetailCommands()
             AppSectionCommands()
+            FillCurrentCommands()
             AppInformationCommands()
             AppHelpCommands()
         }

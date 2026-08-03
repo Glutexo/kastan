@@ -165,6 +165,18 @@ final class ConnectionsViewModel: ObservableObject {
         time = now
     }
 
+    /// Replaces only the journey date while retaining the deliberately selected time.
+    func selectCurrentDate(now: Date = .now) {
+        usesCurrentDateAndTime = false
+        date = now
+    }
+
+    /// Replaces only the journey time while retaining the deliberately selected date.
+    func selectCurrentTime(now: Date = .now) {
+        usesCurrentDateAndTime = false
+        time = now
+    }
+
     /// Gives the editable form immediate guidance before an invalid route can start searching.
     var endpointValidationMessage: String? {
         let departure = from.trimmingCharacters(in: .whitespacesAndNewlines)

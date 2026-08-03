@@ -72,6 +72,18 @@ final class DeparturesViewModel: ObservableObject {
         time = now
     }
 
+    /// Replaces only the station-board date while retaining the deliberately selected time.
+    func selectCurrentDate(now: Date = .now) {
+        usesCurrentDateAndTime = false
+        date = now
+    }
+
+    /// Replaces only the station-board time while retaining the deliberately selected date.
+    func selectCurrentTime(now: Date = .now) {
+        usesCurrentDateAndTime = false
+        time = now
+    }
+
     func search() async {
         let station = station.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !station.isEmpty else {

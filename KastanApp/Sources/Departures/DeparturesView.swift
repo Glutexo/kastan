@@ -57,6 +57,7 @@ struct DeparturesView: View {
             OptionModifierMonitor(isPressed: $showsSearchShortcuts)
                 .frame(width: 0, height: 0)
         }
+        .focusedSceneValue(\.fillCurrentCommandContext, fillCurrentCommandContext)
     }
 
     private var resultsPanel: some View {
@@ -124,6 +125,30 @@ struct DeparturesView: View {
             time: IDOSRequestFormatting.time(from: model.time),
             mode: AppLocalization.string(model.isArrival ? "Arrivals" : "Departures")
         )
+    }
+
+    private var fillCurrentCommandContext: FillCurrentCommandContext {
+        FillCurrentCommandContext(
+            enabledActions: FillCurrentAction.supportedActions(for: .departures),
+            perform: fillCurrent
+        )
+    }
+
+    /// Reveals the editable form before applying a current value from the application menu.
+    private func fillCurrent(_ action: FillCurrentAction) {
+        guard FillCurrentAction.supportedActions(for: .departures).contains(action) else { return }
+        editSearch()
+
+        switch action {
+        case .dateAndTime:
+            model.selectCurrentDateAndTime()
+        case .date:
+            model.selectCurrentDate()
+        case .time:
+            model.selectCurrentTime()
+        case .fromPlace, .toPlace:
+            break
+        }
     }
 
     private func performSearch() {

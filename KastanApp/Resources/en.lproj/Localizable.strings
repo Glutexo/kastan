@@ -72,7 +72,9 @@
 "Find a public transport journey through IDOS." = "Find a public transport journey through IDOS.";
 "Favorites" = "Favorites";
 "Favorite timetables" = "Favorite timetables";
+"Fill Current" = "Fill Current";
 "From" = "From";
+"From Place" = "From Place";
 "Here" = "Here";
 "IDOS could not generate a station timetable for this line, direction, and date." = "IDOS could not generate a station timetable for this line, direction, and date.";
 "IDOS could not load this service detail." = "IDOS could not load this service detail.";
@@ -199,6 +201,7 @@
 "Timetable valid %@ – %@" = "Timetable valid %@ – %@";
 "Timetables" = "Timetables";
 "To" = "To";
+"To Place" = "To Place";
 "Track %@" = "Track %@";
 "track %@" = "track %@";
 "train" = "train";

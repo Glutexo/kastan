@@ -37,6 +37,7 @@ struct StationTimetablesView: View {
             )
             .animation(.easeInOut(duration: 0.18), value: isSearchFormCollapsed)
         }
+        .focusedSceneValue(\.fillCurrentCommandContext, fillCurrentCommandContext)
     }
 
     private var resultsPanel: some View {
@@ -169,6 +170,23 @@ struct StationTimetablesView: View {
             get: { model.timetable },
             set: { timetable in model.selectTimetable(slug: timetable.slug) }
         )
+    }
+
+    private var fillCurrentCommandContext: FillCurrentCommandContext {
+        FillCurrentCommandContext(
+            enabledActions: FillCurrentAction.supportedActions(for: .stationTimetables),
+            perform: fillCurrent
+        )
+    }
+
+    /// Reveals the editable form before applying today's date from the application menu.
+    private func fillCurrent(_ action: FillCurrentAction) {
+        guard FillCurrentAction.supportedActions(for: .stationTimetables).contains(action) else { return }
+        editSearch()
+
+        if action == .date {
+            model.selectCurrentDate()
+        }
     }
 
     private func performSearch() {

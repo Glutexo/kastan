@@ -64,6 +64,47 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testFillCurrentMenuKeepsRequestedActionsInTwoGroups() throws {
+        let menuTitle = AppLocalization.string("Fill Current")
+        let menu = try XCTUnwrap(
+            NSApplication.shared.mainMenu?.items.first { $0.title == menuTitle }?.submenu
+        )
+        let requestedTitles = [
+            "From Place",
+            "To Place",
+            "|",
+            "Date and time",
+            "Date",
+            "Time",
+        ].map { key in
+            key == "|" ? key : AppLocalization.string(key)
+        }
+
+        XCTAssertEqual(
+            menu.items.map { item in item.isSeparatorItem ? "|" : item.title },
+            requestedTitles
+        )
+        XCTAssertEqual(FillCurrentAction.placeActions, [.fromPlace, .toPlace])
+        XCTAssertEqual(FillCurrentAction.temporalActions, [.dateAndTime, .date, .time])
+        XCTAssertEqual(
+            FillCurrentAction.supportedActions(for: .connections),
+            Set(FillCurrentAction.allCases)
+        )
+        XCTAssertEqual(
+            FillCurrentAction.supportedActions(for: .departures),
+            Set(FillCurrentAction.temporalActions)
+        )
+        XCTAssertEqual(FillCurrentAction.supportedActions(for: .stationTimetables), [.date])
+
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        XCTAssertEqual(
+            ["Fill Current", "From Place", "To Place"].map {
+                czech.localizedString(forKey: $0, value: nil, table: nil)
+            },
+            ["Vyplnit aktuální", "Místo odkud", "Místo kam"]
+        )
+    }
+
     func testFavoriteTimetablesWindowCommandUsesAnIcon() throws {
         let title = AppLocalization.string("Favorite timetables")
         let command = try XCTUnwrap(
@@ -1834,6 +1875,45 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertTrue(selectedTitle.contains("02/08/2026"))
         XCTAssertTrue(selectedTitle.contains("16:45"))
+    }
+
+    func testFillCurrentDateAndTimeActionsPreserveUnselectedComponents() {
+        let original = serviceDate(2026, 8, 1).addingTimeInterval(21 * 60 * 60)
+        let current = serviceDate(2026, 8, 2).addingTimeInterval(10 * 60 * 60)
+
+        let connections = ConnectionsViewModel(
+            client: MockIDOSClient(),
+            calendarImporter: RecordingCalendarImporter()
+        )
+        connections.selectCurrentDateAndTime(now: original)
+        connections.selectCurrentDate(now: current)
+        XCTAssertEqual(connections.date, current)
+        XCTAssertEqual(connections.time, original)
+        XCTAssertFalse(connections.usesCurrentDateAndTime)
+
+        connections.selectCurrentDateAndTime(now: original)
+        connections.selectCurrentTime(now: current)
+        XCTAssertEqual(connections.date, original)
+        XCTAssertEqual(connections.time, current)
+        XCTAssertFalse(connections.usesCurrentDateAndTime)
+
+        let departures = DeparturesViewModel(client: MockIDOSClient())
+        departures.selectCurrentDateAndTime(now: original)
+        departures.selectCurrentDate(now: current)
+        XCTAssertEqual(departures.date, current)
+        XCTAssertEqual(departures.time, original)
+        XCTAssertFalse(departures.usesCurrentDateAndTime)
+
+        departures.selectCurrentDateAndTime(now: original)
+        departures.selectCurrentTime(now: current)
+        XCTAssertEqual(departures.date, original)
+        XCTAssertEqual(departures.time, current)
+        XCTAssertFalse(departures.usesCurrentDateAndTime)
+
+        let stationTimetables = StationTimetablesViewModel(client: MockIDOSClient())
+        stationTimetables.date = original
+        stationTimetables.selectCurrentDate(now: current)
+        XCTAssertEqual(stationTimetables.date, current)
     }
 
     func testClosedSearchDateTimePickerShowsModeWithoutEagerEditors() {

@@ -219,6 +219,7 @@ struct ConnectionsView: View {
             OptionModifierMonitor(isPressed: $showsSearchShortcuts)
                 .frame(width: 0, height: 0)
         }
+        .focusedSceneValue(\.fillCurrentCommandContext, fillCurrentCommandContext)
         .sheet(item: $emailSelection) { selection in
             ConnectionEmailView(
                 connection: selection.connection,
@@ -410,6 +411,38 @@ struct ConnectionsView: View {
             via: model.viaPlaceNames,
             transferLimit: model.transferLimitLabel
         )
+    }
+
+    private var fillCurrentCommandContext: FillCurrentCommandContext {
+        var enabledActions = FillCurrentAction.supportedActions(for: .connections)
+        if model.locatingEndpoint != nil {
+            enabledActions.subtract([.fromPlace, .toPlace])
+        }
+        return FillCurrentCommandContext(
+            enabledActions: enabledActions,
+            perform: fillCurrent
+        )
+    }
+
+    /// Reveals the editable form before applying a current value from the application menu.
+    private func fillCurrent(_ action: FillCurrentAction) {
+        guard FillCurrentAction.supportedActions(for: .connections).contains(action) else { return }
+        editSearch()
+
+        switch action {
+        case .fromPlace:
+            guard model.locatingEndpoint == nil else { return }
+            Task { await model.fillCurrentLocation(in: .from) }
+        case .toPlace:
+            guard model.locatingEndpoint == nil else { return }
+            Task { await model.fillCurrentLocation(in: .to) }
+        case .dateAndTime:
+            model.selectCurrentDateAndTime()
+        case .date:
+            model.selectCurrentDate()
+        case .time:
+            model.selectCurrentTime()
+        }
     }
 
     private func performSearch() {

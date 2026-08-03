@@ -72,7 +72,9 @@
 "Find a public transport journey through IDOS." = "Vyhledejte cestu veřejnou dopravou přes IDOS.";
 "Favorites" = "Oblíbené";
 "Favorite timetables" = "Oblíbené jízdní řády";
+"Fill Current" = "Vyplnit aktuální";
 "From" = "Odkud";
+"From Place" = "Místo odkud";
 "Here" = "Tady";
 "IDOS could not generate a station timetable for this line, direction, and date." = "IDOS nemohl pro tuto linku, směr a datum vytvořit zastávkový jízdní řád.";
 "IDOS could not load this service detail." = "IDOS nedokázal načíst detail tohoto spoje.";
@@ -199,6 +201,7 @@
 "Timetable valid %@ – %@" = "Jízdní řád platí %@ – %@";
 "Timetables" = "Jízdní řády";
 "To" = "Kam";
+"To Place" = "Místo kam";
 "Track %@" = "kolej %@";
 "track %@" = "kolej %@";
 "train" = "vlak";

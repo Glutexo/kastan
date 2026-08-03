@@ -51,6 +51,11 @@ final class StationTimetablesViewModel: ObservableObject {
         errorMessage = nil
     }
 
+    /// Replaces the station-timetable date with today's value from the main-menu shortcut.
+    func selectCurrentDate(now: Date = .now) {
+        date = now
+    }
+
     func search() async {
         let line = line.trimmingCharacters(in: .whitespacesAndNewlines)
         let from = from.trimmingCharacters(in: .whitespacesAndNewlines)
