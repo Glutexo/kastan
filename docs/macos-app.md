@@ -123,8 +123,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   complete localized title does not fit, and hovering that compact badge reveals the title. The neighboring Show item
   details setting is likewise off initially, global, and persistent. Enabling it reveals carriers and localized Czech
   or English IDOS punctuality states, including live delay minute counts. It also reveals via descriptions, tariff
-  zones, platforms or stands, tracks, and distances across
-  connection services, station boards, station timetables, complete service windows, and Force Click previews.
+  zones, platforms or stands, tracks, and distances across connection services, station boards, station timetables,
+  complete service windows, and Force Click previews.
+  Complete-route markers remain centered beside each stop's visible title and optional metadata when this setting
+  changes.
   Operational stop notes and complete service information remain visible independently of this presentation choice.
   Cards always retain line colors and transport symbols. Right-clicking anywhere on a connection card
   opens the same complete action menu as its ellipsis button, with Open connection in new window ahead of email,

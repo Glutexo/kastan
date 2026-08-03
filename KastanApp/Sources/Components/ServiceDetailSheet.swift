@@ -1,3 +1,4 @@
+import AppKit
 import Kastan
 import SwiftUI
 
@@ -710,6 +711,20 @@ struct ServiceDetailView: View {
     }
 }
 
+/// Keeps a route marker centered beside the stop content that remains visible.
+enum ServiceStopTimelineLayout {
+    static let markerDiameter: CGFloat = 14
+    static let metadataSpacing: CGFloat = 4
+
+    static func topConnectorHeight(hasVisibleMetadata: Bool) -> CGFloat {
+        let headlineHeight = NSFont.preferredFont(forTextStyle: .headline).boundingRectForFont.height
+        let metadataHeight = hasVisibleMetadata
+            ? metadataSpacing + NSFont.preferredFont(forTextStyle: .caption1).boundingRectForFont.height
+            : 0
+        return max(((headlineHeight + metadataHeight) - markerDiameter) / 2, 0)
+    }
+}
+
 private struct ServiceStopRow: View {
     let stop: IDOSServiceStop
     let isFirst: Bool
@@ -723,11 +738,23 @@ private struct ServiceStopRow: View {
     let showsItemDetails: Bool
 
     var body: some View {
+        let metadata = ResultMetadata.visible(
+            showsDetails: showsItemDetails,
+            ResultMetadata.station(tariffZone: stop.tariffZone, platform: stop.platform),
+            stop.track.map { AppLocalization.string("Track %@", $0) },
+            stop.distance
+        )
+
         HStack(alignment: .top, spacing: 12) {
             VStack(spacing: 0) {
                 Rectangle()
                     .fill(isFirst ? Color.clear : topRouteColor)
-                    .frame(width: 2, height: 10)
+                    .frame(
+                        width: 2,
+                        height: ServiceStopTimelineLayout.topConnectorHeight(
+                            hasVisibleMetadata: metadata != nil
+                        )
+                    )
 
                 ZStack {
                     Circle()
@@ -740,16 +767,19 @@ private struct ServiceStopRow: View {
                             .frame(width: 6, height: 6)
                     }
                 }
-                .frame(width: 14, height: 14)
+                .frame(
+                    width: ServiceStopTimelineLayout.markerDiameter,
+                    height: ServiceStopTimelineLayout.markerDiameter
+                )
 
                 Rectangle()
                     .fill(isLast ? Color.clear : bottomRouteColor)
                     .frame(width: 2)
                     .frame(maxHeight: .infinity)
             }
-            .frame(width: 14)
+            .frame(width: ServiceStopTimelineLayout.markerDiameter)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: ServiceStopTimelineLayout.metadataSpacing) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(stop.name)
                         .font(.headline)
@@ -760,12 +790,7 @@ private struct ServiceStopRow: View {
                         .foregroundStyle(isDimmed ? Color.secondary : Color.primary)
                 }
 
-                if let metadata = ResultMetadata.visible(
-                    showsDetails: showsItemDetails,
-                    ResultMetadata.station(tariffZone: stop.tariffZone, platform: stop.platform),
-                    stop.track.map { AppLocalization.string("Track %@", $0) },
-                    stop.distance
-                ) {
+                if let metadata {
                     Text(metadata)
                         .font(.caption)
                         .foregroundStyle(.secondary)

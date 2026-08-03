@@ -2545,6 +2545,26 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testServiceStopMarkerCentersAgainstTheVisiblePrimaryContent() {
+        let headlineHeight = NSFont.preferredFont(forTextStyle: .headline).boundingRectForFont.height
+        let captionHeight = NSFont.preferredFont(forTextStyle: .caption1).boundingRectForFont.height
+        let markerRadius = ServiceStopTimelineLayout.markerDiameter / 2
+        let titleOnlyMarkerCenter = ServiceStopTimelineLayout.topConnectorHeight(
+            hasVisibleMetadata: false
+        ) + markerRadius
+        let detailedMarkerCenter = ServiceStopTimelineLayout.topConnectorHeight(
+            hasVisibleMetadata: true
+        ) + markerRadius
+
+        XCTAssertEqual(titleOnlyMarkerCenter, headlineHeight / 2, accuracy: 0.001)
+        XCTAssertEqual(
+            detailedMarkerCenter,
+            (headlineHeight + ServiceStopTimelineLayout.metadataSpacing + captionHeight) / 2,
+            accuracy: 0.001
+        )
+        XCTAssertLessThan(titleOnlyMarkerCenter, detailedMarkerCenter)
+    }
+
     func testAdaptiveConnectionBadgeStaysOneLineAtCompactWidth() throws {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let full = NSHostingView(
