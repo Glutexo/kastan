@@ -37,7 +37,7 @@ struct StationTimetablesView: View {
             )
             .animation(.easeInOut(duration: 0.18), value: isSearchFormCollapsed)
         }
-        .focusedSceneValue(\.fillCurrentCommandContext, fillCurrentCommandContext)
+        .focusedSceneValue(\.searchEditCommandContext, searchEditCommandContext)
     }
 
     private var resultsPanel: some View {
@@ -161,10 +161,11 @@ struct StationTimetablesView: View {
         )
     }
 
-    private var fillCurrentCommandContext: FillCurrentCommandContext {
-        FillCurrentCommandContext(
-            enabledActions: FillCurrentAction.supportedActions(for: .stationTimetables),
-            perform: fillCurrent
+    private var searchEditCommandContext: SearchEditCommandContext {
+        SearchEditCommandContext(
+            enabledFillCurrentActions: FillCurrentAction.supportedActions(for: .stationTimetables),
+            performFillCurrent: fillCurrent,
+            swapPlaces: swapPlaces
         )
     }
 
@@ -174,13 +175,17 @@ struct StationTimetablesView: View {
         editSearch()
 
         switch action {
-        case .swapPlaces:
-            model.swapDirectionStops()
         case .date:
             model.selectCurrentDate()
         case .fromPlace, .toPlace, .dateAndTime, .time:
             break
         }
+    }
+
+    /// Reveals the editable form before swapping both direction stops from the Edit menu.
+    private func swapPlaces() {
+        editSearch()
+        model.swapDirectionStops()
     }
 
     private func performSearch() {

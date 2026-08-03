@@ -219,7 +219,7 @@ struct ConnectionsView: View {
             OptionModifierMonitor(isPressed: $showsSearchShortcuts)
                 .frame(width: 0, height: 0)
         }
-        .focusedSceneValue(\.fillCurrentCommandContext, fillCurrentCommandContext)
+        .focusedSceneValue(\.searchEditCommandContext, searchEditCommandContext)
         .sheet(item: $emailSelection) { selection in
             ConnectionEmailView(
                 connection: selection.connection,
@@ -408,14 +408,15 @@ struct ConnectionsView: View {
         )
     }
 
-    private var fillCurrentCommandContext: FillCurrentCommandContext {
+    private var searchEditCommandContext: SearchEditCommandContext {
         var enabledActions = FillCurrentAction.supportedActions(for: .connections)
         if model.locatingEndpoint != nil {
             enabledActions.subtract([.fromPlace, .toPlace])
         }
-        return FillCurrentCommandContext(
-            enabledActions: enabledActions,
-            perform: fillCurrent
+        return SearchEditCommandContext(
+            enabledFillCurrentActions: enabledActions,
+            performFillCurrent: fillCurrent,
+            swapPlaces: swapPlaces
         )
     }
 
@@ -431,8 +432,6 @@ struct ConnectionsView: View {
         case .toPlace:
             guard model.locatingEndpoint == nil else { return }
             Task { await model.fillCurrentLocation(in: .to) }
-        case .swapPlaces:
-            model.swapEndpoints()
         case .dateAndTime:
             model.selectCurrentDateAndTime()
         case .date:
@@ -440,6 +439,12 @@ struct ConnectionsView: View {
         case .time:
             model.selectCurrentTime()
         }
+    }
+
+    /// Reveals the editable form before swapping both connection endpoints from the Edit menu.
+    private func swapPlaces() {
+        editSearch()
+        model.swapEndpoints()
     }
 
     private func performSearch() {

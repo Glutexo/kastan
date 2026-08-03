@@ -57,7 +57,7 @@ struct DeparturesView: View {
             OptionModifierMonitor(isPressed: $showsSearchShortcuts)
                 .frame(width: 0, height: 0)
         }
-        .focusedSceneValue(\.fillCurrentCommandContext, fillCurrentCommandContext)
+        .focusedSceneValue(\.searchEditCommandContext, searchEditCommandContext)
     }
 
     private var resultsPanel: some View {
@@ -127,10 +127,11 @@ struct DeparturesView: View {
         )
     }
 
-    private var fillCurrentCommandContext: FillCurrentCommandContext {
-        FillCurrentCommandContext(
-            enabledActions: FillCurrentAction.supportedActions(for: .departures),
-            perform: fillCurrent
+    private var searchEditCommandContext: SearchEditCommandContext {
+        SearchEditCommandContext(
+            enabledFillCurrentActions: FillCurrentAction.supportedActions(for: .departures),
+            performFillCurrent: fillCurrent,
+            swapPlaces: nil
         )
     }
 
@@ -146,7 +147,7 @@ struct DeparturesView: View {
             model.selectCurrentDate()
         case .time:
             model.selectCurrentTime()
-        case .fromPlace, .toPlace, .swapPlaces:
+        case .fromPlace, .toPlace:
             break
         }
     }

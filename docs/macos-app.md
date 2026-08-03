@@ -22,10 +22,11 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   focus moves outside it. Until either value is edited or a search is submitted, the launch default follows the current
   moment when the form appears, the app becomes active, and immediately before searching, so an app left open overnight
   does not silently query yesterday. Station-board searches use the same current-moment behavior and compact editor,
-  with their Departures/Arrivals mode visible when the popover is closed. The main Fill Current menu keeps From Place,
-  To Place, and Swap From and To above a separator, followed by Date and time, Date, and Time. It reveals a collapsed
-  active search before applying an action; Connections support every command, Departures support the three temporal
-  commands, and Station Timetables support direction swapping and Date while the remaining commands stay visibly
+  with their Departures/Arrivals mode visible when the popover is closed. The Edit menu contains a Fill Current submenu
+  with From Place and To Place above a separator, followed by Date and time, Date, and Time. A separate neighboring
+  Swap From and To command handles route reversal without presenting it as a current value. Both reveal a collapsed
+  active search before applying an action; Connections support every current value and swapping, Departures support
+  the three temporal values, and Station Timetables support Date and swapping while unsupported commands stay visibly
   disabled. Searches also
   support arrival mode and an extensible journey-options builder modeled after native macOS rule editors. Selecting
   the same exact departure and arrival shows inline guidance and disables Search before any IDOS request can start.

@@ -64,15 +64,28 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testFillCurrentMenuKeepsRequestedActionsInTwoGroups() throws {
-        let menuTitle = AppLocalization.string("Fill Current")
-        let menu = try XCTUnwrap(
-            NSApplication.shared.mainMenu?.items.first { $0.title == menuTitle }?.submenu
+    func testEditMenuSeparatesFillCurrentFromRouteSwapping() throws {
+        let mainMenu = try XCTUnwrap(NSApplication.shared.mainMenu)
+        let fillCurrentTitle = AppLocalization.string("Fill Current")
+        let swapTitle = AppLocalization.string("Swap From and To")
+        XCTAssertFalse(mainMenu.items.contains { $0.title == fillCurrentTitle })
+
+        let editMenu = try XCTUnwrap(
+            mainMenu.items.compactMap(\.submenu).first { menu in
+                menu.items.contains { $0.title == fillCurrentTitle }
+            }
         )
+        XCTAssertTrue(
+            editMenu.items.contains { $0.action == Selector(("paste:")) },
+            "Search commands must live in the standard Edit menu"
+        )
+        let fillCurrentItem = try XCTUnwrap(
+            editMenu.items.first { $0.title == fillCurrentTitle }
+        )
+        let fillCurrentMenu = try XCTUnwrap(fillCurrentItem.submenu)
         let requestedTitles = [
             "From Place",
             "To Place",
-            "Swap From and To",
             "|",
             "Date and time",
             "Date",
@@ -82,10 +95,17 @@ final class KastanAppTests: XCTestCase {
         }
 
         XCTAssertEqual(
-            menu.items.map { item in item.isSeparatorItem ? "|" : item.title },
+            fillCurrentMenu.items.map { item in item.isSeparatorItem ? "|" : item.title },
             requestedTitles
         )
-        XCTAssertEqual(FillCurrentAction.placeActions, [.fromPlace, .toPlace, .swapPlaces])
+        XCTAssertFalse(fillCurrentMenu.items.contains { $0.title == swapTitle })
+
+        let fillCurrentIndex = try XCTUnwrap(editMenu.items.firstIndex { $0 === fillCurrentItem })
+        let swapIndex = try XCTUnwrap(editMenu.items.firstIndex { $0.title == swapTitle })
+        XCTAssertEqual(swapIndex, fillCurrentIndex + 1)
+        XCTAssertNil(editMenu.items[swapIndex].submenu)
+
+        XCTAssertEqual(FillCurrentAction.placeActions, [.fromPlace, .toPlace])
         XCTAssertEqual(FillCurrentAction.temporalActions, [.dateAndTime, .date, .time])
         XCTAssertEqual(
             FillCurrentAction.supportedActions(for: .connections),
@@ -95,10 +115,7 @@ final class KastanAppTests: XCTestCase {
             FillCurrentAction.supportedActions(for: .departures),
             Set(FillCurrentAction.temporalActions)
         )
-        XCTAssertEqual(
-            FillCurrentAction.supportedActions(for: .stationTimetables),
-            [.swapPlaces, .date]
-        )
+        XCTAssertEqual(FillCurrentAction.supportedActions(for: .stationTimetables), [.date])
 
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         XCTAssertEqual(
@@ -1949,7 +1966,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(stationTimetables.date, current)
     }
 
-    func testFillCurrentSwapActionSupportsConnectionAndStationTimetableRoutes() {
+    func testEditMenuSwapSupportsConnectionAndStationTimetableRoutes() {
         let connections = ConnectionsViewModel(
             client: MockIDOSClient(),
             calendarImporter: RecordingCalendarImporter()

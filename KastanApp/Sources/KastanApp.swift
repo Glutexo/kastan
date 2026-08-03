@@ -258,16 +258,15 @@ struct AppHelpCommands: Commands {
     }
 }
 
-/// Defines the search-input shortcuts that remain visible in one stable main-menu structure.
+/// Defines the current-value shortcuts grouped inside the Edit menu.
 enum FillCurrentAction: CaseIterable, Hashable, Identifiable {
     case fromPlace
     case toPlace
-    case swapPlaces
     case dateAndTime
     case date
     case time
 
-    static let placeActions: [Self] = [.fromPlace, .toPlace, .swapPlaces]
+    static let placeActions: [Self] = [.fromPlace, .toPlace]
     static let temporalActions: [Self] = [.dateAndTime, .date, .time]
 
     var id: Self { self }
@@ -278,8 +277,6 @@ enum FillCurrentAction: CaseIterable, Hashable, Identifiable {
             "From Place"
         case .toPlace:
             "To Place"
-        case .swapPlaces:
-            "Swap From and To"
         case .dateAndTime:
             "Date and time"
         case .date:
@@ -293,8 +290,6 @@ enum FillCurrentAction: CaseIterable, Hashable, Identifiable {
         switch self {
         case .fromPlace, .toPlace:
             "location"
-        case .swapPlaces:
-            "arrow.left.arrow.right"
         case .dateAndTime:
             "calendar.badge.clock"
         case .date:
@@ -312,57 +307,69 @@ enum FillCurrentAction: CaseIterable, Hashable, Identifiable {
         case .departures:
             Set(temporalActions)
         case .stationTimetables:
-            [.swapPlaces, .date]
+            [.date]
         }
     }
 }
 
-/// Connects search-input commands to the editable search in the focused main window.
-struct FillCurrentCommandContext {
-    let enabledActions: Set<FillCurrentAction>
-    let perform: (FillCurrentAction) -> Void
+/// Connects Edit-menu search commands to the editable form in the focused main window.
+struct SearchEditCommandContext {
+    let enabledFillCurrentActions: Set<FillCurrentAction>
+    let performFillCurrent: (FillCurrentAction) -> Void
+    let swapPlaces: (() -> Void)?
 
-    func isEnabled(_ action: FillCurrentAction) -> Bool {
-        enabledActions.contains(action)
+    func isFillCurrentEnabled(_ action: FillCurrentAction) -> Bool {
+        enabledFillCurrentActions.contains(action)
     }
 }
 
-struct FillCurrentCommandContextKey: FocusedValueKey {
-    typealias Value = FillCurrentCommandContext
+struct SearchEditCommandContextKey: FocusedValueKey {
+    typealias Value = SearchEditCommandContext
 }
 
 extension FocusedValues {
-    var fillCurrentCommandContext: FillCurrentCommandContext? {
-        get { self[FillCurrentCommandContextKey.self] }
-        set { self[FillCurrentCommandContextKey.self] = newValue }
+    var searchEditCommandContext: SearchEditCommandContext? {
+        get { self[SearchEditCommandContextKey.self] }
+        set { self[SearchEditCommandContextKey.self] = newValue }
     }
 }
 
-/// Adds one main-menu home for current values and route-direction shortcuts in the active search.
-struct FillCurrentCommands: Commands {
-    @FocusedValue(\.fillCurrentCommandContext) private var context
+/// Keeps current-value and route-swap actions together in the standard Edit menu.
+struct SearchEditCommands: Commands {
+    @FocusedValue(\.searchEditCommandContext) private var context
 
     var body: some Commands {
-        CommandMenu("Fill Current") {
-            ForEach(FillCurrentAction.placeActions) { action in
-                actionButton(action)
+        CommandGroup(after: .pasteboard) {
+            Menu("Fill Current") {
+                ForEach(FillCurrentAction.placeActions) { action in
+                    fillCurrentButton(action)
+                }
+
+                Divider()
+
+                ForEach(FillCurrentAction.temporalActions) { action in
+                    fillCurrentButton(action)
+                }
             }
+
+            Button {
+                context?.swapPlaces?()
+            } label: {
+                Label("Swap From and To", systemImage: "arrow.left.arrow.right")
+            }
+            .disabled(context?.swapPlaces == nil)
 
             Divider()
-
-            ForEach(FillCurrentAction.temporalActions) { action in
-                actionButton(action)
-            }
         }
     }
 
-    private func actionButton(_ action: FillCurrentAction) -> some View {
+    private func fillCurrentButton(_ action: FillCurrentAction) -> some View {
         Button {
-            context?.perform(action)
+            context?.performFillCurrent(action)
         } label: {
             Label(action.title, systemImage: action.systemImage)
         }
-        .disabled(context?.isEnabled(action) != true)
+        .disabled(context?.isFillCurrentEnabled(action) != true)
     }
 }
 
@@ -625,7 +632,7 @@ struct KastanApp: App {
             AppWindowCommands()
             ResultDetailCommands()
             AppSectionCommands()
-            FillCurrentCommands()
+            SearchEditCommands()
             AppInformationCommands()
             AppHelpCommands()
         }
