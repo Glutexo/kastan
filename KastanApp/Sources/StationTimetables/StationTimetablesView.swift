@@ -463,7 +463,11 @@ enum StationTimetableDatePresentation {
         formatter.timeStyle = .none
         let dateTitle = formatter.string(from: date)
         guard wholeWeek else { return dateTitle }
-        return "\(dateTitle) · \(AppLocalization.string("Whole week"))"
+        let wholeWeekTitle = AppLocalization.string("Whole week")
+        guard let firstCharacter = wholeWeekTitle.first else { return dateTitle }
+        let inlineWholeWeekTitle = String(firstCharacter).lowercased(with: locale) +
+            String(wholeWeekTitle.dropFirst())
+        return "\(dateTitle) \(inlineWholeWeekTitle)"
     }
 }
 

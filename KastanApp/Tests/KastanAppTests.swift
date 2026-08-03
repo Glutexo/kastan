@@ -1922,7 +1922,11 @@ final class KastanAppTests: XCTestCase {
             calendar: calendar
         )
         XCTAssertTrue(wholeWeekTitle.contains("02/08/2026"))
-        XCTAssertTrue(wholeWeekTitle.contains(AppLocalization.string("Whole week")))
+        let localizedWholeWeek = AppLocalization.string("Whole week")
+        let inlineWholeWeek = String(try XCTUnwrap(localizedWholeWeek.first))
+            .lowercased(with: Locale(identifier: "en_GB")) + String(localizedWholeWeek.dropFirst())
+        XCTAssertEqual(wholeWeekTitle, "\(title) \(inlineWholeWeek)")
+        XCTAssertFalse(wholeWeekTitle.contains("·"))
 
         let closedPicker = NSHostingView(rootView: StationTimetableDatePicker(
             date: .constant(date),
