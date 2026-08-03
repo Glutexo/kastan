@@ -2066,6 +2066,38 @@ final class KastanAppTests: XCTestCase {
         XCTAssertLessThanOrEqual(hostingView.fittingSize.width, layout.contentWidth)
     }
 
+    func testStationTimetableSearchHeaderMatchesJourneyHeaderHeight() {
+        let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
+        let stationHeader = NSHostingView(rootView: StationTimetableSearchHeader(
+            timetable: .constant(AppTimetableDefaults.search),
+            date: .constant(fixedDate),
+            wholeWeek: .constant(false),
+            usesCompactLayout: true
+        ))
+        let journeyHeader = NSHostingView(rootView: JourneySearchHeader(
+            timetable: .constant(AppTimetableDefaults.search),
+            date: .constant(fixedDate),
+            time: .constant(fixedDate),
+            isArrival: .constant(false),
+            modeLabel: "Time means",
+            departureLabel: "Departure",
+            arrivalLabel: "Arrival",
+            usesCurrentDateAndTime: true,
+            selectCurrentDateAndTime: {},
+            showsCurrentDateAndTimeShortcut: false,
+            usesCompactLayout: true
+        ))
+
+        stationHeader.layoutSubtreeIfNeeded()
+        journeyHeader.layoutSubtreeIfNeeded()
+
+        XCTAssertEqual(
+            stationHeader.fittingSize.height,
+            journeyHeader.fittingSize.height,
+            accuracy: 0.5
+        )
+    }
+
     func testTimeModeHeadsContentSizedDateTimePopoverWithoutActions() throws {
         let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
         var isArrival = false

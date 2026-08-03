@@ -560,6 +560,9 @@ struct JourneyDateTimeEditor: View {
 
 /// Reveals a compact field shortcut without changing the search row's measured layout.
 struct SearchFieldHeader: View {
+    /// Reserves one shared caption row so every search header starts at the same visual inset.
+    static let contentHeight: CGFloat = 16
+
     let title: LocalizedStringKey
     let shortcutTitle: LocalizedStringKey
     let showsShortcut: Bool
@@ -587,7 +590,7 @@ struct SearchFieldHeader: View {
         Text(title)
             .font(.caption)
             .foregroundStyle(.secondary)
-            .frame(height: 16, alignment: .leading)
+            .frame(height: Self.contentHeight, alignment: .leading)
             .overlay(alignment: .leading) {
                 HStack(alignment: .firstTextBaseline, spacing: 5) {
                     Text(title)
@@ -613,7 +616,7 @@ struct SearchFieldHeader: View {
                             .transition(.opacity)
                     }
                 }
-                .frame(height: 16, alignment: .leading)
+                .frame(height: Self.contentHeight, alignment: .leading)
                 .animation(.easeInOut(duration: 0.1), value: showsShortcut)
             }
     }

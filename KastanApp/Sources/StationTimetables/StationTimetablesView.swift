@@ -435,6 +435,7 @@ struct StationTimetableSearchHeader: View {
                 Text("Date")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .frame(height: SearchFieldHeader.contentHeight, alignment: .leading)
 
                 StationTimetableDatePicker(
                     date: $date,
