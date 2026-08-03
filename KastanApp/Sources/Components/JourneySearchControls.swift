@@ -199,11 +199,6 @@ struct JourneySearchHeader: View {
 
 /// Keeps search actions and connection-specific options visually identical across journey searches.
 struct JourneySearchControls: View {
-    /// Corrects native button overdraw only where the minimum-width form makes it visible.
-    static func trailingControlInset(usesCompactLayout: Bool) -> CGFloat {
-        usesCompactLayout ? 10 : 0
-    }
-
     /// Keeps the search action compact in narrow forms and comfortably wide otherwise.
     static func searchButtonContentWidth(usesStackedLayout: Bool) -> CGFloat {
         usesStackedLayout ? 80 : 140
@@ -246,9 +241,6 @@ struct JourneySearchControls: View {
         HStack(alignment: .bottom, spacing: 12) {
             Spacer(minLength: 0)
             searchButton
-                .offset(
-                    x: -Self.trailingControlInset(usesCompactLayout: usesStackedLayout)
-                )
         }
     }
 
@@ -261,9 +253,6 @@ struct JourneySearchControls: View {
                 .fixedSize(horizontal: true, vertical: false)
             Spacer(minLength: 0)
             searchButton
-                .offset(
-                    x: -Self.trailingControlInset(usesCompactLayout: usesStackedLayout)
-                )
         }
     }
 

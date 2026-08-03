@@ -1296,14 +1296,6 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(layout.usesStackedSearchControls)
         XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: true), 80)
         XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: false), 140)
-        XCTAssertEqual(
-            JourneySearchControls.trailingControlInset(usesCompactLayout: true),
-            10
-        )
-        XCTAssertEqual(
-            JourneySearchControls.trailingControlInset(usesCompactLayout: false),
-            0
-        )
         XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: true), -8)
         XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: false), 2)
         XCTAssertEqual(SearchTimetablePicker.pickerWidth, 240)
@@ -1375,6 +1367,66 @@ final class KastanAppTests: XCTestCase {
             client: customClient,
             context: "Custom instant"
         )
+    }
+
+    func testSearchActionAlignsWithTheTrailingSearchEdge() throws {
+        func assertTrailingAlignment(
+            controls: JourneySearchControls,
+            width: CGFloat,
+            context: String
+        ) throws {
+            let hostingView = NSHostingView(
+                rootView: controls.frame(width: width, height: 100, alignment: .topLeading)
+            )
+            hostingView.frame = NSRect(x: 0, y: 0, width: width, height: 100)
+            let window = NSWindow(
+                contentRect: hostingView.frame,
+                styleMask: .borderless,
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = hostingView
+            window.makeKeyAndOrderFront(nil)
+            hostingView.layoutSubtreeIfNeeded()
+            defer { window.orderOut(nil) }
+
+            let renderedTrailingEdge = try XCTUnwrap(
+                hostingView.allDescendantViews
+                    .map { hostingView.convert($0.bounds, from: $0).maxX }
+                    .max(),
+                context
+            )
+
+            XCTAssertEqual(renderedTrailingEdge, width, accuracy: 1, context)
+        }
+
+        for (width, usesStackedLayout) in [(490.0, true), (880.0, false)] {
+            try assertTrailingAlignment(
+                controls: JourneySearchControls(
+                    isSearching: false,
+                    canSearch: true,
+                    usesStackedLayout: usesStackedLayout,
+                    search: {}
+                ),
+                width: width,
+                context: "Search-only row at \(width) points"
+            )
+            try assertTrailingAlignment(
+                controls: JourneySearchControls(
+                    isSearching: false,
+                    canSearch: true,
+                    usesStackedLayout: usesStackedLayout,
+                    supplement: JourneySearchControlsSupplement(
+                        leading: EmptyView(),
+                        adjacent: EmptyView(),
+                        details: EmptyView()
+                    ),
+                    search: {}
+                ),
+                width: width,
+                context: "Supplemented row at \(width) points"
+            )
+        }
     }
 
     func testJourneySearchHeaderFitsTheMinimumPaddedContentWidth() {
