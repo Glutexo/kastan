@@ -41,14 +41,16 @@ full feature descriptions, every CLI command, the Swift API, and MCP configurati
 
 ## Development
 
+On macOS, the Makefile provides the common build and test workflow for the Swift package, MCP server, and app:
+
 ```sh
-swift build
-swift test
-swift test --package-path MCPServer
-xcodebuild test -project KastanApp/KastanApp.xcodeproj -scheme KastanApp -destination 'platform=macOS'
+make build
+make test
 ```
 
-GitHub Actions runs all three test suites for changes to `main` and for pull requests.
+Run `make help` to list the individual test targets. The CLI and MCP guides retain their platform-specific
+commands for contributors working without Xcode. GitHub Actions runs all three test suites for changes to `main`
+and for pull requests.
 
 ## Why Kaštan?
 
