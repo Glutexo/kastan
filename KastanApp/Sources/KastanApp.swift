@@ -340,6 +340,8 @@ struct SearchEditCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .pasteboard) {
+            Divider()
+
             Menu("Fill Current") {
                 ForEach(FillCurrentAction.placeActions) { action in
                     fillCurrentButton(action)

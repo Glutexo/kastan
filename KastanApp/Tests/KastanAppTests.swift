@@ -101,6 +101,10 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(fillCurrentMenu.items.contains { $0.title == swapTitle })
 
         let fillCurrentIndex = try XCTUnwrap(editMenu.items.firstIndex { $0 === fillCurrentItem })
+        XCTAssertGreaterThanOrEqual(fillCurrentIndex, 2)
+        XCTAssertTrue(editMenu.items[fillCurrentIndex - 1].isSeparatorItem)
+        XCTAssertEqual(editMenu.items[fillCurrentIndex - 2].action, Selector(("selectAll:")))
+
         let swapIndex = try XCTUnwrap(editMenu.items.firstIndex { $0.title == swapTitle })
         XCTAssertEqual(swapIndex, fillCurrentIndex + 1)
         XCTAssertNil(editMenu.items[swapIndex].submenu)
