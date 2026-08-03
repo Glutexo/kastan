@@ -712,20 +712,27 @@ struct ServiceDetailView: View {
 }
 
 /// Keeps a route marker centered beside the stop content that remains visible.
-enum ServiceStopTimelineLayout {
+private enum ServiceStopTimelineLayout {
     static let markerDiameter: CGFloat = 14
     static let metadataSpacing: CGFloat = 4
 
-    static func topConnectorHeight(hasVisibleMetadata: Bool) -> CGFloat {
+    static var topConnectorHeight: CGFloat {
         let headlineHeight = NSFont.preferredFont(forTextStyle: .headline).boundingRectForFont.height
-        let metadataHeight = hasVisibleMetadata
-            ? metadataSpacing + NSFont.preferredFont(forTextStyle: .caption1).boundingRectForFont.height
-            : 0
-        return max(((headlineHeight + metadataHeight) - markerDiameter) / 2, 0)
+        return max((headlineHeight - markerDiameter) / 2, 0)
     }
 }
 
-private struct ServiceStopRow: View {
+private enum ServiceStopMarkerCenterAlignment: AlignmentID {
+    static func defaultValue(in context: ViewDimensions) -> CGFloat {
+        context[VerticalAlignment.center]
+    }
+}
+
+private extension VerticalAlignment {
+    static let serviceStopMarkerCenter = VerticalAlignment(ServiceStopMarkerCenterAlignment.self)
+}
+
+struct ServiceStopRow: View {
     let stop: IDOSServiceStop
     let isFirst: Bool
     let isLast: Bool
@@ -745,15 +752,13 @@ private struct ServiceStopRow: View {
             stop.distance
         )
 
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .serviceStopMarkerCenter, spacing: 12) {
             VStack(spacing: 0) {
                 Rectangle()
                     .fill(isFirst ? Color.clear : topRouteColor)
                     .frame(
                         width: 2,
-                        height: ServiceStopTimelineLayout.topConnectorHeight(
-                            hasVisibleMetadata: metadata != nil
-                        )
+                        height: ServiceStopTimelineLayout.topConnectorHeight
                     )
 
                 ZStack {
@@ -771,6 +776,9 @@ private struct ServiceStopRow: View {
                     width: ServiceStopTimelineLayout.markerDiameter,
                     height: ServiceStopTimelineLayout.markerDiameter
                 )
+                .alignmentGuide(.serviceStopMarkerCenter) { context in
+                    context[VerticalAlignment.center]
+                }
 
                 Rectangle()
                     .fill(isLast ? Color.clear : bottomRouteColor)
@@ -788,6 +796,9 @@ private struct ServiceStopRow: View {
                     Text(stopTimes)
                         .font(.body.monospacedDigit())
                         .foregroundStyle(isDimmed ? Color.secondary : Color.primary)
+                }
+                .alignmentGuide(.serviceStopMarkerCenter) { context in
+                    context[VerticalAlignment.center]
                 }
 
                 if let metadata {

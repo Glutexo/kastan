@@ -2545,24 +2545,49 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testServiceStopMarkerCentersAgainstTheVisiblePrimaryContent() {
-        let headlineHeight = NSFont.preferredFont(forTextStyle: .headline).boundingRectForFont.height
-        let captionHeight = NSFont.preferredFont(forTextStyle: .caption1).boundingRectForFont.height
-        let markerRadius = ServiceStopTimelineLayout.markerDiameter / 2
-        let titleOnlyMarkerCenter = ServiceStopTimelineLayout.topConnectorHeight(
-            hasVisibleMetadata: false
-        ) + markerRadius
-        let detailedMarkerCenter = ServiceStopTimelineLayout.topConnectorHeight(
-            hasVisibleMetadata: true
-        ) + markerRadius
-
-        XCTAssertEqual(titleOnlyMarkerCenter, headlineHeight / 2, accuracy: 0.001)
-        XCTAssertEqual(
-            detailedMarkerCenter,
-            (headlineHeight + ServiceStopTimelineLayout.metadataSpacing + captionHeight) / 2,
-            accuracy: 0.001
+    func testRenderedServiceStopAlignsItsMarkerAndTitleWithoutDetails() throws {
+        let row = ServiceStopRow(
+            stop: IDOSServiceStop(name: "Ostrava střed"),
+            isFirst: true,
+            isLast: true,
+            hasHighlight: false,
+            isHighlighted: false,
+            isHighlightBoundary: false,
+            topIsHighlighted: false,
+            bottomIsHighlighted: false,
+            highlightedColor: .blue,
+            showsItemDetails: false
         )
-        XCTAssertLessThan(titleOnlyMarkerCenter, detailedMarkerCenter)
+        let hostingView = NSHostingView(
+            rootView: row
+                .frame(width: 320)
+                .background(Color.white)
+                .environment(\.colorScheme, .light)
+        )
+        hostingView.frame = NSRect(origin: .zero, size: hostingView.fittingSize)
+        hostingView.layoutSubtreeIfNeeded()
+
+        let bitmap = try XCTUnwrap(
+            hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds)
+        )
+        hostingView.cacheDisplay(in: hostingView.bounds, to: bitmap)
+        let scale = CGFloat(bitmap.pixelsWide) / hostingView.bounds.width
+        let markerBounds = try XCTUnwrap(
+            inkBounds(
+                in: bitmap,
+                xRange: 0..<Int(22 * scale),
+                maximumBrightness: 0.9
+            )
+        )
+        let titleBounds = try XCTUnwrap(
+            inkBounds(
+                in: bitmap,
+                xRange: Int(24 * scale)..<Int(220 * scale),
+                maximumBrightness: 0.6
+            )
+        )
+
+        XCTAssertEqual(markerBounds.midY, titleBounds.midY, accuracy: 2 * scale)
     }
 
     func testAdaptiveConnectionBadgeStaysOneLineAtCompactWidth() throws {
@@ -4759,6 +4784,44 @@ private func localizationBundle(languageCode: String) -> Bundle? {
         return nil
     }
     return Bundle(url: url)
+}
+
+/// Finds visibly rendered pixels inside one horizontal slice of an offscreen SwiftUI view.
+private func inkBounds(
+    in bitmap: NSBitmapImageRep,
+    xRange: Range<Int>,
+    maximumBrightness: CGFloat
+) -> CGRect? {
+    var minimumX = bitmap.pixelsWide
+    var minimumY = bitmap.pixelsHigh
+    var maximumX = -1
+    var maximumY = -1
+    let lowerX = max(xRange.lowerBound, 0)
+    let upperX = min(xRange.upperBound, bitmap.pixelsWide)
+
+    for y in 0..<bitmap.pixelsHigh {
+        for x in lowerX..<upperX {
+            guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) else {
+                continue
+            }
+            let brightness = (color.redComponent + color.greenComponent + color.blueComponent) / 3
+            guard color.alphaComponent > 0.1, brightness <= maximumBrightness else {
+                continue
+            }
+            minimumX = min(minimumX, x)
+            minimumY = min(minimumY, y)
+            maximumX = max(maximumX, x)
+            maximumY = max(maximumY, y)
+        }
+    }
+
+    guard maximumX >= minimumX, maximumY >= minimumY else { return nil }
+    return CGRect(
+        x: minimumX,
+        y: minimumY,
+        width: maximumX - minimumX + 1,
+        height: maximumY - minimumY + 1
+    )
 }
 
 @MainActor
