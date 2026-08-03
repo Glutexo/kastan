@@ -197,32 +197,52 @@ struct JourneySearchHeader: View {
     }
 }
 
+/// Gives every search mode the same prominent action size and loading presentation.
+struct SearchActionButton: View {
+    static let contentWidth: CGFloat = 140
+
+    let isSearching: Bool
+    let canSearch: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Group {
+                if isSearching {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Label("Search", systemImage: "magnifyingglass")
+                }
+            }
+            .frame(width: Self.contentWidth)
+            .frame(minHeight: 26)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .keyboardShortcut(.defaultAction)
+        .disabled(!canSearch)
+    }
+}
+
 /// Keeps search actions and connection-specific options visually identical across journey searches.
 struct JourneySearchControls: View {
     /// Matches the painted search-action edge to the trailing overdraw of native text fields.
     static let searchButtonTrailingVisualOffset: CGFloat = 1
 
-    /// Keeps the search action compact in narrow forms and comfortably wide otherwise.
-    static func searchButtonContentWidth(usesStackedLayout: Bool) -> CGFloat {
-        usesStackedLayout ? 80 : 140
-    }
-
     private let isSearching: Bool
     private let canSearch: Bool
-    private let usesStackedLayout: Bool
     private let supplement: JourneySearchControlsSupplement?
     private let search: () -> Void
 
     init(
         isSearching: Bool,
         canSearch: Bool,
-        usesStackedLayout: Bool,
         supplement: JourneySearchControlsSupplement? = nil,
         search: @escaping () -> Void
     ) {
         self.isSearching = isSearching
         self.canSearch = canSearch
-        self.usesStackedLayout = usesStackedLayout
         self.supplement = supplement
         self.search = search
     }
@@ -260,22 +280,11 @@ struct JourneySearchControls: View {
     }
 
     private var searchButton: some View {
-        Button(action: search) {
-            Group {
-                if isSearching {
-                    ProgressView()
-                        .controlSize(.small)
-                } else {
-                    Label("Search", systemImage: "magnifyingglass")
-                }
-            }
-            .frame(width: Self.searchButtonContentWidth(usesStackedLayout: usesStackedLayout))
-            .frame(minHeight: 26)
-        }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
-        .keyboardShortcut(.defaultAction)
-        .disabled(!canSearch)
+        SearchActionButton(
+            isSearching: isSearching,
+            canSearch: canSearch,
+            action: search
+        )
         .offset(x: Self.searchButtonTrailingVisualOffset)
     }
 }

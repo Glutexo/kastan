@@ -162,22 +162,11 @@ struct StationTimetablesView: View {
     }
 
     private var searchButton: some View {
-        Button(action: performSearch) {
-            Group {
-                if model.isSearching {
-                    ProgressView()
-                        .controlSize(.small)
-                } else {
-                    Label("Search", systemImage: "magnifyingglass")
-                }
-            }
-            .frame(width: 140)
-            .frame(minHeight: 26)
-        }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
-        .keyboardShortcut(.defaultAction)
-        .disabled(!model.canSearch)
+        SearchActionButton(
+            isSearching: model.isSearching,
+            canSearch: model.canSearch,
+            action: performSearch
+        )
     }
 
     private var searchSummary: SearchSummaryPresentation {

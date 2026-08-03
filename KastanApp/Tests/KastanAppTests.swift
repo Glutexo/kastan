@@ -1287,6 +1287,10 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(layout.usesStackedSearchControls)
     }
 
+    func testSharedSearchActionUsesStationTimetableWidth() {
+        XCTAssertEqual(SearchActionButton.contentWidth, 140)
+    }
+
     func testMainWindowDefaultsToCompactSearchWorkspaceWidth() {
         let layout = DetailLayout(availableWidth: KastanApp.minimumMainWindowWidth)
 
@@ -1294,8 +1298,6 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(KastanApp.defaultMainWindowWidth, KastanApp.minimumMainWindowWidth)
         XCTAssertEqual(layout.contentWidth, 490)
         XCTAssertTrue(layout.usesStackedSearchControls)
-        XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: true), 80)
-        XCTAssertEqual(JourneySearchControls.searchButtonContentWidth(usesStackedLayout: false), 140)
         XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: true), -8)
         XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: false), 2)
         XCTAssertEqual(SearchTimetablePicker.pickerWidth, 240)
@@ -1405,12 +1407,11 @@ final class KastanAppTests: XCTestCase {
             )
         }
 
-        for (width, usesStackedLayout) in [(490.0, true), (880.0, false)] {
+        for width in [490.0, 880.0] {
             try assertTrailingAlignment(
                 controls: JourneySearchControls(
                     isSearching: false,
                     canSearch: true,
-                    usesStackedLayout: usesStackedLayout,
                     search: {}
                 ),
                 width: width,
@@ -1420,7 +1421,6 @@ final class KastanAppTests: XCTestCase {
                 controls: JourneySearchControls(
                     isSearching: false,
                     canSearch: true,
-                    usesStackedLayout: usesStackedLayout,
                     supplement: JourneySearchControlsSupplement(
                         leading: EmptyView(),
                         adjacent: EmptyView(),
@@ -1540,7 +1540,6 @@ final class KastanAppTests: XCTestCase {
         let controls = JourneySearchControls(
             isSearching: false,
             canSearch: true,
-            usesStackedLayout: false,
             supplement: JourneySearchControlsSupplement(
                 leading: SearchSupplementLayoutProbe(name: "options")
                     .frame(width: 180, height: 22),
@@ -1587,11 +1586,10 @@ final class KastanAppTests: XCTestCase {
             let directOnly: CGRect
         }
 
-        func renderedFrames(width: CGFloat, usesStackedLayout: Bool) throws -> Frames {
+        func renderedFrames(width: CGFloat) throws -> Frames {
             let controls = JourneySearchControls(
                 isSearching: false,
                 canSearch: true,
-                usesStackedLayout: usesStackedLayout,
                 supplement: JourneySearchControlsSupplement(
                     leading: JourneyOptionsDisclosureHeader(isExpanded: .constant(false))
                         .background(SearchSupplementLayoutProbe(name: "options")),
@@ -1628,9 +1626,9 @@ final class KastanAppTests: XCTestCase {
         }
 
         let frames = try [
-            renderedFrames(width: 490, usesStackedLayout: true),
-            renderedFrames(width: 880, usesStackedLayout: false),
-            renderedFrames(width: 1_200, usesStackedLayout: false),
+            renderedFrames(width: 490),
+            renderedFrames(width: 880),
+            renderedFrames(width: 1_200),
         ]
         let baseline = try XCTUnwrap(frames.first)
 
@@ -1652,7 +1650,6 @@ final class KastanAppTests: XCTestCase {
             let controls = JourneySearchControls(
                 isSearching: false,
                 canSearch: true,
-                usesStackedLayout: true,
                 supplement: JourneySearchControlsSupplement(
                     leading: SearchSupplementLayoutProbe(name: "options")
                         .frame(width: 180, height: 22),

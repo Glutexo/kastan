@@ -294,7 +294,7 @@ struct ConnectionsView: View {
                     .transition(.opacity)
             }
 
-            searchControls(stacked: layout.usesStackedSearchControls)
+            searchControls
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .animation(.easeInOut(duration: 0.1), value: model.endpointValidationMessage)
@@ -360,11 +360,10 @@ struct ConnectionsView: View {
         .help("Swap departure and arrival")
     }
 
-    private func searchControls(stacked: Bool) -> some View {
+    private var searchControls: some View {
         JourneySearchControls(
             isSearching: model.isSearching,
             canSearch: model.canSearch,
-            usesStackedLayout: stacked,
             supplement: JourneySearchControlsSupplement(
                 leading: journeyOptionsHeader,
                 adjacent: directConnectionsOnlyShortcut,

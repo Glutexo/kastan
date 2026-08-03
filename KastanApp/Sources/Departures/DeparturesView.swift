@@ -102,16 +102,15 @@ struct DeparturesView: View {
             )
             .frame(maxWidth: .infinity)
 
-            searchControls(stacked: stacked)
+            searchControls
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func searchControls(stacked: Bool) -> some View {
+    private var searchControls: some View {
         JourneySearchControls(
             isSearching: model.isSearching,
-            canSearch: model.canSearch,
-            usesStackedLayout: stacked
+            canSearch: model.canSearch
         ) {
             performSearch()
         }
