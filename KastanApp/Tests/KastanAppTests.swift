@@ -2625,6 +2625,36 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testConnectionLegDetailsOmitTariffZonesWithoutAClearEndpoint() {
+        let leg = IDOSConnectionLeg(
+            name: "R 879 Svitava",
+            transportMode: .train,
+            departureTime: "12:00",
+            fromStation: "Praha hl.n.",
+            fromTariffZone: "ambiguous-from-zone",
+            fromPlatform: "4",
+            arrivalTime: "14:30",
+            toStation: "Brno hl.n.",
+            toTariffZone: "ambiguous-to-zone",
+            carrier: "Czech Railways",
+            delay: "Departure tends to be on time"
+        )
+
+        let metadata = ResultMetadata.connectionLeg(leg, showsDetails: true)
+
+        XCTAssertEqual(
+            metadata,
+            [
+                "Czech Railways",
+                AppLocalization.string("Departure tends to be on time"),
+                AppLocalization.string("Platform %@", "4"),
+            ].joined(separator: " · ")
+        )
+        XCTAssertFalse(metadata?.contains("ambiguous-from-zone") ?? true)
+        XCTAssertFalse(metadata?.contains("ambiguous-to-zone") ?? true)
+        XCTAssertNil(ResultMetadata.connectionLeg(leg, showsDetails: false))
+    }
+
     func testStopNotesUseSymbolsUntilTheTextPreferenceIsEnabled() {
         let notes = [
             "zastávka na znamení",

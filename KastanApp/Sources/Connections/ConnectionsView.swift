@@ -1421,11 +1421,9 @@ private struct ConnectionLegRow: View {
                             Text(leg.toStation)
                         }
                     }
-                    if let metadata = ResultMetadata.visible(
-                        showsDetails: showsItemDetails,
-                        leg.carrier,
-                        ResultMetadata.delay(leg.delay),
-                        ResultMetadata.station(tariffZone: leg.fromTariffZone, platform: leg.fromPlatform)
+                    if let metadata = ResultMetadata.connectionLeg(
+                        leg,
+                        showsDetails: showsItemDetails
                     ) {
                         Text(metadata)
                             .font(.caption)

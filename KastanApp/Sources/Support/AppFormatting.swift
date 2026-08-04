@@ -551,6 +551,17 @@ enum ResultMetadata {
         )
     }
 
+    /// Matches IDOS connection results by omitting tariff zones that a compact service row cannot
+    /// unambiguously associate with either endpoint.
+    static func connectionLeg(_ leg: IDOSConnectionLeg, showsDetails: Bool) -> String? {
+        visible(
+            showsDetails: showsDetails,
+            leg.carrier,
+            delay(leg.delay),
+            leg.fromPlatform.map { AppLocalization.string("Platform %@", $0) }
+        )
+    }
+
     /// Localizes known Czech or English IDOS punctuality states and live minute counts while
     /// preserving other messages.
     static func delay(_ value: String?, bundle: Bundle = .main) -> String? {

@@ -126,11 +126,13 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   forces the connection time and duration onto extra lines: each badge collapses to its semantic emoji when the
   complete localized title does not fit, and hovering that compact badge reveals the title. The neighboring Show item
   details setting is likewise off initially, global, and persistent. Enabling it reveals carriers and localized Czech
-  or English IDOS punctuality states, including live delay minute counts. It also reveals via descriptions, tariff
-  zones, platforms or stands, tracks, and distances across connection services, station boards, station timetables,
-  complete service windows, and Force Click previews. Show stop note text is a third global, persistent setting that is
-  off initially. Enabling it replaces recognized stop-note emoji with the complete wording supplied by IDOS in station
-  timetables, complete service windows, and Force Click previews.
+  or English IDOS punctuality states, including live delay minute counts. Connection-service rows also show their
+  departure platform but omit tariff zones, which the compact summary cannot associate clearly with either endpoint
+  and IDOS does not show in connection results. Station-board rows still reveal via descriptions, station-scoped
+  tariff zones, and platforms or stands. Station timetables, complete service windows, and Force Click previews
+  continue to show tariff zones, platforms, tracks, and distances beside concrete stops. Show stop note text is a third
+  global, persistent setting that is off initially. Enabling it replaces recognized stop-note emoji with the complete
+  wording supplied by IDOS in station timetables, complete service windows, and Force Click previews.
   Complete-route markers remain centered beside each stop title whether optional metadata is visible or hidden.
   Stop-note meaning remains visible independently of the item-details choice and the selected symbol-or-text form.
   Complete service information is likewise independent of the setting, but starts collapsed beneath its own route-level
