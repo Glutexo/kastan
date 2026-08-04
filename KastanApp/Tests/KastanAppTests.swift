@@ -1484,8 +1484,8 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(KastanApp.defaultMainWindowWidth, KastanApp.minimumMainWindowWidth)
         XCTAssertEqual(layout.contentWidth, 490)
         XCTAssertTrue(layout.usesStackedSearchControls)
-        XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: true), -8)
-        XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: false), 2)
+        XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: true), 4)
+        XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: false), 8)
         XCTAssertEqual(SearchTimetablePicker.pickerWidth, 240)
         let endpointFieldWidth = ConnectionEndpointLayout.fieldWidth(contentWidth: layout.contentWidth)
         XCTAssertEqual(endpointFieldWidth, 218)
@@ -1561,6 +1561,46 @@ final class KastanAppTests: XCTestCase {
             client: customClient,
             context: "Custom instant"
         )
+    }
+
+    func testTimetableFavoriteButtonDoesNotOverlapItsPicker() throws {
+        for usesCompactLayout in [true, false] {
+            let picker = SearchTimetablePicker(
+                timetable: .constant(IDOSTimetable(slug: "vlaky", displayName: "Trains")),
+                usesCompactLayout: usesCompactLayout
+            )
+            let hostingView = NSHostingView(
+                rootView: picker.frame(width: 320, height: 64, alignment: .topLeading)
+            )
+            hostingView.frame = NSRect(x: 0, y: 0, width: 320, height: 64)
+            let window = NSWindow(
+                contentRect: hostingView.frame,
+                styleMask: .borderless,
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = hostingView
+            window.makeKeyAndOrderFront(nil)
+            hostingView.layoutSubtreeIfNeeded()
+            defer { window.orderOut(nil) }
+
+            let descendants = hostingView.allDescendantViews
+            let timetablePicker = try XCTUnwrap(
+                descendants.compactMap { $0 as? NSPopUpButton }.first
+            )
+            let favoriteButton = try XCTUnwrap(
+                descendants.compactMap { $0 as? NSButton }.first { !($0 is NSPopUpButton) }
+            )
+            let timetableFrame = hostingView.convert(timetablePicker.bounds, from: timetablePicker)
+            let favoriteFrame = hostingView.convert(favoriteButton.bounds, from: favoriteButton)
+            let renderedGap = favoriteFrame.minX - timetableFrame.maxX
+
+            XCTAssertGreaterThanOrEqual(
+                renderedGap,
+                SearchTimetablePicker.favoriteSpacing(usesCompactLayout: usesCompactLayout)
+            )
+            XCTAssertGreaterThan(renderedGap, 0)
+        }
     }
 
     func testPlaceInputSwapButtonUsesBorderlessStationTimetableStyle() throws {

@@ -41,9 +41,9 @@ struct JourneySearchControlsSupplement {
 struct SearchTimetablePicker: View {
     static let pickerWidth: CGFloat = 240
 
-    /// Keeps the favorite close in compact forms and visibly separate when the form has more room.
+    /// Keeps the favorite visibly separate while retaining the compact form's supported width.
     static func favoriteSpacing(usesCompactLayout: Bool) -> CGFloat {
-        usesCompactLayout ? -8 : 2
+        usesCompactLayout ? 4 : 8
     }
 
     @Environment(\.openWindow) private var openWindow
