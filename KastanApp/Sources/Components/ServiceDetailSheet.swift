@@ -784,7 +784,7 @@ private enum ServiceStopTimelineLayout {
 
 /// Gives route stops the same outlined marker while allowing endpoints or a selection to stand out.
 struct RouteStopMarker: View {
-    static let diameter: CGFloat = 14
+    nonisolated static let diameter: CGFloat = 14
 
     let color: Color
     let isEmphasized: Bool

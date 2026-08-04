@@ -289,7 +289,9 @@ struct StationTimetablesView: View {
     }
 
     private func stops(_ result: IDOSStationTimetable) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let selectedStopIndex = result.stops.firstIndex(where: \.isSelected)
+
+        return VStack(alignment: .leading, spacing: 8) {
             Label("Stops", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                 .font(.headline)
 
@@ -299,23 +301,35 @@ struct StationTimetablesView: View {
                         notes: stop.notes,
                         showsText: showsStopNoteText
                     )
+                    let timelinePresentation = StationTimetableStopTimelinePresentation(
+                        index: index,
+                        stopCount: result.stops.count,
+                        selectedStopIndex: selectedStopIndex
+                    )
                     VStack(alignment: .leading, spacing: 0) {
                         Button {
                             Task { await model.selectStop(at: index) }
                         } label: {
-                            HStack(alignment: .top, spacing: 10) {
+                            HStack(
+                                alignment: .top,
+                                spacing: StationTimetableStopTimelineLayout.columnSpacing
+                            ) {
                                 Text(minuteOffsetText(stop.minuteOffset))
                                     .font(.callout.bold().monospacedDigit())
                                     .foregroundStyle(stop.isSelected ? Color.accentColor : Color.secondary)
-                                    .frame(width: 28, alignment: .trailing)
-                                RouteStopMarker(
-                                    color: stop.isSelected
-                                        ? Color.accentColor
-                                        : Color.secondary.opacity(0.55),
-                                    isEmphasized: stop.isSelected,
-                                    showsCenter: stop.isSelected
-                                )
-                                .padding(.top, 2)
+                                    .frame(
+                                        width: StationTimetableStopTimelineLayout.minuteWidth,
+                                        alignment: .trailing
+                                    )
+                                Color.clear
+                                    .frame(
+                                        width: RouteStopMarker.diameter,
+                                        height: RouteStopMarker.diameter
+                                    )
+                                    .padding(
+                                        .top,
+                                        StationTimetableStopTimelineLayout.markerTopPadding
+                                    )
                                 VStack(alignment: .leading, spacing: 2) {
                                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                                         Text(stop.name)
@@ -334,8 +348,11 @@ struct StationTimetablesView: View {
                                 }
                                 Spacer(minLength: 0)
                             }
-                            .padding(.horizontal, 8)
-                            .padding(.top, 6)
+                            .padding(
+                                .horizontal,
+                                StationTimetableStopTimelineLayout.rowHorizontalPadding
+                            )
+                            .padding(.top, StationTimetableStopTimelineLayout.rowTopPadding)
                             .padding(.bottom, notePresentation.textNotes.isEmpty ? 6 : 2)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .contentShape(Rectangle())
@@ -357,6 +374,11 @@ struct StationTimetablesView: View {
                         stop.isSelected ? Color.accentColor.opacity(0.1) : Color.clear,
                         in: RoundedRectangle(cornerRadius: 6)
                     )
+                    .overlay {
+                        StationTimetableStopTimeline(
+                            presentation: timelinePresentation
+                        )
+                    }
                 }
             }
         }
@@ -411,6 +433,112 @@ struct StationTimetablesView: View {
             stop.platform.map { AppLocalization.string("Station timetable platform %@", $0) },
         ].compactMap(\.self)
         return values.isEmpty ? nil : values.joined(separator: " · ")
+    }
+}
+
+/// Keeps every station-timetable marker and connector on the same stable row coordinates.
+enum StationTimetableStopTimelineLayout {
+    static let rowHorizontalPadding: CGFloat = 8
+    static let rowTopPadding: CGFloat = 6
+    static let minuteWidth: CGFloat = 28
+    static let columnSpacing: CGFloat = 10
+    static let markerTopPadding: CGFloat = 2
+
+    static var markerCenterX: CGFloat {
+        rowHorizontalPadding + minuteWidth + columnSpacing + (RouteStopMarker.diameter / 2)
+    }
+
+    static var markerCenterY: CGFloat {
+        rowTopPadding + markerTopPadding + (RouteStopMarker.diameter / 2)
+    }
+}
+
+/// Describes the same route highlight used by a complete service, starting at the selected stop.
+struct StationTimetableStopTimelinePresentation: Equatable {
+    let isFirst: Bool
+    let isLast: Bool
+    let markerIsHighlighted: Bool
+    let markerIsEmphasized: Bool
+    let showsMarkerCenter: Bool
+    let topConnectorIsHighlighted: Bool
+    let bottomConnectorIsHighlighted: Bool
+
+    init(index: Int, stopCount: Int, selectedStopIndex: Int?) {
+        isFirst = index == 0
+        isLast = index == stopCount - 1
+        markerIsHighlighted = selectedStopIndex.map { index >= $0 } ?? false
+        markerIsEmphasized = index == selectedStopIndex
+        showsMarkerCenter = isFirst || isLast || markerIsEmphasized
+        topConnectorIsHighlighted =
+            !isFirst && (selectedStopIndex.map { index > $0 } ?? false)
+        bottomConnectorIsHighlighted =
+            !isLast && (selectedStopIndex.map { index >= $0 } ?? false)
+    }
+}
+
+/// Draws one full-height route segment without taking interaction away from its stop row.
+struct StationTimetableStopTimeline: View {
+    let presentation: StationTimetableStopTimelinePresentation
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .topLeading) {
+                Rectangle()
+                    .fill(presentation.isFirst ? Color.clear : topConnectorColor)
+                    .frame(
+                        width: 2,
+                        height: StationTimetableStopTimelineLayout.markerCenterY
+                    )
+                    .offset(x: connectorX)
+
+                Rectangle()
+                    .fill(presentation.isLast ? Color.clear : bottomConnectorColor)
+                    .frame(
+                        width: 2,
+                        height: max(
+                            geometry.size.height -
+                                StationTimetableStopTimelineLayout.markerCenterY,
+                            0
+                        )
+                    )
+                    .offset(
+                        x: connectorX,
+                        y: StationTimetableStopTimelineLayout.markerCenterY
+                    )
+
+                RouteStopMarker(
+                    color: markerColor,
+                    isEmphasized: presentation.markerIsEmphasized,
+                    showsCenter: presentation.showsMarkerCenter
+                )
+                .position(
+                    x: StationTimetableStopTimelineLayout.markerCenterX,
+                    y: StationTimetableStopTimelineLayout.markerCenterY
+                )
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private var connectorX: CGFloat {
+        StationTimetableStopTimelineLayout.markerCenterX - 1
+    }
+
+    private var neutralRouteColor: Color {
+        .secondary.opacity(0.55)
+    }
+
+    private var markerColor: Color {
+        presentation.markerIsHighlighted ? .accentColor : neutralRouteColor
+    }
+
+    private var topConnectorColor: Color {
+        presentation.topConnectorIsHighlighted ? .accentColor : neutralRouteColor
+    }
+
+    private var bottomConnectorColor: Color {
+        presentation.bottomConnectorIsHighlighted ? .accentColor : neutralRouteColor
     }
 }
 

@@ -817,6 +817,75 @@ final class KastanAppTests: XCTestCase {
         XCTAssertLessThan(try centerBrightness(showsCenter: true), 0.1)
     }
 
+    func testStationTimetableTimelineHighlightsFromTheSelectedStopToTheEnd() {
+        let presentations = (0..<5).map {
+            StationTimetableStopTimelinePresentation(
+                index: $0,
+                stopCount: 5,
+                selectedStopIndex: 2
+            )
+        }
+
+        XCTAssertEqual(
+            presentations.map(\.markerIsHighlighted),
+            [false, false, true, true, true]
+        )
+        XCTAssertEqual(
+            presentations.map(\.markerIsEmphasized),
+            [false, false, true, false, false]
+        )
+        XCTAssertEqual(
+            presentations.map(\.showsMarkerCenter),
+            [true, false, true, false, true]
+        )
+        XCTAssertEqual(
+            presentations.map(\.topConnectorIsHighlighted),
+            [false, false, false, true, true]
+        )
+        XCTAssertEqual(
+            presentations.map(\.bottomConnectorIsHighlighted),
+            [false, false, true, true, false]
+        )
+    }
+
+    func testRenderedStationTimetableTimelineConnectsAcrossAMiddleRow() throws {
+        let width: CGFloat = 100
+        let height: CGFloat = 50
+        let timeline = StationTimetableStopTimeline(
+            presentation: StationTimetableStopTimelinePresentation(
+                index: 3,
+                stopCount: 5,
+                selectedStopIndex: 2
+            )
+        )
+        .frame(width: width, height: height)
+        .background(Color.white)
+        .environment(\.colorScheme, .light)
+        let hostingView = NSHostingView(rootView: timeline)
+        hostingView.frame = NSRect(x: 0, y: 0, width: width, height: height)
+        hostingView.layoutSubtreeIfNeeded()
+
+        let bitmap = try XCTUnwrap(
+            hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds)
+        )
+        hostingView.cacheDisplay(in: hostingView.bounds, to: bitmap)
+        let scale = CGFloat(bitmap.pixelsWide) / hostingView.bounds.width
+        let connectorBounds = try XCTUnwrap(
+            inkBounds(
+                in: bitmap,
+                xRange: Int(
+                    (StationTimetableStopTimelineLayout.markerCenterX - 1) * scale
+                )..<Int(
+                    (StationTimetableStopTimelineLayout.markerCenterX + 1) * scale
+                ),
+                maximumBrightness: 0.9
+            )
+        )
+
+        XCTAssertEqual(connectorBounds.minY, 0, accuracy: 1)
+        XCTAssertEqual(connectorBounds.maxY, CGFloat(bitmap.pixelsHigh), accuracy: 1)
+    }
+
     func testWrappedStationTimetableRouteCentersBesideLineName() throws {
         let width: CGFloat = 320
         let heading = StationTimetableRouteHeading(
