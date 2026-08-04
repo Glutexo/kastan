@@ -1020,7 +1020,7 @@ struct ConnectionCard: View {
 /// Shows one complete connection in its own window with result actions in the native toolbar.
 struct ConnectionDetailView: View {
     /// Keeps the adaptive journey card usable at the narrowest supported detail-window size.
-    static let minimumWindowWidth: CGFloat = 480
+    static let minimumWindowWidth: CGFloat = 400
     /// Opens complete connections directly in their compact supported layout.
     static let defaultWindowWidth = minimumWindowWidth
 

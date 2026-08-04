@@ -3740,8 +3740,8 @@ final class KastanAppTests: XCTestCase {
     }
 
     func testCompleteConnectionDetailRendersAtCompactWindowWidth() {
-        XCTAssertEqual(ConnectionDetailView.defaultWindowWidth, 480)
-        XCTAssertEqual(ConnectionDetailView.minimumWindowWidth, 480)
+        XCTAssertEqual(ConnectionDetailView.defaultWindowWidth, 400)
+        XCTAssertEqual(ConnectionDetailView.minimumWindowWidth, 400)
         let selection = ConnectionSelection(
             connection: connection(id: "connection-detail"),
             timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains")
