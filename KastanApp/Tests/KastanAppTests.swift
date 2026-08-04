@@ -1569,7 +1569,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(KastanApp.defaultMainWindowWidth, KastanApp.minimumMainWindowWidth)
         XCTAssertEqual(layout.contentWidth, 490)
         XCTAssertTrue(layout.usesStackedSearchControls)
-        XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: true), 4)
+        XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: true), 0)
         XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: false), 8)
         XCTAssertEqual(SearchTimetablePicker.pickerWidth, 240)
         let endpointFieldWidth = ConnectionEndpointLayout.fieldWidth(contentWidth: layout.contentWidth)
@@ -1685,7 +1685,7 @@ final class KastanAppTests: XCTestCase {
                 renderedGap,
                 SearchTimetablePicker.favoriteSpacing(usesCompactLayout: usesCompactLayout)
             )
-            XCTAssertGreaterThan(renderedGap, 0)
+            XCTAssertGreaterThanOrEqual(renderedGap, 0)
         }
     }
 

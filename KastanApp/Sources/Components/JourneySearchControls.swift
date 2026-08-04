@@ -41,9 +41,9 @@ struct JourneySearchControlsSupplement {
 struct SearchTimetablePicker: View {
     static let pickerWidth: CGFloat = 240
 
-    /// Keeps the favorite visibly separate while retaining the compact form's supported width.
+    /// Keeps compact click targets adjacent while giving the wide search layout standard separation.
     static func favoriteSpacing(usesCompactLayout: Bool) -> CGFloat {
-        usesCompactLayout ? 4 : 8
+        usesCompactLayout ? 0 : 8
     }
 
     @Environment(\.openWindow) private var openWindow
@@ -83,7 +83,7 @@ struct SearchTimetablePicker: View {
                 } label: {
                     Image(systemName: isTimetableFavorite ? "star.fill" : "star")
                         .foregroundStyle(isTimetableFavorite ? Color.accentColor : Color.secondary)
-                        .frame(width: 24, height: 24)
+                        .frame(width: 24, height: 24, alignment: .leading)
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel(Text(favoriteButtonLabel))
