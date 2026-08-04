@@ -39,7 +39,7 @@ struct JourneySearchControlsSupplement {
 
 /// Presents the transport catalog before place-specific input so users choose the search context first.
 struct SearchTimetablePicker: View {
-    static let pickerWidth: CGFloat = 240
+    static let pickerWidth: CGFloat = 236
 
     /// Keeps compact click targets adjacent while giving the wide search layout standard separation.
     static func favoriteSpacing(usesCompactLayout: Bool) -> CGFloat {

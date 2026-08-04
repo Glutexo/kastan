@@ -79,8 +79,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   with Trains selected initially in every search mode. Station Timetables offer that shared rail default together
   with integrated systems and city networks while omitting unsupported broad combinations such as All timetables.
   Persistent favorites repeat in their own first section without disappearing from the catalog, and the favorite
-  button stays visually close to its picker without overlapping it in compact forms and uses the standard wider
-  separation in the wide search layout.
+  button stays consistently close to its picker across all three search modes without overlapping it, with the
+  standard wider separation retained in the wide search layout.
   Right-clicking that star opens a single Favorite timetables command, marked with a star icon, for the complete
   favorites manager.
   Every editable search presents this timetable choice first, above its route or station fields, so the transport

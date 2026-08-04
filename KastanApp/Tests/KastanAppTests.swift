@@ -1609,7 +1609,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(layout.usesStackedSearchControls)
         XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: true), 0)
         XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: false), 8)
-        XCTAssertEqual(SearchTimetablePicker.pickerWidth, 240)
+        XCTAssertEqual(SearchTimetablePicker.pickerWidth, 236)
         let endpointFieldWidth = ConnectionEndpointLayout.fieldWidth(contentWidth: layout.contentWidth)
         XCTAssertEqual(endpointFieldWidth, 218)
         XCTAssertEqual(
