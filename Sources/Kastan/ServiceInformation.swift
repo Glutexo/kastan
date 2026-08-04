@@ -377,6 +377,9 @@ private struct Classifier {
         ) {
             return .trafficRestriction
         }
+        if skipsStops {
+            return .route
+        }
         if matches(#"\b(?:jede|nejede|runs?|does\s+not\s+run|valid\s+from|plati\s+od)\b"#) ||
             fallback == .operatingCalendar
         {
@@ -429,6 +432,16 @@ private struct Classifier {
             of: #"\p{L}[-–—]\p{L}.*\p{L}[-–—]\p{L}"#,
             options: .regularExpression
         ) != nil
+    }
+
+    /// Recognizes route instructions that list stops omitted by this particular service.
+    private var skipsStops: Bool {
+        matches(#"\bvynech\p{L}*\s+zastavk\p{L}*\b"#) ||
+            matches(#"\b(?:skips?|omits?)\s+(?:the\s+)?(?:following\s+)?stops?\b"#) ||
+            contains(
+                anyOf: "does not stop at", "doesn't stop at", "will not stop at",
+                "does not call at", "doesn't call at", "will not call at"
+            )
     }
 
     /// Keeps phrase matching readable while all language variants remain visible at the rule site.

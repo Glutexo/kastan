@@ -133,8 +133,8 @@ default, and custom `IDOSClienting` implementations remain compatible through th
 Its `serviceInformation` view adds an `IDOSServiceInformation.Category` and the same semantic symbol used by
 Kaštan's human-readable interfaces without replacing that text. Categories distinguish passenger-facing meanings
 such as replacement transport, accommodation, seating-class availability, onboard services, accessibility,
-tickets and reservations, operating calendars, restrictions, routes, and carriers; unrecognized text remains in
-the `general` category.
+tickets and reservations, operating calendars, restrictions, routes including skipped-stop instructions, and
+carriers; unrecognized text remains in the `general` category.
 
 Create an `IDOSPlaceSelection` from a chosen `IDOSSuggestion` and pass it as `fromSelection`, `toSelection`, or
 `stationSelection` when the query must target that exact IDOS object. This distinguishes, for example, a railway

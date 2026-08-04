@@ -49,7 +49,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   the selected stop through the final stop, with centered marks at the route endpoints and selection. Timetable-wide
   notes start collapsed and expand into selectable text while retaining their interactive links. A direction that
   wraps across lines remains vertically centered beside the line name, while single-line headings retain baseline
-  alignment. Common stop properties appear directly after the stop name as semantic emoji: request
+  alignment. Notes saying that a service skips listed stops use the route symbol instead of a generic information
+  marker. Common stop properties appear directly after the stop name as semantic emoji: request
   stops use 🔔, wheelchair accessibility uses ♿, rail stations use 🚉, Metro transfers use 🚇, and traffic
   restrictions use 🚧. Hovering a symbol reveals the original IDOS note, VoiceOver reads that note, and unrecognized
   operational notes retain their complete text. Their service date uses the same compact popover treatment as the
@@ -168,8 +169,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   onboard amenities, sleeping and couchette cars, through coaches, on-route train-designation changes,
   first-class availability and second-class-only restrictions, self-service passenger handling, accessibility,
   family and bicycle services,
-  tickets, baggage, passenger and reservation restrictions, cancellation policies, routes, carriers, and
-  calendar-backed operating rules.
+  tickets, baggage, passenger and reservation restrictions, cancellation policies, routes including skipped-stop
+  instructions, carriers, and calendar-backed operating rules.
   Carrier contact rows use their `name; address[; phone]`
   structure instead of an operator-name list. Dining and bistro cars are visually distinct from lighter
   refreshment trolley or vending-machine service, while tickets accepted from integrated transport systems

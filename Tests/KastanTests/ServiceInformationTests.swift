@@ -52,6 +52,11 @@ import Testing
         ("Jede v 1-5.", .operatingCalendar),
         ("MÁV; Könyves Kálmán körút 36., 1097 Budapest", .carrier),
         ("Háje - Letňany", .route),
+        (
+            "A: vynechá zastávky Místek,Frýdlantská, Místek,Riviéra a Místek,Beskydská",
+            .route
+        ),
+        ("A: skips the following stops: Central Park and Riverside", .route),
         ("Doplňující informace", .general),
     ]
 
