@@ -47,7 +47,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   the matching IDOS result. The route and notes use matching icon headings, and route stops use the same connected
   circular timeline as complete service routes. Its neutral section leads into an accent-colored continuation from
   the selected stop through the final stop, with centered marks at the route endpoints and selection. Timetable-wide
-  notes start collapsed and expand into selectable text while retaining their interactive links. A direction that
+  notes start collapsed and expand into selectable text while retaining their interactive links. Schedule tables
+  expand evenly across the remaining result width and fall back to horizontal scrolling only when their readable
+  minimum widths no longer fit. A direction that
   wraps across lines remains vertically centered beside the line name, while single-line headings retain baseline
   alignment. Notes saying that a service skips listed stops use the route symbol instead of a generic information
   marker. Common stop properties appear directly after the stop name as semantic emoji: request
@@ -145,6 +147,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   the complete wording supplied by IDOS in station timetables, complete service windows, and Force Click previews.
   Complete-route markers remain centered beside each stop title whether optional metadata is visible or hidden.
   Stop-note meaning remains visible independently of the item-details choice and the selected symbol-or-text form.
+  Show alternating row backgrounds is a fifth global, persistent setting and is enabled initially. Its subtle adaptive
+  bands distinguish neighboring station-board rows, connection-service rows, complete and station-timetable route
+  stops, and station-timetable hour rows. Turning it off restores uniform data-row backgrounds without changing cards,
+  search forms, suggestions, or the native favorite-timetable list.
   Complete service information is independent of the compact row setting and starts collapsed beneath its own
   route-level disclosure heading.
   Cards always retain line colors and transport symbols. Right-clicking anywhere on a connection card

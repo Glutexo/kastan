@@ -204,6 +204,7 @@ struct DeparturesView: View {
                             value: selection
                         )
                     }
+                    .alternatingRowBackground(at: index)
 
                     if index < model.departures.count - 1 {
                         Divider()

@@ -986,6 +986,7 @@ struct ConnectionCard: View {
                                 showsStopNoteText: showsStopNoteText,
                                 openService: openService
                             )
+                            .alternatingRowBackground(at: index)
                             .id("\(index):\(leg.id ?? "unavailable")")
                             if index < connection.legs.count - 1 {
                                 Divider()

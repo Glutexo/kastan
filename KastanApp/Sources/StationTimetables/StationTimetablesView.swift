@@ -374,6 +374,7 @@ struct StationTimetablesView: View {
                         stop.isSelected ? Color.accentColor.opacity(0.1) : Color.clear,
                         in: RoundedRectangle(cornerRadius: 6)
                     )
+                    .alternatingRowBackground(at: index)
                     .overlay {
                         StationTimetableStopTimeline(
                             presentation: timelinePresentation
@@ -391,21 +392,33 @@ struct StationTimetablesView: View {
                 Label(selectedStop.name, systemImage: "clock")
                     .font(.headline)
             }
-            ScrollView(.horizontal) {
+
+            ViewThatFits(in: .horizontal) {
                 HStack(alignment: .top, spacing: 12) {
                     ForEach(Array(result.schedules.enumerated()), id: \.offset) { _, schedule in
                         scheduleTable(schedule)
-                            .frame(width: 260)
+                            .frame(minWidth: 260, maxWidth: .infinity)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                ScrollView(.horizontal) {
+                    HStack(alignment: .top, spacing: 12) {
+                        ForEach(Array(result.schedules.enumerated()), id: \.offset) { _, schedule in
+                            scheduleTable(schedule)
+                                .frame(width: 260)
+                        }
                     }
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func scheduleTable(_ schedule: IDOSStationTimetableSchedule) -> some View {
         GroupBox(schedule.label) {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(schedule.hours.enumerated()), id: \.offset) { _, hour in
+                ForEach(Array(schedule.hours.enumerated()), id: \.offset) { index, hour in
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
                         Text(hour.hour)
                             .font(.body.bold().monospacedDigit())
@@ -415,6 +428,8 @@ struct StationTimetablesView: View {
                             .foregroundStyle(hour.departures.isEmpty ? .tertiary : .primary)
                     }
                     .padding(.vertical, 3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .alternatingRowBackground(at: index)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

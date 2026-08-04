@@ -581,6 +581,7 @@ struct AppSectionCommands: Commands {
     @FocusedValue(\.appSectionSelection) private var selection: Binding<AppSection>?
     @Binding var showsConnectionBadges: Bool
     @Binding var showsItemDetails: Bool
+    @Binding var showsAlternatingRowBackgrounds: Bool
     @Binding var showsServiceInformationText: Bool
     @Binding var showsStopNoteText: Bool
 
@@ -597,6 +598,9 @@ struct AppSectionCommands: Commands {
             }
             Toggle(isOn: $showsItemDetails) {
                 Label("Show item details", systemImage: "info.circle")
+            }
+            Toggle(isOn: $showsAlternatingRowBackgrounds) {
+                Label("Show alternating row backgrounds", systemImage: "rectangle.split.3x1")
             }
             Toggle(isOn: $showsServiceInformationText) {
                 Label("Show service information as text", systemImage: "textformat")
@@ -640,6 +644,8 @@ struct KastanApp: App {
     private var showsConnectionBadges = ConnectionBadgePreference.defaultValue
     @AppStorage(ResultItemDetailsPreference.storageKey)
     private var showsItemDetails = ResultItemDetailsPreference.defaultValue
+    @AppStorage(AlternatingRowBackgroundPreference.storageKey)
+    private var showsAlternatingRowBackgrounds = AlternatingRowBackgroundPreference.defaultValue
     @AppStorage(ServiceInformationTextPreference.storageKey)
     private var showsServiceInformationText = ServiceInformationTextPreference.defaultValue
     @AppStorage(StopNoteTextPreference.storageKey)
@@ -660,6 +666,7 @@ struct KastanApp: App {
                 showsServiceInformationText: showsServiceInformationText,
                 showsStopNoteText: showsStopNoteText
             )
+                .environment(\.showsAlternatingRowBackgrounds, showsAlternatingRowBackgrounds)
                 .frame(minWidth: Self.minimumMainWindowWidth, minHeight: 520)
         }
         .defaultSize(width: Self.defaultMainWindowWidth, height: 720)
@@ -669,6 +676,7 @@ struct KastanApp: App {
             AppSectionCommands(
                 showsConnectionBadges: $showsConnectionBadges,
                 showsItemDetails: $showsItemDetails,
+                showsAlternatingRowBackgrounds: $showsAlternatingRowBackgrounds,
                 showsServiceInformationText: $showsServiceInformationText,
                 showsStopNoteText: $showsStopNoteText
             )
@@ -700,6 +708,7 @@ struct KastanApp: App {
                     showsItemDetails: showsItemDetails,
                     showsStopNoteText: showsStopNoteText
                 )
+                .environment(\.showsAlternatingRowBackgrounds, showsAlternatingRowBackgrounds)
             }
         }
         .defaultSize(width: ServiceDetailView.defaultWindowWidth, height: 640)
@@ -714,6 +723,7 @@ struct KastanApp: App {
                     showsServiceInformationText: showsServiceInformationText,
                     showsStopNoteText: showsStopNoteText
                 )
+                .environment(\.showsAlternatingRowBackgrounds, showsAlternatingRowBackgrounds)
             }
         }
         .defaultSize(width: ConnectionDetailView.defaultWindowWidth, height: 640)

@@ -597,6 +597,7 @@ struct ServiceDetailView: View {
                                             showsItemDetails: showsItemDetails,
                                             showsStopNoteText: showsStopNoteText
                                         )
+                                        .alternatingRowBackground(at: index)
                                         .background {
                                             if index == departureIndex {
                                                 GeometryReader { geometry in

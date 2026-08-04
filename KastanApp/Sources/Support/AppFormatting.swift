@@ -425,6 +425,52 @@ enum ResultItemDetailsPreference {
     static let defaultValue = false
 }
 
+/// Defines the application-wide persisted choice for visually separating adjacent data rows.
+enum AlternatingRowBackgroundPreference {
+    static let storageKey = "showsAlternatingRowBackgrounds"
+    static let defaultValue = true
+}
+
+/// Decides which data rows receive the subtle alternate tint shared across result views.
+enum AlternatingRowBackgroundPresentation {
+    static func isTinted(rowAt index: Int, isEnabled: Bool) -> Bool {
+        isEnabled && !index.isMultiple(of: 2)
+    }
+}
+
+private struct ShowsAlternatingRowBackgroundsEnvironmentKey: EnvironmentKey {
+    static let defaultValue = AlternatingRowBackgroundPreference.defaultValue
+}
+
+extension EnvironmentValues {
+    /// Propagates the global row-background preference through every result window and preview.
+    var showsAlternatingRowBackgrounds: Bool {
+        get { self[ShowsAlternatingRowBackgroundsEnvironmentKey.self] }
+        set { self[ShowsAlternatingRowBackgroundsEnvironmentKey.self] = newValue }
+    }
+}
+
+/// Applies one adaptive system-color band without obscuring selection or route highlighting.
+private struct AlternatingRowBackgroundModifier: ViewModifier {
+    @Environment(\.showsAlternatingRowBackgrounds) private var isEnabled
+    let index: Int
+
+    func body(content: Content) -> some View {
+        content.background(
+            AlternatingRowBackgroundPresentation.isTinted(rowAt: index, isEnabled: isEnabled)
+                ? Color.secondary.opacity(0.08)
+                : Color.clear
+        )
+    }
+}
+
+extension View {
+    /// Gives a data row its position-aware background while respecting the global View setting.
+    func alternatingRowBackground(at index: Int) -> some View {
+        modifier(AlternatingRowBackgroundModifier(index: index))
+    }
+}
+
 /// Defines the application-wide persisted choice for replacing compact service-information
 /// symbols with the complete wording supplied by IDOS.
 enum ServiceInformationTextPreference {
