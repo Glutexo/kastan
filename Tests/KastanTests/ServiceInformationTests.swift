@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import Kastan
 
@@ -22,22 +23,28 @@ import Testing
         ("Ve vlaku řazeny k sezení i vozy 1. vozové třídy.", .firstClassSeating),
         ("vozy 1. a 2. třídy", .firstClassSeating),
         ("1st and 2nd class coaches", .firstClassSeating),
+        ("Train also consists of 1st class coaches", .firstClassSeating),
         ("Ve vlaku řazeny k sezení pouze vozy 2. vozové třídy.", .secondClassOnly),
         ("Samoobslužný způsob odbavování cestujících.", .selfServiceCheckIn),
         ("Bistro car", .diningCar),
         ("Refreshment trolley service", .refreshment),
+        ("Mobile snack-bar", .refreshment),
         ("All information on https://example.com", .webInformation),
         ("Palubní portál", .onboardPortal),
         ("Ve vlaku je bezdrátové připojení k internetu.", .wiFi),
         ("Power socket available.", .powerSocket),
         ("Tichý oddíl", .quietCompartment),
         ("Dětské kino", .childrenCinema),
+        ("Children's theater", .childrenCinema),
         ("Vůz pro cestující s dětmi.", .familyCompartment),
         ("Ladies compartment for women travelling alone.", .womenCompartment),
         ("Bicycle transport is not permitted.", .bicycleUnavailable),
         ("Přeprava jízdních kol jako spoluzavazadel.", .bicycle),
+        ("Carriage of registered luggage (until full capacity)", .bicycle),
         ("Vůz vhodný pro přepravu cestujících na vozíku.", .wheelchair),
         ("Seat reservation available.", .seatReservation),
+        ("Reservations possible in indicated coaches", .seatReservation),
+        ("Compulsory reservation", .seatReservation),
         ("Vlak nečeká na přípoje.", .connectionWait),
         ("Vlak je provozován na komerční riziko dopravce.", .commercialOperation),
         ("Pohraniční přechodový bod [CZ/A]: Břeclav(Gr).", .borderCrossing),
@@ -111,6 +118,45 @@ import Testing
     #expect(service.information == ["Bistro car", "Doplňující informace"])
     #expect(service.serviceInformation.map(\.text) == service.information)
     #expect(service.serviceInformation.map(\.category) == [.diningCar, .general])
+}
+
+/// Retains source compatibility for stored result JSON while preserving newly parsed information.
+@Test func resultServiceInformationRoundTripsAndDefaultsWhenAbsent() throws {
+    let information = [IDOSServiceInformation(text: "Carriage with a wireless internet connection")]
+    let leg = IDOSConnectionLeg(
+        name: "S6 (Os 3133)",
+        departureTime: "17:37",
+        fromStation: "Valašské Meziříčí",
+        arrivalTime: "18:10",
+        toStation: "Frenštát p.Radhoštěm",
+        serviceInformation: information
+    )
+    let departure = IDOSDeparture(
+        id: "vlaky:0-1-04.08.2026 17:37:00",
+        time: "17:37",
+        lineName: "S6 (Os 3133)",
+        destination: "Ostrava hl.n.",
+        serviceInformation: information
+    )
+    let encoder = JSONEncoder()
+    let decoder = JSONDecoder()
+
+    #expect(try decoder.decode(IDOSConnectionLeg.self, from: encoder.encode(leg)) == leg)
+    #expect(try decoder.decode(IDOSDeparture.self, from: encoder.encode(departure)) == departure)
+
+    let legacyLeg = try decoder.decode(
+        IDOSConnectionLeg.self,
+        from: Data(
+            #"{"name":"S6","departureTime":"17:37","fromStation":"A","arrivalTime":"18:10","toStation":"B"}"#.utf8
+        )
+    )
+    let legacyDeparture = try decoder.decode(
+        IDOSDeparture.self,
+        from: Data(#"{"id":"service","time":"17:37","lineName":"S6","destination":"B"}"#.utf8)
+    )
+
+    #expect(legacyLeg.serviceInformation.isEmpty)
+    #expect(legacyDeparture.serviceInformation.isEmpty)
 }
 
 /// Keeps every public category paired with the stable visual marker used by the CLI and macOS app.

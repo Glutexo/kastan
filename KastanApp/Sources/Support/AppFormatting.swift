@@ -425,6 +425,57 @@ enum ResultItemDetailsPreference {
     static let defaultValue = false
 }
 
+/// Defines the application-wide persisted choice for replacing compact service-information
+/// symbols with the complete wording supplied by IDOS.
+enum ServiceInformationTextPreference {
+    static let storageKey = "showsServiceInformationText"
+    static let defaultValue = false
+}
+
+/// Preserves the order and complete meaning of the facilities and restrictions printed by IDOS.
+struct ServiceInformationPresentation: Equatable {
+    let values: [IDOSServiceInformation]
+
+    var symbols: String {
+        values.map(\.symbol).joined(separator: " ")
+    }
+
+    var text: String {
+        values.map(\.text).joined(separator: " · ")
+    }
+
+    var accessibilityLabel: String {
+        values.map(\.text).joined(separator: ". ")
+    }
+
+    var helpText: String {
+        values.map(\.text).joined(separator: "\n")
+    }
+
+    func content(showsText: Bool) -> String {
+        showsText ? text : symbols
+    }
+}
+
+/// Shows compact semantic emoji by default and the unabridged IDOS wording on request.
+struct ServiceInformationSummary: View {
+    let values: [IDOSServiceInformation]
+    let showsText: Bool
+
+    var body: some View {
+        let presentation = ServiceInformationPresentation(values: values)
+
+        if !values.isEmpty {
+            Text(verbatim: presentation.content(showsText: showsText))
+                .font(showsText ? .caption : .headline)
+                .foregroundStyle(showsText ? .secondary : .primary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityLabel(Text(verbatim: presentation.accessibilityLabel))
+                .help(presentation.helpText)
+        }
+    }
+}
+
 /// Defines the application-wide persisted choice for replacing compact stop symbols with the
 /// complete note text supplied by IDOS.
 enum StopNoteTextPreference {

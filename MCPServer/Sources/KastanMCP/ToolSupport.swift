@@ -357,6 +357,7 @@ enum MCPOutputSchemas {
             "toPlatform": stringSchema,
             "carrier": stringSchema,
             "delay": stringSchema,
+            "serviceInformation": arraySchema(items: serviceInformationSchema),
         ],
         required: ["name", "departureTime", "fromStation", "arrivalTime", "toStation"]
     )
@@ -386,8 +387,17 @@ enum MCPOutputSchemas {
             "via": stringSchema,
             "carrier": stringSchema,
             "delay": stringSchema,
+            "serviceInformation": arraySchema(items: serviceInformationSchema),
         ],
         required: ["id", "time", "lineName", "destination"]
+    )
+
+    private static let serviceInformationSchema = objectSchema(
+        properties: [
+            "text": stringSchema,
+            "category": stringSchema,
+        ],
+        required: ["text", "category"]
     )
 
     private static let stationTimetableRequestSchema = objectSchema(

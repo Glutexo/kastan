@@ -197,6 +197,7 @@ struct ContentView: View {
     private let client: any IDOSClienting
     private let showsConnectionBadges: Bool
     private let showsItemDetails: Bool
+    private let showsServiceInformationText: Bool
     private let showsStopNoteText: Bool
     @StateObject private var connectionsModel: ConnectionsViewModel
     @StateObject private var departuresModel: DeparturesViewModel
@@ -207,11 +208,13 @@ struct ContentView: View {
         client: any IDOSClienting,
         showsConnectionBadges: Bool,
         showsItemDetails: Bool,
+        showsServiceInformationText: Bool,
         showsStopNoteText: Bool
     ) {
         self.client = client
         self.showsConnectionBadges = showsConnectionBadges
         self.showsItemDetails = showsItemDetails
+        self.showsServiceInformationText = showsServiceInformationText
         self.showsStopNoteText = showsStopNoteText
         _connectionsModel = StateObject(wrappedValue: ConnectionsViewModel(client: client))
         _departuresModel = StateObject(wrappedValue: DeparturesViewModel(client: client))
@@ -239,6 +242,7 @@ struct ContentView: View {
                 client: client,
                 showsConnectionBadges: showsConnectionBadges,
                 showsItemDetails: showsItemDetails,
+                showsServiceInformationText: showsServiceInformationText,
                 showsStopNoteText: showsStopNoteText
             )
         case .departures:
@@ -246,6 +250,7 @@ struct ContentView: View {
                 model: departuresModel,
                 client: client,
                 showsItemDetails: showsItemDetails,
+                showsServiceInformationText: showsServiceInformationText,
                 showsStopNoteText: showsStopNoteText
             )
         case .stationTimetables:

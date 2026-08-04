@@ -77,13 +77,15 @@ limit is 8, and callers can request from 1 through 20 results. `search_station_t
 - `limit` defaults to 5 and accepts values from 1 through 20.
 
 Kaštan asks IDOS for later connections until it reaches the requested limit or no more results are available.
-Returned legs include the opaque service IDs accepted by `get_service_detail`.
+Returned legs include the opaque service IDs accepted by `get_service_detail` and any ordered service-information
+items printed in the result, each with its complete IDOS text and classified category.
 
 ### Departures and Arrivals
 
 `find_departures` accepts `timetable`, `date`, and `time` with the same meaning and format as connection searches.
 Set `isArrival` to `true` for arrivals; the default is departures. `limit` defaults to 8 and accepts values from
-1 through 20.
+1 through 20. Each returned row likewise includes the service-information text and category when IDOS supplies
+compact facilities or restrictions beside the service.
 
 ### Station Timetables
 

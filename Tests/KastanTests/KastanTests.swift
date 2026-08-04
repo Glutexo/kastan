@@ -1694,6 +1694,12 @@ import Testing
     <div id="connectionBox-396829589" class="box connection" data-share-url="https://idos.cz/detail">
       <p class="reset total">Overall time <strong>3 h 40 min</strong></p>
       <h3 title="fast train" style="color: #FF0000;"><span>R9 (R 981 Vysocina)</span></h3>
+      <p class="specs">
+        <span title="train also consists of 1st class coaches">1.2.</span>
+        <span title="carriage with a wireless internet connection">Wi</span>
+        <span title="carriage of registered luggage (until full capacity)">K</span>
+        <span title="carriage suitable for transport of passengers using wheelchairs">NPP</span>
+      </p>
       <p class="reset time  " title="">12:04</p><p class="station"><strong class="name ">Praha hl.n.</strong> <span><span title="tariff zone" class="color-lightgrey">P</span> <span title="platform" class="color-green">4</span></span></p>
       <p class="reset time  " title="">15:44</p><p class="station"><strong class="name ">Brno hl.n.</strong> <span><span title="tariff zone" class="color-lightgrey">100</span></span></p>
     </div>
@@ -1717,6 +1723,18 @@ import Testing
     #expect(connections.first?.legs.first?.fromTariffZone == "P")
     #expect(connections.first?.legs.first?.fromPlatform == "4")
     #expect(connections.first?.legs.first?.toTariffZone == "100")
+    #expect(connections.first?.legs.first?.serviceInformation.map(\.category) == [
+        .firstClassSeating,
+        .wiFi,
+        .bicycle,
+        .wheelchair,
+    ])
+    #expect(connections.first?.legs.first?.serviceInformation.map(\.symbol) == [
+        "1️⃣",
+        "🛜",
+        "🚲",
+        "♿",
+    ])
     #expect(connections.first?.summaryLine(number: 1).contains("🚆") == true)
     #expect(connections.first?.summaryLine(number: 1).contains("tariff zone P · platform 4") == true)
     #expect(connections.first?.summaryLine(number: 1).contains("\u{001B}[38;2;255;0;0mR9") == true)
@@ -1754,6 +1772,32 @@ import Testing
 
     #expect(pdfJSON["context"] as? Int == 2)
     #expect(pdfConnectionData["permanentUrl"] == nil)
+}
+
+@Test func connectionParserReadsCzechResultTextAndCombinedPlatform() throws {
+    let html = """
+    <div id="connectionBox-1" class="box connection">
+      <p class="reset total">Celkový čas <strong>1 hod 46 min</strong></p>
+      <h3 title="osobní vlak" style="color: #0000FF;"><span>S6 (Os 3133)</span></h3>
+      <p class="specs">
+        <span title="ve vlaku řazen vůz s bezdrátovým připojením k internetu">Wi</span>
+      </p>
+      <p class="reset time" title="">17:37</p><p class="station"><strong class="name">Valašské Meziříčí</strong> <span title="tarifní pásmo">240</span></p>
+      <p class="reset time" title="">19:23</p><p class="station"><strong class="name">Ostrava hl.n.</strong> <span title="nástupiště/kolej">5/4</span></p>
+    </div>
+    """
+
+    let connection = try #require(IDOSConnectionParser.parse(html: html).first)
+
+    #expect(connection.duration == "1 hod 46 min")
+    #expect(connection.legs.first?.fromTariffZone == "240")
+    #expect(connection.legs.first?.toPlatform == "5/4")
+    #expect(connection.legs.first?.serviceInformation.map(\.category) == [.wiFi])
+    #expect(
+        connection.legs.first?.serviceInformation.map(\.text) == [
+            "ve vlaku řazen vůz s bezdrátovým připojením k internetu",
+        ]
+    )
 }
 
 @Test func nestedFormEncodingMatchesIDOSSharingFields() throws {
@@ -1951,7 +1995,12 @@ import Testing
       <td class="departures-table__cell departures-table__cell--height-collapse" title="Arrival station"><h3>Rožnov p.Radh.,,aut.st.</h3></td>
       <td class="departures-table__cell departures-table__cell--height-collapse">
         <span class="wwwtt tt-icon-dep" style="color:#0000FF">&#247;</span>
-        <span class="desc"><span class="code"><h3 style="color:#0000FF; display:inline">Bus 980</h3></span></span>
+        <span class="desc"><span class="code"><h3 style="color:#0000FF; display:inline">Bus 980</h3>
+          <span title="train also consists of 1st class coaches">1.2.</span>
+          <span title="carriage with a wireless internet connection">Wi</span>
+          <span title="carriage of registered luggage (until full capacity)">K</span>
+          <span title="coach suitable for carriage of people on wheelchairs">NP</span>
+        </span></span>
       </td>
       <td class="departures-table__cell"><h3>16:03</h3></td>
       <td class="departures-table__cell"><span title="tariff zone" class="color-lightgrey">70</span> <span title="platform" class="color-lightgrey">1</span></td>
@@ -1980,6 +2029,18 @@ import Testing
     #expect(departure?.via == "Frýdek-Místek,Místek,Anenská")
     #expect(departure?.carrier == "Transdev Slezsko a.s.")
     #expect(departure?.delay == "Currently no delay")
+    #expect(departure?.serviceInformation.map(\.text) == [
+        "train also consists of 1st class coaches",
+        "carriage with a wireless internet connection",
+        "carriage of registered luggage (until full capacity)",
+        "coach suitable for carriage of people on wheelchairs",
+    ])
+    #expect(departure?.serviceInformation.map(\.category) == [
+        .firstClassSeating,
+        .wiFi,
+        .bicycle,
+        .wheelchair,
+    ])
     #expect(departure?.summaryLine(number: 1).contains("🚌") == true)
     #expect(departure?.summaryLine(number: 1).contains("tariff zone 70 · platform 1") == true)
     let scheduledDate = try #require(departure.flatMap { IDOSDepartureParser.scheduledDate(for: $0) })
@@ -1991,6 +2052,31 @@ import Testing
     #expect(components.day == 18)
     #expect(components.hour == 16)
     #expect(components.minute == 3)
+}
+
+@Test func departureParserReadsCzechStationBoardText() throws {
+    let html = """
+    <h2 class="depTitlePage">Odjezdy z Ostrava-Kunčičky</h2>
+    <tr class="dep-row dep-row-first" data-ttindex="0" data-train="173271" data-datetime="04.08.2026 18:24:00" data-stationname="Ostrava hl.n.">
+      <td><h3>Ostrava hl.n.</h3></td>
+      <td><span class="desc"><span class="code"><h3 style="color:#0000FF">S6 (Os 3133)</h3>
+        <span title="přeprava spoluzavazadel (do vyčerpání kapacity)">K</span>
+      </span></span></td>
+      <td><h3>18:24</h3></td>
+      <td><span title="kolej">2</span></td>
+    </tr>
+    <tr class="dep-row dep-row-second">
+      <td><span title="projíždí přes">přes Ostrava střed, Ostrava-Stodolní</span></td>
+      <td><span title="dopravce">České dráhy, a.s.</span></td>
+    </tr>
+    """
+
+    let departure = try #require(IDOSDepartureParser.parse(html: html).first)
+
+    #expect(departure.stationName == "Ostrava-Kunčičky")
+    #expect(departure.platform == "2")
+    #expect(departure.via == "Ostrava střed, Ostrava-Stodolní")
+    #expect(departure.serviceInformation.map(\.category) == [.bicycle])
 }
 
 @Test func serviceDetailParserReadsCompleteRouteAndInformation() throws {

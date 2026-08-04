@@ -107,7 +107,10 @@ final class DeparturesViewModel: ObservableObject {
         )
 
         do {
-            let page = try await client.findDeparturesPage(request: request)
+            let page = try await client.findDeparturesPage(
+                request: request,
+                language: AppLanguagePreference.idosLanguage
+            )
             departures = page.departures
             resultPage = page
         } catch {

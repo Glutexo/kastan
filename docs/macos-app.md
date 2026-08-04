@@ -130,14 +130,17 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   or English IDOS punctuality states, including live delay minute counts. Connection-service rows also show their
   departure platform but omit tariff zones, which the compact summary cannot associate clearly with either endpoint
   and IDOS does not show in connection results. Station-board rows still reveal via descriptions, station-scoped
-  tariff zones, and platforms or stands. Station timetables, complete service windows, and Force Click previews
-  continue to show tariff zones, platforms, tracks, and distances beside concrete stops. Show stop note text is a third
-  global, persistent setting that is off initially. Enabling it replaces recognized stop-note emoji with the complete
-  wording supplied by IDOS in station timetables, complete service windows, and Force Click previews.
+  tariff zones, and platforms or stands. Both row types always preserve the passenger facilities and restrictions
+  printed beside a service by IDOS. They show semantic emoji by default, expose the complete wording to VoiceOver and
+  on hover, and replace the symbols with that wording when the global, persistent Show service information as text
+  setting is enabled; the setting is off initially. Station timetables, complete service windows, and Force Click
+  previews continue to show tariff zones, platforms, tracks, and distances beside concrete stops. Show stop note text
+  is a fourth global, persistent setting that is off initially. Enabling it replaces recognized stop-note emoji with
+  the complete wording supplied by IDOS in station timetables, complete service windows, and Force Click previews.
   Complete-route markers remain centered beside each stop title whether optional metadata is visible or hidden.
   Stop-note meaning remains visible independently of the item-details choice and the selected symbol-or-text form.
-  Complete service information is likewise independent of the setting, but starts collapsed beneath its own route-level
-  disclosure heading.
+  Complete service information is independent of the compact row setting and starts collapsed beneath its own
+  route-level disclosure heading.
   Cards always retain line colors and transport symbols. Right-clicking anywhere on a connection card
   opens the same complete action menu as its ellipsis button, with Open connection in new window ahead of email,
   calendar, PDF, sharing, and IDOS actions. Right-clicking a particular service row stays scoped to that service and

@@ -72,6 +72,12 @@ import Testing
 
     #expect(result.isError == false)
     #expect(result.structuredContent?.objectValue?["connections"]?.arrayValue?.count == 1)
+    let serviceInformation = result.structuredContent?
+        .objectValue?["connections"]?.arrayValue?.first?
+        .objectValue?["legs"]?.arrayValue?.first?
+        .objectValue?["serviceInformation"]?.arrayValue?.first?.objectValue
+    #expect(serviceInformation?["category"]?.stringValue == "wiFi")
+    #expect(serviceInformation?["text"]?.stringValue == "Wireless internet connection")
     #expect(text(from: result.content)?.contains("\"departureStation\" : \"Praha hl.n.\"") == true)
 
     let request = await mock.lastConnectionRequest
@@ -148,6 +154,10 @@ import Testing
 
     #expect(result.isError == false)
     #expect(result.structuredContent?.objectValue?["departures"]?.arrayValue?.count == 1)
+    let serviceInformation = result.structuredContent?
+        .objectValue?["departures"]?.arrayValue?.first?
+        .objectValue?["serviceInformation"]?.arrayValue?.first?.objectValue
+    #expect(serviceInformation?["category"]?.stringValue == "wheelchair")
     let request = await mock.lastDeparturesRequest
     #expect(request?.station == "Ostrava-Svinov")
     #expect(request?.time == "16:00")
@@ -329,7 +339,18 @@ private actor MockIDOSClient: IDOSClienting {
                 arrivalTime: "14:35",
                 arrivalStation: "Brno hl.n.",
                 duration: "2 hod 35 min",
-                legs: []
+                legs: [
+                    IDOSConnectionLeg(
+                        name: "R 879",
+                        departureTime: "12:00",
+                        fromStation: "Praha hl.n.",
+                        arrivalTime: "14:35",
+                        toStation: "Brno hl.n.",
+                        serviceInformation: [
+                            IDOSServiceInformation(text: "Wireless internet connection"),
+                        ]
+                    ),
+                ]
             ),
         ]
     }
@@ -341,7 +362,15 @@ private actor MockIDOSClient: IDOSClienting {
     func findDepartures(request: IDOSDeparturesRequest) async throws -> [IDOSDeparture] {
         lastDeparturesRequest = request
         return [
-            IDOSDeparture(id: "departure-1", time: "16:01", lineName: "S2", destination: "Opava"),
+            IDOSDeparture(
+                id: "departure-1",
+                time: "16:01",
+                lineName: "S2",
+                destination: "Opava",
+                serviceInformation: [
+                    IDOSServiceInformation(text: "Wheelchair accessible carriage"),
+                ]
+            ),
             IDOSDeparture(id: "departure-2", time: "16:05", lineName: "S4", destination: "Bohumín"),
         ]
     }

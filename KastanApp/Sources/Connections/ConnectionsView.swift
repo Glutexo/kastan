@@ -198,6 +198,7 @@ struct ConnectionsView: View {
     let client: any IDOSClienting
     let showsConnectionBadges: Bool
     let showsItemDetails: Bool
+    let showsServiceInformationText: Bool
     let showsStopNoteText: Bool
     @State private var isJourneyOptionsExpanded = false
     @State private var hasUsedDirectConnectionsShortcut = false
@@ -638,6 +639,7 @@ struct ConnectionsView: View {
                         isShortest: shortestConnectionIDs.contains(connection.id),
                         showsConnectionBadges: showsConnectionBadges,
                         showsItemDetails: showsItemDetails,
+                        showsServiceInformationText: showsServiceInformationText,
                         showsStopNoteText: showsStopNoteText,
                         isPerformingAction: model.processingEmailConnectionID == connection.id ||
                             model.processingCalendarConnectionID == connection.id ||
@@ -850,6 +852,7 @@ struct ConnectionCard: View {
     let isShortest: Bool
     let showsConnectionBadges: Bool
     let showsItemDetails: Bool
+    let showsServiceInformationText: Bool
     let showsStopNoteText: Bool
     let isPerformingAction: Bool
     let showsActionMenu: Bool
@@ -979,6 +982,7 @@ struct ConnectionCard: View {
                                 leg: leg,
                                 client: client,
                                 showsItemDetails: showsItemDetails,
+                                showsServiceInformationText: showsServiceInformationText,
                                 showsStopNoteText: showsStopNoteText,
                                 openService: openService
                             )
@@ -1034,6 +1038,7 @@ struct ConnectionDetailView: View {
     private let client: any IDOSClienting
     private let showsConnectionBadges: Bool
     private let showsItemDetails: Bool
+    private let showsServiceInformationText: Bool
     private let showsStopNoteText: Bool
 
     init(
@@ -1041,12 +1046,14 @@ struct ConnectionDetailView: View {
         client: any IDOSClienting,
         showsConnectionBadges: Bool,
         showsItemDetails: Bool,
+        showsServiceInformationText: Bool,
         showsStopNoteText: Bool
     ) {
         self.selection = selection
         self.client = client
         self.showsConnectionBadges = showsConnectionBadges
         self.showsItemDetails = showsItemDetails
+        self.showsServiceInformationText = showsServiceInformationText
         self.showsStopNoteText = showsStopNoteText
         let actionsModel = ConnectionsViewModel(client: client)
         actionsModel.timetable = selection.timetable
@@ -1072,6 +1079,7 @@ struct ConnectionDetailView: View {
                     isShortest: false,
                     showsConnectionBadges: showsConnectionBadges,
                     showsItemDetails: showsItemDetails,
+                    showsServiceInformationText: showsServiceInformationText,
                     showsStopNoteText: showsStopNoteText,
                     isPerformingAction: isPerformingAction,
                     showsActionMenu: false,
@@ -1321,6 +1329,7 @@ private struct ConnectionLegRow: View {
     let leg: IDOSConnectionLeg
     let client: any IDOSClienting
     let showsItemDetails: Bool
+    let showsServiceInformationText: Bool
     let showsStopNoteText: Bool
     let openService: (ServiceSelection) -> Void
     @StateObject private var contextMenuModel: ServiceDetailViewModel
@@ -1331,12 +1340,14 @@ private struct ConnectionLegRow: View {
         leg: IDOSConnectionLeg,
         client: any IDOSClienting,
         showsItemDetails: Bool,
+        showsServiceInformationText: Bool,
         showsStopNoteText: Bool,
         openService: @escaping (ServiceSelection) -> Void
     ) {
         self.leg = leg
         self.client = client
         self.showsItemDetails = showsItemDetails
+        self.showsServiceInformationText = showsServiceInformationText
         self.showsStopNoteText = showsStopNoteText
         self.openService = openService
         _contextMenuModel = StateObject(
@@ -1400,12 +1411,24 @@ private struct ConnectionLegRow: View {
                     HStack {
                         Text([leg.transportMode?.emoji, leg.name].compactMap { $0 }.joined(separator: " "))
                             .font(.headline)
+                        if !showsServiceInformationText {
+                            ServiceInformationSummary(
+                                values: leg.serviceInformation,
+                                showsText: false
+                            )
+                        }
                         Spacer()
                         if leg.id != nil {
                             Image(systemName: "chevron.right")
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)
                         }
+                    }
+                    if showsServiceInformationText {
+                        ServiceInformationSummary(
+                            values: leg.serviceInformation,
+                            showsText: true
+                        )
                     }
                     VStack(alignment: .leading, spacing: 3) {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {

@@ -119,7 +119,15 @@ The main public types are:
 
 Connection-result, service, and departure identifiers are opaque and must not be parsed by clients. Models
 preserve the semantic information received from IDOS, including line colors, transport modes, platforms,
-tariff zones, carriers, delay details, and localized service notes when available.
+tariff zones, carriers, delay details, and localized service notes when available. `IDOSConnectionLeg` and
+`IDOSDeparture` expose the facilities and restrictions printed beside a result through their ordered
+`serviceInformation` arrays. Each item keeps the complete IDOS tooltip text together with its classified category
+and semantic symbol; an absent field in older encoded results decodes as an empty array.
+
+The language-aware `findConnectionsPage(request:language:)` and
+`findDeparturesPage(request:language:)` overloads request platform-supplied result text in English or Czech and
+retain that language while loading adjacent pages. The overloads without a language keep their historical English
+default, and custom `IDOSClienting` implementations remain compatible through the default protocol adapters.
 
 `IDOSServiceDetail.information` preserves every original IDOS information line for stable decoding and display.
 Its `serviceInformation` view adds an `IDOSServiceInformation.Category` and the same semantic symbol used by

@@ -67,18 +67,23 @@ final class KastanAppTests: XCTestCase {
     func testViewMenuOffersPersistentResultPresentationSettings() throws {
         let badgeTitle = AppLocalization.string("Show connection badges")
         let detailsTitle = AppLocalization.string("Show item details")
+        let serviceInformationTextTitle = AppLocalization.string("Show service information as text")
         let stopNoteTextTitle = AppLocalization.string("Show stop note text")
         let menus = try XCTUnwrap(NSApplication.shared.mainMenu).items
             .compactMap(\.submenu)
             .filter { menu in
                 menu.items.contains { $0.title == badgeTitle } &&
                     menu.items.contains { $0.title == detailsTitle } &&
+                    menu.items.contains { $0.title == serviceInformationTextTitle } &&
                     menu.items.contains { $0.title == stopNoteTextTitle }
             }
 
         XCTAssertEqual(menus.count, 1)
         let badgeItem = try XCTUnwrap(menus[0].items.first { $0.title == badgeTitle })
         let detailsItem = try XCTUnwrap(menus[0].items.first { $0.title == detailsTitle })
+        let serviceInformationTextItem = try XCTUnwrap(
+            menus[0].items.first { $0.title == serviceInformationTextTitle }
+        )
         let stopNoteTextItem = try XCTUnwrap(
             menus[0].items.first { $0.title == stopNoteTextTitle }
         )
@@ -88,39 +93,66 @@ final class KastanAppTests: XCTestCase {
         let storedDetailsValue = UserDefaults.standard.object(
             forKey: ResultItemDetailsPreference.storageKey
         ) as? Bool
+        let storedServiceInformationTextValue = UserDefaults.standard.object(
+            forKey: ServiceInformationTextPreference.storageKey
+        ) as? Bool
         let storedStopNoteTextValue = UserDefaults.standard.object(
             forKey: StopNoteTextPreference.storageKey
         ) as? Bool
         let badgesAreShown = storedBadgeValue ?? ConnectionBadgePreference.defaultValue
         let detailsAreShown = storedDetailsValue ?? ResultItemDetailsPreference.defaultValue
+        let serviceInformationTextIsShown = storedServiceInformationTextValue ??
+            ServiceInformationTextPreference.defaultValue
         let stopNoteTextIsShown = storedStopNoteTextValue ?? StopNoteTextPreference.defaultValue
         XCTAssertEqual(badgeItem.state, badgesAreShown ? .on : .off)
         XCTAssertEqual(detailsItem.state, detailsAreShown ? .on : .off)
+        XCTAssertEqual(
+            serviceInformationTextItem.state,
+            serviceInformationTextIsShown ? .on : .off
+        )
         XCTAssertEqual(stopNoteTextItem.state, stopNoteTextIsShown ? .on : .off)
         XCTAssertNotNil(badgeItem.image)
         XCTAssertNotNil(detailsItem.image)
+        XCTAssertNotNil(serviceInformationTextItem.image)
         XCTAssertNotNil(stopNoteTextItem.image)
         XCTAssertFalse(ConnectionBadgePreference.defaultValue)
         XCTAssertFalse(ResultItemDetailsPreference.defaultValue)
+        XCTAssertFalse(ServiceInformationTextPreference.defaultValue)
         XCTAssertFalse(StopNoteTextPreference.defaultValue)
 
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
         XCTAssertEqual(
-            ["Show connection badges", "Show item details", "Show stop note text"].map {
+            [
+                "Show connection badges",
+                "Show item details",
+                "Show service information as text",
+                "Show stop note text",
+            ].map {
                 czech.localizedString(forKey: $0, value: nil, table: nil)
             },
             [
                 "Zobrazit štítky spojení",
                 "Zobrazit podrobnosti položek",
+                "Zobrazit informace o spoji textově",
                 "Zobrazit text poznámek zastávek",
             ]
         )
         XCTAssertEqual(
-            ["Show connection badges", "Show item details", "Show stop note text"].map {
+            [
+                "Show connection badges",
+                "Show item details",
+                "Show service information as text",
+                "Show stop note text",
+            ].map {
                 english.localizedString(forKey: $0, value: nil, table: nil)
             },
-            ["Show connection badges", "Show item details", "Show stop note text"]
+            [
+                "Show connection badges",
+                "Show item details",
+                "Show service information as text",
+                "Show stop note text",
+            ]
         )
     }
 
@@ -1509,6 +1541,7 @@ final class KastanAppTests: XCTestCase {
                     client: client,
                     showsConnectionBadges: false,
                     showsItemDetails: false,
+                    showsServiceInformationText: false,
                     showsStopNoteText: false
                 )
                     .frame(width: width, height: 600)
@@ -1772,6 +1805,7 @@ final class KastanAppTests: XCTestCase {
                 client: connectionsClient,
                 showsConnectionBadges: false,
                 showsItemDetails: false,
+                showsServiceInformationText: false,
                 showsStopNoteText: false
             ),
             prompts: ["Departure place", "Arrival place"],
@@ -1784,6 +1818,7 @@ final class KastanAppTests: XCTestCase {
                 model: DeparturesViewModel(client: departuresClient),
                 client: departuresClient,
                 showsItemDetails: false,
+                showsServiceInformationText: false,
                 showsStopNoteText: false
             ),
             prompts: ["Station or stop"],
@@ -2695,6 +2730,27 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(ResultMetadata.connectionLeg(leg, showsDetails: false))
     }
 
+    func testServiceInformationUsesSymbolsUntilTheTextPreferenceIsEnabled() {
+        let information = [
+            IDOSServiceInformation(text: "Train also consists of 1st class coaches"),
+            IDOSServiceInformation(text: "Carriage with a wireless internet connection"),
+            IDOSServiceInformation(text: "Carriage of registered luggage (until full capacity)"),
+            IDOSServiceInformation(text: "Carriage suitable for transport of passengers using wheelchairs"),
+        ]
+        let presentation = ServiceInformationPresentation(values: information)
+
+        XCTAssertEqual(
+            presentation.content(showsText: ServiceInformationTextPreference.defaultValue),
+            "1️⃣ 🛜 🚲 ♿"
+        )
+        XCTAssertEqual(
+            presentation.content(showsText: true),
+            information.map(\.text).joined(separator: " · ")
+        )
+        XCTAssertEqual(presentation.accessibilityLabel, information.map(\.text).joined(separator: ". "))
+        XCTAssertEqual(presentation.helpText, information.map(\.text).joined(separator: "\n"))
+    }
+
     func testStopNotesUseSymbolsUntilTheTextPreferenceIsEnabled() {
         let notes = [
             "zastávka na znamení",
@@ -2898,6 +2954,7 @@ final class KastanAppTests: XCTestCase {
             isShortest: true,
             showsConnectionBadges: false,
             showsItemDetails: false,
+            showsServiceInformationText: false,
             showsStopNoteText: false,
             isPerformingAction: false,
             showsActionMenu: true,
@@ -2955,6 +3012,7 @@ final class KastanAppTests: XCTestCase {
                 isShortest: false,
                 showsConnectionBadges: false,
                 showsItemDetails: false,
+                showsServiceInformationText: false,
                 showsStopNoteText: false,
                 isPerformingAction: false,
                 showsActionMenu: true,
@@ -3822,6 +3880,7 @@ final class KastanAppTests: XCTestCase {
                 client: MockIDOSClient(),
                 showsConnectionBadges: false,
                 showsItemDetails: false,
+                showsServiceInformationText: false,
                 showsStopNoteText: false
             )
                 .frame(width: ConnectionDetailView.minimumWindowWidth, height: 500)
@@ -3881,6 +3940,8 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(request?.isArrival, true)
         XCTAssertEqual(request?.maxTransfers, 2)
         XCTAssertEqual(request?.resultLimit, 10)
+        let searchLanguage = await client.lastConnectionSearchLanguage
+        XCTAssertEqual(searchLanguage, AppLanguagePreference.idosLanguage)
         XCTAssertEqual(model.connections.first?.id, "connection-1")
         XCTAssertTrue(model.hasCompletedSearch)
         XCTAssertNil(model.errorMessage)
@@ -4227,6 +4288,8 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(request?.station, "Ostrava-Svinov")
         XCTAssertEqual(request?.stationSelection, stationSelection.idosSelection)
         XCTAssertEqual(request?.isArrival, true)
+        let searchLanguage = await client.lastDepartureSearchLanguage
+        XCTAssertEqual(searchLanguage, AppLanguagePreference.idosLanguage)
         XCTAssertEqual(model.departures.count, 20)
     }
 
@@ -4880,6 +4943,7 @@ private func connectionCardOpenCount(
         isShortest: false,
         showsConnectionBadges: showsConnectionBadges,
         showsItemDetails: false,
+        showsServiceInformationText: false,
         showsStopNoteText: false,
         isPerformingAction: false,
         showsActionMenu: false,
@@ -5184,6 +5248,8 @@ private actor MockIDOSClient: IDOSClienting {
     var lastConnectionRequest: IDOSConnectionRequest?
     var lastDeparturesRequest: IDOSDeparturesRequest?
     var lastSuggestionQuery: SuggestionQuery?
+    var lastConnectionSearchLanguage: IDOSLanguage?
+    var lastDepartureSearchLanguage: IDOSLanguage?
     var lastPDFLanguage: IDOSLanguage?
     var lastConnectionCalendarLanguage: IDOSLanguage?
     var lastCalendarServiceID: String?
@@ -5323,6 +5389,14 @@ private actor MockIDOSClient: IDOSClienting {
     }
 
     func findConnectionsPage(
+        request: IDOSConnectionRequest,
+        language: IDOSLanguage
+    ) async throws -> IDOSConnectionPage {
+        lastConnectionSearchLanguage = language
+        return try await findConnectionsPage(request: request)
+    }
+
+    func findConnectionsPage(
         from page: IDOSConnectionPage,
         direction: IDOSPageDirection
     ) async throws -> IDOSConnectionPage {
@@ -5421,6 +5495,14 @@ private actor MockIDOSClient: IDOSClienting {
             canLoadEarlier: departurePages[.earlier] != nil,
             canLoadLater: departurePages[.later] != nil
         )
+    }
+
+    func findDeparturesPage(
+        request: IDOSDeparturesRequest,
+        language: IDOSLanguage
+    ) async throws -> IDOSDeparturePage {
+        lastDepartureSearchLanguage = language
+        return try await findDeparturesPage(request: request)
     }
 
     func findDeparturesPage(

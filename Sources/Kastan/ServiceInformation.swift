@@ -1,7 +1,7 @@
 import Foundation
 
 /// Preserves one IDOS service-information line together with the product meaning recognized in its text.
-public struct IDOSServiceInformation: Equatable, Sendable {
+public struct IDOSServiceInformation: Codable, Equatable, Sendable {
     /// Complete text supplied by IDOS.
     public let text: String
 
@@ -221,7 +221,11 @@ private struct Classifier {
 
         // Keep place names such as Kolín from turning unrelated fare notes into bicycle services.
         let mentionsBicycle = matches(#"\bjizdn\p{L}*\s+kol\p{L}*\b"#) ||
-            contains(anyOf: "bicycle", "bike")
+            contains(anyOf:
+                "bicycle", "bike",
+                "preprava spoluzavazadel (do vycerpani kapacity)",
+                "carriage of registered luggage (until full capacity)"
+            )
         if contains(anyOf: "neprepravuji", "not carried", "not transported") &&
             contains(
                 anyOf: "zavazadl", "kocark", "zvirat", "baggage", "luggage", "stroller", "animal"
@@ -229,7 +233,9 @@ private struct Classifier {
         {
             return .carriageRestriction
         }
-        if contains(anyOf: "zavazadl", "baggage", "luggage") ||
+        // Bicycle facilities use "registered luggage" wording in IDOS, so let the more
+        // specific bicycle rules below retain that passenger-facing meaning.
+        if (contains(anyOf: "zavazadl", "baggage", "luggage") && !mentionsBicycle) ||
             (contains(anyOf: "spoluzavazad", "accompanied luggage") && !mentionsBicycle)
         {
             return .baggage
@@ -266,6 +272,7 @@ private struct Classifier {
         // Both-class summaries and explicit first-class seating notes describe the same availability.
         if (contains("k sezeni i vozy") && contains("1. vozove tridy")) ||
             contains(anyOf: "vozy 1. a 2. tridy", "vozy 1. a 2. vozove tridy") ||
+            contains(anyOf: "train also consists of 1st class coaches", "train also consists of first class coaches") ||
             (contains("seating") && contains(anyOf: "1st class coaches", "first class coaches")) ||
             contains(anyOf: "1st and 2nd class coaches", "first and second class coaches")
         {
@@ -287,7 +294,7 @@ private struct Classifier {
         ) {
             return .diningCar
         }
-        if contains(anyOf: "obcerstveni", "refreshment", "snack service") {
+        if contains(anyOf: "obcerstveni", "refreshment", "snack service", "snack-bar") {
             return .refreshment
         }
         if contains(anyOf: "veskere informace", "all information") &&
@@ -309,7 +316,10 @@ private struct Classifier {
         if contains(anyOf: "tichy oddil", "quiet compartment", "quiet coach") {
             return .quietCompartment
         }
-        if contains(anyOf: "detske kino", "children's cinema", "children cinema", "kids cinema") {
+        if contains(anyOf:
+            "detske kino", "children's cinema", "children cinema", "kids cinema",
+            "children's theater", "children theater"
+        ) {
             return .childrenCinema
         }
         if contains(
@@ -336,7 +346,10 @@ private struct Classifier {
         if contains(anyOf: "cestujicich na voziku", "wheelchair") {
             return .wheelchair
         }
-        if contains(anyOf: "mistenk", "seat reservation", "place reservation", "places reservation") ||
+        if contains(anyOf:
+            "mistenk", "seat reservation", "place reservation", "places reservation",
+            "compulsory reservation", "reservations possible in indicated coaches"
+        ) ||
             (contains("rezervac") && contains("mist"))
         {
             return .seatReservation

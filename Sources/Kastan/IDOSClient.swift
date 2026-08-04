@@ -102,6 +102,11 @@ public protocol IDOSClienting: Sendable {
     func findConnections(request: IDOSConnectionRequest) async throws -> [IDOSConnection]
     /// Starts a connection search while retaining IDOS's continuation state for both chronological edges.
     func findConnectionsPage(request: IDOSConnectionRequest) async throws -> IDOSConnectionPage
+    /// Starts a connection search with platform-supplied result text in the selected language.
+    func findConnectionsPage(
+        request: IDOSConnectionRequest,
+        language: IDOSLanguage
+    ) async throws -> IDOSConnectionPage
     /// Extends an existing connection search through IDOS's native earlier/later paging endpoint.
     func findConnectionsPage(
         from page: IDOSConnectionPage,
@@ -144,6 +149,11 @@ public protocol IDOSClienting: Sendable {
     func findDepartures(request: IDOSDeparturesRequest) async throws -> [IDOSDeparture]
     /// Starts a station-board search while retaining its chronological search window.
     func findDeparturesPage(request: IDOSDeparturesRequest) async throws -> IDOSDeparturePage
+    /// Starts a station-board search with platform-supplied result text in the selected language.
+    func findDeparturesPage(
+        request: IDOSDeparturesRequest,
+        language: IDOSLanguage
+    ) async throws -> IDOSDeparturePage
     /// Extends a station board with an adjacent IDOS time window.
     func findDeparturesPage(
         from page: IDOSDeparturePage,
@@ -162,6 +172,14 @@ public extension IDOSClienting {
     /// Adapts clients without paging support to a single non-extendable connection page.
     func findConnectionsPage(request: IDOSConnectionRequest) async throws -> IDOSConnectionPage {
         IDOSConnectionPage(connections: try await findConnections(request: request))
+    }
+
+    /// Preserves compatibility for custom clients that do not provide localized connection pages yet.
+    func findConnectionsPage(
+        request: IDOSConnectionRequest,
+        language: IDOSLanguage
+    ) async throws -> IDOSConnectionPage {
+        try await findConnectionsPage(request: request)
     }
 
     /// Returns no continuation for clients that only implement one-shot connection searches.
@@ -196,6 +214,14 @@ public extension IDOSClienting {
     func findDeparturesPage(request: IDOSDeparturesRequest) async throws -> IDOSDeparturePage {
         let departures = try await findDepartures(request: request)
         return IDOSDeparturePage(departures: Array(departures.prefix(20)))
+    }
+
+    /// Preserves compatibility for custom clients that do not provide localized station-board pages yet.
+    func findDeparturesPage(
+        request: IDOSDeparturesRequest,
+        language: IDOSLanguage
+    ) async throws -> IDOSDeparturePage {
+        try await findDeparturesPage(request: request)
     }
 
     /// Returns no continuation for clients that only implement one-shot station-board searches.
@@ -448,8 +474,15 @@ public struct IDOSClient: IDOSClienting {
     }
 
     public func findConnectionsPage(request: IDOSConnectionRequest) async throws -> IDOSConnectionPage {
+        try await findConnectionsPage(request: request, language: .english)
+    }
+
+    public func findConnectionsPage(
+        request: IDOSConnectionRequest,
+        language: IDOSLanguage
+    ) async throws -> IDOSConnectionPage {
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
-        components.path = "/en/\(request.timetable.slug)/spojeni/"
+        components.path = language.path(timetable: request.timetable, endpoint: "spojeni/")
 
         var urlRequest = URLRequest(url: try components.requiredURL)
         urlRequest.httpMethod = "POST"
@@ -467,6 +500,7 @@ public struct IDOSClient: IDOSClienting {
             return IDOSConnectionPage(connections: connections)
         }
         paging.timetable = request.timetable
+        paging.language = language
         paging.listedIDs = connections.compactMap { Int($0.id) }
 
         if let limit = request.resultLimit {
@@ -508,7 +542,10 @@ public struct IDOSClient: IDOSClienting {
         }
 
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
-        components.path = "/en/\(paging.timetable.slug)/Ajax/ConnPaging"
+        components.path = paging.language.path(
+            timetable: paging.timetable,
+            endpoint: "Ajax/ConnPaging"
+        )
         components.queryItems = [URLQueryItem(name: "callback", value: "idosCallback")]
 
         var urlRequest = URLRequest(url: try components.requiredURL)
@@ -516,7 +553,7 @@ public struct IDOSClient: IDOSClienting {
         urlRequest.setValue("application/x-www-form-urlencoded; charset=UTF-8", forHTTPHeaderField: "Content-Type")
         urlRequest.setValue("XMLHttpRequest", forHTTPHeaderField: "X-Requested-With")
         urlRequest.setValue(
-            "\(baseURL.absoluteString)/en/\(paging.timetable.slug)/spojeni/",
+            "\(baseURL.absoluteString)\(paging.language.path(timetable: paging.timetable, endpoint: "spojeni/"))",
             forHTTPHeaderField: "Referer"
         )
 
@@ -781,11 +818,20 @@ public struct IDOSClient: IDOSClienting {
     }
 
     public func findDepartures(request: IDOSDeparturesRequest) async throws -> [IDOSDeparture] {
-        try await departureResults(request: request)
+        try await departureResults(request: request, language: .english)
     }
 
     public func findDeparturesPage(request: IDOSDeparturesRequest) async throws -> IDOSDeparturePage {
-        let departures = Array(try await departureResults(request: request).prefix(20))
+        try await findDeparturesPage(request: request, language: .english)
+    }
+
+    public func findDeparturesPage(
+        request: IDOSDeparturesRequest,
+        language: IDOSLanguage
+    ) async throws -> IDOSDeparturePage {
+        let departures = Array(
+            try await departureResults(request: request, language: language).prefix(20)
+        )
         let dates = departures.compactMap { IDOSDepartureParser.scheduledDate(for: $0) }
         guard let earliest = dates.min(), let latest = dates.max() else {
             return IDOSDeparturePage(departures: departures)
@@ -793,6 +839,7 @@ public struct IDOSClient: IDOSClienting {
 
         let paging = IDOSDeparturePagingContext(
             request: request,
+            language: language,
             earliestCursor: earliest,
             latestCursor: latest,
             listedIDs: Set(departures.map(\.id))
@@ -814,7 +861,7 @@ public struct IDOSClient: IDOSClienting {
             ? boundary.addingTimeInterval(-pageDuration)
             : boundary.addingTimeInterval(60)
         let request = Self.departureRequest(paging.request, at: queryDate)
-        let fetched = try await departureResults(request: request)
+        let fetched = try await departureResults(request: request, language: paging.language)
         let knownIDs = paging.listedIDs
         let departures = fetched.filter { departure in
             guard !knownIDs.contains(departure.id),
@@ -836,9 +883,12 @@ public struct IDOSClient: IDOSClienting {
         return IDOSDeparturePage(departures: departures, pagingContext: paging)
     }
 
-    private func departureResults(request: IDOSDeparturesRequest) async throws -> [IDOSDeparture] {
+    private func departureResults(
+        request: IDOSDeparturesRequest,
+        language: IDOSLanguage
+    ) async throws -> [IDOSDeparture] {
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
-        components.path = "/en/\(request.timetable.slug)/odjezdy/"
+        components.path = language.path(timetable: request.timetable, endpoint: "odjezdy/")
 
         var urlRequest = URLRequest(url: try components.requiredURL)
         urlRequest.httpMethod = "POST"
@@ -1808,6 +1858,8 @@ public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
     public var toPlatform: String?
     public var carrier: String?
     public var delay: String?
+    /// Passenger facilities and restrictions printed beside this service by IDOS.
+    public var serviceInformation: [IDOSServiceInformation]
 
     public init(
         name: String,
@@ -1823,7 +1875,8 @@ public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
         toTariffZone: String? = nil,
         toPlatform: String? = nil,
         carrier: String? = nil,
-        delay: String? = nil
+        delay: String? = nil,
+        serviceInformation: [IDOSServiceInformation] = []
     ) {
         self.name = name
         self.id = id
@@ -1839,6 +1892,71 @@ public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
         self.toPlatform = toPlatform
         self.carrier = carrier
         self.delay = delay
+        self.serviceInformation = serviceInformation
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case id
+        case color
+        case transportMode
+        case departureTime
+        case fromStation
+        case fromTariffZone
+        case fromPlatform
+        case arrivalTime
+        case toStation
+        case toTariffZone
+        case toPlatform
+        case carrier
+        case delay
+        case serviceInformation
+    }
+
+    /// Keeps previously encoded service rows decodable after passenger information was added.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            name: try container.decode(String.self, forKey: .name),
+            id: try container.decodeIfPresent(String.self, forKey: .id),
+            color: try container.decodeIfPresent(String.self, forKey: .color),
+            transportMode: try container.decodeIfPresent(IDOSTransportMode.self, forKey: .transportMode),
+            departureTime: try container.decode(String.self, forKey: .departureTime),
+            fromStation: try container.decode(String.self, forKey: .fromStation),
+            fromTariffZone: try container.decodeIfPresent(String.self, forKey: .fromTariffZone),
+            fromPlatform: try container.decodeIfPresent(String.self, forKey: .fromPlatform),
+            arrivalTime: try container.decode(String.self, forKey: .arrivalTime),
+            toStation: try container.decode(String.self, forKey: .toStation),
+            toTariffZone: try container.decodeIfPresent(String.self, forKey: .toTariffZone),
+            toPlatform: try container.decodeIfPresent(String.self, forKey: .toPlatform),
+            carrier: try container.decodeIfPresent(String.self, forKey: .carrier),
+            delay: try container.decodeIfPresent(String.self, forKey: .delay),
+            serviceInformation: try container.decodeIfPresent(
+                [IDOSServiceInformation].self,
+                forKey: .serviceInformation
+            ) ?? []
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(id, forKey: .id)
+        try container.encodeIfPresent(color, forKey: .color)
+        try container.encodeIfPresent(transportMode, forKey: .transportMode)
+        try container.encode(departureTime, forKey: .departureTime)
+        try container.encode(fromStation, forKey: .fromStation)
+        try container.encodeIfPresent(fromTariffZone, forKey: .fromTariffZone)
+        try container.encodeIfPresent(fromPlatform, forKey: .fromPlatform)
+        try container.encode(arrivalTime, forKey: .arrivalTime)
+        try container.encode(toStation, forKey: .toStation)
+        try container.encodeIfPresent(toTariffZone, forKey: .toTariffZone)
+        try container.encodeIfPresent(toPlatform, forKey: .toPlatform)
+        try container.encodeIfPresent(carrier, forKey: .carrier)
+        try container.encodeIfPresent(delay, forKey: .delay)
+        if !serviceInformation.isEmpty {
+            try container.encode(serviceInformation, forKey: .serviceInformation)
+        }
     }
 
     public var displayName: String {
@@ -1885,6 +2003,8 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
     public var via: String?
     public var carrier: String?
     public var delay: String?
+    /// Passenger facilities and restrictions printed beside this service by IDOS.
+    public var serviceInformation: [IDOSServiceInformation]
 
     public init(
         id: String,
@@ -1898,7 +2018,8 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
         platform: String? = nil,
         via: String? = nil,
         carrier: String? = nil,
-        delay: String? = nil
+        delay: String? = nil,
+        serviceInformation: [IDOSServiceInformation] = []
     ) {
         self.id = id
         self.stationName = stationName
@@ -1912,6 +2033,65 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
         self.via = via
         self.carrier = carrier
         self.delay = delay
+        self.serviceInformation = serviceInformation
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case stationName
+        case time
+        case lineName
+        case lineColor
+        case transportMode
+        case destination
+        case tariffZone
+        case platform
+        case via
+        case carrier
+        case delay
+        case serviceInformation
+    }
+
+    /// Keeps previously encoded station-board rows decodable after passenger information was added.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(String.self, forKey: .id),
+            stationName: try container.decodeIfPresent(String.self, forKey: .stationName),
+            time: try container.decode(String.self, forKey: .time),
+            lineName: try container.decode(String.self, forKey: .lineName),
+            lineColor: try container.decodeIfPresent(String.self, forKey: .lineColor),
+            transportMode: try container.decodeIfPresent(IDOSTransportMode.self, forKey: .transportMode),
+            destination: try container.decode(String.self, forKey: .destination),
+            tariffZone: try container.decodeIfPresent(String.self, forKey: .tariffZone),
+            platform: try container.decodeIfPresent(String.self, forKey: .platform),
+            via: try container.decodeIfPresent(String.self, forKey: .via),
+            carrier: try container.decodeIfPresent(String.self, forKey: .carrier),
+            delay: try container.decodeIfPresent(String.self, forKey: .delay),
+            serviceInformation: try container.decodeIfPresent(
+                [IDOSServiceInformation].self,
+                forKey: .serviceInformation
+            ) ?? []
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(stationName, forKey: .stationName)
+        try container.encode(time, forKey: .time)
+        try container.encode(lineName, forKey: .lineName)
+        try container.encodeIfPresent(lineColor, forKey: .lineColor)
+        try container.encodeIfPresent(transportMode, forKey: .transportMode)
+        try container.encode(destination, forKey: .destination)
+        try container.encodeIfPresent(tariffZone, forKey: .tariffZone)
+        try container.encodeIfPresent(platform, forKey: .platform)
+        try container.encodeIfPresent(via, forKey: .via)
+        try container.encodeIfPresent(carrier, forKey: .carrier)
+        try container.encodeIfPresent(delay, forKey: .delay)
+        if !serviceInformation.isEmpty {
+            try container.encode(serviceInformation, forKey: .serviceInformation)
+        }
     }
 
     public var displayLineName: String {
@@ -2277,14 +2457,31 @@ struct IDOSConnectionPagingContext: Sendable {
     var allowPrevious: Bool
     var allowNext: Bool
     var timetable: IDOSTimetable
+    var language: IDOSLanguage
     var listedIDs: [Int]
 }
 
 struct IDOSDeparturePagingContext: Sendable {
     var request: IDOSDeparturesRequest
+    var language: IDOSLanguage
     var earliestCursor: Date
     var latestCursor: Date
     var listedIDs: Set<String>
+}
+
+/// Converts the complete wording behind IDOS result symbols into the shared product model.
+private enum IDOSServiceInformationHTMLParser {
+    static func parseTitles(in html: String) -> [IDOSServiceInformation] {
+        RegexSupport.captures(
+            pattern: #"\btitle="([^"]+)""#,
+            in: html
+        )
+        .compactMap(\.first)
+        .map(HTMLText.decodeEntities)
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+        .map { IDOSServiceInformation(text: $0) }
+    }
 }
 
 enum IDOSConnectionParser {
@@ -2349,6 +2546,7 @@ enum IDOSConnectionParser {
             allowPrevious: result["allowPrev"] as? Bool ?? true,
             allowNext: result["allowNext"] as? Bool ?? true,
             timetable: .defaultTimetable,
+            language: .english,
             listedIDs: []
         )
     }
@@ -2373,7 +2571,10 @@ enum IDOSConnectionParser {
                     options: [.dotMatchesLineSeparators]
                 ) ?? ""),
                 tariffZone: titledValue(["tariff zone", "tarifní pásmo", "tarifni pasmo"], in: stationHTML),
-                platform: titledValue(["platform", "nástupiště", "nastupiste"], in: stationHTML)
+                platform: titledValue([
+                    "platform", "track", "platform/track",
+                    "nástupiště", "kolej", "nástupiště/kolej", "nastupiste/kolej",
+                ], in: stationHTML)
             )
         }
 
@@ -2409,7 +2610,8 @@ enum IDOSConnectionParser {
                 toTariffZone: arrival.tariffZone,
                 toPlatform: arrival.platform,
                 carrier: lines[index].carrier,
-                delay: lines[index].delay
+                delay: lines[index].delay,
+                serviceInformation: lines[index].serviceInformation
             )
         }
 
@@ -2420,7 +2622,7 @@ enum IDOSConnectionParser {
             arrivalTime: last.time,
             arrivalStation: last.station,
             duration: HTMLText.clean(RegexSupport.capture(
-                pattern: #"Overall time\s*<strong>(.*?)</strong>"#,
+                pattern: #"(?:Overall time|Celkový čas)\s*<strong>(.*?)</strong>"#,
                 in: block,
                 options: [.dotMatchesLineSeparators]
             ) ?? ""),
@@ -2638,7 +2840,14 @@ enum IDOSConnectionParser {
         return nil
     }
 
-    private static func lineDetails(in block: String) -> [(name: String, color: String?, transportMode: IDOSTransportMode?, carrier: String?, delay: String?)] {
+    private static func lineDetails(in block: String) -> [(
+        name: String,
+        color: String?,
+        transportMode: IDOSTransportMode?,
+        carrier: String?,
+        delay: String?,
+        serviceInformation: [IDOSServiceInformation]
+    )] {
         let lineBlocks = RegexSupport.matches(
             pattern: #"<div class="line-item">.*?(?=<div class="line-item">|<div class="connection-expand">|</div>\s*$)"#,
             in: block,
@@ -2693,9 +2902,23 @@ enum IDOSConnectionParser {
                 color: HTMLStyle.color(from: heading),
                 transportMode: IDOSTransportMode.infer(from: "\(title) \(name)"),
                 carrier: carrier(in: lineBlock),
-                delay: delay(in: lineBlock)
+                delay: delay(in: lineBlock),
+                serviceInformation: serviceInformation(in: lineBlock)
             )
         }
+    }
+
+    /// Reads only the service symbols beside a line title, excluding action, carrier, and stop tooltips.
+    private static func serviceInformation(in html: String) -> [IDOSServiceInformation] {
+        guard let specifications = RegexSupport.capture(
+            pattern: #"<p\b[^>]*\bclass="[^"]*\bspecs\b[^"]*"[^>]*>(.*?)</p>"#,
+            in: html,
+            options: [.dotMatchesLineSeparators]
+        ) else {
+            return []
+        }
+
+        return IDOSServiceInformationHTMLParser.parseTitles(in: specifications)
     }
 
     private static func headingBlocks(in block: String) -> [String] {
@@ -3079,15 +3302,22 @@ enum IDOSDepartureParser {
         }
 
         let platform = RegexSupport.capture(
-            pattern: #"<span title="(?:platform|nástupiště)"[^>]*>(.*?)</span>"#,
+            pattern: #"<span title="(?:platform|track|platform/track|nástupiště|kolej|nástupiště/kolej)"[^>]*>(.*?)</span>"#,
             in: firstRow,
             options: [.dotMatchesLineSeparators]
         ).map(HTMLText.clean)
         let tariffZone = detail(title: "tariff zone", in: firstRow)
             ?? detail(title: "tarifní pásmo", in: firstRow)
             ?? detail(title: "tarifni pasmo", in: firstRow)
-        let via = detail(title: "pass via", in: secondRow).map { value in
-            value.hasPrefix("via ") ? String(value.dropFirst(4)) : value
+        let via = (
+            detail(title: "pass via", in: secondRow) ??
+                detail(title: "projíždí přes", in: secondRow) ??
+                detail(title: "projizdi pres", in: secondRow)
+        ).map { value in
+            for prefix in ["via ", "přes "] where value.hasPrefix(prefix) {
+                return String(value.dropFirst(prefix.count))
+            }
+            return value
         }
         let carrier = detail(title: "dopravce", in: secondRow) ?? detail(title: "carrier", in: secondRow)
         let delay = RegexSupport.capture(
@@ -3095,6 +3325,7 @@ enum IDOSDepartureParser {
             in: secondRow,
             options: [.dotMatchesLineSeparators]
         ).map(HTMLText.clean)
+        let serviceInformation = serviceInformation(in: firstRow)
 
         return IDOSDeparture(
             id: "\(timetable.slug):\(timetableIndex)-\(trainID)-\(dateTime)",
@@ -3108,8 +3339,22 @@ enum IDOSDepartureParser {
             platform: platform,
             via: via,
             carrier: carrier,
-            delay: delay
+            delay: delay,
+            serviceInformation: serviceInformation
         )
+    }
+
+    /// Isolates the service cell so station, platform, and destination tooltips cannot become facilities.
+    private static func serviceInformation(in html: String) -> [IDOSServiceInformation] {
+        guard let serviceCell = RegexSupport.capture(
+            pattern: #"<span\b[^>]*\bclass="[^"]*\bdesc\b[^"]*"[^>]*>(.*?)</td>"#,
+            in: html,
+            options: [.dotMatchesLineSeparators]
+        ) else {
+            return []
+        }
+
+        return IDOSServiceInformationHTMLParser.parseTitles(in: serviceCell)
     }
 
     private static func resolvedStationName(in html: String) -> String? {
@@ -3118,7 +3363,9 @@ enum IDOSDepartureParser {
             in: html,
             options: [.dotMatchesLineSeparators]
         ).map(HTMLText.clean) {
-            for prefix in ["Departures from ", "Arrivals to "] where title.hasPrefix(prefix) {
+            for prefix in ["Departures from ", "Arrivals to ", "Odjezdy z ", "Příjezdy do "]
+                where title.hasPrefix(prefix)
+            {
                 let value = String(title.dropFirst(prefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
                 if !value.isEmpty {
                     return value

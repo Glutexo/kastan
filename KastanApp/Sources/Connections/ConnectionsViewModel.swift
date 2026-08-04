@@ -329,7 +329,10 @@ final class ConnectionsViewModel: ObservableObject {
         )
 
         do {
-            let page = try await client.findConnectionsPage(request: request)
+            let page = try await client.findConnectionsPage(
+                request: request,
+                language: AppLanguagePreference.idosLanguage
+            )
             connections = page.connections
             resultPage = page
         } catch {

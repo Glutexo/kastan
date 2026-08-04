@@ -581,6 +581,7 @@ struct AppSectionCommands: Commands {
     @FocusedValue(\.appSectionSelection) private var selection: Binding<AppSection>?
     @Binding var showsConnectionBadges: Bool
     @Binding var showsItemDetails: Bool
+    @Binding var showsServiceInformationText: Bool
     @Binding var showsStopNoteText: Bool
 
     var body: some Commands {
@@ -596,6 +597,9 @@ struct AppSectionCommands: Commands {
             }
             Toggle(isOn: $showsItemDetails) {
                 Label("Show item details", systemImage: "info.circle")
+            }
+            Toggle(isOn: $showsServiceInformationText) {
+                Label("Show service information as text", systemImage: "textformat")
             }
             Toggle(isOn: $showsStopNoteText) {
                 Label("Show stop note text", systemImage: "text.bubble")
@@ -636,6 +640,8 @@ struct KastanApp: App {
     private var showsConnectionBadges = ConnectionBadgePreference.defaultValue
     @AppStorage(ResultItemDetailsPreference.storageKey)
     private var showsItemDetails = ResultItemDetailsPreference.defaultValue
+    @AppStorage(ServiceInformationTextPreference.storageKey)
+    private var showsServiceInformationText = ServiceInformationTextPreference.defaultValue
     @AppStorage(StopNoteTextPreference.storageKey)
     private var showsStopNoteText = StopNoteTextPreference.defaultValue
     private let client = IDOSClient()
@@ -651,6 +657,7 @@ struct KastanApp: App {
                 client: client,
                 showsConnectionBadges: showsConnectionBadges,
                 showsItemDetails: showsItemDetails,
+                showsServiceInformationText: showsServiceInformationText,
                 showsStopNoteText: showsStopNoteText
             )
                 .frame(minWidth: Self.minimumMainWindowWidth, minHeight: 520)
@@ -662,6 +669,7 @@ struct KastanApp: App {
             AppSectionCommands(
                 showsConnectionBadges: $showsConnectionBadges,
                 showsItemDetails: $showsItemDetails,
+                showsServiceInformationText: $showsServiceInformationText,
                 showsStopNoteText: $showsStopNoteText
             )
             SearchEditCommands()
@@ -703,6 +711,7 @@ struct KastanApp: App {
                     client: client,
                     showsConnectionBadges: showsConnectionBadges,
                     showsItemDetails: showsItemDetails,
+                    showsServiceInformationText: showsServiceInformationText,
                     showsStopNoteText: showsStopNoteText
                 )
             }

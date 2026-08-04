@@ -228,7 +228,9 @@ results. `--verbose` adds IDs, tariff zones, platforms, carriers, and delay info
 them. Human-readable connection rows use semantic markers for their time summary, identifiers, carrier, delay
 status, and transport mode; an unknown transport mode uses a generic route marker. Known Czech and English
 IDOS on-time and delayed arrival or departure states follow the selected language in text, Markdown, and HTML,
-while JSON exposes the original stable fields without relying on presentation styling.
+while JSON exposes the original stable fields without relying on presentation styling. Connection-leg and
+station-board JSON also includes each compact IDOS service-information item with its complete text and classified
+category when available.
 
 Unknown options are rejected. Network failures are returned as normal command errors in the selected format.
 Ambiguous place names are reported together with the possible IDOS choices.

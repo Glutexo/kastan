@@ -8,6 +8,7 @@ struct DeparturesView: View {
     @ObservedObject var model: DeparturesViewModel
     let client: any IDOSClienting
     let showsItemDetails: Bool
+    let showsServiceInformationText: Bool
     let showsStopNoteText: Bool
     @State private var isSearchFormCollapsed = false
     @State private var showsSearchShortcuts = SearchShortcutPresentation.isVisible(
@@ -195,6 +196,7 @@ struct DeparturesView: View {
                         selection: selection,
                         client: client,
                         showsItemDetails: showsItemDetails,
+                        showsServiceInformationText: showsServiceInformationText,
                         showsStopNoteText: showsStopNoteText
                     ) {
                         openWindow(
@@ -217,6 +219,7 @@ private struct DepartureRow: View {
     let selection: ServiceSelection
     let client: any IDOSClienting
     let showsItemDetails: Bool
+    let showsServiceInformationText: Bool
     let showsStopNoteText: Bool
     let openService: () -> Void
     @StateObject private var contextMenuModel: ServiceDetailViewModel
@@ -228,6 +231,7 @@ private struct DepartureRow: View {
         selection: ServiceSelection,
         client: any IDOSClienting,
         showsItemDetails: Bool,
+        showsServiceInformationText: Bool,
         showsStopNoteText: Bool,
         openService: @escaping () -> Void
     ) {
@@ -235,6 +239,7 @@ private struct DepartureRow: View {
         self.selection = selection
         self.client = client
         self.showsItemDetails = showsItemDetails
+        self.showsServiceInformationText = showsServiceInformationText
         self.showsStopNoteText = showsStopNoteText
         self.openService = openService
         _contextMenuModel = StateObject(
@@ -265,7 +270,19 @@ private struct DepartureRow: View {
                     HStack {
                         Text([departure.transportMode?.emoji, departure.lineName].compactMap { $0 }.joined(separator: " "))
                             .font(.headline)
+                        if !showsServiceInformationText {
+                            ServiceInformationSummary(
+                                values: departure.serviceInformation,
+                                showsText: false
+                            )
+                        }
                         Text("→ \(departure.destination)")
+                    }
+                    if showsServiceInformationText {
+                        ServiceInformationSummary(
+                            values: departure.serviceInformation,
+                            showsText: true
+                        )
                     }
                     if let metadata = ResultMetadata.visible(
                         showsDetails: showsItemDetails,
