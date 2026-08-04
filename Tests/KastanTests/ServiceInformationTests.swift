@@ -20,6 +20,8 @@ import Testing
         ("Vlak veze přímý vůz do Berlína.", .throughCoach),
         ("Ze stanice Děčín hl.n. vlak LE 235.", .trainDesignationChange),
         ("Ve vlaku řazeny k sezení i vozy 1. vozové třídy.", .firstClassSeating),
+        ("vozy 1. a 2. třídy", .firstClassSeating),
+        ("1st and 2nd class coaches", .firstClassSeating),
         ("Ve vlaku řazeny k sezení pouze vozy 2. vozové třídy.", .secondClassOnly),
         ("Samoobslužný způsob odbavování cestujících.", .selfServiceCheckIn),
         ("Bistro car", .diningCar),

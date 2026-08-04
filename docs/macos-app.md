@@ -154,7 +154,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Complete service information starts collapsed beneath a disclosure heading at the same level as Stops. Expanding it
   reveals selectable text whose visibly separated rows use semantic emoji for replacement buses,
   onboard amenities, sleeping and couchette cars, through coaches, on-route train-designation changes,
-  seating-class restrictions, self-service passenger handling, accessibility, family and bicycle services,
+  first-class availability and second-class-only restrictions, self-service passenger handling, accessibility,
+  family and bicycle services,
   tickets, baggage, passenger and reservation restrictions, cancellation policies, routes, carriers, and
   calendar-backed operating rules.
   Carrier contact rows use their `name; address[; phone]`

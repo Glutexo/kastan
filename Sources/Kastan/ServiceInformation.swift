@@ -263,8 +263,11 @@ private struct Classifier {
         {
             return .trainDesignationChange
         }
+        // Both-class summaries and explicit first-class seating notes describe the same availability.
         if (contains("k sezeni i vozy") && contains("1. vozove tridy")) ||
-            (contains("seating") && contains(anyOf: "1st class coaches", "first class coaches"))
+            contains(anyOf: "vozy 1. a 2. tridy", "vozy 1. a 2. vozove tridy") ||
+            (contains("seating") && contains(anyOf: "1st class coaches", "first class coaches")) ||
+            contains(anyOf: "1st and 2nd class coaches", "first and second class coaches")
         {
             return .firstClassSeating
         }
