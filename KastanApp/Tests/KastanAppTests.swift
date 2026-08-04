@@ -817,6 +817,44 @@ final class KastanAppTests: XCTestCase {
         XCTAssertLessThan(try centerBrightness(showsCenter: true), 0.1)
     }
 
+    func testWrappedStationTimetableRouteCentersBesideLineName() throws {
+        let width: CGFloat = 320
+        let heading = StationTimetableRouteHeading(
+            lineTitle: "🚌 Bus 302",
+            route: "Nové Dvory,Frýdecká skládka → Místek,Tesco",
+            isLockout: false
+        )
+        .frame(width: width, alignment: .leading)
+        .background(Color.white)
+        .environment(\.colorScheme, .light)
+        let hostingView = NSHostingView(rootView: heading)
+        hostingView.frame = NSRect(origin: .zero, size: hostingView.fittingSize)
+        hostingView.layoutSubtreeIfNeeded()
+
+        let bitmap = try XCTUnwrap(
+            hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds)
+        )
+        hostingView.cacheDisplay(in: hostingView.bounds, to: bitmap)
+        let scale = CGFloat(bitmap.pixelsWide) / hostingView.bounds.width
+        let lineTitleBounds = try XCTUnwrap(
+            inkBounds(
+                in: bitmap,
+                xRange: 0..<Int(108 * scale),
+                maximumBrightness: 0.9
+            )
+        )
+        let routeBounds = try XCTUnwrap(
+            inkBounds(
+                in: bitmap,
+                xRange: Int(112 * scale)..<bitmap.pixelsWide,
+                maximumBrightness: 0.9
+            )
+        )
+
+        XCTAssertGreaterThan(routeBounds.height, lineTitleBounds.height)
+        XCTAssertEqual(lineTitleBounds.midY, routeBounds.midY, accuracy: 2 * scale)
+    }
+
     func testSelectableServiceNoteFlowRetainsCalendarPhoneAndWebLinks() {
         let view = ServiceNotesView(
             notes: ["jede v 1-5", "Informace: +420 123 456 789", "Web: www.KODIS.cz"],

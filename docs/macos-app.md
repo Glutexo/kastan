@@ -46,8 +46,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   route stops, optional tariff zones and platforms or stands, lockout labels, explanatory notes, and links back to
   the matching IDOS result. The route and notes use matching icon headings, and route stops use the same outlined
   circular markers as complete service routes, with a centered accent for the selected stop. Timetable-wide notes
-  start collapsed and expand into selectable text while retaining their interactive links. Common stop properties
-  appear directly after the stop name as semantic emoji: request
+  start collapsed and expand into selectable text while retaining their interactive links. A direction that wraps
+  across lines remains vertically centered beside the line name, while single-line headings retain baseline
+  alignment. Common stop properties appear directly after the stop name as semantic emoji: request
   stops use 🔔, wheelchair accessibility uses ♿, rail stations use 🚉, Metro transfers use 🚇, and traffic
   restrictions use 🚧. Hovering a symbol reveals the original IDOS note, VoiceOver reads that note, and unrecognized
   operational notes retain their complete text. Their service date uses the same compact popover treatment as the

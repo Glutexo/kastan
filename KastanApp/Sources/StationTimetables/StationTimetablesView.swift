@@ -254,19 +254,14 @@ struct StationTimetablesView: View {
         } else {
             title = result.lineName
         }
-        return HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text(title)
-                .font(.title2.bold())
-            Text("\(result.fromStop) → \(result.toStop)")
-                .foregroundStyle(.secondary)
-            if result.isLockout {
-                Text("Lockout timetable")
-                    .font(.caption.bold())
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(.orange.opacity(0.16), in: Capsule())
-            }
-            Spacer()
+        return HStack(alignment: .center, spacing: 10) {
+            StationTimetableRouteHeading(
+                lineTitle: title,
+                route: "\(result.fromStop) → \(result.toStop)",
+                isLockout: result.isLockout
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+
             Button {
                 Task { await model.reverseDirection() }
             } label: {
@@ -416,6 +411,46 @@ struct StationTimetablesView: View {
             stop.platform.map { AppLocalization.string("Station timetable platform %@", $0) },
         ].compactMap(\.self)
         return values.isEmpty ? nil : values.joined(separator: " · ")
+    }
+}
+
+/// Preserves a shared baseline on one line and centers a wrapped route beside its line name.
+struct StationTimetableRouteHeading: View {
+    let lineTitle: String
+    let route: String
+    let isLockout: Bool
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            heading(alignment: .firstTextBaseline, keepsRouteOnOneLine: true)
+            heading(alignment: .center, keepsRouteOnOneLine: false)
+        }
+    }
+
+    private func heading(
+        alignment: VerticalAlignment,
+        keepsRouteOnOneLine: Bool
+    ) -> some View {
+        HStack(alignment: alignment, spacing: 10) {
+            Text(lineTitle)
+                .font(.title2.bold())
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+
+            Text(route)
+                .foregroundStyle(.secondary)
+                .lineLimit(keepsRouteOnOneLine ? 1 : nil)
+                .fixedSize(horizontal: keepsRouteOnOneLine, vertical: true)
+
+            if isLockout {
+                Text("Lockout timetable")
+                    .font(.caption.bold())
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(.orange.opacity(0.16), in: Capsule())
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+        }
     }
 }
 
