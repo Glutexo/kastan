@@ -774,12 +774,35 @@ struct ServiceInformationDisclosure: View {
 
 /// Keeps a route marker centered beside the stop content that remains visible.
 private enum ServiceStopTimelineLayout {
-    static let markerDiameter: CGFloat = 14
     static let metadataSpacing: CGFloat = 4
 
     static var topConnectorHeight: CGFloat {
         let headlineHeight = NSFont.preferredFont(forTextStyle: .headline).boundingRectForFont.height
-        return max((headlineHeight - markerDiameter) / 2, 0)
+        return max((headlineHeight - RouteStopMarker.diameter) / 2, 0)
+    }
+}
+
+/// Gives route stops the same outlined marker while allowing endpoints or a selection to stand out.
+struct RouteStopMarker: View {
+    static let diameter: CGFloat = 14
+
+    let color: Color
+    let isEmphasized: Bool
+    let showsCenter: Bool
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(.background)
+            Circle()
+                .strokeBorder(color, lineWidth: isEmphasized ? 3 : 2)
+            if showsCenter {
+                Circle()
+                    .fill(color)
+                    .frame(width: 6, height: 6)
+            }
+        }
+        .frame(width: Self.diameter, height: Self.diameter)
     }
 }
 
@@ -827,20 +850,10 @@ struct ServiceStopRow: View {
                         height: ServiceStopTimelineLayout.topConnectorHeight
                     )
 
-                ZStack {
-                    Circle()
-                        .fill(.background)
-                    Circle()
-                        .strokeBorder(markerColor, lineWidth: isHighlighted ? 3 : 2)
-                    if isFirst || isLast || isHighlightBoundary {
-                        Circle()
-                            .fill(markerColor)
-                            .frame(width: 6, height: 6)
-                    }
-                }
-                .frame(
-                    width: ServiceStopTimelineLayout.markerDiameter,
-                    height: ServiceStopTimelineLayout.markerDiameter
+                RouteStopMarker(
+                    color: markerColor,
+                    isEmphasized: isHighlighted,
+                    showsCenter: isFirst || isLast || isHighlightBoundary
                 )
                 .alignmentGuide(.serviceStopMarkerCenter) { context in
                     context[VerticalAlignment.center]
@@ -851,7 +864,7 @@ struct ServiceStopRow: View {
                     .frame(width: 2)
                     .frame(maxHeight: .infinity)
             }
-            .frame(width: ServiceStopTimelineLayout.markerDiameter)
+            .frame(width: RouteStopMarker.diameter)
 
             VStack(alignment: .leading, spacing: ServiceStopTimelineLayout.metadataSpacing) {
                 HStack(alignment: .firstTextBaseline) {

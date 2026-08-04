@@ -764,6 +764,59 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(isExpanded)
     }
 
+    func testStationTimetableNotesStayHiddenUntilDisclosureExpands() {
+        let note = "jede v pracovní dny"
+        func renderedHeight(isExpanded: Bool) -> CGFloat {
+            let hostingView = NSHostingView(
+                rootView: StationTimetableNotesDisclosure(
+                    notes: [note],
+                    isExpanded: .constant(isExpanded)
+                )
+                .frame(width: 400, alignment: .topLeading)
+            )
+            hostingView.layoutSubtreeIfNeeded()
+            return hostingView.fittingSize.height
+        }
+
+        let collapsedHeight = renderedHeight(isExpanded: false)
+        let expandedHeight = renderedHeight(isExpanded: true)
+
+        XCTAssertGreaterThan(expandedHeight, collapsedHeight)
+    }
+
+    func testRouteStopMarkerIsAnOutlinedCircleWithAnOptionalCenter() throws {
+        func centerBrightness(showsCenter: Bool) throws -> CGFloat {
+            let marker = RouteStopMarker(
+                color: .black,
+                isEmphasized: showsCenter,
+                showsCenter: showsCenter
+            )
+            .background(Color.white)
+            .environment(\.colorScheme, .light)
+            let hostingView = NSHostingView(rootView: marker)
+            hostingView.frame = NSRect(
+                x: 0,
+                y: 0,
+                width: RouteStopMarker.diameter,
+                height: RouteStopMarker.diameter
+            )
+            hostingView.layoutSubtreeIfNeeded()
+
+            let bitmap = try XCTUnwrap(
+                hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds)
+            )
+            hostingView.cacheDisplay(in: hostingView.bounds, to: bitmap)
+            let color = try XCTUnwrap(
+                bitmap.colorAt(x: bitmap.pixelsWide / 2, y: bitmap.pixelsHigh / 2)?
+                    .usingColorSpace(.deviceRGB)
+            )
+            return (color.redComponent + color.greenComponent + color.blueComponent) / 3
+        }
+
+        XCTAssertGreaterThan(try centerBrightness(showsCenter: false), 0.9)
+        XCTAssertLessThan(try centerBrightness(showsCenter: true), 0.1)
+    }
+
     func testSelectableServiceNoteFlowRetainsCalendarPhoneAndWebLinks() {
         let view = ServiceNotesView(
             notes: ["jede v 1-5", "Informace: +420 123 456 789", "Web: www.KODIS.cz"],

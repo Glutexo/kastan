@@ -9,6 +9,7 @@ struct StationTimetablesView: View {
     let showsItemDetails: Bool
     let showsStopNoteText: Bool
     @State private var isSearchFormCollapsed = false
+    @State private var isNotesExpanded = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -238,9 +239,10 @@ struct StationTimetablesView: View {
             }
 
             if !result.notes.isEmpty {
-                GroupBox("Notes") {
-                    ServiceNotesView(notes: result.notes)
-                }
+                StationTimetableNotesDisclosure(
+                    notes: result.notes,
+                    isExpanded: $isNotesExpanded
+                )
             }
         }
     }
@@ -292,7 +294,10 @@ struct StationTimetablesView: View {
     }
 
     private func stops(_ result: IDOSStationTimetable) -> some View {
-        GroupBox("Stops") {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Stops", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                .font(.headline)
+
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(result.stops.enumerated()), id: \.offset) { index, stop in
                     let notePresentation = StopNotePresentation(
@@ -308,10 +313,14 @@ struct StationTimetablesView: View {
                                     .font(.callout.bold().monospacedDigit())
                                     .foregroundStyle(stop.isSelected ? Color.accentColor : Color.secondary)
                                     .frame(width: 28, alignment: .trailing)
-                                Circle()
-                                    .fill(stop.isSelected ? Color.accentColor : Color.secondary.opacity(0.55))
-                                    .frame(width: 8, height: 8)
-                                    .padding(.top, 5)
+                                RouteStopMarker(
+                                    color: stop.isSelected
+                                        ? Color.accentColor
+                                        : Color.secondary.opacity(0.55),
+                                    isEmphasized: stop.isSelected,
+                                    showsCenter: stop.isSelected
+                                )
+                                .padding(.top, 2)
                                 VStack(alignment: .leading, spacing: 2) {
                                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                                         Text(stop.name)
@@ -356,6 +365,7 @@ struct StationTimetablesView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func schedules(_ result: IDOSStationTimetable) -> some View {
@@ -406,6 +416,32 @@ struct StationTimetablesView: View {
             stop.platform.map { AppLocalization.string("Station timetable platform %@", $0) },
         ].compactMap(\.self)
         return values.isEmpty ? nil : values.joined(separator: " · ")
+    }
+}
+
+/// Keeps timetable-wide notes compact until the passenger asks to read or select them.
+struct StationTimetableNotesDisclosure: View {
+    let notes: [String]
+    @Binding var isExpanded: Bool
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            ServiceNotesView(notes: notes)
+                .textSelection(.enabled)
+                .padding(.top, 8)
+        } label: {
+            Label("Notes", systemImage: "info.circle")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation {
+                        isExpanded.toggle()
+                    }
+                }
+        }
+        .accessibilityLabel("Notes")
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
