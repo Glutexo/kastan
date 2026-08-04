@@ -144,7 +144,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   service-specific menu is available on station-board rows. A trackpad Force Click on either kind of service row
   opens the identical complete-route preview. Double-clicking anywhere across a connection's time or route summary
   opens that complete connection in an independent window; holding Option reveals the window button in the connection
-  header as an alternative. An ordinary service click opens its detail window.
+  header as an alternative. An ordinary service click opens the selected service's detail window, including while
+  another service-detail window is already open.
 - Long service routes in independent windows and Force Click previews open with the departure stop from the
   originating search fully visible at the top. The window leaves a small clearance below its toolbar, while the
   preview leaves slightly more against its rounded edge. When the departure is already the first stop or the

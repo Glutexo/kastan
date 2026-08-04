@@ -686,7 +686,7 @@ struct KastanApp: App {
 
         WindowGroup("Service route", id: AppWindow.serviceDetail, for: ServiceSelection.self) { selection in
             if let selection = selection.wrappedValue {
-                ServiceDetailView(
+                ServiceDetailWindowContent(
                     selection: selection,
                     client: client,
                     showsItemDetails: showsItemDetails,

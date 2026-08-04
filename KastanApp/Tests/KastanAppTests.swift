@@ -3593,6 +3593,39 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(ServiceSelection.self, from: data), selection)
     }
 
+    func testServiceDetailWindowLoadsARetargetedSelection() async {
+        let client = MockIDOSClient()
+        let selectionModel = ServiceDetailWindowSelectionTestModel(
+            selection: ServiceSelection(id: "bus-13112")
+        )
+        let hostingView = NSHostingView(
+            rootView: ServiceDetailWindowSelectionTestHost(
+                selectionModel: selectionModel,
+                client: client
+            )
+        )
+        hostingView.frame = NSRect(x: 0, y: 0, width: 520, height: 640)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .titled,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        defer { window.orderOut(nil) }
+
+        let loadedInitialSelection = await waitForServiceDetailRequests(1, from: client)
+        XCTAssertTrue(loadedInitialSelection)
+
+        selectionModel.selection = ServiceSelection(id: "train-13104")
+
+        let loadedRetargetedSelection = await waitForServiceDetailRequests(2, from: client)
+        let requestIDs = await client.serviceDetailRequestIDs
+        XCTAssertTrue(loadedRetargetedSelection)
+        XCTAssertEqual(requestIDs, ["bus-13112", "train-13104"])
+    }
+
     func testCompleteServiceDetailRendersAtCompactWindowWidth() {
         XCTAssertEqual(ServiceDetailView.defaultWindowWidth, 480)
         XCTAssertEqual(ServiceDetailView.minimumWindowWidth, 480)
@@ -4868,6 +4901,44 @@ private struct PresentedServicePreviewTestHost: View {
 }
 
 @MainActor
+private final class ServiceDetailWindowSelectionTestModel: ObservableObject {
+    @Published var selection: ServiceSelection
+
+    init(selection: ServiceSelection) {
+        self.selection = selection
+    }
+}
+
+@MainActor
+private struct ServiceDetailWindowSelectionTestHost: View {
+    @ObservedObject var selectionModel: ServiceDetailWindowSelectionTestModel
+    let client: any IDOSClienting
+
+    var body: some View {
+        ServiceDetailWindowContent(
+            selection: selectionModel.selection,
+            client: client,
+            showsItemDetails: false,
+            showsStopNoteText: false
+        )
+    }
+}
+
+@MainActor
+private func waitForServiceDetailRequests(
+    _ count: Int,
+    from client: MockIDOSClient
+) async -> Bool {
+    for _ in 0..<100 {
+        if (await client.serviceDetailRequestIDs).count >= count {
+            return true
+        }
+        try? await Task.sleep(for: .milliseconds(10))
+    }
+    return false
+}
+
+@MainActor
 private func waitForServicePreviewScrollView(
     in sourceWindow: NSWindow
 ) async -> NSScrollView? {
@@ -5059,6 +5130,7 @@ private actor MockIDOSClient: IDOSClienting {
     var departurePageDirections: [IDOSPageDirection] = []
     var connectionSearchCount = 0
     var serviceDetailRequestCount = 0
+    var serviceDetailRequestIDs: [String] = []
     private var serviceShareURL: String?
     private var configuredServiceDetail: IDOSServiceDetail?
     private var connectionPages: [IDOSPageDirection: [IDOSConnection]] = [:]
@@ -5295,6 +5367,7 @@ private actor MockIDOSClient: IDOSClienting {
 
     func serviceDetail(id: String, timetable: IDOSTimetable) async throws -> IDOSServiceDetail {
         serviceDetailRequestCount += 1
+        serviceDetailRequestIDs.append(id)
         if let configuredServiceDetail {
             return configuredServiceDetail
         }

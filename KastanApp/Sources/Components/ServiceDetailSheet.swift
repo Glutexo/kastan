@@ -237,6 +237,24 @@ struct ServiceSelection: Codable, Hashable, Identifiable {
     }
 }
 
+/// Recreates lazy route state whenever an existing detail scene is retargeted to another selected service.
+struct ServiceDetailWindowContent: View {
+    let selection: ServiceSelection
+    let client: any IDOSClienting
+    let showsItemDetails: Bool
+    let showsStopNoteText: Bool
+
+    var body: some View {
+        ServiceDetailView(
+            selection: selection,
+            client: client,
+            showsItemDetails: showsItemDetails,
+            showsStopNoteText: showsStopNoteText
+        )
+        .id(selection)
+    }
+}
+
 /// Moves a service date into the window title exactly when its content label has scrolled away.
 enum ServiceWindowTitlePresentation {
     static func title(for service: IDOSServiceDetail?, dateIsUnderTitle: Bool) -> String {
