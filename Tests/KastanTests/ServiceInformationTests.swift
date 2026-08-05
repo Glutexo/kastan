@@ -42,6 +42,7 @@ import Testing
         ("Přeprava jízdních kol jako spoluzavazadel.", .bicycle),
         ("Carriage of registered luggage (until full capacity)", .bicycle),
         ("Vůz vhodný pro přepravu cestujících na vozíku.", .wheelchair),
+        ("Spoj s bezbariérově přístupným vozidlem.", .wheelchair),
         ("Seat reservation available.", .seatReservation),
         ("Reservations possible in indicated coaches", .seatReservation),
         ("Compulsory reservation", .seatReservation),
