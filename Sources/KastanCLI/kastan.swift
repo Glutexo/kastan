@@ -1477,6 +1477,12 @@ private enum OutputFormat: String {
             let lockout = result.isLockout
                 ? "\n🚧 \(localization.text(.lockoutTimetable))"
                 : ""
+            let explanations = result.explanations.isEmpty ? "" : """
+
+
+            ❓ \(localization.text(.explanations)):
+            \(result.explanations.map { "   • \($0)" }.joined(separator: "\n"))
+            """
             let notes = result.notes.isEmpty ? "" : """
 
 
@@ -1489,7 +1495,7 @@ private enum OutputFormat: String {
             🛤️ \(localization.text(.route)):
             \(routeRows)
 
-            \(schedules)\(notes)
+            \(schedules)\(explanations)\(notes)
             """
         case .markdown:
             let routeRows = result.stops.enumerated().map { index, stop in
@@ -1511,6 +1517,13 @@ private enum OutputFormat: String {
             let lockout = result.isLockout
                 ? "\n\n> 🚧 **\(localization.text(.lockoutTimetable))**"
                 : ""
+            let explanations = result.explanations.isEmpty ? "" : """
+
+
+            ### ❓ \(localization.text(.explanations))
+
+            \(result.explanations.map { "- \(Markdown.escape($0))" }.joined(separator: "\n"))
+            """
             let notes = result.notes.isEmpty ? "" : """
 
 
@@ -1533,7 +1546,7 @@ private enum OutputFormat: String {
             | ---: | --- | ---: | --- | --- | --- | --- |
             \(routeRows)
 
-            \(schedules)\(notes)
+            \(schedules)\(explanations)\(notes)
             """
         case .html:
             let routeRows = result.stops.enumerated().map { index, stop in
@@ -1565,6 +1578,12 @@ private enum OutputFormat: String {
             let lockout = result.isLockout
                 ? "<p class=\"warning\">🚧 <strong>\(HTML.escape(localization.text(.lockoutTimetable)))</strong></p>"
                 : ""
+            let explanations = result.explanations.isEmpty ? "" : """
+            <h2>❓ \(HTML.escape(localization.text(.explanations)))</h2>
+            <ul>
+            \(result.explanations.map { "<li>\(HTML.escape($0))</li>" }.joined(separator: "\n"))
+            </ul>
+            """
             let notes = result.notes.isEmpty ? "" : """
             <h2>ℹ️ \(HTML.escape(localization.text(.notes)))</h2>
             <ul>
@@ -1596,6 +1615,7 @@ private enum OutputFormat: String {
                     rows: routeRows
                 ))
                 \(schedules)
+                \(explanations)
                 \(notes)
                 """
             )

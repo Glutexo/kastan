@@ -911,7 +911,7 @@ import Testing
     #expect(output.contains("Currently no delay"))
 }
 
-@Test func stationTimetablesCommandPrintsCompleteMHDStationTimetable() async {
+@Test func stationTimetablesCommandPrintsCompleteMHDStationTimetable() async throws {
     let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: [
             "station-timetables", "--line", "Bus 154", "--from", "Strašnická",
@@ -926,8 +926,13 @@ import Testing
     #expect(output.contains("2. 🚏 Na Hroudě · +1 min · tariff zone B · platform 2 · wheelchair accessible stop"))
     #expect(output.contains("🕒 17.7.2026 Friday:"))
     #expect(output.contains("\u{001B}[1m5\u{001B}[0m: 13 35A 55"))
-    #expect(output.contains("ℹ️ Notes:"))
+    #expect(output.contains("❓ Explanations:"))
     #expect(output.contains("A: runs only to stop Háje"))
+    #expect(output.contains("ℹ️ Notes:"))
+    #expect(output.contains("valid from 1.7.2026"))
+    let explanations = try #require(output.range(of: "❓ Explanations:"))
+    let notes = try #require(output.range(of: "ℹ️ Notes:"))
+    #expect(explanations.lowerBound < notes.lowerBound)
 }
 
 @Test func stationTimetablesCommandAcceptsShortOptionsAndPrintsMarkdown() async {
@@ -944,6 +949,8 @@ import Testing
     #expect(output.contains("| 1 | Strašnická | 0 | 0 | 1 | Yes | request stop |"))
     #expect(output.contains("### 🕒 17.7.2026 Friday"))
     #expect(output.contains("| **5** | 13 35A 55 |"))
+    #expect(output.contains("### ❓ Explanations"))
+    #expect(output.contains("### ℹ️ Notes"))
 }
 
 @Test func stationTimetablesCommandPrintsStableJSON() async throws {
@@ -964,6 +971,8 @@ import Testing
     #expect(stops.first?["isSelected"] as? Bool == true)
     #expect(stops.first?["platform"] as? String == "1")
     #expect((result["schedules"] as? [[String: Any]])?.count == 1)
+    #expect(result["explanations"] as? [String] == ["A: runs only to stop Háje"])
+    #expect(result["notes"] as? [String] == ["valid from 1.7.2026"])
 }
 
 @Test func stationTimetablesCommandLocalizesCzechOutputAndIDOSRequest() async {
@@ -980,6 +989,7 @@ import Testing
     #expect(output.contains("🚧 Výlukový jízdní řád"))
     #expect(output.contains("🛤️ Trasa:"))
     #expect(output.contains("tarifní zóna 0 · stanoviště 1 · Vybraná"))
+    #expect(output.contains("❓ Vysvětlivky:"))
     #expect(output.contains("ℹ️ Poznámky:"))
 }
 
@@ -1638,7 +1648,7 @@ import Testing
     )])
 }
 
-@Test func stationTimetableParserReadsRouteSchedulesAndNotes() throws {
+@Test func stationTimetableParserSeparatesRouteSchedulesExplanationsAndNotes() throws {
     let html = """
     <div class="connection-head relative zjr-panel">
       <h2 class="reset departures__title">
@@ -1685,6 +1695,7 @@ import Testing
       <li class="remarks-list__item"><img title="Line description" /> valid from 1.7.2026</li>
       <li class="remarks-list__item"><img title="Information note" /> 1: stanoviště</li>
       <li class="remarks-list__item"><img title="Information note" /> A: runs only to stop Háje</li>
+      <li class="remarks-list__item"><img title="Information note" /> B: unused marker information</li>
       <li class="remarks-list__item"><img title="Information note" /> : Board through the front door</li>
     </ul>
     """
@@ -1722,11 +1733,35 @@ import Testing
             ]
         )
     ])
+    #expect(timetable.explanations == ["A: runs only to stop Háje"])
     #expect(timetable.notes == [
         "valid from 1.7.2026",
-        "A: runs only to stop Háje",
+        "B: unused marker information",
         "Board through the front door",
     ])
+}
+
+@Test func stationTimetableDecodesLegacyJSONWithoutExplanations() throws {
+    let legacyJSON = """
+    {
+      "timetable": {"slug": "pid", "displayName": "Prague + PID"},
+      "lineName": "Bus 154",
+      "fromStop": "Strašnická",
+      "toStop": "Sídliště Libuš",
+      "stops": [],
+      "schedules": [],
+      "notes": ["valid from 1.7.2026"],
+      "isLockout": false
+    }
+    """
+
+    let timetable = try JSONDecoder().decode(
+        IDOSStationTimetable.self,
+        from: Data(legacyJSON.utf8)
+    )
+
+    #expect(timetable.explanations.isEmpty)
+    #expect(timetable.notes == ["valid from 1.7.2026"])
 }
 
 @Test func connectionParserReadsBasicResultHtml() {
@@ -2563,7 +2598,8 @@ private struct MockIDOSClient: IDOSClienting {
                     ]
                 ),
             ],
-            notes: ["valid from 1.7.2026", "A: runs only to stop Háje"],
+            explanations: ["A: runs only to stop Háje"],
+            notes: ["valid from 1.7.2026"],
             isLockout: true,
             shareURL: "https://idos.cz/en/pid/zjr/?l=154"
         )

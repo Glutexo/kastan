@@ -99,7 +99,8 @@ and `to` selects the line direction. The optional arguments are:
 - `language` selects `en` or `cs` for IDOS text and defaults to English.
 
 The result includes the complete route, minute offsets, tariff zones, platforms or stands, departures grouped by
-service day and hour, lockout state, explanatory notes, and the matching IDOS URL.
+service day and hour, lockout state, keyed `explanations` for markers used beside concrete departures, general
+`notes`, and the matching IDOS URL.
 
 ### Service Details
 

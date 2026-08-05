@@ -785,15 +785,22 @@ struct StationTimetableServiceCalendar: Equatable {
 struct ServiceNotesView: View {
     let notes: [String]
     let timetableValidity: IDOSTimetableValidity?
+    /// Retains validity information from sibling remark sections when their visible text is split.
+    let calendarContext: [String]
     @State private var presentedServiceCalendar: StationTimetableServiceCalendar?
     @State private var showsRecognizedConditions = false
 
     /// Keeps neighboring service-information rows visually distinct in the shared selectable text flow.
     static let informationLineSpacing: CGFloat = 8
 
-    init(notes: [String], timetableValidity: IDOSTimetableValidity? = nil) {
+    init(
+        notes: [String],
+        timetableValidity: IDOSTimetableValidity? = nil,
+        calendarContext: [String]? = nil
+    ) {
         self.notes = notes
         self.timetableValidity = timetableValidity
+        self.calendarContext = calendarContext ?? notes
     }
 
     var body: some View {
@@ -850,7 +857,7 @@ struct ServiceNotesView: View {
                 validityEnd: timetableValidity.validThrough
             )
         }
-        return StationTimetableServiceCalendar(note: note, allNotes: notes)
+        return StationTimetableServiceCalendar(note: note, allNotes: calendarContext)
     }
 
     static func calendarDestination(for noteIndex: Int) -> URL {

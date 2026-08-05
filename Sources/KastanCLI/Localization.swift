@@ -172,6 +172,7 @@ enum LocalizationKey: String, CaseIterable {
     case track = "label.track"
     case platformTrack = "label.platformTrack"
     case distance = "label.distance"
+    case explanations = "label.explanations"
     case notes = "label.notes"
     case date = "label.date"
     case slug = "label.slug"

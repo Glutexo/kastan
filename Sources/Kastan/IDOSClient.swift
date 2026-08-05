@@ -1190,7 +1190,7 @@ public struct IDOSStationTimetableRequest: Codable, Equatable, Sendable {
     }
 }
 
-/// A complete IDOS station timetable with its route, hourly departures, and explanatory notes.
+/// A complete IDOS station timetable with its route, hourly departures, keyed explanations, and notes.
 public struct IDOSStationTimetable: Codable, Equatable, Sendable {
     public var timetable: IDOSTimetable
     public var lineName: String
@@ -1199,6 +1199,9 @@ public struct IDOSStationTimetable: Codable, Equatable, Sendable {
     public var toStop: String
     public var stops: [IDOSStationTimetableStop]
     public var schedules: [IDOSStationTimetableSchedule]
+    /// Explains markers such as `A` that IDOS appends to individual departures.
+    public var explanations: [String]
+    /// Preserves timetable-wide information that is not tied to an individual departure marker.
     public var notes: [String]
     /// Identifies a temporary lockout timetable marked by IDOS.
     public var isLockout: Bool
@@ -1212,6 +1215,7 @@ public struct IDOSStationTimetable: Codable, Equatable, Sendable {
         toStop: String,
         stops: [IDOSStationTimetableStop],
         schedules: [IDOSStationTimetableSchedule],
+        explanations: [String] = [],
         notes: [String] = [],
         isLockout: Bool = false,
         shareURL: String? = nil
@@ -1223,6 +1227,7 @@ public struct IDOSStationTimetable: Codable, Equatable, Sendable {
         self.toStop = toStop
         self.stops = stops
         self.schedules = schedules
+        self.explanations = explanations
         self.notes = notes
         self.isLockout = isLockout
         self.shareURL = shareURL
@@ -1230,6 +1235,47 @@ public struct IDOSStationTimetable: Codable, Equatable, Sendable {
 
     public var selectedStop: IDOSStationTimetableStop? {
         stops.first(where: \.isSelected)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case timetable
+        case lineName
+        case transportMode
+        case fromStop
+        case toStop
+        case stops
+        case schedules
+        case explanations
+        case notes
+        case isLockout
+        case shareURL
+    }
+
+    /// Keeps previously encoded station timetables readable after explanations became a separate field.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            timetable: try container.decode(IDOSTimetable.self, forKey: .timetable),
+            lineName: try container.decode(String.self, forKey: .lineName),
+            transportMode: try container.decodeIfPresent(
+                IDOSTransportMode.self,
+                forKey: .transportMode
+            ),
+            fromStop: try container.decode(String.self, forKey: .fromStop),
+            toStop: try container.decode(String.self, forKey: .toStop),
+            stops: try container.decode([IDOSStationTimetableStop].self, forKey: .stops),
+            schedules: try container.decode(
+                [IDOSStationTimetableSchedule].self,
+                forKey: .schedules
+            ),
+            explanations: try container.decodeIfPresent(
+                [String].self,
+                forKey: .explanations
+            ) ?? [],
+            notes: try container.decode([String].self, forKey: .notes),
+            isLockout: try container.decode(Bool.self, forKey: .isLockout),
+            shareURL: try container.decodeIfPresent(String.self, forKey: .shareURL)
+        )
     }
 }
 
@@ -3048,6 +3094,7 @@ enum IDOSStationTimetableParser {
             options: [.dotMatchesLineSeparators]
         ).map(HTMLText.clean) ?? request.line
         let lineName = removingLineLabel(from: rawLineName)
+        let remarks = timetableRemarks(in: html, schedules: schedules)
 
         return IDOSStationTimetable(
             timetable: request.timetable,
@@ -3057,7 +3104,8 @@ enum IDOSStationTimetableParser {
             toStop: request.to.trimmingCharacters(in: .whitespacesAndNewlines),
             stops: stops,
             schedules: schedules,
-            notes: timetableNotes(in: html),
+            explanations: remarks.explanations,
+            notes: remarks.notes,
             isLockout: html.range(of: #"class="exception""#) != nil,
             shareURL: shareURL
         )
@@ -3163,15 +3211,24 @@ enum IDOSStationTimetableParser {
         }
     }
 
-    private static func timetableNotes(in html: String) -> [String] {
+    private struct TimetableRemarks {
+        let explanations: [String]
+        let notes: [String]
+    }
+
+    /// Separates keyed explanations only when their marker occurs beside a concrete departure.
+    private static func timetableRemarks(
+        in html: String,
+        schedules: [IDOSStationTimetableSchedule]
+    ) -> TimetableRemarks {
         guard let list = RegexSupport.capture(
             pattern: #"<ul class="remarks-list">(.*?)</ul>"#,
             in: html,
             options: [.dotMatchesLineSeparators]
         ) else {
-            return []
+            return TimetableRemarks(explanations: [], notes: [])
         }
-        return unique(
+        let values = unique(
             RegexSupport.captures(
                 pattern: #"<li\b[^>]*remarks-list__item[^>]*>(.*?)</li>"#,
                 in: list,
@@ -3181,6 +3238,47 @@ enum IDOSStationTimetableParser {
                 .filter { !$0.isEmpty }
                 .filter { !isPlatformLegend($0) }
         )
+        let markers = departureExplanationMarkers(in: schedules)
+        var explanations: [String] = []
+        var notes: [String] = []
+        for value in values {
+            if isDepartureExplanation(value, matching: markers) {
+                explanations.append(value)
+            } else {
+                notes.append(value)
+            }
+        }
+        return TimetableRemarks(explanations: explanations, notes: notes)
+    }
+
+    /// Returns every non-numeric suffix attached to a minute value, such as `A` in `35A`.
+    private static func departureExplanationMarkers(
+        in schedules: [IDOSStationTimetableSchedule]
+    ) -> Set<String> {
+        Set(
+            schedules
+                .flatMap(\.hours)
+                .flatMap(\.departures)
+                .compactMap { departure in
+                    let suffix = departure.drop(while: \.isNumber)
+                    let marker = String(suffix)
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    return marker.isEmpty ? nil : marker
+                }
+        )
+    }
+
+    /// Matches the key before a colon against annotations actually printed beside departures.
+    private static func isDepartureExplanation(
+        _ value: String,
+        matching departureMarkers: Set<String>
+    ) -> Bool {
+        guard let separator = value.firstIndex(of: ":") else { return false }
+        let key = value[..<separator].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty, !key.contains(where: \.isWhitespace) else { return false }
+        return departureMarkers.contains { marker in
+            marker == key || marker.contains(key)
+        }
     }
 
     /// Removes punctuation left behind when IDOS publishes a note without a visible marker.

@@ -10,6 +10,7 @@ struct StationTimetablesView: View {
     let showsStopNoteText: Bool
     @State private var isSearchFormCollapsed = false
     @State private var isNotesExpanded = false
+    @State private var isExplanationsExpanded = false
     @State private var selectedResultSection = StationTimetableResultSection.stops
 
     var body: some View {
@@ -243,8 +244,11 @@ struct StationTimetablesView: View {
             }
 
             if !result.notes.isEmpty {
-                StationTimetableNotesDisclosure(
-                    notes: result.notes,
+                StationTimetableRemarksDisclosure(
+                    title: "Notes",
+                    systemImage: "info.circle",
+                    values: result.notes,
+                    calendarContext: result.notes + result.explanations,
                     isExpanded: $isNotesExpanded
                 )
             }
@@ -436,6 +440,17 @@ struct StationTimetablesView: View {
                         }
                     }
                 }
+            }
+
+            if !result.explanations.isEmpty {
+                StationTimetableRemarksDisclosure(
+                    title: "Explanations",
+                    systemImage: "questionmark.circle",
+                    values: result.explanations,
+                    calendarContext: result.notes + result.explanations,
+                    isExpanded: $isExplanationsExpanded
+                )
+                .padding(.top, 8)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -675,18 +690,21 @@ struct StationTimetableRouteHeading: View {
     }
 }
 
-/// Keeps timetable-wide notes compact until the passenger asks to read or select them.
-struct StationTimetableNotesDisclosure: View {
-    let notes: [String]
+/// Keeps either keyed explanations or general notes compact and independently expandable.
+struct StationTimetableRemarksDisclosure: View {
+    let title: LocalizedStringKey
+    let systemImage: String
+    let values: [String]
+    let calendarContext: [String]
     @Binding var isExpanded: Bool
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
-            ServiceNotesView(notes: notes)
+            ServiceNotesView(notes: values, calendarContext: calendarContext)
                 .textSelection(.enabled)
                 .padding(.top, 8)
         } label: {
-            Label("Notes", systemImage: "info.circle")
+            Label(title, systemImage: systemImage)
                 .font(.headline)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
@@ -696,7 +714,7 @@ struct StationTimetableNotesDisclosure: View {
                     }
                 }
         }
-        .accessibilityLabel("Notes")
+        .accessibilityLabel(Text(title))
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

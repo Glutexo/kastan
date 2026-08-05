@@ -113,6 +113,7 @@
 "label.track" = "Kolej";
 "label.platformTrack" = "Nástupiště/kolej";
 "label.distance" = "Vzdálenost";
+"label.explanations" = "Vysvětlivky";
 "label.notes" = "Poznámky";
 "label.date" = "Datum";
 "label.slug" = "Slug";

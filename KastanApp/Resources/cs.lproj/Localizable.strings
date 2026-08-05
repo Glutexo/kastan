@@ -65,6 +65,7 @@
 "Enter both a departure and an arrival place." = "Zadejte výchozí i cílové místo.";
 "Enter a valid email address." = "Zadejte platnou e-mailovou adresu.";
 "Enter a line and both direction stops." = "Zadejte linku a obě zastávky určující směr.";
+"Explanations" = "Vysvětlivky";
 "Edit search" = "Upravit vyhledávání";
 "Email address can contain at most 320 characters." = "E-mailová adresa může obsahovat nejvýše 320 znaků.";
 "Email Sent" = "E-mail odeslán";

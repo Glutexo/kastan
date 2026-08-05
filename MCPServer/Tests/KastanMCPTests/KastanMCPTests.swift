@@ -38,6 +38,11 @@ import Testing
             .outputSchema?.objectValue?["required"] == ["request", "stationTimetable"]
     )
     #expect(
+        tools.first { $0.name == "find_station_timetable" }?
+            .outputSchema?.objectValue?["properties"]?.objectValue?["stationTimetable"]?
+            .objectValue?["properties"]?.objectValue?["explanations"]?.objectValue?["type"] == "array"
+    )
+    #expect(
         tools.first { $0.name == "get_service_detail" }?
             .inputSchema.objectValue?["properties"]?.objectValue?["language"]?.objectValue?["enum"] == ["en", "cs"]
     )
@@ -186,6 +191,8 @@ import Testing
     #expect(timetable?["stops"]?.arrayValue?.count == 2)
     #expect(timetable?["stops"]?.arrayValue?.first?.objectValue?["platform"] == "1")
     #expect(timetable?["schedules"]?.arrayValue?.first?.objectValue?["hours"]?.arrayValue?.count == 1)
+    #expect(timetable?["explanations"]?.arrayValue?.first == "A: runs only to stop Háje")
+    #expect(timetable?["notes"]?.arrayValue?.first == "valid from 1.7.2026")
     let request = await mock.lastStationTimetableRequest
     #expect(request?.line == "Bus 154")
     #expect(request?.from == "Strašnická")
@@ -394,9 +401,10 @@ private actor MockIDOSClient: IDOSClienting {
             schedules: [
                 IDOSStationTimetableSchedule(
                     label: "17.7.2026 Friday",
-                    hours: [IDOSStationTimetableHour(hour: "5", departures: ["13", "35"])]
+                    hours: [IDOSStationTimetableHour(hour: "5", departures: ["13", "35A"])]
                 ),
             ],
+            explanations: ["A: runs only to stop Háje"],
             notes: ["valid from 1.7.2026"],
             shareURL: "https://idos.cz/en/pid/zjr/"
         )

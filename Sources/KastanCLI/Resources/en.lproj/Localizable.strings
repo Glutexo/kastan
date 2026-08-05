@@ -113,6 +113,7 @@
 "label.track" = "Track";
 "label.platformTrack" = "Platform/Track";
 "label.distance" = "Distance";
+"label.explanations" = "Explanations";
 "label.notes" = "Notes";
 "label.date" = "Date";
 "label.slug" = "Slug";

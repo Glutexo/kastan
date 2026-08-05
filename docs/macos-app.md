@@ -43,14 +43,18 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   clearing it removes that condition.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
-  route stops, optional tariff zones and platforms or stands, lockout labels, explanatory notes, and links back to
-  the matching IDOS result. The route and notes use matching icon headings, and route stops use the same connected
-  circular timeline as complete service routes. Its neutral section leads into an accent-colored continuation from
+  route stops, optional tariff zones and platforms or stands, lockout labels, keyed departure explanations,
+  timetable-wide notes, and links back to the matching IDOS result. The route, explanations, and notes use icon
+  headings. Route stops use the same connected circular timeline as complete service routes. Its neutral section
+  leads into an accent-colored continuation from
   the selected stop through the final stop, with centered marks at the route endpoints and selection. Selection
   accents do not dim the stop content: optional metadata and expanded notes retain the same adaptive secondary color,
-  including on the selected row. Timetable-wide notes start collapsed and expand into selectable text while retaining
-  their interactive links. At readable widths, route stops and the selected stop's timetable each receive exactly half
-  of the available result width. When two readable columns no longer fit, a Stops/Timetable switch appears between the
+  including on the selected row. Explanations such as `A: …` are separated only when their key occurs beside a
+  concrete departure. They appear in their own collapsed disclosure immediately below the timetable, while general
+  notes remain in a separate collapsed disclosure at the very bottom of the complete result in both wide and compact
+  layouts. Both expand into selectable text while retaining their interactive links. At readable widths, route stops
+  and the selected stop's timetable each receive exactly half of the available result width. When two readable
+  columns no longer fit, a Stops/Timetable switch appears between the
   route heading and its content and displays one section at a time instead of stacking the timetable below the stops.
   Schedule tables expand evenly within their half and fall back to horizontal scrolling only when their readable
   minimum widths no longer fit. A direction that

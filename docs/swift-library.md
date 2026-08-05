@@ -182,8 +182,9 @@ without that transient data receive `IDOSError.emailUnavailable`.
 
 `searchStationTimetableLines` returns the terminal pair for every matching MHD line direction.
 `searchStationTimetableStops` limits suggestions to one selected line, and `findStationTimetable` returns the
-route, departures grouped by service day and hour, tariff zones, platforms or stands, explanatory notes,
-lockout state, and matching IDOS URL. Platform or stand numbers are exposed on their corresponding
+route, departures grouped by service day and hour, tariff zones, platforms or stands, keyed departure
+`explanations`, general `notes`, lockout state, and matching IDOS URL. An explanation is separated only when its
+key occurs beside a concrete departure. Platform or stand numbers are exposed on their corresponding
 `IDOSStationTimetableStop` instead of being duplicated in the timetable-wide notes. Human-readable text
 received from IDOS uses the Unicode `→` symbol instead of an ASCII substitute; opaque identifiers and URLs
 remain unchanged.

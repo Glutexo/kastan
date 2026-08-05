@@ -806,12 +806,15 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(isExpanded)
     }
 
-    func testStationTimetableNotesStayHiddenUntilDisclosureExpands() {
+    func testStationTimetableRemarkDisclosuresStayHiddenUntilExpanded() {
         let note = "jede v pracovní dny"
-        func renderedHeight(isExpanded: Bool) -> CGFloat {
+        func renderedHeight(title: LocalizedStringKey, isExpanded: Bool) -> CGFloat {
             let hostingView = NSHostingView(
-                rootView: StationTimetableNotesDisclosure(
-                    notes: [note],
+                rootView: StationTimetableRemarksDisclosure(
+                    title: title,
+                    systemImage: "info.circle",
+                    values: [note],
+                    calendarContext: [note],
                     isExpanded: .constant(isExpanded)
                 )
                 .frame(width: 400, alignment: .topLeading)
@@ -820,10 +823,26 @@ final class KastanAppTests: XCTestCase {
             return hostingView.fittingSize.height
         }
 
-        let collapsedHeight = renderedHeight(isExpanded: false)
-        let expandedHeight = renderedHeight(isExpanded: true)
+        for title in [LocalizedStringKey("Notes"), LocalizedStringKey("Explanations")] {
+            let collapsedHeight = renderedHeight(title: title, isExpanded: false)
+            let expandedHeight = renderedHeight(title: title, isExpanded: true)
 
-        XCTAssertGreaterThan(expandedHeight, collapsedHeight)
+            XCTAssertGreaterThan(expandedHeight, collapsedHeight)
+        }
+    }
+
+    func testSeparatedExplanationRetainsTimetableNoteCalendarContext() {
+        let explanation = "A: jede 19.VII."
+        let view = ServiceNotesView(
+            notes: [explanation],
+            calendarContext: ["platí od 1.7.2026 do 26.7.2026", explanation]
+        )
+
+        XCTAssertTrue(
+            view.linkedContent.runs.compactMap(\.link).contains(
+                ServiceNotesView.calendarDestination(for: 0)
+            )
+        )
     }
 
     func testRouteStopMarkerIsAnOutlinedCircleWithAnOptionalCenter() throws {
@@ -5754,9 +5773,11 @@ private actor MockIDOSClient: IDOSClienting {
             schedules: [
                 IDOSStationTimetableSchedule(
                     label: "Friday",
-                    hours: [IDOSStationTimetableHour(hour: "5", departures: ["13", "35"])]
+                    hours: [IDOSStationTimetableHour(hour: "5", departures: ["13", "35A"])]
                 )
-            ]
+            ],
+            explanations: ["A: runs only to stop Háje"],
+            notes: ["valid from 1.7.2026"]
         )
     }
 

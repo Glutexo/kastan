@@ -421,12 +421,14 @@ enum MCPOutputSchemas {
             "toStop": stringSchema,
             "stops": arraySchema(items: stationTimetableStopSchema),
             "schedules": arraySchema(items: stationTimetableScheduleSchema),
+            "explanations": stringArraySchema,
             "notes": stringArraySchema,
             "isLockout": booleanSchema,
             "shareURL": stringSchema,
         ],
         required: [
-            "timetable", "lineName", "fromStop", "toStop", "stops", "schedules", "notes", "isLockout",
+            "timetable", "lineName", "fromStop", "toStop", "stops", "schedules",
+            "explanations", "notes", "isLockout",
         ]
     )
 
