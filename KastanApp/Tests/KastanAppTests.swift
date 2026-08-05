@@ -2648,6 +2648,30 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(editor.allDescendantViews.compactMap { $0 as? NSDatePicker }.count, 1)
     }
 
+    func testStationTimetableScheduleHeadingLowercasesTheWeekday() {
+        XCTAssertEqual(
+            StationTimetableScheduleLabelPresentation.title(
+                "5.8.2026 Středa",
+                locale: Locale(identifier: "cs_CZ")
+            ),
+            "5.8.2026 středa"
+        )
+        XCTAssertEqual(
+            StationTimetableScheduleLabelPresentation.title(
+                "17.7.2026 Friday",
+                locale: Locale(identifier: "en_GB")
+            ),
+            "17.7.2026 friday"
+        )
+        XCTAssertEqual(
+            StationTimetableScheduleLabelPresentation.title(
+                "Friday",
+                locale: Locale(identifier: "en_GB")
+            ),
+            "friday"
+        )
+    }
+
     func testStationTimetableSearchHeaderFitsTheMinimumPaddedContentWidth() {
         let model = StationTimetablesViewModel(client: MockIDOSClient())
         let layout = DetailLayout(availableWidth: KastanApp.minimumMainWindowWidth)

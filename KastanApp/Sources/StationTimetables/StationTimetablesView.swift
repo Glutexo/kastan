@@ -457,7 +457,7 @@ struct StationTimetablesView: View {
     }
 
     private func scheduleTable(_ schedule: IDOSStationTimetableSchedule) -> some View {
-        GroupBox(schedule.label) {
+        GroupBox(StationTimetableScheduleLabelPresentation.title(schedule.label)) {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(schedule.hours.enumerated()), id: \.offset) { index, hour in
                     HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -489,6 +489,29 @@ struct StationTimetablesView: View {
             stop.platform.map { AppLocalization.string("Station timetable platform %@", $0) },
         ].compactMap(\.self)
         return values.isEmpty ? nil : values.joined(separator: " · ")
+    }
+}
+
+/// Keeps an IDOS schedule date intact while presenting its following weekday as inline prose.
+enum StationTimetableScheduleLabelPresentation {
+    static func title(
+        _ value: String,
+        locale: Locale = .autoupdatingCurrent
+    ) -> String {
+        let weekdayStart: String.Index
+        if let separator = value.lastIndex(where: \.isWhitespace),
+           value[..<separator].contains(where: \.isNumber)
+        {
+            weekdayStart = value.index(after: separator)
+        } else {
+            weekdayStart = value.startIndex
+        }
+
+        guard weekdayStart < value.endIndex else { return value }
+        let firstCharacterEnd = value.index(after: weekdayStart)
+        return String(value[..<weekdayStart]) +
+            String(value[weekdayStart..<firstCharacterEnd]).lowercased(with: locale) +
+            String(value[firstCharacterEnd...])
     }
 }
 
