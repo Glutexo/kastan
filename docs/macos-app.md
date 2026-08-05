@@ -153,7 +153,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   other transport modes remain unchanged. Station-board rows still reveal via descriptions, station-scoped
   tariff zones, and platforms or stands. Both row types always preserve the passenger facilities and restrictions
   printed beside a service by IDOS. They show semantic emoji by default, expose the complete wording to VoiceOver and
-  on hover. The global, persistent Replace symbols with text setting replaces those service symbols and recognized
+  on hover, and Option-clicking an emoji opens a selectable popover with the classifier category that selected that
+  symbol. The global, persistent Replace symbols with text setting replaces those service symbols and recognized
   stop-note emoji with the complete wording supplied by IDOS; the setting is off initially. It applies equally to
   connection results, station boards, station timetables, complete result windows, and Force Click previews. Station
   timetables, complete service windows, and previews continue to show tariff zones, platforms, tracks, and distances
@@ -197,7 +198,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   structure instead of an operator-name list. Dining and bistro cars are visually distinct from lighter
   refreshment trolley or vending-machine service, while tickets accepted from integrated transport systems
   are distinct from carrier fares and broader fare conditions. A single selection can span multiple rows while
-  retaining clickable web-address and phone-number links and the standard macOS copy command. Dated operating
+  retaining clickable web-address and phone-number links and the standard macOS copy command. Each leading semantic
+  emoji is an Option-click target for the same classifier popover used by compact service summaries. Dated operating
   exceptions, including abbreviated ranges such as `17. to 20.VIII.` and
   same-month lists such as `18.,19.IX.`, open the same running/non-running calendar using the exact validity
   interval published by the current IDOS timetable. When opened, the calendar scrolls to the current month or

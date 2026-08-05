@@ -96,6 +96,7 @@
 "Line number or name" = "Line number or name";
 "Maximum number of transfers" = "Maximum number of transfers";
 "Matched rule: note contains “%@” after ignoring letter case and diacritics." = "Matched rule: note contains “%@” after ignoring letter case and diacritics.";
+"Matched rule: service information classified as “%@”, whose symbol is %@." = "Matched rule: service information classified as “%@”, whose symbol is %@.";
 "Message" = "Message";
 "Message can contain at most 1,024 characters." = "Message can contain at most 1,024 characters.";
 "Kaštan on GitHub" = "Kaštan on GitHub";

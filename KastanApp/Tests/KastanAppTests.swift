@@ -730,7 +730,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(ServiceCalendarOpeningOptions.showsRecognizedConditions(for: [.command]))
     }
 
-    func testServiceNotesCombineRowsIntoOneSelectableTextFlow() {
+    func testServiceNotesCombineRowsIntoOneSelectableTextFlow() throws {
         let notes = [
             "Na trase spojení je toto plánované omezení provozu.",
             "Háje - Letňany",
@@ -743,6 +743,19 @@ final class KastanAppTests: XCTestCase {
             String(content.characters),
             "🚧 \(notes[0])\n🛤️ \(notes[1])\n🛤️ \(notes[2])\n🏢 \(notes[3])"
         )
+        for index in notes.indices {
+            let destination = ServiceInformationRuleLink.destination(for: index)
+            let symbolRun = try XCTUnwrap(content.runs.first { $0.link == destination })
+            XCTAssertEqual(
+                String(content[symbolRun.range].characters),
+                IDOSServiceInformation(text: notes[index]).symbol
+            )
+            XCTAssertEqual(ServiceInformationRuleLink.noteIndex(from: destination), index)
+        }
+        XCTAssertTrue(ServiceInformationRuleLink.shouldOpen(for: [.option]))
+        XCTAssertTrue(ServiceInformationRuleLink.shouldOpen(for: [.option, .shift]))
+        XCTAssertFalse(ServiceInformationRuleLink.shouldOpen(for: []))
+        XCTAssertFalse(ServiceInformationRuleLink.shouldOpen(for: [.command]))
         XCTAssertEqual(ServiceNotesView.informationLineSpacing, 8)
     }
 
@@ -3162,7 +3175,7 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testServiceInformationUsesSymbolsUntilTheSharedTextPreferenceIsEnabled() {
+    func testServiceInformationUsesSymbolsUntilTheSharedTextPreferenceIsEnabled() throws {
         let information = [
             IDOSServiceInformation(text: "Train also consists of 1st class coaches"),
             IDOSServiceInformation(text: "Carriage with a wireless internet connection"),
@@ -3181,6 +3194,37 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(presentation.accessibilityLabel, information.map(\.text).joined(separator: ". "))
         XCTAssertEqual(presentation.helpText, information.map(\.text).joined(separator: "\n"))
+
+        let compactView = NSHostingView(
+            rootView: ServiceInformationSummary(values: information, showsText: false)
+        )
+        compactView.frame = NSRect(x: 0, y: 0, width: 240, height: 40)
+        compactView.layoutSubtreeIfNeeded()
+        XCTAssertEqual(
+            compactView.allDescendantViews.compactMap { $0 as? OptionClickCaptureView }.count,
+            information.count
+        )
+
+        let fareInformation = IDOSServiceInformation(
+            text: "Na lince platí tarif a přepravní podmínky vyhlášené dopravcem."
+        )
+        let rule = ServiceInformationRulePresentation(information: fareInformation)
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        XCTAssertEqual(
+            rule.explanation(bundle: czech),
+            """
+            Na lince platí tarif a přepravní podmínky vyhlášené dopravcem.
+            Použité pravidlo: informace o spoji byla zařazena do kategorie „fareConditions“, která používá 🎫.
+            """
+        )
+        XCTAssertEqual(
+            rule.explanation(bundle: english),
+            """
+            Na lince platí tarif a přepravní podmínky vyhlášené dopravcem.
+            Matched rule: service information classified as “fareConditions”, whose symbol is 🎫.
+            """
+        )
     }
 
     func testStopNotesUseSymbolsUntilTheSharedTextPreferenceIsEnabled() throws {
@@ -3261,9 +3305,13 @@ final class KastanAppTests: XCTestCase {
         let clickView = try XCTUnwrap(
             hostingView.allDescendantViews.compactMap { $0 as? OptionClickCaptureView }.first
         )
+        let clickLocation = clickView.convert(
+            NSPoint(x: clickView.bounds.midX, y: clickView.bounds.midY),
+            to: nil
+        )
         let ordinaryClick = try XCTUnwrap(NSEvent.mouseEvent(
             with: .leftMouseDown,
-            location: .zero,
+            location: clickLocation,
             modifierFlags: [],
             timestamp: 0,
             windowNumber: window.windowNumber,
@@ -3274,7 +3322,7 @@ final class KastanAppTests: XCTestCase {
         ))
         let optionClick = try XCTUnwrap(NSEvent.mouseEvent(
             with: .leftMouseDown,
-            location: .zero,
+            location: clickLocation,
             modifierFlags: [.option],
             timestamp: 0,
             windowNumber: window.windowNumber,
@@ -3288,12 +3336,14 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(OptionClickCaptureView.handles(optionClick))
         XCTAssertGreaterThan(clickView.frame.width, 0)
         XCTAssertGreaterThan(clickView.frame.height, 0)
+        XCTAssertFalse(clickView.captures(ordinaryClick))
+        XCTAssertTrue(clickView.captures(optionClick))
+        XCTAssertNil(clickView.hitTest(NSPoint(x: 1, y: 1)))
 
-        clickView.mouseDown(with: ordinaryClick)
-        RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        XCTAssertIdentical(clickView.process(ordinaryClick), ordinaryClick)
         XCTAssertTrue(window.childWindows?.isEmpty ?? true)
 
-        clickView.mouseDown(with: optionClick)
+        XCTAssertNil(clickView.process(optionClick))
         for _ in 0..<100 where window.childWindows?.isEmpty ?? true {
             RunLoop.current.run(until: Date().addingTimeInterval(0.01))
         }

@@ -554,6 +554,26 @@ struct ServiceInformationPresentation: Equatable {
     }
 }
 
+/// Describes the classifier result that selected one semantic service-information emoji.
+struct ServiceInformationRulePresentation: Equatable {
+    let information: IDOSServiceInformation
+
+    /// Keeps the complete IDOS wording beside the exact product category and its selected symbol.
+    func explanation(bundle: Bundle = .main) -> String {
+        let format = bundle.localizedString(
+            forKey: "Matched rule: service information classified as “%@”, whose symbol is %@.",
+            value: nil,
+            table: nil
+        )
+        let rule = String(
+            format: format,
+            locale: AppLocalization.pluralLocale(for: bundle),
+            arguments: [information.category.rawValue, information.symbol]
+        )
+        return "\(information.text)\n\(rule)"
+    }
+}
+
 /// Shows compact semantic emoji by default and the unabridged IDOS wording on request.
 struct ServiceInformationSummary: View {
     let values: [IDOSServiceInformation]
@@ -562,13 +582,27 @@ struct ServiceInformationSummary: View {
     var body: some View {
         let presentation = ServiceInformationPresentation(values: values)
 
-        if !values.isEmpty {
+        if !values.isEmpty, showsText {
             Text(verbatim: presentation.content(showsText: showsText))
-                .font(showsText ? .caption : .headline)
-                .foregroundStyle(showsText ? .secondary : .primary)
+                .font(.caption)
+                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityLabel(Text(verbatim: presentation.accessibilityLabel))
                 .help(presentation.helpText)
+        } else if !values.isEmpty {
+            HStack(spacing: 4) {
+                ForEach(Array(values.enumerated()), id: \.offset) { _, information in
+                    InspectableSemanticSymbol(
+                        symbol: information.symbol,
+                        helpText: information.text,
+                        ruleExplanation: ServiceInformationRulePresentation(
+                            information: information
+                        ).explanation()
+                    )
+                }
+            }
+            .font(.headline)
+            .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -677,28 +711,52 @@ struct StopNoteSymbols: View {
 /// Keeps ordinary hover help compact and opens the matching rule only after an explicit Option-click.
 struct StopNoteSymbol: View {
     let value: StopNotePresentation.Symbol
+
+    var body: some View {
+        InspectableSemanticSymbol(
+            symbol: value.emoji,
+            helpText: value.note,
+            ruleExplanation: value.ruleExplanation()
+        )
+    }
+}
+
+/// Gives every compact semantic symbol the same hover help, Option-click popover, and VoiceOver action.
+struct InspectableSemanticSymbol: View {
+    let symbol: String
+    let helpText: String
+    let ruleExplanation: String
     @State private var showsRuleExplanation = false
 
     var body: some View {
-        Text(value.emoji)
-            .accessibilityLabel(Text(verbatim: value.note))
+        Text(verbatim: symbol)
+            .accessibilityLabel(Text(verbatim: helpText))
             .accessibilityAction(named: Text("Show matched rule")) {
                 showsRuleExplanation = true
             }
-            .help(Text(verbatim: value.note))
+            .help(Text(verbatim: helpText))
             .overlay {
                 OptionClickOverlay {
                     showsRuleExplanation = true
                 }
             }
             .popover(isPresented: $showsRuleExplanation, arrowEdge: .bottom) {
-                Text(verbatim: value.ruleExplanation())
-                    .font(.callout)
-                    .frame(width: 320, alignment: .leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .textSelection(.enabled)
-                    .padding(12)
+                RuleExplanationPopover(text: ruleExplanation)
             }
+    }
+}
+
+/// Keeps diagnostic matching details readable and selectable without taking over the result window.
+struct RuleExplanationPopover: View {
+    let text: String
+
+    var body: some View {
+        Text(verbatim: text)
+            .font(.callout)
+            .frame(width: 320, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .textSelection(.enabled)
+            .padding(12)
     }
 }
 
@@ -715,9 +773,12 @@ struct OptionClickOverlay: NSViewRepresentable {
     }
 }
 
-/// Captures only Option-modified primary clicks and leaves every ordinary row interaction untouched.
+/// Observes Option-modified primary clicks over its symbol without entering SwiftUI's hit-testing,
+/// so ordinary clicks continue to reach the surrounding result row.
 final class OptionClickCaptureView: NSView {
     var action: () -> Void
+    /// AppKit creates and consumes this opaque token exclusively on the main thread.
+    nonisolated(unsafe) private var eventMonitor: Any?
 
     init(action: @escaping () -> Void) {
         self.action = action
@@ -729,18 +790,48 @@ final class OptionClickCaptureView: NSView {
         fatalError("init(coder:) is unavailable")
     }
 
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        guard let event = NSApp.currentEvent, Self.handles(event) else { return nil }
-        return super.hitTest(point)
+    deinit {
+        if let eventMonitor {
+            MainActor.assumeIsolated {
+                NSEvent.removeMonitor(eventMonitor)
+            }
+        }
     }
 
-    override func mouseDown(with event: NSEvent) {
-        guard Self.handles(event) else { return }
-        action()
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        removeEventMonitor()
+        guard window != nil else { return }
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            guard let self else { return event }
+            return process(event)
+        }
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
     }
 
     static func handles(_ event: NSEvent) -> Bool {
         event.type == .leftMouseDown && event.modifierFlags.contains(.option)
+    }
+
+    func captures(_ event: NSEvent) -> Bool {
+        guard Self.handles(event), event.window === window else { return false }
+        return bounds.contains(convert(event.locationInWindow, from: nil))
+    }
+
+    /// Mirrors the local event monitor so the complete window-and-coordinate decision stays testable.
+    func process(_ event: NSEvent) -> NSEvent? {
+        guard captures(event) else { return event }
+        action()
+        return nil
+    }
+
+    private func removeEventMonitor() {
+        guard let eventMonitor else { return }
+        NSEvent.removeMonitor(eventMonitor)
+        self.eventMonitor = nil
     }
 }
 

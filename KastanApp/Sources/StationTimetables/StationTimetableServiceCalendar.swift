@@ -788,6 +788,7 @@ struct ServiceNotesView: View {
     /// Retains validity information from sibling remark sections when their visible text is split.
     let calendarContext: [String]
     @State private var presentedServiceCalendar: StationTimetableServiceCalendar?
+    @State private var presentedInformationRule: ServiceInformationRulePresentation?
     @State private var showsRecognizedConditions = false
 
     /// Keeps neighboring service-information rows visually distinct in the shared selectable text flow.
@@ -809,7 +810,7 @@ struct ServiceNotesView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .lineSpacing(Self.informationLineSpacing)
             .environment(\.openURL, OpenURLAction { url in
-                openCalendarLink(url)
+                openServiceNoteLink(url)
             })
             .popover(isPresented: calendarIsPresented, arrowEdge: .trailing) {
                 if let presentedServiceCalendar {
@@ -817,6 +818,11 @@ struct ServiceNotesView: View {
                         serviceCalendar: presentedServiceCalendar,
                         showsRecognizedConditions: showsRecognizedConditions
                     )
+                }
+            }
+            .popover(isPresented: informationRuleIsPresented, arrowEdge: .trailing) {
+                if let presentedInformationRule {
+                    RuleExplanationPopover(text: presentedInformationRule.explanation())
                 }
             }
             .padding(.horizontal, 8)
@@ -832,9 +838,10 @@ struct ServiceNotesView: View {
                 text: note,
                 fallbackCategory: serviceCalendar == nil ? .general : .operatingCalendar
             )
-            content += AttributedString(
-                "\(information.symbol) "
-            )
+            var linkedSymbol = AttributedString(information.symbol)
+            linkedSymbol.link = ServiceInformationRuleLink.destination(for: index)
+            content += linkedSymbol
+            content += AttributedString(" ")
             if let serviceCalendar {
                 content += ServiceCalendarLink.content(
                     for: serviceCalendar,
@@ -864,6 +871,27 @@ struct ServiceNotesView: View {
         URL(string: "kastan-note-calendar://note/\(noteIndex)")!
     }
 
+    private func openServiceNoteLink(_ url: URL) -> OpenURLAction.Result {
+        guard ServiceInformationRuleLink.matches(url) else {
+            return openCalendarLink(url)
+        }
+        guard let noteIndex = ServiceInformationRuleLink.noteIndex(from: url),
+              notes.indices.contains(noteIndex)
+        else { return .handled }
+        guard ServiceInformationRuleLink.shouldOpen(for: NSEvent.modifierFlags) else {
+            return .handled
+        }
+
+        let note = notes[noteIndex]
+        presentedInformationRule = ServiceInformationRulePresentation(
+            information: IDOSServiceInformation(
+                text: note,
+                fallbackCategory: serviceCalendar(for: note) == nil ? .general : .operatingCalendar
+            )
+        )
+        return .handled
+    }
+
     private func openCalendarLink(_ url: URL) -> OpenURLAction.Result {
         guard url.scheme == "kastan-note-calendar",
               url.host == "note",
@@ -888,6 +916,39 @@ struct ServiceNotesView: View {
                 }
             }
         )
+    }
+
+    private var informationRuleIsPresented: Binding<Bool> {
+        Binding(
+            get: { presentedInformationRule != nil },
+            set: { isPresented in
+                if !isPresented {
+                    presentedInformationRule = nil
+                }
+            }
+        )
+    }
+}
+
+/// Routes only an intentional Option-click on a service-note emoji to its classifier details.
+enum ServiceInformationRuleLink {
+    private static let scheme = "kastan-service-information-rule"
+
+    static func destination(for noteIndex: Int) -> URL {
+        URL(string: "\(scheme)://note/\(noteIndex)")!
+    }
+
+    static func matches(_ url: URL) -> Bool {
+        url.scheme == scheme && url.host == "note"
+    }
+
+    static func noteIndex(from url: URL) -> Int? {
+        guard matches(url) else { return nil }
+        return Int(url.lastPathComponent)
+    }
+
+    static func shouldOpen(for modifierFlags: NSEvent.ModifierFlags) -> Bool {
+        modifierFlags.contains(.option)
     }
 }
 
