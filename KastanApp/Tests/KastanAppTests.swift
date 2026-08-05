@@ -3501,6 +3501,41 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(window.childWindows?.isEmpty ?? true)
     }
 
+    func testLinkedServiceInformationPopoverUsesTheOptionClickLocationWithoutConsumingIt() throws {
+        var capturedAnchor: UnitPoint?
+        let anchorView = OptionClickCaptureView(consumesEvent: false) { anchor in
+            capturedAnchor = anchor
+        }
+        anchorView.frame = NSRect(x: 0, y: 0, width: 200, height: 100)
+        let window = NSWindow(
+            contentRect: anchorView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = anchorView
+        window.makeKeyAndOrderFront(nil)
+        defer { window.orderOut(nil) }
+
+        let localClick = NSPoint(x: 30, y: 25)
+        let click = try XCTUnwrap(NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: anchorView.convert(localClick, to: nil),
+            modifierFlags: [.option],
+            timestamp: 0,
+            windowNumber: window.windowNumber,
+            context: nil,
+            eventNumber: 1,
+            clickCount: 1,
+            pressure: 1
+        ))
+
+        XCTAssertIdentical(anchorView.process(click), click)
+        let anchor = try XCTUnwrap(capturedAnchor)
+        XCTAssertEqual(anchor.x, 0.15, accuracy: 0.000_001)
+        XCTAssertEqual(anchor.y, 0.25, accuracy: 0.000_001)
+    }
+
     func testRenderedServiceStopAlignsItsMarkerAndTitleWithoutDetails() throws {
         let row = ServiceStopRow(
             stop: IDOSServiceStop(name: "Ostrava střed"),

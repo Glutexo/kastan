@@ -789,6 +789,7 @@ struct ServiceNotesView: View {
     let calendarContext: [String]
     @State private var presentedServiceCalendar: StationTimetableServiceCalendar?
     @State private var presentedInformationRule: ServiceInformationRulePresentation?
+    @State private var informationRulePopoverAnchor = UnitPoint.topLeading
     @State private var showsRecognizedConditions = false
 
     /// Keeps neighboring service-information rows visually distinct in the shared selectable text flow.
@@ -812,6 +813,11 @@ struct ServiceNotesView: View {
             .environment(\.openURL, OpenURLAction { url in
                 openServiceNoteLink(url)
             })
+            .overlay {
+                OptionClickPopoverAnchorOverlay { anchor in
+                    informationRulePopoverAnchor = anchor
+                }
+            }
             .popover(isPresented: calendarIsPresented, arrowEdge: .trailing) {
                 if let presentedServiceCalendar {
                     StationTimetableServiceCalendarView(
@@ -820,7 +826,11 @@ struct ServiceNotesView: View {
                     )
                 }
             }
-            .popover(isPresented: informationRuleIsPresented, arrowEdge: .trailing) {
+            .popover(
+                isPresented: informationRuleIsPresented,
+                attachmentAnchor: .point(informationRulePopoverAnchor),
+                arrowEdge: .leading
+            ) {
                 if let presentedInformationRule {
                     RuleExplanationPopover(text: presentedInformationRule.explanation())
                 }

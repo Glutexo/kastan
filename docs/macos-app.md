@@ -204,7 +204,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   refreshment trolley or vending-machine service, while tickets accepted from integrated transport systems
   are distinct from carrier fares and broader fare conditions. A single selection can span multiple rows while
   retaining clickable web-address and phone-number links and the standard macOS copy command. Each leading semantic
-  emoji is an Option-click target for the same classifier popover used by compact service summaries. Dated operating
+  emoji is an Option-click target for the same classifier popover used by compact service summaries. The popover opens
+  beside the selected emoji instead of attaching to the edge of the complete text flow. Dated operating
   exceptions, including abbreviated ranges such as `17. to 20.VIII.` and
   same-month lists such as `18.,19.IX.`, open the same running/non-running calendar using the exact validity
   interval published by the current IDOS timetable. When opened, the calendar scrolls to the current month or

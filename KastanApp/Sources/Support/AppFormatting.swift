@@ -768,22 +768,40 @@ struct OptionClickOverlay: NSViewRepresentable {
     let action: () -> Void
 
     func makeNSView(context: Context) -> OptionClickCaptureView {
-        OptionClickCaptureView(action: action)
+        OptionClickCaptureView { _ in action() }
     }
 
     func updateNSView(_ nsView: OptionClickCaptureView, context: Context) {
-        nsView.action = action
+        nsView.action = { _ in action() }
     }
 }
 
-/// Observes Option-modified primary clicks over its symbol without entering SwiftUI's hit-testing,
-/// so ordinary clicks continue to reach the surrounding result row.
+/// Records the pointer position for a linked symbol without consuming the click that opens its URL.
+struct OptionClickPopoverAnchorOverlay: NSViewRepresentable {
+    let updateAnchor: (UnitPoint) -> Void
+
+    func makeNSView(context: Context) -> OptionClickCaptureView {
+        OptionClickCaptureView(consumesEvent: false, action: updateAnchor)
+    }
+
+    func updateNSView(_ nsView: OptionClickCaptureView, context: Context) {
+        nsView.action = updateAnchor
+    }
+}
+
+/// Locates Option-modified primary clicks without entering SwiftUI's hit-testing and either
+/// consumes a compact-symbol action or preserves a linked-text action for its original handler.
 final class OptionClickCaptureView: NSView {
-    var action: () -> Void
+    var action: (UnitPoint) -> Void
+    let consumesEvent: Bool
     /// AppKit creates and consumes this opaque token exclusively on the main thread.
     nonisolated(unsafe) private var eventMonitor: Any?
 
-    init(action: @escaping () -> Void) {
+    init(
+        consumesEvent: Bool = true,
+        action: @escaping (UnitPoint) -> Void
+    ) {
+        self.consumesEvent = consumesEvent
         self.action = action
         super.init(frame: .zero)
     }
@@ -815,20 +833,33 @@ final class OptionClickCaptureView: NSView {
         nil
     }
 
+    override var isFlipped: Bool {
+        true
+    }
+
     static func handles(_ event: NSEvent) -> Bool {
         event.type == .leftMouseDown && event.modifierFlags.contains(.option)
     }
 
     func captures(_ event: NSEvent) -> Bool {
-        guard Self.handles(event), event.window === window else { return false }
-        return bounds.contains(convert(event.locationInWindow, from: nil))
+        anchor(for: event) != nil
     }
 
-    /// Mirrors the local event monitor so the complete window-and-coordinate decision stays testable.
+    /// Mirrors the local event monitor so its anchoring and event-preservation decisions stay testable.
     func process(_ event: NSEvent) -> NSEvent? {
-        guard captures(event) else { return event }
-        action()
-        return nil
+        guard let anchor = anchor(for: event) else { return event }
+        action(anchor)
+        return consumesEvent ? nil : event
+    }
+
+    private func anchor(for event: NSEvent) -> UnitPoint? {
+        guard Self.handles(event), event.window === window else { return nil }
+        let location = convert(event.locationInWindow, from: nil)
+        guard bounds.contains(location), bounds.width > 0, bounds.height > 0 else { return nil }
+        return UnitPoint(
+            x: (location.x - bounds.minX) / bounds.width,
+            y: (location.y - bounds.minY) / bounds.height
+        )
     }
 
     private func removeEventMonitor() {
