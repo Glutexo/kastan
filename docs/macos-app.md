@@ -49,8 +49,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   the selected stop through the final stop, with centered marks at the route endpoints and selection. Selection
   accents do not dim the stop content: optional metadata and expanded notes retain the same adaptive secondary color,
   including on the selected row. Timetable-wide notes start collapsed and expand into selectable text while retaining
-  their interactive links. Schedule tables
-  expand evenly across the remaining result width and fall back to horizontal scrolling only when their readable
+  their interactive links. At readable widths, route stops and the selected stop's timetable each receive exactly half
+  of the available result width. When two readable columns no longer fit, a Stops/Timetable switch appears between the
+  route heading and its content and displays one section at a time instead of stacking the timetable below the stops.
+  Schedule tables expand evenly within their half and fall back to horizontal scrolling only when their readable
   minimum widths no longer fit. A direction that
   wraps across lines remains vertically centered beside the line name, while single-line headings retain baseline
   alignment. Notes saying that a service skips listed stops use the route symbol instead of a generic information

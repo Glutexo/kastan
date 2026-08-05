@@ -10,6 +10,7 @@ struct StationTimetablesView: View {
     let showsStopNoteText: Bool
     @State private var isSearchFormCollapsed = false
     @State private var isNotesExpanded = false
+    @State private var selectedResultSection = StationTimetableResultSection.stops
 
     var body: some View {
         GeometryReader { geometry in
@@ -31,7 +32,7 @@ struct StationTimetablesView: View {
                         .transition(.opacity)
                 }
             } resultsContent: {
-                resultsPanel
+                resultsPanel(layout: layout)
             }
             .frame(
                 width: geometry.size.width,
@@ -43,7 +44,7 @@ struct StationTimetablesView: View {
         .focusedSceneValue(\.searchEditCommandContext, searchEditCommandContext)
     }
 
-    private var resultsPanel: some View {
+    private func resultsPanel(layout: DetailLayout) -> some View {
         VStack(alignment: .leading, spacing: 20) {
             if let errorMessage = model.errorMessage {
                 Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
@@ -52,7 +53,7 @@ struct StationTimetablesView: View {
                     .padding(12)
                     .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
             }
-            results
+            results(availableWidth: layout.contentWidth)
         }
     }
 
@@ -206,12 +207,12 @@ struct StationTimetablesView: View {
     }
 
     @ViewBuilder
-    private var results: some View {
+    private func results(availableWidth: CGFloat) -> some View {
         if model.isSearching, model.result == nil {
             ProgressView("Loading station timetable…")
                 .frame(maxWidth: .infinity, minHeight: 180)
         } else if let result = model.result {
-            stationTimetable(result)
+            stationTimetable(result, availableWidth: availableWidth)
         } else if model.errorMessage == nil {
             EmptyStateView(
                 title: "No station timetable yet",
@@ -221,20 +222,23 @@ struct StationTimetablesView: View {
         }
     }
 
-    private func stationTimetable(_ result: IDOSStationTimetable) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
-            resultHeader(result)
+    private func stationTimetable(
+        _ result: IDOSStationTimetable,
+        availableWidth: CGFloat
+    ) -> some View {
+        let layout = StationTimetableResultLayout(availableWidth: availableWidth)
 
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: 18) {
+        return VStack(alignment: .leading, spacing: 18) {
+            resultHeader(result, showsSectionPicker: layout.usesSectionPicker)
+
+            if layout.usesSectionPicker {
+                compactResultSection(result)
+            } else {
+                HStack(alignment: .top, spacing: StationTimetableResultLayout.columnSpacing) {
                     stops(result)
-                        .frame(minWidth: 280, idealWidth: 330, maxWidth: 380)
+                        .frame(width: layout.columnWidth, alignment: .topLeading)
                     schedules(result)
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
-                }
-                VStack(alignment: .leading, spacing: 18) {
-                    stops(result)
-                    schedules(result)
+                        .frame(width: layout.columnWidth, alignment: .topLeading)
                 }
             }
 
@@ -247,43 +251,62 @@ struct StationTimetablesView: View {
         }
     }
 
-    private func resultHeader(_ result: IDOSStationTimetable) -> some View {
+    @ViewBuilder
+    private func compactResultSection(_ result: IDOSStationTimetable) -> some View {
+        switch selectedResultSection {
+        case .stops:
+            stops(result)
+        case .timetable:
+            schedules(result)
+        }
+    }
+
+    private func resultHeader(
+        _ result: IDOSStationTimetable,
+        showsSectionPicker: Bool
+    ) -> some View {
         let title: String
         if let transportMode = result.transportMode {
             title = "\(transportMode.emoji) \(result.lineName)"
         } else {
             title = result.lineName
         }
-        return HStack(alignment: .center, spacing: 10) {
-            StationTimetableRouteHeading(
-                lineTitle: title,
-                route: "\(result.fromStop) → \(result.toStop)",
-                isLockout: result.isLockout
-            )
-            .frame(maxWidth: .infinity, alignment: .leading)
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 10) {
+                StationTimetableRouteHeading(
+                    lineTitle: title,
+                    route: "\(result.fromStop) → \(result.toStop)",
+                    isLockout: result.isLockout
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
 
-            Button {
-                Task { await model.reverseDirection() }
-            } label: {
-                Label("Reverse direction", systemImage: "arrow.triangle.swap")
-            }
-            .buttonStyle(.bordered)
-            .disabled(model.isSearching)
-
-            if let value = result.shareURL,
-               let url = AppLanguagePreference.localizedIDOSURL(from: value)
-            {
-                ResultShareButton(
-                    link: url,
-                    text: nil,
-                    placement: .toolbar,
-                    offersTextAlternate: false
-                ) { _ in
-                    Image(systemName: "square.and.arrow.up")
+                Button {
+                    Task { await model.reverseDirection() }
+                } label: {
+                    Label("Reverse direction", systemImage: "arrow.triangle.swap")
                 }
-                .buttonStyle(.borderless)
-                .accessibilityLabel("Share Link")
-                .help("Share Link")
+                .buttonStyle(.bordered)
+                .disabled(model.isSearching)
+
+                if let value = result.shareURL,
+                   let url = AppLanguagePreference.localizedIDOSURL(from: value)
+                {
+                    ResultShareButton(
+                        link: url,
+                        text: nil,
+                        placement: .toolbar,
+                        offersTextAlternate: false
+                    ) { _ in
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("Share Link")
+                    .help("Share Link")
+                }
+            }
+
+            if showsSectionPicker {
+                StationTimetableResultSectionPicker(selection: $selectedResultSection)
             }
         }
     }
@@ -451,6 +474,44 @@ struct StationTimetablesView: View {
             stop.platform.map { AppLocalization.string("Station timetable platform %@", $0) },
         ].compactMap(\.self)
         return values.isEmpty ? nil : values.joined(separator: " · ")
+    }
+}
+
+/// Identifies the route or schedule content selected in a compact station-timetable result.
+enum StationTimetableResultSection: Hashable {
+    case stops
+    case timetable
+}
+
+/// Gives both result columns equal space until either would become too narrow to read.
+struct StationTimetableResultLayout {
+    static let columnSpacing: CGFloat = 18
+    static let minimumColumnWidth: CGFloat = 280
+
+    let availableWidth: CGFloat
+
+    var columnWidth: CGFloat {
+        max((availableWidth - Self.columnSpacing) / 2, 0)
+    }
+
+    var usesSectionPicker: Bool {
+        columnWidth < Self.minimumColumnWidth
+    }
+}
+
+/// Switches between route stops and the selected stop's timetable without stacking compact results.
+struct StationTimetableResultSectionPicker: View {
+    @Binding var selection: StationTimetableResultSection
+
+    var body: some View {
+        Picker("Station timetable content", selection: $selection) {
+            Text("Stops").tag(StationTimetableResultSection.stops)
+            Text("Timetable").tag(StationTimetableResultSection.timetable)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .frame(maxWidth: 280)
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 }
 

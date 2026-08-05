@@ -1763,6 +1763,69 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(layout.usesStackedSearchControls)
     }
 
+    func testStationTimetableResultLayoutSplitsWideResultsInHalf() {
+        let layout = StationTimetableResultLayout(availableWidth: 1_218)
+
+        XCTAssertFalse(layout.usesSectionPicker)
+        XCTAssertEqual(layout.columnWidth, 600)
+        XCTAssertEqual(
+            (2 * layout.columnWidth) + StationTimetableResultLayout.columnSpacing,
+            layout.availableWidth
+        )
+    }
+
+    func testStationTimetableResultLayoutUsesPickerBelowReadableColumnWidth() {
+        let minimumTwoColumnWidth =
+            (2 * StationTimetableResultLayout.minimumColumnWidth) +
+            StationTimetableResultLayout.columnSpacing
+        let fittedLayout = StationTimetableResultLayout(availableWidth: minimumTwoColumnWidth)
+        let compactLayout = StationTimetableResultLayout(
+            availableWidth: minimumTwoColumnWidth - 1
+        )
+        let minimumWindowLayout = StationTimetableResultLayout(
+            availableWidth: DetailLayout(
+                availableWidth: KastanApp.minimumMainWindowWidth
+            ).contentWidth
+        )
+
+        XCTAssertFalse(fittedLayout.usesSectionPicker)
+        XCTAssertTrue(compactLayout.usesSectionPicker)
+        XCTAssertTrue(minimumWindowLayout.usesSectionPicker)
+    }
+
+    func testStationTimetableResultSectionPickerSelectsLocalizedContent() throws {
+        var selection = StationTimetableResultSection.stops
+        let picker = StationTimetableResultSectionPicker(selection: Binding(
+            get: { selection },
+            set: { selection = $0 }
+        ))
+        let hostingView = NSHostingView(rootView: picker)
+        hostingView.frame = NSRect(x: 0, y: 0, width: 280, height: 40)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        let control = try XCTUnwrap(
+            hostingView.allDescendantViews.compactMap { $0 as? NSSegmentedControl }.first
+        )
+        XCTAssertEqual(control.segmentCount, 2)
+        XCTAssertEqual(control.label(forSegment: 0), AppLocalization.string("Stops"))
+        XCTAssertEqual(control.label(forSegment: 1), AppLocalization.string("Timetable"))
+        XCTAssertEqual(selection, .stops)
+
+        control.selectedSegment = 1
+        control.sendAction(control.action, to: control.target)
+
+        XCTAssertEqual(selection, .timetable)
+    }
+
     func testSharedSearchActionUsesStationTimetableWidth() {
         XCTAssertEqual(SearchActionButton.contentWidth, 140)
     }
