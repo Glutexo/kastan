@@ -3538,7 +3538,7 @@ final class KastanAppTests: XCTestCase {
 
     func testRenderedServiceStopAlignsItsMarkerAndTitleWithoutDetails() throws {
         let row = ServiceStopRow(
-            stop: IDOSServiceStop(name: "Ostrava střed"),
+            stop: IDOSServiceStop(name: "Ostrava střed", departureTime: "15:24"),
             isFirst: true,
             isLast: true,
             hasHighlight: false,
@@ -3567,19 +3567,39 @@ final class KastanAppTests: XCTestCase {
         let markerBounds = try XCTUnwrap(
             inkBounds(
                 in: bitmap,
-                xRange: 0..<Int(22 * scale),
+                xRange: Int(8 * scale)..<Int(30 * scale),
                 maximumBrightness: 0.9
             )
         )
         let titleBounds = try XCTUnwrap(
             inkBounds(
                 in: bitmap,
-                xRange: Int(24 * scale)..<Int(220 * scale),
+                xRange: Int(34 * scale)..<Int(220 * scale),
                 maximumBrightness: 0.6
+            )
+        )
+        let completeInkBounds = try XCTUnwrap(
+            inkBounds(
+                in: bitmap,
+                xRange: 0..<bitmap.pixelsWide,
+                maximumBrightness: 0.9
             )
         )
 
         XCTAssertEqual(markerBounds.midY, titleBounds.midY, accuracy: 2 * scale)
+        XCTAssertGreaterThanOrEqual(
+            completeInkBounds.minX / scale,
+            ServiceStopTimelineLayout.rowHorizontalPadding - 2
+        )
+        XCTAssertGreaterThanOrEqual(
+            CGFloat(bitmap.pixelsWide - 1) / scale - completeInkBounds.maxX / scale,
+            ServiceStopTimelineLayout.rowHorizontalPadding - 2
+        )
+        XCTAssertGreaterThanOrEqual(completeInkBounds.minY / scale, 4)
+        XCTAssertGreaterThanOrEqual(
+            CGFloat(bitmap.pixelsHigh - 1) / scale - completeInkBounds.maxY / scale,
+            4
+        )
     }
 
     func testServiceStopDetailsMoveInlineWhileSymbolsRemainCompact() {
@@ -4399,9 +4419,9 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(didScroll)
     }
 
-    func testServiceRouteInitialScrollMakesRoomForTheDepartureStopAtTheTop() {
-        XCTAssertEqual(ServiceRouteInitialScroll.topClearance(for: .window), 8)
-        XCTAssertEqual(ServiceRouteInitialScroll.topClearance(for: .preview), 12)
+    func testServiceRouteInitialScrollUsesNaturalContentBoundsAndSafeTopInset() {
+        XCTAssertEqual(ServiceRouteInitialScroll.topClearance(for: .window), 16)
+        XCTAssertEqual(ServiceRouteInitialScroll.topClearance(for: .preview), 20)
         XCTAssertFalse(ServiceRouteInitialScroll.needsPositioning(
             departureIndex: 0,
             viewportHeight: 520,
@@ -4418,30 +4438,12 @@ final class KastanAppTests: XCTestCase {
             routeBottom: 800
         ))
         XCTAssertEqual(
-            ServiceRouteInitialScroll.bottomClearance(
-                viewportHeight: 520,
-                naturalContentBottom: 680,
-                departureTop: 420,
-                topClearance: 8
-            ),
-            252
-        )
-        XCTAssertEqual(
-            ServiceRouteInitialScroll.bottomClearance(
-                viewportHeight: 520,
-                naturalContentBottom: 1_100,
-                departureTop: 420,
-                topClearance: 8
-            ),
-            0
-        )
-        XCTAssertEqual(
             ServiceRouteInitialScroll.anchor(
                 viewportHeight: 520,
                 departureHeight: 64,
-                topClearance: 8
+                topClearance: 16
             ).y,
-            8 / 456,
+            16 / 456,
             accuracy: 0.000_001
         )
     }
@@ -4454,7 +4456,7 @@ final class KastanAppTests: XCTestCase {
             name: "R 879 Svitava",
             transportMode: .train,
             date: "30.7.2026",
-            stops: (0..<18).map { index in
+            stops: (0..<30).map { index in
                 IDOSServiceStop(
                     name: "Stop \(index)",
                     departureTime: String(format: "12:%02d", index)
@@ -4498,6 +4500,57 @@ final class KastanAppTests: XCTestCase {
             "The preview should skip the route stops preceding the searched departure " +
                 "(visible minY: \(scrollView.documentVisibleRect.minY), document height: \(documentHeight))."
         )
+    }
+
+    func testServicePreviewNearRouteEndKeepsTheNaturalDocumentHeight() async throws {
+        let service = IDOSServiceDetail(
+            id: "service-preview-natural-end",
+            timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
+            name: "R 879 Svitava",
+            transportMode: .train,
+            date: "30.7.2026",
+            stops: (0..<18).map { index in
+                IDOSServiceStop(
+                    name: "Stop \(index)",
+                    departureTime: String(format: "12:%02d", index)
+                )
+            }
+        )
+
+        func renderedDocumentHeight(highlight: ServiceRouteHighlight?) async throws -> CGFloat {
+            let client = MockIDOSClient()
+            await client.configureServiceDetail(service)
+            let hostingView = NSHostingView(rootView: PresentedServicePreviewTestHost(
+                selection: ServiceSelection(id: service.id, highlight: highlight),
+                client: client
+            ))
+            hostingView.frame = NSRect(x: 0, y: 0, width: 180, height: 80)
+            let window = NSWindow(
+                contentRect: hostingView.frame,
+                styleMask: .borderless,
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = hostingView
+            window.makeKeyAndOrderFront(nil)
+            defer {
+                window.childWindows?.forEach { $0.close() }
+                window.orderOut(nil)
+            }
+
+            let pendingScrollView = await waitForServicePreviewScrollView(in: window)
+            let scrollView = try XCTUnwrap(pendingScrollView)
+            defer { scrollView.window?.close() }
+            let pendingDocumentHeight = await stableDocumentHeight(in: scrollView)
+            return try XCTUnwrap(pendingDocumentHeight)
+        }
+
+        let naturalHeight = try await renderedDocumentHeight(highlight: nil)
+        let positionedHeight = try await renderedDocumentHeight(
+            highlight: ServiceRouteHighlight(fromStop: "Stop 16", toStop: "Stop 17")
+        )
+
+        XCTAssertEqual(positionedHeight, naturalHeight, accuracy: 1)
     }
 
     func testServiceSelectionRoundTripsThroughWindowState() throws {
@@ -5897,6 +5950,26 @@ private func waitForServicePreviewInitialScroll(in scrollView: NSScrollView) asy
         try? await Task.sleep(for: .milliseconds(10))
     }
     return false
+}
+
+@MainActor
+private func stableDocumentHeight(in scrollView: NSScrollView) async -> CGFloat? {
+    var previousHeight: CGFloat?
+    var stableSamples = 0
+    for _ in 0..<100 {
+        guard let height = scrollView.documentView?.frame.height else { return nil }
+        if let previousHeight, abs(previousHeight - height) <= 0.5 {
+            stableSamples += 1
+            if stableSamples >= 4 {
+                return height
+            }
+        } else {
+            stableSamples = 0
+        }
+        previousHeight = height
+        try? await Task.sleep(for: .milliseconds(10))
+    }
+    return previousHeight
 }
 
 private func localizationBundle(languageCode: String) -> Bundle? {

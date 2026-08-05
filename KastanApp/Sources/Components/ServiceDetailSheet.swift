@@ -284,9 +284,8 @@ private struct ServiceDateFramePreferenceKey: PreferenceKey {
     }
 }
 
-/// Supplies the geometry needed to keep a searched departure stop at the visible top of a route.
+/// Supplies the geometry needed to bring a searched departure toward the visible top of a route.
 private struct ServiceRouteInitialLayout: Equatable {
-    var naturalContentFrame: CGRect?
     var routeFrame: CGRect?
     var departureFrame: CGRect?
 }
@@ -299,18 +298,17 @@ private struct ServiceRouteInitialLayoutPreferenceKey: PreferenceKey {
         nextValue: () -> ServiceRouteInitialLayout
     ) {
         let nextValue = nextValue()
-        value.naturalContentFrame = nextValue.naturalContentFrame ?? value.naturalContentFrame
         value.routeFrame = nextValue.routeFrame ?? value.routeFrame
         value.departureFrame = nextValue.departureFrame ?? value.departureFrame
     }
 }
 
-/// Makes enough room below a route to place its searched departure stop at the visible top.
+/// Brings a searched departure toward the visible top without extending the route past its natural end.
 @MainActor
 enum ServiceRouteInitialScroll {
     /// Leaves the searched departure clear of either a toolbar or the rounded preview edge.
     static func topClearance(for presentation: ResultDetailPresentation) -> CGFloat {
-        presentation == .preview ? 12 : 8
+        presentation == .preview ? 20 : 16
     }
 
     /// Preserves the natural top when no preceding route needs to be skipped or the complete route already fits.
@@ -320,16 +318,6 @@ enum ServiceRouteInitialScroll {
         routeBottom: CGFloat
     ) -> Bool {
         departureIndex > 0 && routeBottom > viewportHeight
-    }
-
-    static func bottomClearance(
-        viewportHeight: CGFloat,
-        naturalContentBottom: CGFloat,
-        departureTop: CGFloat,
-        topClearance: CGFloat
-    ) -> CGFloat {
-        let contentBelowDeparture = max(0, naturalContentBottom - departureTop)
-        return max(0, viewportHeight - topClearance - contentBelowDeparture)
     }
 
     /// Converts the fixed visual clearance into the shared item-and-viewport anchor used by `scrollTo`.
@@ -366,7 +354,6 @@ struct ServiceDetailView: View {
     @State private var dateIsUnderTitle = false
     @State private var hasAppliedInitialRoutePosition = false
     @State private var hasScheduledInitialRoutePosition = false
-    @State private var initialRouteBottomClearance: CGFloat = 0
     @State private var isServiceInformationExpanded = false
     private let routeHighlight: ServiceRouteHighlight?
     private let presentation: ResultDetailPresentation
@@ -550,100 +537,77 @@ struct ServiceDetailView: View {
         return GeometryReader { viewport in
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(spacing: 0) {
-                        VStack(alignment: .leading, spacing: 18) {
-                            if let date = service.date {
-                                Text(date)
-                                    .foregroundStyle(.secondary)
-                                    .background {
-                                        GeometryReader { geometry in
-                                            Color.clear.preference(
-                                                key: ServiceDateFramePreferenceKey.self,
-                                                value: geometry.frame(in: .named(Self.scrollCoordinateSpace))
-                                            )
-                                        }
-                                    }
-                            }
-
-                            if let actionErrorMessage = model.actionErrorMessage {
-                                Label(actionErrorMessage, systemImage: "exclamationmark.triangle.fill")
-                                    .foregroundStyle(.red)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(12)
-                                    .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
-                            }
-
-                            VStack(alignment: .leading, spacing: 8) {
-                                Label("Stops", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
-                                    .font(.headline)
-
-                                VStack(alignment: .leading, spacing: 0) {
-                                    ForEach(Array(service.stops.enumerated()), id: \.offset) { index, stop in
-                                        ServiceStopRow(
-                                            stop: stop,
-                                            isFirst: index == 0,
-                                            isLast: index == service.stops.count - 1,
-                                            hasHighlight: highlightedRange != nil,
-                                            isHighlighted: highlightedRange?.contains(index) == true,
-                                            isHighlightBoundary: index == highlightedRange?.lowerBound ||
-                                                index == highlightedRange?.upperBound,
-                                            topIsHighlighted: highlightedRange.map {
-                                                index > $0.lowerBound && index <= $0.upperBound
-                                            } ?? false,
-                                            bottomIsHighlighted: highlightedRange.map {
-                                                index >= $0.lowerBound && index < $0.upperBound
-                                            } ?? false,
-                                            highlightedColor: highlightedColor,
-                                            showsItemDetails: showsItemDetails,
-                                            showsStopNoteText: showsStopNoteText
+                    VStack(alignment: .leading, spacing: 18) {
+                        if let date = service.date {
+                            Text(date)
+                                .foregroundStyle(.secondary)
+                                .background {
+                                    GeometryReader { geometry in
+                                        Color.clear.preference(
+                                            key: ServiceDateFramePreferenceKey.self,
+                                            value: geometry.frame(in: .named(Self.scrollCoordinateSpace))
                                         )
-                                        .alternatingRowBackground(at: index)
-                                        .background {
-                                            if index == departureIndex {
-                                                GeometryReader { geometry in
-                                                    Color.clear.preference(
-                                                        key: ServiceRouteInitialLayoutPreferenceKey.self,
-                                                        value: ServiceRouteInitialLayout(
-                                                            departureFrame: geometry.frame(
-                                                                in: .named(Self.scrollCoordinateSpace)
-                                                            )
+                                    }
+                                }
+                        }
+
+                        if let actionErrorMessage = model.actionErrorMessage {
+                            Label(actionErrorMessage, systemImage: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.red)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(12)
+                                .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                        }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Stops", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
+                                .font(.headline)
+
+                            VStack(alignment: .leading, spacing: 0) {
+                                ForEach(Array(service.stops.enumerated()), id: \.offset) { index, stop in
+                                    ServiceStopRow(
+                                        stop: stop,
+                                        isFirst: index == 0,
+                                        isLast: index == service.stops.count - 1,
+                                        hasHighlight: highlightedRange != nil,
+                                        isHighlighted: highlightedRange?.contains(index) == true,
+                                        isHighlightBoundary: index == highlightedRange?.lowerBound ||
+                                            index == highlightedRange?.upperBound,
+                                        topIsHighlighted: highlightedRange.map {
+                                            index > $0.lowerBound && index <= $0.upperBound
+                                        } ?? false,
+                                        bottomIsHighlighted: highlightedRange.map {
+                                            index >= $0.lowerBound && index < $0.upperBound
+                                        } ?? false,
+                                        highlightedColor: highlightedColor,
+                                        showsItemDetails: showsItemDetails,
+                                        showsStopNoteText: showsStopNoteText
+                                    )
+                                    .alternatingRowBackground(at: index)
+                                    .background {
+                                        if index == departureIndex {
+                                            GeometryReader { geometry in
+                                                Color.clear.preference(
+                                                    key: ServiceRouteInitialLayoutPreferenceKey.self,
+                                                    value: ServiceRouteInitialLayout(
+                                                        departureFrame: geometry.frame(
+                                                            in: .named(Self.scrollCoordinateSpace)
                                                         )
                                                     )
-                                                }
+                                                )
                                             }
                                         }
-                                        .id(index)
                                     }
+                                    .id(index)
                                 }
-                            }
-                            .background {
-                                GeometryReader { geometry in
-                                    Color.clear.preference(
-                                        key: ServiceRouteInitialLayoutPreferenceKey.self,
-                                        value: ServiceRouteInitialLayout(
-                                            routeFrame: geometry.frame(
-                                                in: .named(Self.scrollCoordinateSpace)
-                                            )
-                                        )
-                                    )
-                                }
-                            }
-
-                            if !service.information.isEmpty {
-                                ServiceInformationDisclosure(
-                                    notes: service.information,
-                                    timetableValidity: model.timetableValidity,
-                                    isExpanded: $isServiceInformationExpanded
-                                )
                             }
                         }
-                        .padding(24)
                         .background {
                             GeometryReader { geometry in
                                 Color.clear.preference(
                                     key: ServiceRouteInitialLayoutPreferenceKey.self,
                                     value: ServiceRouteInitialLayout(
-                                        naturalContentFrame: geometry.frame(
+                                        routeFrame: geometry.frame(
                                             in: .named(Self.scrollCoordinateSpace)
                                         )
                                     )
@@ -651,9 +615,15 @@ struct ServiceDetailView: View {
                             }
                         }
 
-                        Color.clear
-                            .frame(height: initialRouteBottomClearance)
+                        if !service.information.isEmpty {
+                            ServiceInformationDisclosure(
+                                notes: service.information,
+                                timetableValidity: model.timetableValidity,
+                                isExpanded: $isServiceInformationExpanded
+                            )
+                        }
                     }
+                    .padding(24)
                 }
                 .coordinateSpace(name: Self.scrollCoordinateSpace)
                 .onPreferenceChange(ServiceDateFramePreferenceKey.self) { frame in
@@ -677,7 +647,7 @@ struct ServiceDetailView: View {
         }
     }
 
-    /// Adds only the trailing room the scroll view needs before aligning the searched departure stop.
+    /// Requests the searched departure while allowing the scroll view to clamp at the real content end.
     private func prepareInitialRoutePosition(
         layout: ServiceRouteInitialLayout,
         viewportHeight: CGFloat,
@@ -688,7 +658,6 @@ struct ServiceDetailView: View {
             !hasAppliedInitialRoutePosition,
             !hasScheduledInitialRoutePosition,
             let departureIndex,
-            let naturalContentFrame = layout.naturalContentFrame,
             let routeFrame = layout.routeFrame,
             let departureFrame = layout.departureFrame
         else {
@@ -700,26 +669,11 @@ struct ServiceDetailView: View {
             viewportHeight: viewportHeight,
             routeBottom: routeFrame.maxY
         ) else {
-            if initialRouteBottomClearance > 0.5 {
-                initialRouteBottomClearance = 0
-                return
-            }
             hasAppliedInitialRoutePosition = true
             return
         }
 
         let topClearance = ServiceRouteInitialScroll.topClearance(for: presentation)
-        let bottomClearance = ServiceRouteInitialScroll.bottomClearance(
-            viewportHeight: viewportHeight,
-            naturalContentBottom: naturalContentFrame.maxY,
-            departureTop: departureFrame.minY,
-            topClearance: topClearance
-        )
-        if abs(initialRouteBottomClearance - bottomClearance) > 0.5 {
-            initialRouteBottomClearance = bottomClearance
-        }
-
-        // The trailing spacer does not change these measured frames, so a preview may not emit another preference.
         hasScheduledInitialRoutePosition = true
         let scrollAnchor = ServiceRouteInitialScroll.anchor(
             viewportHeight: viewportHeight,
@@ -774,8 +728,12 @@ struct ServiceInformationDisclosure: View {
 }
 
 /// Keeps a route marker centered beside the stop content that remains visible.
-private enum ServiceStopTimelineLayout {
+enum ServiceStopTimelineLayout {
     static let metadataSpacing: CGFloat = 4
+    /// Keeps every route marker, stop title, and time away from its alternating band edges.
+    static let rowHorizontalPadding: CGFloat = 12
+    /// Balances the existing row breathing room above and below its primary stop content.
+    static let rowVerticalPadding: CGFloat = 6
 
     static var topConnectorHeight: CGFloat {
         let headlineHeight = NSFont.preferredFont(forTextStyle: .headline).boundingRectForFont.height
@@ -912,8 +870,9 @@ struct ServiceStopRow: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .padding(.bottom, 12)
+            .padding(.vertical, ServiceStopTimelineLayout.rowVerticalPadding)
         }
+        .padding(.horizontal, ServiceStopTimelineLayout.rowHorizontalPadding)
     }
 
     private var neutralRouteColor: Color {

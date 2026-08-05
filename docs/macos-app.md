@@ -172,7 +172,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   Show alternating row backgrounds is another global, persistent setting and is enabled initially. Its subtle adaptive
   bands distinguish neighboring station-board rows, connection-service rows, complete and station-timetable route
   stops, and station-timetable hour rows. Turning it off restores uniform data-row backgrounds without changing cards,
-  search forms, suggestions, or the native favorite-timetable list.
+  search forms, suggestions, or the native favorite-timetable list. Complete-route bands keep balanced vertical space
+  around each stop and inset the timeline, stop content, and time from their horizontal edges.
   Complete service information is independent of the compact row setting and starts collapsed beneath its own
   route-level disclosure heading.
   Cards always retain line colors and transport symbols. Right-clicking anywhere on a connection card
@@ -186,11 +187,12 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   opens that complete connection in an independent window; holding Option reveals the window button in the connection
   header as an alternative. An ordinary service click opens the selected service's detail window, including while
   another service-detail window is already open.
-- Long service routes in independent windows and Force Click previews open with the departure stop from the
-  originating search fully visible at the top. The window leaves a small clearance below its toolbar, while the
-  preview leaves slightly more against its rounded edge. When the departure is already the first stop or the
-  complete route fits in the viewport, the natural position is preserved without artificial trailing space. The
-  search-relevant segment remains highlighted without implying live vehicle position. When scrolling hides a
+- Long service routes in independent windows and Force Click previews initially bring the departure stop from the
+  originating search toward the top. The window leaves a safe clearance below its toolbar, while the preview leaves
+  slightly more against its rounded edge. The scroll position is limited by the route's real end: a departure near
+  the final stop remains lower when there is not enough following content, with no artificial trailing space. When
+  the departure is already the first stop or the complete route fits in the viewport, the natural position is
+  preserved. The search-relevant segment remains highlighted without implying live vehicle position. When scrolling hides a
   service date, the date moves into the window title until its content label is visible again.
 - Complete service information starts collapsed beneath a disclosure heading at the same level as Stops. Expanding it
   reveals selectable text whose visibly separated rows use semantic emoji for replacement buses,
