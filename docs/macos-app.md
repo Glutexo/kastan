@@ -52,12 +52,13 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   the selected stop through the final stop, with centered marks at the route endpoints and selection. Selection
   accents do not dim the stop content: optional metadata and expanded notes retain the same adaptive secondary color,
   including on the selected row. Explanations such as `A: …` are separated only when their key occurs beside a
-  concrete departure. They appear in their own collapsed disclosure immediately below the timetable, while general
-  notes remain in a separate collapsed disclosure at the very bottom of the complete result in both wide and compact
-  layouts. Both expand into selectable text while retaining their interactive links. At readable widths, route stops
-  and the selected stop's timetable each receive exactly half of the available result width. When two readable
-  columns no longer fit, a Stops/Timetable switch appears between the
-  route heading and its content and displays one section at a time instead of stacking the timetable below the stops.
+  concrete departure. Each marker appears as smaller secondary information attached to its minute and reveals the
+  matching explanation on hover. Explanations also appear in their own collapsed disclosure immediately below the
+  timetable, while general notes remain in a separate collapsed disclosure at the very bottom of the complete result
+  in both wide and compact layouts. Both expand into selectable text while retaining their interactive links. At
+  readable widths, route stops and the selected stop's timetable each receive exactly half of the available result
+  width. When two readable columns no longer fit, a Stops/Timetable switch appears between the route heading and its
+  content and displays one section at a time instead of stacking the timetable below the stops.
   Schedule tables expand evenly within their half and fall back to horizontal scrolling only when their readable
   minimum widths no longer fit. A direction that
   wraps across lines remains vertically centered beside the line name, while single-line headings retain baseline

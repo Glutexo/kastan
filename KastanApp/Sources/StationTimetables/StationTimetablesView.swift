@@ -436,7 +436,7 @@ struct StationTimetablesView: View {
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .top, spacing: 12) {
                     ForEach(Array(result.schedules.enumerated()), id: \.offset) { _, schedule in
-                        scheduleTable(schedule)
+                        scheduleTable(schedule, explanations: result.explanations)
                             .frame(minWidth: 260, maxWidth: .infinity)
                     }
                 }
@@ -445,7 +445,7 @@ struct StationTimetablesView: View {
                 ScrollView(.horizontal) {
                     HStack(alignment: .top, spacing: 12) {
                         ForEach(Array(result.schedules.enumerated()), id: \.offset) { _, schedule in
-                            scheduleTable(schedule)
+                            scheduleTable(schedule, explanations: result.explanations)
                                 .frame(width: 260)
                         }
                     }
@@ -466,17 +466,28 @@ struct StationTimetablesView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func scheduleTable(_ schedule: IDOSStationTimetableSchedule) -> some View {
+    private func scheduleTable(
+        _ schedule: IDOSStationTimetableSchedule,
+        explanations: [String]
+    ) -> some View {
         GroupBox(StationTimetableScheduleLabelPresentation.title(schedule.label)) {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(schedule.hours.enumerated()), id: \.offset) { index, hour in
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    HStack(alignment: .top, spacing: 12) {
                         Text(hour.hour)
                             .font(.body.bold().monospacedDigit())
                             .frame(width: 28, alignment: .trailing)
-                        Text(hour.departures.isEmpty ? "—" : hour.departures.joined(separator: "  "))
-                            .font(.body.monospacedDigit())
-                            .foregroundStyle(hour.departures.isEmpty ? .tertiary : .primary)
+                        if hour.departures.isEmpty {
+                            Text("—")
+                                .font(.body.monospacedDigit())
+                                .foregroundStyle(.tertiary)
+                        } else {
+                            StationTimetableDepartureTimes(
+                                values: hour.departures,
+                                explanations: explanations
+                            )
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
                     .padding(.vertical, 3)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -499,6 +510,171 @@ struct StationTimetablesView: View {
             stop.platform.map { AppLocalization.string("Station timetable platform %@", $0) },
         ].compactMap(\.self)
         return values.isEmpty ? nil : values.joined(separator: " · ")
+    }
+}
+
+/// Separates an IDOS minute from its appended marker and associates the marker with the
+/// matching timetable explanation shown on hover.
+struct StationTimetableDeparturePresentation: Equatable {
+    let minute: String
+    let marker: String?
+    let explanation: String?
+
+    init(value: String, explanations: [String]) {
+        let markerStart = value.firstIndex { !$0.isNumber } ?? value.endIndex
+        let parsedMinute = String(value[..<markerStart])
+        let parsedMarker = String(value[markerStart...])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !parsedMinute.isEmpty, !parsedMarker.isEmpty else {
+            minute = value
+            marker = nil
+            explanation = nil
+            return
+        }
+
+        minute = parsedMinute
+        marker = parsedMarker
+        let matchingExplanations = explanations.filter { value in
+            guard let separator = value.firstIndex(of: ":") else { return false }
+            let key = value[..<separator].trimmingCharacters(in: .whitespacesAndNewlines)
+            return !key.isEmpty && parsedMarker.contains(key)
+        }
+        explanation = matchingExplanations.isEmpty
+            ? nil
+            : matchingExplanations.joined(separator: "\n")
+    }
+}
+
+/// Presents minute markers as secondary information attached to their departure while keeping
+/// each departure together when a busy hour wraps onto another line.
+struct StationTimetableDepartureTimes: View {
+    let values: [String]
+    let explanations: [String]
+
+    var body: some View {
+        StationTimetableDepartureFlowLayout(horizontalSpacing: 10, verticalSpacing: 2) {
+            ForEach(Array(presentations.enumerated()), id: \.offset) { _, presentation in
+                StationTimetableDepartureTime(presentation: presentation)
+            }
+        }
+    }
+
+    var presentations: [StationTimetableDeparturePresentation] {
+        values.map {
+            StationTimetableDeparturePresentation(value: $0, explanations: explanations)
+        }
+    }
+}
+
+/// Keeps the primary minute prominent and exposes the complete IDOS explanation from its smaller
+/// marker to pointer and accessibility users.
+private struct StationTimetableDepartureTime: View {
+    let presentation: StationTimetableDeparturePresentation
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 1) {
+            Text(verbatim: presentation.minute)
+                .font(.body.monospacedDigit())
+            marker
+        }
+        .fixedSize()
+    }
+
+    @ViewBuilder
+    private var marker: some View {
+        if let value = presentation.marker {
+            if let explanation = presentation.explanation {
+                markerLabel(value)
+                    .help(Text(verbatim: explanation))
+                    .accessibilityLabel(Text(verbatim: explanation))
+            } else {
+                markerLabel(value)
+            }
+        }
+    }
+
+    private func markerLabel(_ value: String) -> some View {
+        Text(verbatim: value)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .baselineOffset(2)
+    }
+}
+
+/// Wraps complete departure tokens without separating a minute from its explanatory marker.
+struct StationTimetableDepartureFlowLayout: Layout {
+    let horizontalSpacing: CGFloat
+    let verticalSpacing: CGFloat
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) -> CGSize {
+        arrangement(for: subviews, availableWidth: finiteWidth(proposal.width)).size
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        let arrangement = arrangement(for: subviews, availableWidth: finiteWidth(bounds.width))
+        for (index, position) in arrangement.positions.enumerated() {
+            subviews[index].place(
+                at: CGPoint(x: bounds.minX + position.x, y: bounds.minY + position.y),
+                anchor: .topLeading,
+                proposal: .unspecified
+            )
+        }
+    }
+
+    private struct Arrangement {
+        let size: CGSize
+        let positions: [CGPoint]
+    }
+
+    private func arrangement(
+        for subviews: Subviews,
+        availableWidth: CGFloat
+    ) -> Arrangement {
+        guard !subviews.isEmpty else {
+            return Arrangement(size: .zero, positions: [])
+        }
+
+        var positions: [CGPoint] = []
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var contentWidth: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0, x + size.width > availableWidth {
+                x = 0
+                y += rowHeight + verticalSpacing
+                rowHeight = 0
+            }
+
+            positions.append(CGPoint(x: x, y: y))
+            contentWidth = max(contentWidth, x + size.width)
+            x += size.width + horizontalSpacing
+            rowHeight = max(rowHeight, size.height)
+        }
+
+        return Arrangement(
+            size: CGSize(width: min(contentWidth, availableWidth), height: y + rowHeight),
+            positions: positions
+        )
+    }
+
+    private func finiteWidth(_ proposedWidth: CGFloat?) -> CGFloat {
+        guard let proposedWidth, proposedWidth.isFinite else {
+            return .greatestFiniteMagnitude
+        }
+        return max(proposedWidth, 0)
     }
 }
 

@@ -868,6 +868,56 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testStationTimetableDepartureMarkersExplainTheirMinutes() {
+        let marked = StationTimetableDeparturePresentation(
+            value: "16AB",
+            explanations: [
+                "A: jede jen do zastávky Háje",
+                "B: nejede o prázdninách",
+                "platí od 1.7.2026",
+            ]
+        )
+        let unmarked = StationTimetableDeparturePresentation(
+            value: "47",
+            explanations: ["A: jede jen do zastávky Háje"]
+        )
+
+        XCTAssertEqual(marked.minute, "16")
+        XCTAssertEqual(marked.marker, "AB")
+        XCTAssertEqual(
+            marked.explanation,
+            "A: jede jen do zastávky Háje\nB: nejede o prázdninách"
+        )
+        XCTAssertEqual(unmarked.minute, "47")
+        XCTAssertNil(unmarked.marker)
+        XCTAssertNil(unmarked.explanation)
+    }
+
+    func testStationTimetableDepartureMarkersStayAttachedWhenTimesWrap() {
+        let values = ["05A", "15B", "25C", "35A", "45B", "55C"]
+        let explanations = ["A: první", "B: druhá", "C: třetí"]
+        let departures = StationTimetableDepartureTimes(
+            values: values,
+            explanations: explanations
+        )
+
+        XCTAssertEqual(
+            departures.presentations.map(\.minute),
+            ["05", "15", "25", "35", "45", "55"]
+        )
+        XCTAssertEqual(
+            departures.presentations.compactMap(\.marker),
+            ["A", "B", "C", "A", "B", "C"]
+        )
+
+        let wide = NSHostingView(rootView: departures.frame(width: 280, alignment: .leading))
+        let narrow = NSHostingView(rootView: departures.frame(width: 80, alignment: .leading))
+        wide.layoutSubtreeIfNeeded()
+        narrow.layoutSubtreeIfNeeded()
+
+        XCTAssertGreaterThan(narrow.fittingSize.height, wide.fittingSize.height)
+    }
+
     func testRouteStopMarkerIsAnOutlinedCircleWithAnOptionalCenter() throws {
         func centerBrightness(showsCenter: Bool) throws -> CGFloat {
             let marker = RouteStopMarker(
