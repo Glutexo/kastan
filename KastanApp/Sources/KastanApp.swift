@@ -599,7 +599,10 @@ struct AppSectionCommands: Commands {
                 Label("Show item details", systemImage: "info.circle")
             }
             Toggle(isOn: $showsAlternatingRowBackgrounds) {
-                Label("Show alternating row backgrounds", systemImage: "rectangle.split.3x1")
+                Label(
+                    "Show alternating row backgrounds",
+                    systemImage: AlternatingRowBackgroundPresentation.menuSystemImage
+                )
             }
             Toggle(isOn: $showsSymbolsAsText) {
                 Label("Replace symbols with text", systemImage: "textformat")

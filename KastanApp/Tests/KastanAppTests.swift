@@ -185,6 +185,16 @@ final class KastanAppTests: XCTestCase {
 
     func testAlternatingRowBackgroundsCanBeDisabledWithoutChangingRowOrder() {
         XCTAssertEqual(
+            AlternatingRowBackgroundPresentation.menuSystemImage,
+            "rectangle.split.1x2"
+        )
+        XCTAssertNotNil(
+            NSImage(
+                systemSymbolName: AlternatingRowBackgroundPresentation.menuSystemImage,
+                accessibilityDescription: nil
+            )
+        )
+        XCTAssertEqual(
             (0..<4).map {
                 AlternatingRowBackgroundPresentation.isTinted(rowAt: $0, isEnabled: true)
             },

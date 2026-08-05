@@ -460,6 +460,9 @@ enum AlternatingRowBackgroundPreference {
 
 /// Decides which data rows receive the subtle alternate tint shared across result views.
 enum AlternatingRowBackgroundPresentation {
+    /// Mirrors the horizontal rows affected by the presentation setting in the View menu.
+    static let menuSystemImage = "rectangle.split.1x2"
+
     static func isTinted(rowAt index: Int, isEnabled: Bool) -> Bool {
         isEnabled && !index.isMultiple(of: 2)
     }
