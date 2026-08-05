@@ -3218,18 +3218,14 @@ final class KastanAppTests: XCTestCase {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
         XCTAssertEqual(
-            signalSymbol.helpText(optionIsPressed: false, bundle: czech),
-            "zastávka na znamení"
-        )
-        XCTAssertEqual(
-            signalSymbol.helpText(optionIsPressed: true, bundle: czech),
+            signalSymbol.ruleExplanation(bundle: czech),
             """
             zastávka na znamení
             Použité pravidlo: poznámka obsahuje „na znameni“ bez ohledu na velikost písmen a diakritiku.
             """
         )
         XCTAssertEqual(
-            signalSymbol.helpText(optionIsPressed: true, bundle: english),
+            signalSymbol.ruleExplanation(bundle: english),
             """
             zastávka na znamení
             Matched rule: note contains “na znameni” after ignoring letter case and diacritics.
@@ -3241,7 +3237,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(textual.textNotes, notes)
     }
 
-    func testRenderedStopNoteTooltipSelectsOptionRuleAtDisplayTime() throws {
+    func testRenderedStopNoteOptionClickOpensRulePopover() throws {
         let symbol = try XCTUnwrap(
             StopNotePresentation(notes: ["zastávka na znamení"], showsText: false).symbols.first
         )
@@ -3249,22 +3245,59 @@ final class KastanAppTests: XCTestCase {
             rootView: StopNoteSymbols(values: [symbol])
         )
         hostingView.frame = NSRect(x: 0, y: 0, width: 120, height: 40)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        defer {
+            window.childWindows?.forEach { $0.close() }
+            window.orderOut(nil)
+        }
         hostingView.layoutSubtreeIfNeeded()
-        let helpView = try XCTUnwrap(
-            hostingView.allDescendantViews.compactMap { $0 as? OptionAwareHelpView }.first
+        let clickView = try XCTUnwrap(
+            hostingView.allDescendantViews.compactMap { $0 as? OptionClickCaptureView }.first
         )
+        let ordinaryClick = try XCTUnwrap(NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: .zero,
+            modifierFlags: [],
+            timestamp: 0,
+            windowNumber: window.windowNumber,
+            context: nil,
+            eventNumber: 1,
+            clickCount: 1,
+            pressure: 1
+        ))
+        let optionClick = try XCTUnwrap(NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: .zero,
+            modifierFlags: [.option],
+            timestamp: 0,
+            windowNumber: window.windowNumber,
+            context: nil,
+            eventNumber: 2,
+            clickCount: 1,
+            pressure: 1
+        ))
 
-        XCTAssertEqual(
-            helpView.toolTipText(for: []),
-            "zastávka na znamení"
-        )
-        XCTAssertEqual(
-            helpView.toolTipText(for: [.option]),
-            symbol.helpText(optionIsPressed: true)
-        )
-        XCTAssertGreaterThan(helpView.frame.width, 0)
-        XCTAssertGreaterThan(helpView.frame.height, 0)
-        XCTAssertNil(helpView.hitTest(NSPoint(x: 1, y: 1)))
+        XCTAssertFalse(OptionClickCaptureView.handles(ordinaryClick))
+        XCTAssertTrue(OptionClickCaptureView.handles(optionClick))
+        XCTAssertGreaterThan(clickView.frame.width, 0)
+        XCTAssertGreaterThan(clickView.frame.height, 0)
+
+        clickView.mouseDown(with: ordinaryClick)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        XCTAssertTrue(window.childWindows?.isEmpty ?? true)
+
+        clickView.mouseDown(with: optionClick)
+        for _ in 0..<100 where window.childWindows?.isEmpty ?? true {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.01))
+        }
+        XCTAssertFalse(window.childWindows?.isEmpty ?? true)
     }
 
     func testRenderedServiceStopAlignsItsMarkerAndTitleWithoutDetails() throws {

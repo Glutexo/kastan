@@ -581,13 +581,8 @@ struct StopNotePresentation: Equatable {
         let note: String
         let matchedRule: String
 
-        /// Keeps the original IDOS note visible and adds the exact symbol-selection rule only
-        /// when the passenger deliberately requests diagnostic detail with Option.
-        func helpText(optionIsPressed: Bool, bundle: Bundle = .main) -> String {
-            guard optionIsPressed else {
-                return note
-            }
-
+        /// Combines the original IDOS note with the exact rule requested by Option-clicking its emoji.
+        func ruleExplanation(bundle: Bundle = .main) -> String {
             let format = bundle.localizedString(
                 forKey: "Matched rule: note contains “%@” after ignoring letter case and diacritics.",
                 value: nil,
@@ -674,50 +669,58 @@ struct StopNoteSymbols: View {
 
     var body: some View {
         ForEach(Array(values.enumerated()), id: \.offset) { _, value in
-            Text(value.emoji)
-                .accessibilityLabel(Text(verbatim: value.note))
-                .background {
-                    OptionAwareHelpOverlay(
-                        presentation: OptionAwareHelpPresentation(
-                            standardText: value.note,
-                            optionText: value.helpText(optionIsPressed: true)
-                        )
-                    )
-                }
+            StopNoteSymbol(value: value)
         }
     }
 }
 
-/// Chooses diagnostic help from the modifiers that are active when AppKit requests a tooltip,
-/// avoiding SwiftUI's cached help text when Option changes before or during a hover.
-struct OptionAwareHelpPresentation: Equatable {
-    let standardText: String
-    let optionText: String
+/// Keeps ordinary hover help compact and opens the matching rule only after an explicit Option-click.
+struct StopNoteSymbol: View {
+    let value: StopNotePresentation.Symbol
+    @State private var showsRuleExplanation = false
 
-    func text(for modifierFlags: NSEvent.ModifierFlags) -> String {
-        modifierFlags.contains(.option) ? optionText : standardText
+    var body: some View {
+        Text(value.emoji)
+            .accessibilityLabel(Text(verbatim: value.note))
+            .accessibilityAction(named: Text("Show matched rule")) {
+                showsRuleExplanation = true
+            }
+            .help(Text(verbatim: value.note))
+            .overlay {
+                OptionClickOverlay {
+                    showsRuleExplanation = true
+                }
+            }
+            .popover(isPresented: $showsRuleExplanation, arrowEdge: .bottom) {
+                Text(verbatim: value.ruleExplanation())
+                    .font(.callout)
+                    .frame(width: 320, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+                    .padding(12)
+            }
     }
 }
 
-/// Covers one SwiftUI symbol with a native dynamic tooltip without changing its layout or hit area.
-struct OptionAwareHelpOverlay: NSViewRepresentable {
-    let presentation: OptionAwareHelpPresentation
+/// Adds a modifier-sensitive click target without turning the emoji into a nested button.
+struct OptionClickOverlay: NSViewRepresentable {
+    let action: () -> Void
 
-    func makeNSView(context: Context) -> OptionAwareHelpView {
-        OptionAwareHelpView(presentation: presentation)
+    func makeNSView(context: Context) -> OptionClickCaptureView {
+        OptionClickCaptureView(action: action)
     }
 
-    func updateNSView(_ nsView: OptionAwareHelpView, context: Context) {
-        nsView.presentation = presentation
+    func updateNSView(_ nsView: OptionClickCaptureView, context: Context) {
+        nsView.action = action
     }
 }
 
-/// Resolves the current modifier flags at tooltip-display time instead of storing a stale string.
-final class OptionAwareHelpView: NSView, NSViewToolTipOwner {
-    var presentation: OptionAwareHelpPresentation
+/// Captures only Option-modified primary clicks and leaves every ordinary row interaction untouched.
+final class OptionClickCaptureView: NSView {
+    var action: () -> Void
 
-    init(presentation: OptionAwareHelpPresentation) {
-        self.presentation = presentation
+    init(action: @escaping () -> Void) {
+        self.action = action
         super.init(frame: .zero)
     }
 
@@ -726,41 +729,18 @@ final class OptionAwareHelpView: NSView, NSViewToolTipOwner {
         fatalError("init(coder:) is unavailable")
     }
 
-    override func setFrameSize(_ newSize: NSSize) {
-        let sizeChanged = frame.size != newSize
-        super.setFrameSize(newSize)
-        if sizeChanged {
-            registerToolTip()
-        }
-    }
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        registerToolTip()
-    }
-
-    /// The tooltip overlay observes the pointer but leaves clicks to the surrounding stop row.
     override func hitTest(_ point: NSPoint) -> NSView? {
-        nil
+        guard let event = NSApp.currentEvent, Self.handles(event) else { return nil }
+        return super.hitTest(point)
     }
 
-    func toolTipText(for modifierFlags: NSEvent.ModifierFlags) -> String {
-        presentation.text(for: modifierFlags)
+    override func mouseDown(with event: NSEvent) {
+        guard Self.handles(event) else { return }
+        action()
     }
 
-    func view(
-        _ view: NSView,
-        stringForToolTip tag: NSView.ToolTipTag,
-        point: NSPoint,
-        userData data: UnsafeMutableRawPointer?
-    ) -> String {
-        toolTipText(for: NSEvent.modifierFlags)
-    }
-
-    private func registerToolTip() {
-        removeAllToolTips()
-        guard !bounds.isEmpty else { return }
-        addToolTip(bounds, owner: self, userData: nil)
+    static func handles(_ event: NSEvent) -> Bool {
+        event.type == .leftMouseDown && event.modifierFlags.contains(.option)
     }
 }
 

@@ -175,6 +175,7 @@
 "Show alternating row backgrounds" = "Střídat barvy pozadí řádků";
 "Show connection badges" = "Zobrazit štítky spojení";
 "Show item details" = "Zobrazit podrobnosti položek";
+"Show matched rule" = "Zobrazit použité pravidlo";
 "Replace symbols with text" = "Nahradit symboly textem";
 "Show note calendar" = "Zobrazit kalendář platnosti poznámky";
 "Show note calendar; hold Option for recognized conditions" = "Zobrazit kalendář platnosti poznámky; podržte Option pro rozpoznané podmínky";

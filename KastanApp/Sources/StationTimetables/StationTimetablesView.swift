@@ -409,6 +409,7 @@ struct StationTimetablesView: View {
                         StationTimetableStopTimeline(
                             presentation: timelinePresentation
                         )
+                        .allowsHitTesting(false)
                     }
                 }
             }
