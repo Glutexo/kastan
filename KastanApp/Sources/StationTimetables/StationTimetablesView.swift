@@ -271,7 +271,7 @@ struct StationTimetablesView: View {
         } else {
             title = result.lineName
         }
-        return VStack(alignment: .leading, spacing: 12) {
+        return VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .center, spacing: 10) {
                 StationTimetableRouteHeading(
                     lineTitle: title,
