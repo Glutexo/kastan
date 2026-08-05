@@ -880,6 +880,16 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testStationTimetableStopNotesShareTheStopTextLeadingEdge() {
+        XCTAssertEqual(
+            StationTimetableStopTimelineLayout.textLeadingPadding,
+            StationTimetableStopTimelineLayout.rowHorizontalPadding
+                + StationTimetableStopTimelineLayout.minuteWidth
+                + (2 * StationTimetableStopTimelineLayout.columnSpacing)
+                + RouteStopMarker.diameter
+        )
+    }
+
     func testRenderedStationTimetableTimelineConnectsAcrossAMiddleRow() throws {
         let width: CGFloat = 100
         let height: CGFloat = 50

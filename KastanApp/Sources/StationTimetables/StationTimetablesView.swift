@@ -364,7 +364,10 @@ struct StationTimetablesView: View {
                             NoteText(notePresentation.textNotes.joined(separator: " · "))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
-                                .padding(.leading, 64)
+                                .padding(
+                                    .leading,
+                                    StationTimetableStopTimelineLayout.textLeadingPadding
+                                )
                                 .padding(.trailing, 8)
                                 .padding(.bottom, 6)
                         }
@@ -461,6 +464,11 @@ enum StationTimetableStopTimelineLayout {
 
     static var markerCenterX: CGFloat {
         rowHorizontalPadding + minuteWidth + columnSpacing + (RouteStopMarker.diameter / 2)
+    }
+
+    /// Aligns a stop's expanded note text with the name and optional metadata above it.
+    static var textLeadingPadding: CGFloat {
+        markerCenterX + (RouteStopMarker.diameter / 2) + columnSpacing
     }
 
     static var markerCenterY: CGFloat {

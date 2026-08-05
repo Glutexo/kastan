@@ -52,7 +52,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   minimum widths no longer fit. A direction that
   wraps across lines remains vertically centered beside the line name, while single-line headings retain baseline
   alignment. Notes saying that a service skips listed stops use the route symbol instead of a generic information
-  marker. Common stop properties appear directly after the stop name as semantic emoji: request
+  marker. Expanded stop-note text shares the leading edge of the stop name and optional metadata. Common stop
+  properties appear directly after the stop name as semantic emoji: request
   stops use 🔔, wheelchair accessibility uses ♿, rail stations use 🚉, Metro transfers use 🚇, and traffic
   restrictions use 🚧. Hovering a symbol reveals the original IDOS note, VoiceOver reads that note, and unrecognized
   operational notes retain their complete text. Their service date uses the same compact popover treatment as the
