@@ -2648,7 +2648,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(editor.allDescendantViews.compactMap { $0 as? NSDatePicker }.count, 1)
     }
 
-    func testStationTimetableScheduleHeadingLowercasesTheWeekday() {
+    func testStationTimetableScheduleHeadingUsesTheLanguageWeekdayCapitalization() {
         XCTAssertEqual(
             StationTimetableScheduleLabelPresentation.title(
                 "5.8.2026 Středa",
@@ -2658,17 +2658,31 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             StationTimetableScheduleLabelPresentation.title(
-                "17.7.2026 Friday",
+                "17.7.2026 friday",
                 locale: Locale(identifier: "en_GB")
             ),
-            "17.7.2026 friday"
+            "17.7.2026 Friday"
         )
         XCTAssertEqual(
             StationTimetableScheduleLabelPresentation.title(
-                "Friday",
-                locale: Locale(identifier: "en_GB")
+                "6.8.2026 Mercredi",
+                locale: Locale(identifier: "fr_FR")
             ),
-            "friday"
+            "6.8.2026 mercredi"
+        )
+        XCTAssertEqual(
+            StationTimetableScheduleLabelPresentation.title(
+                "7.8.2026 mittwoch",
+                locale: Locale(identifier: "de_DE")
+            ),
+            "7.8.2026 Mittwoch"
+        )
+        XCTAssertEqual(
+            StationTimetableScheduleLabelPresentation.title(
+                "8.8.2026 土曜日",
+                locale: Locale(identifier: "ja_JP")
+            ),
+            "8.8.2026 土曜日"
         )
     }
 

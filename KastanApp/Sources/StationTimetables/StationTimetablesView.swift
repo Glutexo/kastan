@@ -496,7 +496,7 @@ struct StationTimetablesView: View {
 enum StationTimetableScheduleLabelPresentation {
     static func title(
         _ value: String,
-        locale: Locale = .autoupdatingCurrent
+        locale: Locale = AppLanguagePreference.presentationLocale
     ) -> String {
         let weekdayStart: String.Index
         if let separator = value.lastIndex(where: \.isWhitespace),
@@ -510,8 +510,31 @@ enum StationTimetableScheduleLabelPresentation {
         guard weekdayStart < value.endIndex else { return value }
         let firstCharacterEnd = value.index(after: weekdayStart)
         return String(value[..<weekdayStart]) +
-            String(value[weekdayStart..<firstCharacterEnd]).lowercased(with: locale) +
+            weekdayInitial(
+                String(value[weekdayStart..<firstCharacterEnd]),
+                locale: locale
+            ) +
             String(value[firstCharacterEnd...])
+    }
+
+    /// Uses the locale's own weekday symbols as the source of its orthographic capitalization.
+    private static func weekdayInitial(_ value: String, locale: Locale) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = locale
+
+        for weekday in formatter.weekdaySymbols ?? [] {
+            guard let firstCharacter = weekday.first else { continue }
+            let initial = String(firstCharacter)
+            let lowercaseInitial = initial.lowercased(with: locale)
+            let uppercaseInitial = initial.uppercased(with: locale)
+            guard lowercaseInitial != uppercaseInitial else { continue }
+
+            return initial == lowercaseInitial
+                ? value.lowercased(with: locale)
+                : value.uppercased(with: locale)
+        }
+
+        return value
     }
 }
 

@@ -44,9 +44,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, optional tariff zones and platforms or stands, lockout labels, keyed departure explanations,
-  timetable-wide notes, and links back to the matching IDOS result. Schedule headings keep the numeric date and use
-  a lowercase weekday as inline prose. The route, explanations, and notes use icon headings. Route stops use the
-  same connected circular timeline as complete service routes. Its neutral section
+  timetable-wide notes, and links back to the matching IDOS result. Schedule headings keep the numeric date and
+  follow the selected language's weekday capitalization, such as lowercase Czech `středa` and uppercase English
+  `Wednesday`. The route, explanations, and notes use icon headings. Route stops use the same connected circular
+  timeline as complete service routes. Its neutral section
   leads into an accent-colored continuation from
   the selected stop through the final stop, with centered marks at the route endpoints and selection. Selection
   accents do not dim the stop content: optional metadata and expanded notes retain the same adaptive secondary color,

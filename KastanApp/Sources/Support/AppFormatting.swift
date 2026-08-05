@@ -105,6 +105,16 @@ enum AppLanguagePreference {
         Bundle.main.preferredLocalizations.first == "cs" ? .czech : .english
     }
 
+    /// Keeps generated date wording aligned with the localization selected for IDOS content.
+    static var presentationLocale: Locale {
+        switch idosLanguage {
+        case .czech:
+            Locale(identifier: "cs_CZ")
+        case .english:
+            Locale(identifier: "en_GB")
+        }
+    }
+
     /// Localizes an English country name returned in IDOS metadata through its ISO region code.
     static func localizedCountryName(fromEnglishName name: String, language: IDOSLanguage) -> String? {
         guard let regionCode = countryCodeByEnglishName[normalizedCountryName(name)] else {
