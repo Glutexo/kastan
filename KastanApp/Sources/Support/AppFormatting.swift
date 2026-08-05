@@ -170,7 +170,28 @@ enum AppLocalization {
     /// Resolves number-dependent wording through the locale's Unicode plural rules.
     static func plural(_ key: String, count: Int, bundle: Bundle = .main) -> String {
         let format = bundle.localizedString(forKey: key, value: key, table: nil)
-        return String.localizedStringWithFormat(format, Int64(count))
+        return String(
+            format: format,
+            locale: pluralLocale(for: bundle),
+            arguments: [Int64(count)]
+        )
+    }
+
+    /// Keeps plural rules aligned with the localization that supplied the product wording,
+    /// independently of the Mac's language or the environment running the application tests.
+    static func pluralLocale(for bundle: Bundle) -> Locale {
+        if bundle.bundleURL.pathExtension == "lproj" {
+            return Locale(
+                identifier: bundle.bundleURL.deletingPathExtension().lastPathComponent
+            )
+        }
+
+        let localization = bundle.preferredLocalizations.first
+            ?? bundle.developmentLocalization
+        guard let localization, localization != "Base" else {
+            return .current
+        }
+        return Locale(identifier: localization)
     }
 }
 

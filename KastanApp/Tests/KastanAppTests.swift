@@ -4355,6 +4355,8 @@ final class KastanAppTests: XCTestCase {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
 
+        XCTAssertEqual(AppLocalization.pluralLocale(for: czech).identifier, "cs")
+        XCTAssertEqual(AppLocalization.pluralLocale(for: english).identifier, "en")
         XCTAssertEqual(AppLocalization.plural("Up to %lld transfers", count: 1, bundle: czech), "Nejvýše 1 přestup")
         XCTAssertEqual(AppLocalization.plural("Up to %lld transfers", count: 2, bundle: czech), "Nejvýše 2 přestupy")
         XCTAssertEqual(AppLocalization.plural("Up to %lld transfers", count: 4, bundle: czech), "Nejvýše 4 přestupy")
