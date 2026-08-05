@@ -145,7 +145,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   stop-note emoji with the complete wording supplied by IDOS; the setting is off initially. It applies equally to
   connection results, station boards, station timetables, complete result windows, and Force Click previews. Station
   timetables, complete service windows, and previews continue to show tariff zones, platforms, tracks, and distances
-  beside concrete stops.
+  beside concrete stops. Hovering a compact stop-note emoji shows the original IDOS note. Holding Option while
+  hovering adds the exact phrase-matching rule that selected the emoji and states that matching ignores letter case
+  and diacritics.
   Complete-route markers remain centered beside each stop title whether optional metadata is visible or hidden.
   Stop-note meaning remains visible independently of the item-details choice and the selected symbol-or-text form.
   Show alternating row backgrounds is another global, persistent setting and is enabled initially. Its subtle adaptive

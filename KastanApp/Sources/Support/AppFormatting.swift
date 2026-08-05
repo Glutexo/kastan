@@ -573,7 +573,53 @@ struct StopNotePresentation: Equatable {
     struct Symbol: Equatable {
         let emoji: String
         let note: String
+        let matchedRule: String
+
+        /// Keeps the original IDOS note visible and adds the exact symbol-selection rule only
+        /// when the passenger deliberately requests diagnostic detail with Option.
+        func helpText(optionIsPressed: Bool, bundle: Bundle = .main) -> String {
+            guard optionIsPressed else {
+                return note
+            }
+
+            let format = bundle.localizedString(
+                forKey: "Matched rule: note contains “%@” after ignoring letter case and diacritics.",
+                value: nil,
+                table: nil
+            )
+            let rule = String(
+                format: format,
+                locale: AppLocalization.pluralLocale(for: bundle),
+                arguments: [matchedRule]
+            )
+            return "\(note)\n\(rule)"
+        }
     }
+
+    private struct EmojiRule {
+        let emoji: String
+        let phrases: [String]
+    }
+
+    /// Rule order preserves the established preference when one note matches multiple meanings.
+    private static let emojiRules = [
+        EmojiRule(emoji: "♿", phrases: ["wheelchair accessible", "bezbarier"]),
+        EmojiRule(
+            emoji: "🚉",
+            phrases: [
+                "rail station",
+                "railway station",
+                "zeleznicni stanice",
+                "zeleznicni dopravu",
+            ]
+        ),
+        EmojiRule(emoji: "🚇", phrases: ["undeground", "underground", "metro"]),
+        EmojiRule(
+            emoji: "🚧",
+            phrases: ["traffic restriction", "vyluk", "omezeni provozu"]
+        ),
+        EmojiRule(emoji: "🔔", phrases: ["stops on signal", "request stop", "na znameni"]),
+    ]
 
     let symbols: [Symbol]
     let textNotes: [String]
@@ -588,8 +634,8 @@ struct StopNotePresentation: Equatable {
         var symbols: [Symbol] = []
         var textNotes: [String] = []
         for note in notes {
-            if let emoji = Self.emoji(for: note) {
-                symbols.append(Symbol(emoji: emoji, note: note))
+            if let symbol = Self.symbol(for: note) {
+                symbols.append(symbol)
             } else {
                 textNotes.append(note)
             }
@@ -598,7 +644,7 @@ struct StopNotePresentation: Equatable {
         self.textNotes = textNotes
     }
 
-    private static func emoji(for note: String) -> String? {
+    private static func symbol(for note: String) -> Symbol? {
         let normalized = note
             .folding(
                 options: [.diacriticInsensitive, .caseInsensitive],
@@ -606,33 +652,10 @@ struct StopNotePresentation: Equatable {
             )
             .lowercased()
 
-        if normalized.contains("wheelchair accessible") || normalized.contains("bezbarier") {
-            return "♿"
-        }
-        if normalized.contains("rail station") ||
-            normalized.contains("railway station") ||
-            normalized.contains("zeleznicni stanice") ||
-            normalized.contains("zeleznicni dopravu")
-        {
-            return "🚉"
-        }
-        if normalized.contains("undeground") ||
-            normalized.contains("underground") ||
-            normalized.contains("metro")
-        {
-            return "🚇"
-        }
-        if normalized.contains("traffic restriction") ||
-            normalized.contains("vyluk") ||
-            normalized.contains("omezeni provozu")
-        {
-            return "🚧"
-        }
-        if normalized.contains("stops on signal") ||
-            normalized.contains("request stop") ||
-            normalized.contains("na znameni")
-        {
-            return "🔔"
+        for rule in emojiRules {
+            if let matchedRule = rule.phrases.first(where: normalized.contains) {
+                return Symbol(emoji: rule.emoji, note: note, matchedRule: matchedRule)
+            }
         }
         return nil
     }
@@ -641,13 +664,14 @@ struct StopNotePresentation: Equatable {
 /// Exposes the original IDOS wording to VoiceOver and on hover without taking the compact symbol
 /// away from the stop title.
 struct StopNoteSymbols: View {
+    @Environment(\.isOptionModifierPressed) private var isOptionModifierPressed
     let values: [StopNotePresentation.Symbol]
 
     var body: some View {
         ForEach(Array(values.enumerated()), id: \.offset) { _, value in
             Text(value.emoji)
                 .accessibilityLabel(Text(verbatim: value.note))
-                .help(value.note)
+                .help(Text(verbatim: value.helpText(optionIsPressed: isOptionModifierPressed)))
         }
     }
 }

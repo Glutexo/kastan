@@ -2963,7 +2963,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(presentation.helpText, information.map(\.text).joined(separator: "\n"))
     }
 
-    func testStopNotesUseSymbolsUntilTheSharedTextPreferenceIsEnabled() {
+    func testStopNotesUseSymbolsUntilTheSharedTextPreferenceIsEnabled() throws {
         let notes = [
             "zastávka na znamení",
             "wheelchair accessible stop",
@@ -2982,7 +2982,39 @@ final class KastanAppTests: XCTestCase {
             ["🔔", "♿", "🚉", "🚇", "🚧"]
         )
         XCTAssertEqual(compact.symbols.map(\.note), Array(notes.prefix(5)))
+        XCTAssertEqual(
+            compact.symbols.map(\.matchedRule),
+            [
+                "na znameni",
+                "wheelchair accessible",
+                "zeleznicni stanice",
+                "metro",
+                "traffic restriction",
+            ]
+        )
         XCTAssertEqual(compact.textNotes, ["Board using the front door"])
+
+        let signalSymbol = try XCTUnwrap(compact.symbols.first)
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        XCTAssertEqual(
+            signalSymbol.helpText(optionIsPressed: false, bundle: czech),
+            "zastávka na znamení"
+        )
+        XCTAssertEqual(
+            signalSymbol.helpText(optionIsPressed: true, bundle: czech),
+            """
+            zastávka na znamení
+            Použité pravidlo: poznámka obsahuje „na znameni“ bez ohledu na velikost písmen a diakritiku.
+            """
+        )
+        XCTAssertEqual(
+            signalSymbol.helpText(optionIsPressed: true, bundle: english),
+            """
+            zastávka na znamení
+            Matched rule: note contains “na znameni” after ignoring letter case and diacritics.
+            """
+        )
 
         let textual = StopNotePresentation(notes: notes, showsText: true)
         XCTAssertTrue(textual.symbols.isEmpty)

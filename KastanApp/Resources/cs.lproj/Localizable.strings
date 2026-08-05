@@ -94,6 +94,7 @@
 "Line" = "Linka";
 "Line number or name" = "Číslo nebo název linky";
 "Maximum number of transfers" = "Nejvyšší počet přestupů";
+"Matched rule: note contains “%@” after ignoring letter case and diacritics." = "Použité pravidlo: poznámka obsahuje „%@“ bez ohledu na velikost písmen a diakritiku.";
 "Message" = "Zpráva";
 "Message can contain at most 1,024 characters." = "Zpráva může obsahovat nejvýše 1 024 znaků.";
 "Kaštan on GitHub" = "Kaštan na GitHubu";
