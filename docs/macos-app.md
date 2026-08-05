@@ -46,8 +46,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   route stops, optional tariff zones and platforms or stands, lockout labels, explanatory notes, and links back to
   the matching IDOS result. The route and notes use matching icon headings, and route stops use the same connected
   circular timeline as complete service routes. Its neutral section leads into an accent-colored continuation from
-  the selected stop through the final stop, with centered marks at the route endpoints and selection. Timetable-wide
-  notes start collapsed and expand into selectable text while retaining their interactive links. Schedule tables
+  the selected stop through the final stop, with centered marks at the route endpoints and selection. Selection
+  accents do not dim the stop content: optional metadata and expanded notes retain the same adaptive secondary color,
+  including on the selected row. Timetable-wide notes start collapsed and expand into selectable text while retaining
+  their interactive links. Schedule tables
   expand evenly across the remaining result width and fall back to horizontal scrolling only when their readable
   minimum widths no longer fit. A direction that
   wraps across lines remains vertically centered beside the line name, while single-line headings retain baseline

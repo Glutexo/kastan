@@ -900,6 +900,52 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testSelectedStationTimetableStopKeepsMetadataAndNoteColorsAligned() throws {
+        let width: CGFloat = 80
+        let rowHeight: CGFloat = 20
+        func renderedColors(in colorScheme: ColorScheme) throws -> (NSColor, NSColor) {
+            let view = VStack(spacing: 0) {
+                Button {} label: {
+                    Color.secondary.frame(width: width, height: rowHeight)
+                }
+                .buttonStyle(StationTimetableStopButtonStyle())
+                .disabled(true)
+
+                Color.secondary.frame(width: width, height: rowHeight)
+            }
+            .frame(width: width, height: rowHeight * 2)
+            .background(colorScheme == .dark ? Color.black : Color.white)
+            .environment(\.colorScheme, colorScheme)
+            let hostingView = NSHostingView(rootView: view)
+            hostingView.frame = NSRect(x: 0, y: 0, width: width, height: rowHeight * 2)
+            hostingView.layoutSubtreeIfNeeded()
+
+            let bitmap = try XCTUnwrap(
+                hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds)
+            )
+            hostingView.cacheDisplay(in: hostingView.bounds, to: bitmap)
+            let x = bitmap.pixelsWide / 2
+            return (
+                try XCTUnwrap(
+                    bitmap.colorAt(x: x, y: bitmap.pixelsHigh / 4)?
+                        .usingColorSpace(.deviceRGB)
+                ),
+                try XCTUnwrap(
+                    bitmap.colorAt(x: x, y: (bitmap.pixelsHigh * 3) / 4)?
+                        .usingColorSpace(.deviceRGB)
+                )
+            )
+        }
+
+        for colorScheme in [ColorScheme.light, .dark] {
+            let (metadataColor, noteColor) = try renderedColors(in: colorScheme)
+            XCTAssertEqual(metadataColor.redComponent, noteColor.redComponent, accuracy: 0.01)
+            XCTAssertEqual(metadataColor.greenComponent, noteColor.greenComponent, accuracy: 0.01)
+            XCTAssertEqual(metadataColor.blueComponent, noteColor.blueComponent, accuracy: 0.01)
+            XCTAssertEqual(metadataColor.alphaComponent, noteColor.alphaComponent, accuracy: 0.01)
+        }
+    }
+
     func testRenderedStationTimetableTimelineConnectsAcrossAMiddleRow() throws {
         let width: CGFloat = 100
         let height: CGFloat = 50

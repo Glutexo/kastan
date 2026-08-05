@@ -357,7 +357,7 @@ struct StationTimetablesView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(StationTimetableStopButtonStyle())
                         .disabled(stop.isSelected || model.isSearching)
 
                         if !notePresentation.textNotes.isEmpty {
@@ -451,6 +451,15 @@ struct StationTimetablesView: View {
             stop.platform.map { AppLocalization.string("Station timetable platform %@", $0) },
         ].compactMap(\.self)
         return values.isEmpty ? nil : values.joined(separator: " · ")
+    }
+}
+
+/// Keeps the selected stop's primary and secondary information colors intact while its disabled
+/// button state prevents a redundant timetable reload.
+struct StationTimetableStopButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.7 : 1)
     }
 }
 
