@@ -622,36 +622,6 @@ struct SearchFieldHeader: View {
     }
 }
 
-private struct OptionModifierPressedEnvironmentKey: EnvironmentKey {
-    static let defaultValue = false
-}
-
-extension EnvironmentValues {
-    /// Shares one live Option state with every modifier-sensitive presentation in a result window.
-    var isOptionModifierPressed: Bool {
-        get { self[OptionModifierPressedEnvironmentKey.self] }
-        set { self[OptionModifierPressedEnvironmentKey.self] = newValue }
-    }
-}
-
-/// Installs one Option monitor per result window and propagates its state through SwiftUI.
-private struct OptionModifierTrackingModifier: ViewModifier {
-    @State private var isPressed = NSEvent.modifierFlags.contains(.option)
-
-    func body(content: Content) -> some View {
-        content
-            .environment(\.isOptionModifierPressed, isPressed)
-            .background(OptionModifierMonitor(isPressed: $isPressed))
-    }
-}
-
-extension View {
-    /// Enables live Option-dependent explanations without installing a monitor for every result row.
-    func trackingOptionModifier() -> some View {
-        modifier(OptionModifierTrackingModifier())
-    }
-}
-
 /// Mirrors the live Option state into SwiftUI for controls with modifier-dependent presentations.
 struct OptionModifierMonitor: NSViewRepresentable {
     @Binding var isPressed: Bool

@@ -3203,6 +3203,32 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(textual.textNotes, notes)
     }
 
+    func testRenderedStopNoteTooltipSelectsOptionRuleAtDisplayTime() throws {
+        let symbol = try XCTUnwrap(
+            StopNotePresentation(notes: ["zastávka na znamení"], showsText: false).symbols.first
+        )
+        let hostingView = NSHostingView(
+            rootView: StopNoteSymbols(values: [symbol])
+        )
+        hostingView.frame = NSRect(x: 0, y: 0, width: 120, height: 40)
+        hostingView.layoutSubtreeIfNeeded()
+        let helpView = try XCTUnwrap(
+            hostingView.allDescendantViews.compactMap { $0 as? OptionAwareHelpView }.first
+        )
+
+        XCTAssertEqual(
+            helpView.toolTipText(for: []),
+            "zastávka na znamení"
+        )
+        XCTAssertEqual(
+            helpView.toolTipText(for: [.option]),
+            symbol.helpText(optionIsPressed: true)
+        )
+        XCTAssertGreaterThan(helpView.frame.width, 0)
+        XCTAssertGreaterThan(helpView.frame.height, 0)
+        XCTAssertNil(helpView.hitTest(NSPoint(x: 1, y: 1)))
+    }
+
     func testRenderedServiceStopAlignsItsMarkerAndTitleWithoutDetails() throws {
         let row = ServiceStopRow(
             stop: IDOSServiceStop(name: "Ostrava střed"),

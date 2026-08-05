@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Kastan
 import SwiftUI
@@ -664,15 +665,97 @@ struct StopNotePresentation: Equatable {
 /// Exposes the original IDOS wording to VoiceOver and on hover without taking the compact symbol
 /// away from the stop title.
 struct StopNoteSymbols: View {
-    @Environment(\.isOptionModifierPressed) private var isOptionModifierPressed
     let values: [StopNotePresentation.Symbol]
 
     var body: some View {
         ForEach(Array(values.enumerated()), id: \.offset) { _, value in
             Text(value.emoji)
                 .accessibilityLabel(Text(verbatim: value.note))
-                .help(Text(verbatim: value.helpText(optionIsPressed: isOptionModifierPressed)))
+                .background {
+                    OptionAwareHelpOverlay(
+                        presentation: OptionAwareHelpPresentation(
+                            standardText: value.note,
+                            optionText: value.helpText(optionIsPressed: true)
+                        )
+                    )
+                }
         }
+    }
+}
+
+/// Chooses diagnostic help from the modifiers that are active when AppKit requests a tooltip,
+/// avoiding SwiftUI's cached help text when Option changes before or during a hover.
+struct OptionAwareHelpPresentation: Equatable {
+    let standardText: String
+    let optionText: String
+
+    func text(for modifierFlags: NSEvent.ModifierFlags) -> String {
+        modifierFlags.contains(.option) ? optionText : standardText
+    }
+}
+
+/// Covers one SwiftUI symbol with a native dynamic tooltip without changing its layout or hit area.
+struct OptionAwareHelpOverlay: NSViewRepresentable {
+    let presentation: OptionAwareHelpPresentation
+
+    func makeNSView(context: Context) -> OptionAwareHelpView {
+        OptionAwareHelpView(presentation: presentation)
+    }
+
+    func updateNSView(_ nsView: OptionAwareHelpView, context: Context) {
+        nsView.presentation = presentation
+    }
+}
+
+/// Resolves the current modifier flags at tooltip-display time instead of storing a stale string.
+final class OptionAwareHelpView: NSView, NSViewToolTipOwner {
+    var presentation: OptionAwareHelpPresentation
+
+    init(presentation: OptionAwareHelpPresentation) {
+        self.presentation = presentation
+        super.init(frame: .zero)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is unavailable")
+    }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        let sizeChanged = frame.size != newSize
+        super.setFrameSize(newSize)
+        if sizeChanged {
+            registerToolTip()
+        }
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        registerToolTip()
+    }
+
+    /// The tooltip overlay observes the pointer but leaves clicks to the surrounding stop row.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
+    }
+
+    func toolTipText(for modifierFlags: NSEvent.ModifierFlags) -> String {
+        presentation.text(for: modifierFlags)
+    }
+
+    func view(
+        _ view: NSView,
+        stringForToolTip tag: NSView.ToolTipTag,
+        point: NSPoint,
+        userData data: UnsafeMutableRawPointer?
+    ) -> String {
+        toolTipText(for: NSEvent.modifierFlags)
+    }
+
+    private func registerToolTip() {
+        removeAllToolTips()
+        guard !bounds.isEmpty else { return }
+        addToolTip(bounds, owner: self, userData: nil)
     }
 }
 

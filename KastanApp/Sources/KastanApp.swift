@@ -662,7 +662,6 @@ struct KastanApp: App {
                 showsStopNoteText: showsSymbolsAsText
             )
                 .environment(\.showsAlternatingRowBackgrounds, showsAlternatingRowBackgrounds)
-                .trackingOptionModifier()
                 .frame(minWidth: Self.minimumMainWindowWidth, minHeight: 520)
         }
         .defaultSize(width: Self.defaultMainWindowWidth, height: 720)
@@ -704,7 +703,6 @@ struct KastanApp: App {
                     showsStopNoteText: showsSymbolsAsText
                 )
                 .environment(\.showsAlternatingRowBackgrounds, showsAlternatingRowBackgrounds)
-                .trackingOptionModifier()
             }
         }
         .defaultSize(width: ServiceDetailView.defaultWindowWidth, height: 640)
@@ -720,7 +718,6 @@ struct KastanApp: App {
                     showsStopNoteText: showsSymbolsAsText
                 )
                 .environment(\.showsAlternatingRowBackgrounds, showsAlternatingRowBackgrounds)
-                .trackingOptionModifier()
             }
         }
         .defaultSize(width: ConnectionDetailView.defaultWindowWidth, height: 640)
