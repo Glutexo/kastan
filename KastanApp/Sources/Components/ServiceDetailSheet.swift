@@ -831,14 +831,25 @@ struct ServiceStopRow: View {
     let showsStopNoteText: Bool
 
     var body: some View {
-        let metadata = ResultMetadata.visible(
+        let stationMetadata = ResultMetadata.station(
+            tariffZone: stop.tariffZone,
+            platform: stop.platform,
+            track: stop.track,
+            platformTrack: stop.platformTrack
+        )
+        let compactMetadata = ResultMetadata.compactStopValues(
             showsDetails: showsItemDetails,
-            ResultMetadata.station(
+            showsSymbolsAsText: showsStopNoteText,
+            ResultMetadata.compactStation(
                 tariffZone: stop.tariffZone,
                 platform: stop.platform,
                 track: stop.track,
                 platformTrack: stop.platformTrack
-            ),
+            )
+        )
+        let metadata = ResultMetadata.visible(
+            showsDetails: showsItemDetails,
+            showsStopNoteText ? stationMetadata : nil,
             stop.distance
         )
         let notePresentation = StopNotePresentation(
@@ -876,6 +887,7 @@ struct ServiceStopRow: View {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         Text(stop.name)
                         StopNoteSymbols(values: notePresentation.symbols)
+                        CompactStopMetadata(values: compactMetadata)
                     }
                     .font(.headline)
                     .foregroundStyle(isDimmed ? Color.secondary : Color.primary)

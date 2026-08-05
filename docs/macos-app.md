@@ -158,7 +158,11 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   stop-note emoji with the complete wording supplied by IDOS; the setting is off initially. It applies equally to
   connection results, station boards, station timetables, complete result windows, and Force Click previews. Station
   timetables, complete service windows, and previews continue to show tariff zones, platforms, tracks, and distances
-  beside concrete stops, with combined platform/track values expanded into the same localized wording. Hovering a
+  beside concrete stops. With item details enabled and symbols retained, zones and stop positions move directly after
+  the stop name and emoji as smaller secondary values such as `50,51` and `2/3`; hovering or VoiceOver expands them
+  to localized wording such
+  as two individually listed zones or `platform 2, track 3`. Replacing symbols with text instead keeps that expanded
+  wording below the stop name, while distances remain below it in either form. Hovering a
   compact stop-note emoji shows the original IDOS note. Option-clicking that emoji opens a selectable popover with
   the note and the exact phrase-matching rule that selected the emoji, including that matching ignores letter case
   and diacritics.

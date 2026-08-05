@@ -3091,6 +3091,97 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testCompactStopDetailsUseRawValuesAndLocalizedHelpInSymbolMode() throws {
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        let czechValues = ResultMetadata.compactStation(
+            tariffZone: " 50, 51 ",
+            platform: "2",
+            track: "3",
+            platformTrack: " 2 / 3 ",
+            bundle: czech
+        )
+        XCTAssertEqual(
+            czechValues,
+            [
+                ResultMetadata.CompactItem(
+                    text: "50,51",
+                    helpText: "zóny 50 a\u{00A0}51"
+                ),
+                ResultMetadata.CompactItem(
+                    text: "2/3",
+                    helpText: "nástupiště 2, kolej 3"
+                ),
+            ]
+        )
+        XCTAssertEqual(
+            ResultMetadata.compactStation(
+                tariffZone: "50",
+                platform: "2",
+                track: "3",
+                bundle: czech
+            ),
+            [
+                ResultMetadata.CompactItem(text: "50", helpText: "zóna 50"),
+                ResultMetadata.CompactItem(
+                    text: "2/3",
+                    helpText: "nástupiště 2, kolej 3"
+                ),
+            ]
+        )
+        XCTAssertEqual(
+            ResultMetadata.compactStationTimetable(
+                tariffZone: "50,51",
+                platform: "1",
+                bundle: czech
+            ),
+            [
+                ResultMetadata.CompactItem(
+                    text: "50,51",
+                    helpText: "zóny 50 a\u{00A0}51"
+                ),
+                ResultMetadata.CompactItem(text: "1", helpText: "stanoviště 1"),
+            ]
+        )
+        XCTAssertEqual(
+            ResultMetadata.compactStation(
+                tariffZone: "50,51",
+                platform: nil,
+                platformTrack: "2/3",
+                bundle: english
+            ),
+            [
+                ResultMetadata.CompactItem(
+                    text: "50,51",
+                    helpText: "Zones 50 and 51"
+                ),
+                ResultMetadata.CompactItem(
+                    text: "2/3",
+                    helpText: "Platform 2, track 3"
+                ),
+            ]
+        )
+
+        XCTAssertEqual(
+            ResultMetadata.compactStopValues(
+                showsDetails: true,
+                showsSymbolsAsText: false,
+                czechValues
+            ),
+            czechValues
+        )
+        XCTAssertTrue(ResultMetadata.compactStopValues(
+            showsDetails: false,
+            showsSymbolsAsText: false,
+            czechValues
+        ).isEmpty)
+        XCTAssertTrue(ResultMetadata.compactStopValues(
+            showsDetails: true,
+            showsSymbolsAsText: true,
+            czechValues
+        ).isEmpty)
+    }
+
     func testConnectionLegDetailsOmitTariffZonesWithoutAClearEndpoint() {
         let leg = IDOSConnectionLeg(
             name: "R 879 Svitava",
@@ -3394,6 +3485,37 @@ final class KastanAppTests: XCTestCase {
         )
 
         XCTAssertEqual(markerBounds.midY, titleBounds.midY, accuracy: 2 * scale)
+    }
+
+    func testServiceStopDetailsMoveInlineWhileSymbolsRemainCompact() {
+        let stop = IDOSServiceStop(
+            name: "Praha hl.n.",
+            tariffZone: "P,0,B",
+            platformTrack: "2/3"
+        )
+        func renderedHeight(showsDetails: Bool, showsSymbolsAsText: Bool) -> CGFloat {
+            let row = ServiceStopRow(
+                stop: stop,
+                isFirst: true,
+                isLast: true,
+                hasHighlight: false,
+                isHighlighted: false,
+                isHighlightBoundary: false,
+                topIsHighlighted: false,
+                bottomIsHighlighted: false,
+                highlightedColor: .blue,
+                showsItemDetails: showsDetails,
+                showsStopNoteText: showsSymbolsAsText
+            )
+            return NSHostingView(rootView: row.frame(width: 500)).fittingSize.height
+        }
+
+        let hiddenHeight = renderedHeight(showsDetails: false, showsSymbolsAsText: false)
+        let compactHeight = renderedHeight(showsDetails: true, showsSymbolsAsText: false)
+        let expandedHeight = renderedHeight(showsDetails: true, showsSymbolsAsText: true)
+
+        XCTAssertEqual(compactHeight, hiddenHeight, accuracy: 1)
+        XCTAssertGreaterThan(expandedHeight, compactHeight)
     }
 
     func testAdaptiveConnectionBadgeStaysOneLineAtCompactWidth() throws {

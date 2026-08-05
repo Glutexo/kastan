@@ -230,6 +230,7 @@
 "Via" = "Přes";
 "Via place" = "Místo přes";
 "Zone %@" = "zóna %@";
+"Zones %@" = "zóny %@";
 "Your current location could not be determined. Try again." = "Aktuální polohu se nepodařilo zjistit. Zkuste to znovu.";
 "using the Kaštan app %@" = "pomocí aplikace Kaštan %@";
 "via %@" = "přes %@";

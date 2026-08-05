@@ -835,8 +835,30 @@ final class OptionClickCaptureView: NSView {
     }
 }
 
+/// Keeps optional stop facts visually subordinate while their hover and VoiceOver wording stays explicit.
+struct CompactStopMetadata: View {
+    let values: [ResultMetadata.CompactItem]
+
+    var body: some View {
+        ForEach(Array(values.enumerated()), id: \.offset) { _, value in
+            Text(verbatim: value.text)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize()
+                .help(Text(verbatim: value.helpText))
+                .accessibilityLabel(Text(verbatim: value.helpText))
+        }
+    }
+}
+
 /// Keeps optional metadata compact, readable, and governed by the global View preference.
 enum ResultMetadata {
+    /// Keeps the source value short on the route while retaining its complete localized meaning.
+    struct CompactItem: Equatable {
+        let text: String
+        let helpText: String
+    }
+
     private static let currentDelayExpressions = [
         #"^Current\s+delay\s+of\s+([0-9]+)\s+minutes?$"#,
         #"^Aktuální\s+zpoždění\s+([0-9]+)\s+minut(?:a|y)?$"#,
@@ -852,6 +874,16 @@ enum ResultMetadata {
     static func visible(showsDetails: Bool, _ values: String?...) -> String? {
         guard showsDetails else { return nil }
         return joined(values)
+    }
+
+    /// Shows compact stop facts only while item details are enabled and symbols remain compact.
+    static func compactStopValues(
+        showsDetails: Bool,
+        showsSymbolsAsText: Bool,
+        _ values: [CompactItem]
+    ) -> [CompactItem] {
+        guard showsDetails, !showsSymbolsAsText else { return [] }
+        return values
     }
 
     private static func joined(_ values: [String?]) -> String? {
@@ -885,6 +917,47 @@ enum ResultMetadata {
         )
     }
 
+    /// Places fare zones and a complete-route platform or track beside the stop title in symbol mode.
+    static func compactStation(
+        tariffZone: String?,
+        platform: String?,
+        track: String? = nil,
+        platformTrack: String? = nil,
+        bundle: Bundle = .main
+    ) -> [CompactItem] {
+        [
+            compactZone(tariffZone, bundle: bundle),
+            compactPosition(
+                platform: platform,
+                track: track,
+                platformTrack: platformTrack,
+                platformLocalizationKey: "Platform %@",
+                bundle: bundle
+            ),
+        ].compactMap(\.self)
+    }
+
+    /// Uses the timetable's neutral platform-or-stand wording for its compact stop position.
+    static func compactStationTimetable(
+        tariffZone: String?,
+        platform: String?,
+        bundle: Bundle = .main
+    ) -> [CompactItem] {
+        [
+            compactZone(tariffZone, bundle: bundle),
+            cleaned(platform).map {
+                CompactItem(
+                    text: $0,
+                    helpText: localized(
+                        "Station timetable platform %@",
+                        $0,
+                        bundle: bundle
+                    )
+                )
+            },
+        ].compactMap(\.self)
+    }
+
     /// Matches IDOS connection results by omitting tariff zones that a compact service row cannot
     /// unambiguously associate with either endpoint.
     static func connectionLeg(_ leg: IDOSConnectionLeg, showsDetails: Bool) -> String? {
@@ -899,21 +972,131 @@ enum ResultMetadata {
     }
 
     /// Expands IDOS's compact railway `platform/track` value into an unambiguous localized phrase.
-    static func platformTrackDescription(_ value: String) -> String {
+    static func platformTrackDescription(
+        _ value: String,
+        bundle: Bundle = .main
+    ) -> String {
         guard let components = platformTrackComponents(value) else {
-            return AppLocalization.string("platform/track %@", value)
+            return localized("platform/track %@", value, bundle: bundle)
         }
         return platformAndTrackDescription(
             platform: components.platform,
-            track: components.track
+            track: components.track,
+            bundle: bundle
         )
     }
 
-    private static func platformAndTrackDescription(platform: String, track: String) -> String {
+    private static func platformAndTrackDescription(
+        platform: String,
+        track: String,
+        separator: String = " ",
+        bundle: Bundle = .main
+    ) -> String {
         return [
-            AppLocalization.string("Platform %@", platform),
-            AppLocalization.string("track %@", track),
-        ].joined(separator: " ")
+            localized("Platform %@", platform, bundle: bundle),
+            localized("track %@", track, bundle: bundle),
+        ].joined(separator: separator)
+    }
+
+    private static func compactZone(
+        _ value: String?,
+        bundle: Bundle
+    ) -> CompactItem? {
+        guard let value = cleaned(value) else { return nil }
+        let zones = value
+            .split(separator: ",", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !zones.isEmpty else { return nil }
+
+        let text = zones.joined(separator: ",")
+        if zones.count == 1 {
+            return CompactItem(
+                text: text,
+                helpText: localized("Zone %@", zones[0], bundle: bundle)
+            )
+        }
+
+        let formatter = ListFormatter()
+        formatter.locale = AppLocalization.locale(for: bundle)
+        let list = formatter.string(from: zones) ?? zones.joined(separator: ", ")
+        return CompactItem(
+            text: text,
+            helpText: localized("Zones %@", list, bundle: bundle)
+        )
+    }
+
+    private static func compactPosition(
+        platform: String?,
+        track: String?,
+        platformTrack: String?,
+        platformLocalizationKey: String,
+        bundle: Bundle
+    ) -> CompactItem? {
+        if let platformTrack = cleaned(platformTrack) {
+            guard let components = platformTrackComponents(platformTrack) else {
+                return CompactItem(
+                    text: platformTrack,
+                    helpText: localized("platform/track %@", platformTrack, bundle: bundle)
+                )
+            }
+            return CompactItem(
+                text: "\(components.platform)/\(components.track)",
+                helpText: platformAndTrackDescription(
+                    platform: components.platform,
+                    track: components.track,
+                    separator: ", ",
+                    bundle: bundle
+                )
+            )
+        }
+
+        let platform = cleaned(platform)
+        let track = cleaned(track)
+        if let platform, let track {
+            return CompactItem(
+                text: "\(platform)/\(track)",
+                helpText: platformAndTrackDescription(
+                    platform: platform,
+                    track: track,
+                    separator: ", ",
+                    bundle: bundle
+                )
+            )
+        }
+        if let platform {
+            return CompactItem(
+                text: platform,
+                helpText: localized(platformLocalizationKey, platform, bundle: bundle)
+            )
+        }
+        if let track {
+            return CompactItem(
+                text: track,
+                helpText: localized("Track %@", track, bundle: bundle)
+            )
+        }
+        return nil
+    }
+
+    private static func cleaned(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty
+        else { return nil }
+        return value
+    }
+
+    private static func localized(
+        _ key: String,
+        _ value: String,
+        bundle: Bundle
+    ) -> String {
+        let format = bundle.localizedString(forKey: key, value: key, table: nil)
+        return String(
+            format: format,
+            locale: AppLocalization.locale(for: bundle),
+            arguments: [value]
+        )
     }
 
     private static func connectionPlatformDescription(

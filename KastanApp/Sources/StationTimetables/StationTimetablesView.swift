@@ -328,6 +328,14 @@ struct StationTimetablesView: View {
                         notes: stop.notes,
                         showsText: showsStopNoteText
                     )
+                    let compactMetadata = ResultMetadata.compactStopValues(
+                        showsDetails: showsItemDetails,
+                        showsSymbolsAsText: showsStopNoteText,
+                        ResultMetadata.compactStationTimetable(
+                            tariffZone: stop.tariffZone,
+                            platform: stop.platform
+                        )
+                    )
                     let timelinePresentation = StationTimetableStopTimelinePresentation(
                         index: index,
                         stopCount: result.stops.count,
@@ -361,11 +369,12 @@ struct StationTimetablesView: View {
                                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                                         Text(stop.name)
                                         StopNoteSymbols(values: notePresentation.symbols)
+                                        CompactStopMetadata(values: compactMetadata)
                                     }
                                     .fontWeight(stop.isSelected ? .semibold : .regular)
                                     .foregroundStyle(.primary)
                                     if let metadata = ResultMetadata.visible(
-                                        showsDetails: showsItemDetails,
+                                        showsDetails: showsItemDetails && showsStopNoteText,
                                         stopMetadata(stop)
                                     ) {
                                         Text(metadata)
