@@ -703,10 +703,26 @@ enum ResultMetadata {
         return content.isEmpty ? nil : content
     }
 
-    static func station(tariffZone: String?, platform: String?) -> String? {
-        joined(
+    static func station(
+        tariffZone: String?,
+        platform: String?,
+        track: String? = nil,
+        platformTrack: String? = nil
+    ) -> String? {
+        let position: String?
+        if let platformTrack {
+            position = platformTrackDescription(platformTrack)
+        } else if let platform, let track {
+            position = platformAndTrackDescription(platform: platform, track: track)
+        } else {
+            position = joined(
+                platform.map { AppLocalization.string("Platform %@", $0) },
+                track.map { AppLocalization.string("Track %@", $0) }
+            )
+        }
+        return joined(
             tariffZone.map { AppLocalization.string("Zone %@", $0) },
-            platform.map { AppLocalization.string("Platform %@", $0) }
+            position
         )
     }
 
@@ -717,8 +733,50 @@ enum ResultMetadata {
             showsDetails: showsDetails,
             leg.carrier,
             delay(leg.delay),
-            leg.fromPlatform.map { AppLocalization.string("Platform %@", $0) }
+            leg.fromPlatform.map {
+                connectionPlatformDescription($0, transportMode: leg.transportMode)
+            }
         )
+    }
+
+    /// Expands IDOS's compact railway `platform/track` value into an unambiguous localized phrase.
+    static func platformTrackDescription(_ value: String) -> String {
+        guard let components = platformTrackComponents(value) else {
+            return AppLocalization.string("platform/track %@", value)
+        }
+        return platformAndTrackDescription(
+            platform: components.platform,
+            track: components.track
+        )
+    }
+
+    private static func platformAndTrackDescription(platform: String, track: String) -> String {
+        return [
+            AppLocalization.string("Platform %@", platform),
+            AppLocalization.string("track %@", track),
+        ].joined(separator: " ")
+    }
+
+    private static func connectionPlatformDescription(
+        _ value: String,
+        transportMode: IDOSTransportMode?
+    ) -> String {
+        guard transportMode == .train, platformTrackComponents(value) != nil else {
+            return AppLocalization.string("Platform %@", value)
+        }
+        return platformTrackDescription(value)
+    }
+
+    private static func platformTrackComponents(
+        _ value: String
+    ) -> (platform: String, track: String)? {
+        let parts = value.split(separator: "/", omittingEmptySubsequences: false)
+        guard parts.count == 2 else { return nil }
+
+        let platform = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+        let track = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !platform.isEmpty, !track.isEmpty else { return nil }
+        return (platform, track)
     }
 
     /// Localizes known Czech or English IDOS punctuality states and live minute counts while

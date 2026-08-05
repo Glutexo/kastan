@@ -833,8 +833,12 @@ struct ServiceStopRow: View {
     var body: some View {
         let metadata = ResultMetadata.visible(
             showsDetails: showsItemDetails,
-            ResultMetadata.station(tariffZone: stop.tariffZone, platform: stop.platform),
-            stop.track.map { AppLocalization.string("Track %@", $0) },
+            ResultMetadata.station(
+                tariffZone: stop.tariffZone,
+                platform: stop.platform,
+                track: stop.track,
+                platformTrack: stop.platformTrack
+            ),
             stop.distance
         )
         let notePresentation = StopNotePresentation(

@@ -105,6 +105,39 @@ import Testing
     #expect(!output.contains("Currently no delay"))
 }
 
+@Test func connectionTextExpandsCombinedRailwayPlatformAndTrack() async {
+    let connection = IDOSConnection(
+        id: "connection-platform-track",
+        departureTime: "18:01",
+        departureStation: "Frýdek-Místek",
+        arrivalTime: "18:29",
+        arrivalStation: "Ostrava-Stodolní",
+        duration: "28 min",
+        legs: [
+            IDOSConnectionLeg(
+                name: "S6",
+                transportMode: .train,
+                departureTime: "18:01",
+                fromStation: "Frýdek-Místek",
+                fromPlatform: "2/3",
+                arrivalTime: "18:29",
+                toStation: "Ostrava-Stodolní"
+            ),
+        ]
+    )
+    let output = await englishCommandRunner(
+        client: MockIDOSClient(connectionResults: [connection])
+    ).output(
+        for: [
+            "connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky",
+            "--verbose", "--limit", "1", "--language", "cs",
+        ]
+    )
+
+    #expect(output.contains("Frýdek-Místek · nástupiště 2 kolej 3"))
+    #expect(!output.contains("nástupiště 2/3"))
+}
+
 @Test func knownIDOSDelayStatesFollowTheSelectedOutputLanguage() {
     let czech = Localization(language: .czech)
     let english = Localization(language: .english)
@@ -125,6 +158,11 @@ import Testing
     #expect(english.delayStatus("Arrival tends to be delayed") == "Arrival tends to be delayed")
     #expect(czech.delayStatus("Delay 12 min") == "Delay 12 min")
     #expect(czech.delayStatus("  ") == nil)
+    #expect(czech.platformTrack("2/3") == "nástupiště 2 kolej 3")
+    #expect(english.platformTrack("2/3") == "platform 2 track 3")
+    #expect(czech.platformAndTrack(platform: "2", track: "3") == "nástupiště 2 kolej 3")
+    #expect(czech.connectionPlatform("2/3", transportMode: .bus) == "nástupiště 2/3")
+    #expect(czech.platformTrack("2/3/4") == "nástupiště/kolej 2/3/4")
 }
 
 @Test func czechLanguageLocalizesMarkdownAndErrors() async {
@@ -974,6 +1012,8 @@ import Testing
     #expect(output.contains("🚇 transfer to the undeground"))
     #expect(output.contains("♿ wheelchair accessible station"))
     #expect(output.contains("🚉 rail station"))
+    #expect(output.contains("platform 3 track 1 · 262 km"))
+    #expect(!output.contains("platform/track 3/1"))
     #expect(output.contains("ℹ️ Information:"))
     #expect(output.contains("   🚧 Planned traffic restriction"))
     #expect(output.contains("   🏢 České dráhy, a.s."))
@@ -1792,6 +1832,7 @@ import Testing
     #expect(connection.duration == "1 hod 46 min")
     #expect(connection.legs.first?.fromTariffZone == "240")
     #expect(connection.legs.first?.toPlatform == "5/4")
+    #expect(connection.summaryLine(number: 1).contains("platform 5 track 4"))
     #expect(connection.legs.first?.serviceInformation.map(\.category) == [.wiFi])
     #expect(
         connection.legs.first?.serviceInformation.map(\.text) == [

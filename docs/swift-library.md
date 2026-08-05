@@ -122,7 +122,9 @@ preserve the semantic information received from IDOS, including line colors, tra
 tariff zones, carriers, delay details, and localized service notes when available. `IDOSConnectionLeg` and
 `IDOSDeparture` expose the facilities and restrictions printed beside a result through their ordered
 `serviceInformation` arrays. Each item keeps the complete IDOS tooltip text together with its classified category
-and semantic symbol; an absent field in older encoded results decodes as an empty array.
+and semantic symbol; an absent field in older encoded results decodes as an empty array. Encoded connection-leg
+platform values retain IDOS's compact source notation, while `summaryLine` expands railway pairs such as `2/3` to
+the unambiguous human-readable `platform 2 track 3`.
 
 The language-aware `findConnectionsPage(request:language:)` and
 `findDeparturesPage(request:language:)` overloads request platform-supplied result text in English or Czech and

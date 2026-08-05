@@ -1156,14 +1156,17 @@ private enum OutputFormat: String {
                 if let tariffZone = stop.tariffZone {
                     details.append(localization.text(.tariffZoneInline, tariffZone))
                 }
-                if let platform = stop.platform {
-                    details.append(localization.text(.platformInline, platform))
-                }
-                if let track = stop.track {
-                    details.append(localization.text(.trackInline, track))
-                }
                 if let platformTrack = stop.platformTrack {
-                    details.append(localization.text(.platformTrackInline, platformTrack))
+                    details.append(localization.platformTrack(platformTrack))
+                } else if let platform = stop.platform, let track = stop.track {
+                    details.append(localization.platformAndTrack(platform: platform, track: track))
+                } else {
+                    if let platform = stop.platform {
+                        details.append(localization.text(.platformInline, platform))
+                    }
+                    if let track = stop.track {
+                        details.append(localization.text(.trackInline, track))
+                    }
                 }
                 if let distance = stop.distance {
                     details.append(distance)
@@ -2005,6 +2008,7 @@ private struct ConnectionOutput: Encodable {
                         name: leg.fromStation,
                         tariffZone: includeDetails ? leg.fromTariffZone : nil,
                         platform: includeDetails ? leg.fromPlatform : nil,
+                        transportMode: leg.transportMode,
                         localization: localization
                     ),
                     Terminal.bold(leg.departureTime),
@@ -2014,6 +2018,7 @@ private struct ConnectionOutput: Encodable {
                         name: leg.toStation,
                         tariffZone: includeDetails ? leg.toTariffZone : nil,
                         platform: includeDetails ? leg.toPlatform : nil,
+                        transportMode: leg.transportMode,
                         localization: localization
                     ),
                 ]
@@ -2042,6 +2047,7 @@ private struct ConnectionOutput: Encodable {
         name: String,
         tariffZone: String?,
         platform: String?,
+        transportMode: IDOSTransportMode?,
         localization: Localization
     ) -> String {
         var parts = [name]
@@ -2049,7 +2055,7 @@ private struct ConnectionOutput: Encodable {
             parts.append(localization.text(.tariffZoneInline, tariffZone))
         }
         if let platform, !platform.isEmpty {
-            parts.append(localization.text(.platformInline, platform))
+            parts.append(localization.connectionPlatform(platform, transportMode: transportMode))
         }
         return parts.joined(separator: " · ")
     }

@@ -287,4 +287,42 @@ struct Localization {
         }
         return value
     }
+
+    /// Expands the compact platform/track notation used by railway results while leaving ordinary
+    /// platform or stand identifiers unchanged for other transport modes.
+    func connectionPlatform(_ value: String, transportMode: IDOSTransportMode?) -> String {
+        guard transportMode == .train, platformTrackComponents(value) != nil else {
+            return text(.platformInline, value)
+        }
+        return platformTrack(value)
+    }
+
+    /// Presents one semantic IDOS platform/track value as separate passenger-facing labels.
+    func platformTrack(_ value: String) -> String {
+        guard let components = platformTrackComponents(value) else {
+            return text(.platformTrackInline, value)
+        }
+        return platformAndTrack(platform: components.platform, track: components.track)
+    }
+
+    /// Keeps separately supplied platform and track fields in the same localized phrase as a
+    /// compact combined value.
+    func platformAndTrack(platform: String, track: String) -> String {
+        return [
+            text(.platformInline, platform),
+            text(.trackInline, track),
+        ].joined(separator: " ")
+    }
+
+    private func platformTrackComponents(
+        _ value: String
+    ) -> (platform: String, track: String)? {
+        let parts = value.split(separator: "/", omittingEmptySubsequences: false)
+        guard parts.count == 2 else { return nil }
+
+        let platform = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+        let track = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !platform.isEmpty, !track.isEmpty else { return nil }
+        return (platform, track)
+    }
 }

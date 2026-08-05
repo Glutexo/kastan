@@ -1743,9 +1743,9 @@ final class KastanAppTests: XCTestCase {
                🆔 Service ID: vlaky:service-1
                📅 Date: 24.7.2026
             🛤️ Route:
-            1. 📍 Praha hl.n. — Departure 12:00 · tariff zone P · platform 4 · track 2 · 0 km
+            1. 📍 Praha hl.n. — Departure 12:00 · tariff zone P · platform 4 track 2 · 0 km
                   ♿ wheelchair accessible station
-            2. 📍 Brno hl.n. — Arrival 14:30 · platform/track 3/1 · 255 km
+            2. 📍 Brno hl.n. — Arrival 14:30 · platform 3 track 1 · 255 km
                   🔔 request stop
 
             ℹ️ Information:
@@ -2986,6 +2986,60 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(metadata?.contains("ambiguous-from-zone") ?? true)
         XCTAssertFalse(metadata?.contains("ambiguous-to-zone") ?? true)
         XCTAssertNil(ResultMetadata.connectionLeg(leg, showsDetails: false))
+    }
+
+    func testConnectionLegDetailsExpandCombinedRailwayPlatformAndTrack() {
+        let train = IDOSConnectionLeg(
+            name: "S6",
+            transportMode: .train,
+            departureTime: "18:01",
+            fromStation: "Frýdek-Místek",
+            fromPlatform: " 2 / 3 ",
+            arrivalTime: "18:29",
+            toStation: "Ostrava-Stodolní"
+        )
+        var bus = train
+        bus.transportMode = .bus
+        bus.fromPlatform = "2/3"
+
+        XCTAssertEqual(
+            ResultMetadata.connectionLeg(train, showsDetails: true),
+            [
+                AppLocalization.string("Platform %@", "2"),
+                AppLocalization.string("track %@", "3"),
+            ].joined(separator: " ")
+        )
+        XCTAssertEqual(
+            ResultMetadata.connectionLeg(bus, showsDetails: true),
+            AppLocalization.string("Platform %@", "2/3")
+        )
+        XCTAssertEqual(
+            ResultMetadata.platformTrackDescription("2/3/4"),
+            AppLocalization.string("platform/track %@", "2/3/4")
+        )
+        XCTAssertEqual(
+            ResultMetadata.station(
+                tariffZone: nil,
+                platform: "2",
+                track: "3",
+                platformTrack: "2/3"
+            ),
+            [
+                AppLocalization.string("Platform %@", "2"),
+                AppLocalization.string("track %@", "3"),
+            ].joined(separator: " ")
+        )
+        XCTAssertEqual(
+            ResultMetadata.station(
+                tariffZone: nil,
+                platform: "2",
+                track: "3"
+            ),
+            [
+                AppLocalization.string("Platform %@", "2"),
+                AppLocalization.string("track %@", "3"),
+            ].joined(separator: " ")
+        )
     }
 
     func testServiceInformationUsesSymbolsUntilTheSharedTextPreferenceIsEnabled() {

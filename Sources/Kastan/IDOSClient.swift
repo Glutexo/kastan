@@ -1984,9 +1984,22 @@ public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
             parts.append("tariff zone \(tariffZone)")
         }
         if let platform, !platform.isEmpty {
-            parts.append("platform \(platform)")
+            parts.append(platformDescription(platform))
         }
         return parts.joined(separator: " · ")
+    }
+
+    /// Expands the railway platform/track pair carried by connection HTML without changing
+    /// ordinary platform or stand identifiers used by other transport modes.
+    private func platformDescription(_ value: String) -> String {
+        guard transportMode == .train else { return "platform \(value)" }
+        let parts = value.split(separator: "/", omittingEmptySubsequences: false)
+        guard parts.count == 2 else { return "platform \(value)" }
+
+        let platform = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+        let track = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !platform.isEmpty, !track.isEmpty else { return "platform \(value)" }
+        return "platform \(platform) track \(track)"
     }
 }
 

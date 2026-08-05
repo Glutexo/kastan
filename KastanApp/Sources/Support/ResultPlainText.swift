@@ -121,14 +121,17 @@ struct CLIPlainTextPresentation {
             if let tariffZone = stop.tariffZone {
                 details.append(text("tariff zone %@", tariffZone))
             }
-            if let platform = stop.platform {
-                details.append(text("platform %@", platform))
-            }
-            if let track = stop.track {
-                details.append(text("track %@", track))
-            }
             if let platformTrack = stop.platformTrack {
-                details.append(text("platform/track %@", platformTrack))
+                details.append(platformTrackDescription(platformTrack))
+            } else if let platform = stop.platform, let track = stop.track {
+                details.append(platformAndTrackDescription(platform: platform, track: track))
+            } else {
+                if let platform = stop.platform {
+                    details.append(text("platform %@", platform))
+                }
+                if let track = stop.track {
+                    details.append(text("track %@", track))
+                }
             }
             if let distance = stop.distance {
                 details.append(distance)
@@ -146,6 +149,24 @@ struct CLIPlainTextPresentation {
         }
 
         return lines.joined(separator: "\n")
+    }
+
+    /// Replaces IDOS's compact `platform/track` notation with passenger-facing words when both
+    /// components are present, while retaining unusual source values verbatim.
+    private func platformTrackDescription(_ value: String) -> String {
+        let parts = value.split(separator: "/", omittingEmptySubsequences: false)
+        guard parts.count == 2 else { return text("platform/track %@", value) }
+
+        let platform = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+        let track = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !platform.isEmpty, !track.isEmpty else {
+            return text("platform/track %@", value)
+        }
+        return platformAndTrackDescription(platform: platform, track: track)
+    }
+
+    private func platformAndTrackDescription(platform: String, track: String) -> String {
+        "\(text("platform %@", platform)) \(text("track %@", track))"
     }
 
     private func timetableName(_ timetable: IDOSTimetable) -> String {

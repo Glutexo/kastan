@@ -226,7 +226,9 @@ three human-readable formats use transport and status emoji and emphasize times;
 from IDOS before placing them in the document. Connection headings identify direct and shortest displayed
 results. `--verbose` adds IDs, tariff zones, platforms, carriers, and delay information when IDOS supplies
 them. Human-readable connection rows use semantic markers for their time summary, identifiers, carrier, delay
-status, and transport mode; an unknown transport mode uses a generic route marker. Known Czech and English
+status, and transport mode; an unknown transport mode uses a generic route marker. Text output expands a compact
+railway value such as `2/3` to localized `platform 2 track 3`, while JSON, Markdown, and HTML retain the original
+compact value in their structured fields or table cells. Known Czech and English
 IDOS on-time and delayed arrival or departure states follow the selected language in text, Markdown, and HTML,
 while JSON exposes the original stable fields without relying on presentation styling. Connection-leg and
 station-board JSON also includes each compact IDOS service-information item with its complete text and classified
