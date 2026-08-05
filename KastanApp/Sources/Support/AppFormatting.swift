@@ -492,11 +492,35 @@ extension View {
     }
 }
 
-/// Defines the application-wide persisted choice for replacing compact service-information
-/// symbols with the complete wording supplied by IDOS.
-enum ServiceInformationTextPreference {
-    static let storageKey = "showsServiceInformationText"
+/// Defines one application-wide persisted choice for replacing compact service and stop symbols
+/// with the complete wording supplied by IDOS.
+enum SymbolTextPreference {
+    static let storageKey = "showsSymbolsAsText"
     static let defaultValue = false
+
+    /// Retains an enabled text presentation when upgrading from either former independent setting.
+    static let legacyStorageKeys = [
+        "showsServiceInformationText",
+        "showsStopNoteText",
+    ]
+
+    static func migrateLegacyValues(in defaults: UserDefaults = .standard) {
+        guard defaults.object(forKey: storageKey) == nil else {
+            return
+        }
+
+        let storedLegacyKeys = legacyStorageKeys.filter {
+            defaults.object(forKey: $0) != nil
+        }
+        guard !storedLegacyKeys.isEmpty else {
+            return
+        }
+
+        defaults.set(
+            storedLegacyKeys.contains { defaults.bool(forKey: $0) },
+            forKey: storageKey
+        )
+    }
 }
 
 /// Preserves the order and complete meaning of the facilities and restrictions printed by IDOS.
@@ -541,13 +565,6 @@ struct ServiceInformationSummary: View {
                 .help(presentation.helpText)
         }
     }
-}
-
-/// Defines the application-wide persisted choice for replacing compact stop symbols with the
-/// complete note text supplied by IDOS.
-enum StopNoteTextPreference {
-    static let storageKey = "showsStopNoteText"
-    static let defaultValue = false
 }
 
 /// Keeps common stop properties next to the stop name while retaining any note that cannot be

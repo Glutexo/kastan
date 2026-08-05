@@ -141,14 +141,14 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   and IDOS does not show in connection results. Station-board rows still reveal via descriptions, station-scoped
   tariff zones, and platforms or stands. Both row types always preserve the passenger facilities and restrictions
   printed beside a service by IDOS. They show semantic emoji by default, expose the complete wording to VoiceOver and
-  on hover, and replace the symbols with that wording when the global, persistent Show service information as text
-  setting is enabled; the setting is off initially. Station timetables, complete service windows, and Force Click
-  previews continue to show tariff zones, platforms, tracks, and distances beside concrete stops. Show stop note text
-  is a fourth global, persistent setting that is off initially. Enabling it replaces recognized stop-note emoji with
-  the complete wording supplied by IDOS in station timetables, complete service windows, and Force Click previews.
+  on hover. The global, persistent Replace symbols with text setting replaces those service symbols and recognized
+  stop-note emoji with the complete wording supplied by IDOS; the setting is off initially. It applies equally to
+  connection results, station boards, station timetables, complete result windows, and Force Click previews. Station
+  timetables, complete service windows, and previews continue to show tariff zones, platforms, tracks, and distances
+  beside concrete stops.
   Complete-route markers remain centered beside each stop title whether optional metadata is visible or hidden.
   Stop-note meaning remains visible independently of the item-details choice and the selected symbol-or-text form.
-  Show alternating row backgrounds is a fifth global, persistent setting and is enabled initially. Its subtle adaptive
+  Show alternating row backgrounds is another global, persistent setting and is enabled initially. Its subtle adaptive
   bands distinguish neighboring station-board rows, connection-service rows, complete and station-timetable route
   stops, and station-timetable hour rows. Turning it off restores uniform data-row backgrounds without changing cards,
   search forms, suggestions, or the native favorite-timetable list.

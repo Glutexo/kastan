@@ -68,16 +68,14 @@ final class KastanAppTests: XCTestCase {
         let badgeTitle = AppLocalization.string("Show connection badges")
         let detailsTitle = AppLocalization.string("Show item details")
         let alternatingRowsTitle = AppLocalization.string("Show alternating row backgrounds")
-        let serviceInformationTextTitle = AppLocalization.string("Show service information as text")
-        let stopNoteTextTitle = AppLocalization.string("Show stop note text")
+        let symbolTextTitle = AppLocalization.string("Replace symbols with text")
         let menus = try XCTUnwrap(NSApplication.shared.mainMenu).items
             .compactMap(\.submenu)
             .filter { menu in
                 menu.items.contains { $0.title == badgeTitle } &&
                     menu.items.contains { $0.title == detailsTitle } &&
                     menu.items.contains { $0.title == alternatingRowsTitle } &&
-                    menu.items.contains { $0.title == serviceInformationTextTitle } &&
-                    menu.items.contains { $0.title == stopNoteTextTitle }
+                    menu.items.contains { $0.title == symbolTextTitle }
             }
 
         XCTAssertEqual(menus.count, 1)
@@ -86,11 +84,8 @@ final class KastanAppTests: XCTestCase {
         let alternatingRowsItem = try XCTUnwrap(
             menus[0].items.first { $0.title == alternatingRowsTitle }
         )
-        let serviceInformationTextItem = try XCTUnwrap(
-            menus[0].items.first { $0.title == serviceInformationTextTitle }
-        )
-        let stopNoteTextItem = try XCTUnwrap(
-            menus[0].items.first { $0.title == stopNoteTextTitle }
+        let symbolTextItem = try XCTUnwrap(
+            menus[0].items.first { $0.title == symbolTextTitle }
         )
         let storedBadgeValue = UserDefaults.standard.object(
             forKey: ConnectionBadgePreference.storageKey
@@ -101,37 +96,26 @@ final class KastanAppTests: XCTestCase {
         let storedAlternatingRowsValue = UserDefaults.standard.object(
             forKey: AlternatingRowBackgroundPreference.storageKey
         ) as? Bool
-        let storedServiceInformationTextValue = UserDefaults.standard.object(
-            forKey: ServiceInformationTextPreference.storageKey
-        ) as? Bool
-        let storedStopNoteTextValue = UserDefaults.standard.object(
-            forKey: StopNoteTextPreference.storageKey
+        let storedSymbolTextValue = UserDefaults.standard.object(
+            forKey: SymbolTextPreference.storageKey
         ) as? Bool
         let badgesAreShown = storedBadgeValue ?? ConnectionBadgePreference.defaultValue
         let detailsAreShown = storedDetailsValue ?? ResultItemDetailsPreference.defaultValue
         let alternatingRowsAreShown = storedAlternatingRowsValue ??
             AlternatingRowBackgroundPreference.defaultValue
-        let serviceInformationTextIsShown = storedServiceInformationTextValue ??
-            ServiceInformationTextPreference.defaultValue
-        let stopNoteTextIsShown = storedStopNoteTextValue ?? StopNoteTextPreference.defaultValue
+        let symbolsAreShownAsText = storedSymbolTextValue ?? SymbolTextPreference.defaultValue
         XCTAssertEqual(badgeItem.state, badgesAreShown ? .on : .off)
         XCTAssertEqual(detailsItem.state, detailsAreShown ? .on : .off)
         XCTAssertEqual(alternatingRowsItem.state, alternatingRowsAreShown ? .on : .off)
-        XCTAssertEqual(
-            serviceInformationTextItem.state,
-            serviceInformationTextIsShown ? .on : .off
-        )
-        XCTAssertEqual(stopNoteTextItem.state, stopNoteTextIsShown ? .on : .off)
+        XCTAssertEqual(symbolTextItem.state, symbolsAreShownAsText ? .on : .off)
         XCTAssertNotNil(badgeItem.image)
         XCTAssertNotNil(detailsItem.image)
         XCTAssertNotNil(alternatingRowsItem.image)
-        XCTAssertNotNil(serviceInformationTextItem.image)
-        XCTAssertNotNil(stopNoteTextItem.image)
+        XCTAssertNotNil(symbolTextItem.image)
         XCTAssertFalse(ConnectionBadgePreference.defaultValue)
         XCTAssertFalse(ResultItemDetailsPreference.defaultValue)
         XCTAssertTrue(AlternatingRowBackgroundPreference.defaultValue)
-        XCTAssertFalse(ServiceInformationTextPreference.defaultValue)
-        XCTAssertFalse(StopNoteTextPreference.defaultValue)
+        XCTAssertFalse(SymbolTextPreference.defaultValue)
 
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
@@ -140,8 +124,7 @@ final class KastanAppTests: XCTestCase {
                 "Show alternating row backgrounds",
                 "Show connection badges",
                 "Show item details",
-                "Show service information as text",
-                "Show stop note text",
+                "Replace symbols with text",
             ].map {
                 czech.localizedString(forKey: $0, value: nil, table: nil)
             },
@@ -149,8 +132,7 @@ final class KastanAppTests: XCTestCase {
                 "Střídat barvy pozadí řádků",
                 "Zobrazit štítky spojení",
                 "Zobrazit podrobnosti položek",
-                "Zobrazit informace o spoji textově",
-                "Zobrazit text poznámek zastávek",
+                "Nahradit symboly textem",
             ]
         )
         XCTAssertEqual(
@@ -158,8 +140,7 @@ final class KastanAppTests: XCTestCase {
                 "Show alternating row backgrounds",
                 "Show connection badges",
                 "Show item details",
-                "Show service information as text",
-                "Show stop note text",
+                "Replace symbols with text",
             ].map {
                 english.localizedString(forKey: $0, value: nil, table: nil)
             },
@@ -167,10 +148,39 @@ final class KastanAppTests: XCTestCase {
                 "Show alternating row backgrounds",
                 "Show connection badges",
                 "Show item details",
-                "Show service information as text",
-                "Show stop note text",
+                "Replace symbols with text",
             ]
         )
+    }
+
+    func testSymbolTextPreferenceMigratesEitherLegacyChoiceWithoutOverwritingTheNewValue() throws {
+        let suiteName = "KastanAppTests.SymbolTextPreference.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let legacyKeys = SymbolTextPreference.legacyStorageKeys
+
+        for (serviceText, stopText, expected) in [
+            (false, false, false),
+            (true, false, true),
+            (false, true, true),
+            (true, true, true),
+        ] {
+            defaults.removeObject(forKey: SymbolTextPreference.storageKey)
+            defaults.set(serviceText, forKey: legacyKeys[0])
+            defaults.set(stopText, forKey: legacyKeys[1])
+
+            SymbolTextPreference.migrateLegacyValues(in: defaults)
+
+            XCTAssertEqual(defaults.bool(forKey: SymbolTextPreference.storageKey), expected)
+        }
+
+        defaults.set(false, forKey: SymbolTextPreference.storageKey)
+        defaults.set(true, forKey: legacyKeys[0])
+        defaults.set(true, forKey: legacyKeys[1])
+
+        SymbolTextPreference.migrateLegacyValues(in: defaults)
+
+        XCTAssertFalse(defaults.bool(forKey: SymbolTextPreference.storageKey))
     }
 
     func testAlternatingRowBackgroundsCanBeDisabledWithoutChangingRowOrder() {
@@ -2932,7 +2942,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(ResultMetadata.connectionLeg(leg, showsDetails: false))
     }
 
-    func testServiceInformationUsesSymbolsUntilTheTextPreferenceIsEnabled() {
+    func testServiceInformationUsesSymbolsUntilTheSharedTextPreferenceIsEnabled() {
         let information = [
             IDOSServiceInformation(text: "Train also consists of 1st class coaches"),
             IDOSServiceInformation(text: "Carriage with a wireless internet connection"),
@@ -2942,7 +2952,7 @@ final class KastanAppTests: XCTestCase {
         let presentation = ServiceInformationPresentation(values: information)
 
         XCTAssertEqual(
-            presentation.content(showsText: ServiceInformationTextPreference.defaultValue),
+            presentation.content(showsText: SymbolTextPreference.defaultValue),
             "1️⃣ 🛜 🚲 ♿"
         )
         XCTAssertEqual(
@@ -2953,7 +2963,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(presentation.helpText, information.map(\.text).joined(separator: "\n"))
     }
 
-    func testStopNotesUseSymbolsUntilTheTextPreferenceIsEnabled() {
+    func testStopNotesUseSymbolsUntilTheSharedTextPreferenceIsEnabled() {
         let notes = [
             "zastávka na znamení",
             "wheelchair accessible stop",
@@ -2965,7 +2975,7 @@ final class KastanAppTests: XCTestCase {
 
         let compact = StopNotePresentation(
             notes: notes,
-            showsText: StopNoteTextPreference.defaultValue
+            showsText: SymbolTextPreference.defaultValue
         )
         XCTAssertEqual(
             compact.symbols.map(\.emoji),

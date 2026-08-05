@@ -582,8 +582,7 @@ struct AppSectionCommands: Commands {
     @Binding var showsConnectionBadges: Bool
     @Binding var showsItemDetails: Bool
     @Binding var showsAlternatingRowBackgrounds: Bool
-    @Binding var showsServiceInformationText: Bool
-    @Binding var showsStopNoteText: Bool
+    @Binding var showsSymbolsAsText: Bool
 
     var body: some Commands {
         CommandGroup(after: .toolbar) {
@@ -602,11 +601,8 @@ struct AppSectionCommands: Commands {
             Toggle(isOn: $showsAlternatingRowBackgrounds) {
                 Label("Show alternating row backgrounds", systemImage: "rectangle.split.3x1")
             }
-            Toggle(isOn: $showsServiceInformationText) {
-                Label("Show service information as text", systemImage: "textformat")
-            }
-            Toggle(isOn: $showsStopNoteText) {
-                Label("Show stop note text", systemImage: "text.bubble")
+            Toggle(isOn: $showsSymbolsAsText) {
+                Label("Replace symbols with text", systemImage: "textformat")
             }
 
             Divider()
@@ -646,13 +642,12 @@ struct KastanApp: App {
     private var showsItemDetails = ResultItemDetailsPreference.defaultValue
     @AppStorage(AlternatingRowBackgroundPreference.storageKey)
     private var showsAlternatingRowBackgrounds = AlternatingRowBackgroundPreference.defaultValue
-    @AppStorage(ServiceInformationTextPreference.storageKey)
-    private var showsServiceInformationText = ServiceInformationTextPreference.defaultValue
-    @AppStorage(StopNoteTextPreference.storageKey)
-    private var showsStopNoteText = StopNoteTextPreference.defaultValue
+    @AppStorage(SymbolTextPreference.storageKey)
+    private var showsSymbolsAsText = SymbolTextPreference.defaultValue
     private let client = IDOSClient()
 
     init() {
+        SymbolTextPreference.migrateLegacyValues()
         ApplicationArtwork.installAsDockIcon()
         ApplicationMainMenu.shared.install()
     }
@@ -663,8 +658,8 @@ struct KastanApp: App {
                 client: client,
                 showsConnectionBadges: showsConnectionBadges,
                 showsItemDetails: showsItemDetails,
-                showsServiceInformationText: showsServiceInformationText,
-                showsStopNoteText: showsStopNoteText
+                showsServiceInformationText: showsSymbolsAsText,
+                showsStopNoteText: showsSymbolsAsText
             )
                 .environment(\.showsAlternatingRowBackgrounds, showsAlternatingRowBackgrounds)
                 .frame(minWidth: Self.minimumMainWindowWidth, minHeight: 520)
@@ -677,8 +672,7 @@ struct KastanApp: App {
                 showsConnectionBadges: $showsConnectionBadges,
                 showsItemDetails: $showsItemDetails,
                 showsAlternatingRowBackgrounds: $showsAlternatingRowBackgrounds,
-                showsServiceInformationText: $showsServiceInformationText,
-                showsStopNoteText: $showsStopNoteText
+                showsSymbolsAsText: $showsSymbolsAsText
             )
             SearchEditCommands()
             AppInformationCommands()
@@ -706,7 +700,7 @@ struct KastanApp: App {
                     selection: selection,
                     client: client,
                     showsItemDetails: showsItemDetails,
-                    showsStopNoteText: showsStopNoteText
+                    showsStopNoteText: showsSymbolsAsText
                 )
                 .environment(\.showsAlternatingRowBackgrounds, showsAlternatingRowBackgrounds)
             }
@@ -720,8 +714,8 @@ struct KastanApp: App {
                     client: client,
                     showsConnectionBadges: showsConnectionBadges,
                     showsItemDetails: showsItemDetails,
-                    showsServiceInformationText: showsServiceInformationText,
-                    showsStopNoteText: showsStopNoteText
+                    showsServiceInformationText: showsSymbolsAsText,
+                    showsStopNoteText: showsSymbolsAsText
                 )
                 .environment(\.showsAlternatingRowBackgrounds, showsAlternatingRowBackgrounds)
             }
