@@ -157,9 +157,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   tariff zones, and platforms or stands. Both row types always preserve the passenger facilities and restrictions
   printed beside a service by IDOS. They show semantic emoji by default, expose the complete wording to VoiceOver and
   on hover, and Option-clicking an emoji opens a selectable popover with the exact phrase, regular-expression, or
-  structural classifier rule that matched the IDOS wording. Phrase rules state that matching ignores letter case and
-  diacritics; the popover does not substitute the resulting category name or emoji for the rule. The global,
-  persistent Replace symbols with text setting replaces those service symbols and recognized
+  structural classifier rule that matched the IDOS wording. The concise popover neither repeats that wording nor
+  substitutes the resulting category name or emoji for the rule. The global, persistent Replace symbols with text
+  setting replaces those service symbols and recognized
   stop-note emoji with the complete wording supplied by IDOS; the setting is off initially. It applies equally to
   connection results, station boards, station timetables, complete result windows, and Force Click previews. Station
   timetables, complete service windows, and previews continue to show tariff zones, platforms, tracks, and distances
@@ -169,8 +169,7 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   as two individually listed zones or `platform 2, track 3`. Replacing symbols with text instead keeps that expanded
   wording below the stop name, while distances remain below it in either form. Hovering a
   compact stop-note emoji shows the original IDOS note. Option-clicking that emoji opens a selectable popover with
-  the note and the exact phrase-matching rule that selected the emoji, including that matching ignores letter case
-  and diacritics.
+  only the exact phrase-matching rule that selected the emoji, without repeating the note.
   Complete-route markers remain centered beside each stop title whether optional metadata is visible or hidden.
   Stop-note meaning remains visible independently of the item-details choice and the selected symbol-or-text form.
   Show alternating row backgrounds is another global, persistent setting and is enabled initially. Its subtle adaptive

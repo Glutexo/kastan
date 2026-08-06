@@ -3369,17 +3369,11 @@ final class KastanAppTests: XCTestCase {
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
         XCTAssertEqual(
             rule.explanation(bundle: czech),
-            """
-            bezbariérový spoj
-            Použité pravidlo: informace o spoji obsahuje „bezbarierovy spoj“ bez ohledu na velikost písmen a diakritiku.
-            """
+            "Použité pravidlo: obsahuje „bezbarierovy spoj“."
         )
         XCTAssertEqual(
             rule.explanation(bundle: english),
-            """
-            bezbariérový spoj
-            Matched rule: service information contains “bezbarierovy spoj” after ignoring letter case and diacritics.
-            """
+            "Matched rule: contains “bezbarierovy spoj”."
         )
     }
 
@@ -3419,17 +3413,11 @@ final class KastanAppTests: XCTestCase {
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
         XCTAssertEqual(
             signalSymbol.ruleExplanation(bundle: czech),
-            """
-            zastávka na znamení
-            Použité pravidlo: poznámka obsahuje „na znameni“ bez ohledu na velikost písmen a diakritiku.
-            """
+            "Použité pravidlo: obsahuje „na znameni“."
         )
         XCTAssertEqual(
             signalSymbol.ruleExplanation(bundle: english),
-            """
-            zastávka na znamení
-            Matched rule: note contains “na znameni” after ignoring letter case and diacritics.
-            """
+            "Matched rule: contains “na znameni”."
         )
 
         let textual = StopNotePresentation(notes: notes, showsText: true)

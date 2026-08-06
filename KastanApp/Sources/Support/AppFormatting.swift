@@ -561,28 +561,26 @@ struct ServiceInformationPresentation: Equatable {
 struct ServiceInformationRulePresentation: Equatable {
     let information: IDOSServiceInformation
 
-    /// Keeps the complete IDOS wording beside the exact phrase, pattern, or structural rule that matched it.
+    /// Returns only the exact phrase, pattern, or structural rule without repeating the IDOS wording.
     func explanation(bundle: Bundle = .main) -> String {
         if information.classificationRule == .fallback {
-            let fallback = bundle.localizedString(
+            return bundle.localizedString(
                 forKey: "No specific service-information rule matched; the supplied fallback was used.",
                 value: nil,
                 table: nil
             )
-            return "\(information.text)\n\(fallback)"
         }
 
         let format = bundle.localizedString(
-            forKey: "Matched rule: service information %@.",
+            forKey: "Matched rule: %@.",
             value: nil,
             table: nil
         )
-        let rule = String(
+        return String(
             format: format,
             locale: AppLocalization.pluralLocale(for: bundle),
             arguments: [ruleDescription(information.classificationRule, bundle: bundle)]
         )
-        return "\(information.text)\n\(rule)"
     }
 
     private func ruleDescription(
@@ -592,25 +590,25 @@ struct ServiceInformationRulePresentation: Equatable {
         switch rule {
         case let .contains(phrase):
             return localizedRuleClause(
-                "contains “%@” after ignoring letter case and diacritics",
+                "contains “%@”",
                 value: phrase,
                 bundle: bundle
             )
         case let .startsWith(prefix):
             return localizedRuleClause(
-                "starts with “%@” after ignoring letter case and diacritics",
+                "starts with “%@”",
                 value: prefix,
                 bundle: bundle
             )
         case let .endsWith(suffix):
             return localizedRuleClause(
-                "ends with “%@” after ignoring letter case and diacritics",
+                "ends with “%@”",
                 value: suffix,
                 bundle: bundle
             )
         case let .matchesNormalizedPattern(pattern):
             return localizedRuleClause(
-                "matches the regular expression “%@” after ignoring letter case and diacritics",
+                "matches the regular expression “%@”",
                 value: pattern,
                 bundle: bundle
             )
@@ -695,19 +693,18 @@ struct StopNotePresentation: Equatable {
         let note: String
         let matchedRule: String
 
-        /// Combines the original IDOS note with the exact rule requested by Option-clicking its emoji.
+        /// Returns only the exact rule requested by Option-clicking the note's emoji.
         func ruleExplanation(bundle: Bundle = .main) -> String {
             let format = bundle.localizedString(
-                forKey: "Matched rule: note contains “%@” after ignoring letter case and diacritics.",
+                forKey: "Matched rule: contains “%@”.",
                 value: nil,
                 table: nil
             )
-            let rule = String(
+            return String(
                 format: format,
                 locale: AppLocalization.pluralLocale(for: bundle),
                 arguments: [matchedRule]
             )
-            return "\(note)\n\(rule)"
         }
     }
 
