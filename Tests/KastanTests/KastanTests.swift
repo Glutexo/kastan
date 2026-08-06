@@ -219,7 +219,7 @@ import Testing
 @Test func versionOutputShowsCurrentVersion() async {
     let output = await englishCommandRunner(client: MockIDOSClient()).output(for: ["--version"])
 
-    #expect(output == "0.1.0")
+    #expect(output == "0.1.1")
 }
 
 @Test func suggestCommandPrintsSuggestions() async {
