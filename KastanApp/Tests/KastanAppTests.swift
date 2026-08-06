@@ -3363,24 +3363,22 @@ final class KastanAppTests: XCTestCase {
             information.count
         )
 
-        let fareInformation = IDOSServiceInformation(
-            text: "Na lince platí tarif a přepravní podmínky vyhlášené dopravcem."
-        )
-        let rule = ServiceInformationRulePresentation(information: fareInformation)
+        let accessibilityInformation = IDOSServiceInformation(text: "bezbariérový spoj")
+        let rule = ServiceInformationRulePresentation(information: accessibilityInformation)
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
         XCTAssertEqual(
             rule.explanation(bundle: czech),
             """
-            Na lince platí tarif a přepravní podmínky vyhlášené dopravcem.
-            Použité pravidlo: informace o spoji byla zařazena do kategorie „fareConditions“, která používá 🎫.
+            bezbariérový spoj
+            Použité pravidlo: informace o spoji obsahuje „bezbarierovy spoj“ bez ohledu na velikost písmen a diakritiku.
             """
         )
         XCTAssertEqual(
             rule.explanation(bundle: english),
             """
-            Na lince platí tarif a přepravní podmínky vyhlášené dopravcem.
-            Matched rule: service information classified as “fareConditions”, whose symbol is 🎫.
+            bezbariérový spoj
+            Matched rule: service information contains “bezbarierovy spoj” after ignoring letter case and diacritics.
             """
         )
     }

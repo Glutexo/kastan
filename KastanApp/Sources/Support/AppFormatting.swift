@@ -557,23 +557,100 @@ struct ServiceInformationPresentation: Equatable {
     }
 }
 
-/// Describes the classifier result that selected one semantic service-information emoji.
+/// Describes the concrete classifier predicates that selected one service-information meaning.
 struct ServiceInformationRulePresentation: Equatable {
     let information: IDOSServiceInformation
 
-    /// Keeps the complete IDOS wording beside the exact product category and its selected symbol.
+    /// Keeps the complete IDOS wording beside the exact phrase, pattern, or structural rule that matched it.
     func explanation(bundle: Bundle = .main) -> String {
+        if information.classificationRule == .fallback {
+            let fallback = bundle.localizedString(
+                forKey: "No specific service-information rule matched; the supplied fallback was used.",
+                value: nil,
+                table: nil
+            )
+            return "\(information.text)\n\(fallback)"
+        }
+
         let format = bundle.localizedString(
-            forKey: "Matched rule: service information classified as “%@”, whose symbol is %@.",
+            forKey: "Matched rule: service information %@.",
             value: nil,
             table: nil
         )
         let rule = String(
             format: format,
             locale: AppLocalization.pluralLocale(for: bundle),
-            arguments: [information.category.rawValue, information.symbol]
+            arguments: [ruleDescription(information.classificationRule, bundle: bundle)]
         )
         return "\(information.text)\n\(rule)"
+    }
+
+    private func ruleDescription(
+        _ rule: IDOSServiceInformation.ClassificationRule,
+        bundle: Bundle
+    ) -> String {
+        switch rule {
+        case let .contains(phrase):
+            return localizedRuleClause(
+                "contains “%@” after ignoring letter case and diacritics",
+                value: phrase,
+                bundle: bundle
+            )
+        case let .startsWith(prefix):
+            return localizedRuleClause(
+                "starts with “%@” after ignoring letter case and diacritics",
+                value: prefix,
+                bundle: bundle
+            )
+        case let .endsWith(suffix):
+            return localizedRuleClause(
+                "ends with “%@” after ignoring letter case and diacritics",
+                value: suffix,
+                bundle: bundle
+            )
+        case let .matchesNormalizedPattern(pattern):
+            return localizedRuleClause(
+                "matches the regular expression “%@” after ignoring letter case and diacritics",
+                value: pattern,
+                bundle: bundle
+            )
+        case let .matchesOriginalPattern(pattern):
+            return localizedRuleClause(
+                "matches the original-text regular expression “%@”",
+                value: pattern,
+                bundle: bundle
+            )
+        case .carrierContactStructure:
+            return bundle.localizedString(
+                forKey: "has the carrier-contact structure “name; address[; phone]”",
+                value: nil,
+                table: nil
+            )
+        case let .all(rules):
+            let descriptions = rules.map { ruleDescription($0, bundle: bundle) }
+            let formatter = ListFormatter()
+            formatter.locale = AppLocalization.locale(for: bundle)
+            return formatter.string(from: descriptions) ?? descriptions.joined(separator: " + ")
+        case .fallback:
+            return bundle.localizedString(
+                forKey: "uses the supplied fallback because no specific rule matched",
+                value: nil,
+                table: nil
+            )
+        }
+    }
+
+    private func localizedRuleClause(
+        _ key: String,
+        value: String,
+        bundle: Bundle
+    ) -> String {
+        let format = bundle.localizedString(forKey: key, value: nil, table: nil)
+        return String(
+            format: format,
+            locale: AppLocalization.pluralLocale(for: bundle),
+            arguments: [value]
+        )
     }
 }
 

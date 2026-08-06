@@ -156,8 +156,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   rows still reveal via descriptions, station-scoped
   tariff zones, and platforms or stands. Both row types always preserve the passenger facilities and restrictions
   printed beside a service by IDOS. They show semantic emoji by default, expose the complete wording to VoiceOver and
-  on hover, and Option-clicking an emoji opens a selectable popover with the classifier category that selected that
-  symbol. The global, persistent Replace symbols with text setting replaces those service symbols and recognized
+  on hover, and Option-clicking an emoji opens a selectable popover with the exact phrase, regular-expression, or
+  structural classifier rule that matched the IDOS wording. Phrase rules state that matching ignores letter case and
+  diacritics; the popover does not substitute the resulting category name or emoji for the rule. The global,
+  persistent Replace symbols with text setting replaces those service symbols and recognized
   stop-note emoji with the complete wording supplied by IDOS; the setting is off initially. It applies equally to
   connection results, station boards, station timetables, complete result windows, and Force Click previews. Station
   timetables, complete service windows, and previews continue to show tariff zones, platforms, tracks, and distances

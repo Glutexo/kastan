@@ -91,6 +91,25 @@ import Testing
     }
 }
 
+/// Makes diagnostics report the successful classifier predicates rather than only their category outcome.
+@Test func serviceInformationExposesItsConcreteClassificationRule() {
+    #expect(
+        IDOSServiceInformation(text: "Bezbariérový spoj").classificationRule ==
+            .contains("bezbarierovy spoj")
+    )
+    #expect(
+        IDOSServiceInformation(
+            text: "Na lince platí tarif a přepravní podmínky vyhlášené dopravcem."
+        ).classificationRule == .all([
+            .contains("tarif"),
+            .contains("prepravni podmink"),
+        ])
+    )
+    #expect(
+        IDOSServiceInformation(text: "Doplňující informace").classificationRule == .fallback
+    )
+}
+
 /// Lets the app supply a parsed calendar meaning only as a fallback behind more specific passenger services.
 @Test func serviceInformationUsesAnExplicitFallbackWithoutOverridingSpecificMeaning() {
     #expect(

@@ -96,7 +96,15 @@
 "Line number or name" = "Číslo nebo název linky";
 "Maximum number of transfers" = "Nejvyšší počet přestupů";
 "Matched rule: note contains “%@” after ignoring letter case and diacritics." = "Použité pravidlo: poznámka obsahuje „%@“ bez ohledu na velikost písmen a diakritiku.";
-"Matched rule: service information classified as “%@”, whose symbol is %@." = "Použité pravidlo: informace o spoji byla zařazena do kategorie „%@“, která používá %@.";
+"Matched rule: service information %@." = "Použité pravidlo: informace o spoji %@.";
+"No specific service-information rule matched; the supplied fallback was used." = "Žádné konkrétní pravidlo pro informace o spoji neuspělo; byla použita předaná záložní hodnota.";
+"contains “%@” after ignoring letter case and diacritics" = "obsahuje „%@“ bez ohledu na velikost písmen a diakritiku";
+"ends with “%@” after ignoring letter case and diacritics" = "končí řetězcem „%@“ bez ohledu na velikost písmen a diakritiku";
+"has the carrier-contact structure “name; address[; phone]”" = "má strukturu kontaktu dopravce „název; adresa[; telefon]“";
+"matches the original-text regular expression “%@”" = "odpovídá regulárnímu výrazu „%@“ v původním textu";
+"matches the regular expression “%@” after ignoring letter case and diacritics" = "odpovídá regulárnímu výrazu „%@“ bez ohledu na velikost písmen a diakritiku";
+"starts with “%@” after ignoring letter case and diacritics" = "začíná řetězcem „%@“ bez ohledu na velikost písmen a diakritiku";
+"uses the supplied fallback because no specific rule matched" = "používá předanou záložní hodnotu, protože žádné konkrétní pravidlo neuspělo";
 "Message" = "Zpráva";
 "Message can contain at most 1,024 characters." = "Zpráva může obsahovat nejvýše 1 024 znaků.";
 "Kaštan on GitHub" = "Kaštan na GitHubu";
