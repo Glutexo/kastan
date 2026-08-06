@@ -147,11 +147,13 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   forces the connection time and duration onto extra lines: each badge collapses to its semantic emoji when the
   complete localized title does not fit, and hovering that compact badge reveals the title. The neighboring Show item
   details setting is likewise off initially, global, and persistent. Enabling it reveals carriers and localized Czech
-  or English IDOS punctuality states, including live delay minute counts. Connection-service rows also show their
-  departure platform but omit tariff zones, which the compact summary cannot associate clearly with either endpoint
-  and IDOS does not show in connection results. A compact railway pair such as `2/3` is expanded to the localized
-  `platform 2 track 3`, so the two numbers remain unambiguous; slash-containing platform or stand identifiers on
-  other transport modes remain unchanged. Station-board rows still reveal via descriptions, station-scoped
+  or English IDOS punctuality states, including live delay minute counts. Connection-service rows always show their
+  departure platform beside the service symbols as a compact source value such as `1`; hovering it or using VoiceOver
+  reveals localized wording such as `platform 1`. A railway pair remains compact as `2/3`, while its hover and
+  VoiceOver wording expands to `platform 2, track 3`, so the two numbers remain unambiguous. Slash-containing platform
+  or stand identifiers on other transport modes remain unchanged. Connection rows omit tariff zones, which the compact
+  summary cannot associate clearly with either endpoint and IDOS does not show in connection results. Station-board
+  rows still reveal via descriptions, station-scoped
   tariff zones, and platforms or stands. Both row types always preserve the passenger facilities and restrictions
   printed beside a service by IDOS. They show semantic emoji by default, expose the complete wording to VoiceOver and
   on hover, and Option-clicking an emoji opens a selectable popover with the classifier category that selected that

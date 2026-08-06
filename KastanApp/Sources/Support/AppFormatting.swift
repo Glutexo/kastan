@@ -992,16 +992,37 @@ enum ResultMetadata {
         ].compactMap(\.self)
     }
 
-    /// Matches IDOS connection results by omitting tariff zones that a compact service row cannot
-    /// unambiguously associate with either endpoint.
+    /// Keeps the departure platform beside a connection service while its localized meaning remains available.
+    static func compactConnectionPlatform(
+        _ leg: IDOSConnectionLeg,
+        bundle: Bundle = .main
+    ) -> CompactItem? {
+        guard let platform = cleaned(leg.fromPlatform) else { return nil }
+        if leg.transportMode == .train,
+           let components = platformTrackComponents(platform)
+        {
+            return CompactItem(
+                text: "\(components.platform)/\(components.track)",
+                helpText: platformAndTrackDescription(
+                    platform: components.platform,
+                    track: components.track,
+                    separator: ", ",
+                    bundle: bundle
+                )
+            )
+        }
+        return CompactItem(
+            text: platform,
+            helpText: localized("Platform %@", platform, bundle: bundle)
+        )
+    }
+
+    /// Matches IDOS connection results by keeping optional carrier and punctuality details together.
     static func connectionLeg(_ leg: IDOSConnectionLeg, showsDetails: Bool) -> String? {
         visible(
             showsDetails: showsDetails,
             leg.carrier,
-            delay(leg.delay),
-            leg.fromPlatform.map {
-                connectionPlatformDescription($0, transportMode: leg.transportMode)
-            }
+            delay(leg.delay)
         )
     }
 
@@ -1131,16 +1152,6 @@ enum ResultMetadata {
             locale: AppLocalization.locale(for: bundle),
             arguments: [value]
         )
-    }
-
-    private static func connectionPlatformDescription(
-        _ value: String,
-        transportMode: IDOSTransportMode?
-    ) -> String {
-        guard transportMode == .train, platformTrackComponents(value) != nil else {
-            return AppLocalization.string("Platform %@", value)
-        }
-        return platformTrackDescription(value)
     }
 
     private static func platformTrackComponents(

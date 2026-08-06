@@ -1418,6 +1418,9 @@ private struct ConnectionLegRow: View {
                                 showsText: false
                             )
                         }
+                        if let platform = ResultMetadata.compactConnectionPlatform(leg) {
+                            CompactStopMetadata(values: [platform])
+                        }
                         Spacer()
                         if leg.id != nil {
                             Image(systemName: "chevron.right")

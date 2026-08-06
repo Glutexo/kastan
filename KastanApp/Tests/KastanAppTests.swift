@@ -3242,7 +3242,8 @@ final class KastanAppTests: XCTestCase {
         ).isEmpty)
     }
 
-    func testConnectionLegDetailsOmitTariffZonesWithoutAClearEndpoint() {
+    func testConnectionLegDetailsOmitTariffZonesAndTheCompactDeparturePlatform() throws {
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let leg = IDOSConnectionLeg(
             name: "R 879 Svitava",
             transportMode: .train,
@@ -3264,15 +3265,19 @@ final class KastanAppTests: XCTestCase {
             [
                 "Czech Railways",
                 AppLocalization.string("Departure tends to be on time"),
-                AppLocalization.string("Platform %@", "4"),
             ].joined(separator: " · ")
         )
         XCTAssertFalse(metadata?.contains("ambiguous-from-zone") ?? true)
         XCTAssertFalse(metadata?.contains("ambiguous-to-zone") ?? true)
+        XCTAssertEqual(
+            ResultMetadata.compactConnectionPlatform(leg, bundle: czech),
+            ResultMetadata.CompactItem(text: "4", helpText: "nástupiště 4")
+        )
         XCTAssertNil(ResultMetadata.connectionLeg(leg, showsDetails: false))
     }
 
-    func testConnectionLegDetailsExpandCombinedRailwayPlatformAndTrack() {
+    func testConnectionLegPlatformsUseCompactLocalizedPresentation() throws {
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let train = IDOSConnectionLeg(
             name: "S6",
             transportMode: .train,
@@ -3286,16 +3291,18 @@ final class KastanAppTests: XCTestCase {
         bus.transportMode = .bus
         bus.fromPlatform = "2/3"
 
+        XCTAssertNil(ResultMetadata.connectionLeg(train, showsDetails: true))
+        XCTAssertNil(ResultMetadata.connectionLeg(bus, showsDetails: true))
         XCTAssertEqual(
-            ResultMetadata.connectionLeg(train, showsDetails: true),
-            [
-                AppLocalization.string("Platform %@", "2"),
-                AppLocalization.string("track %@", "3"),
-            ].joined(separator: " ")
+            ResultMetadata.compactConnectionPlatform(train, bundle: czech),
+            ResultMetadata.CompactItem(
+                text: "2/3",
+                helpText: "nástupiště 2, kolej 3"
+            )
         )
         XCTAssertEqual(
-            ResultMetadata.connectionLeg(bus, showsDetails: true),
-            AppLocalization.string("Platform %@", "2/3")
+            ResultMetadata.compactConnectionPlatform(bus, bundle: czech),
+            ResultMetadata.CompactItem(text: "2/3", helpText: "nástupiště 2/3")
         )
         XCTAssertEqual(
             ResultMetadata.platformTrackDescription("2/3/4"),

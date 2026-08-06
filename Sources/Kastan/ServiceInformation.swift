@@ -345,7 +345,8 @@ private struct Classifier {
         }
         // Bus timetables describe an accessible vehicle without necessarily mentioning a wheelchair.
         if contains(anyOf:
-            "cestujicich na voziku", "spoj s bezbarierove pristupnym vozidlem", "wheelchair"
+            "cestujicich na voziku", "bezbarierovy spoj",
+            "spoj s bezbarierove pristupnym vozidlem", "wheelchair"
         ) {
             return .wheelchair
         }
