@@ -553,9 +553,16 @@ struct StationTimetableDepartureTimes: View {
     let explanations: [String]
 
     var body: some View {
-        StationTimetableDepartureFlowLayout(horizontalSpacing: 10, verticalSpacing: 2) {
+        StationTimetableDepartureFlowLayout(
+            horizontalSpacing: StationTimetableDepartureLayout.columnSpacing,
+            verticalSpacing: StationTimetableDepartureLayout.rowSpacing
+        ) {
             ForEach(Array(presentations.enumerated()), id: \.offset) { _, presentation in
                 StationTimetableDepartureTime(presentation: presentation)
+                    .frame(
+                        width: StationTimetableDepartureLayout.columnWidth,
+                        alignment: .leading
+                    )
             }
         }
     }
@@ -565,6 +572,13 @@ struct StationTimetableDepartureTimes: View {
             StationTimetableDeparturePresentation(value: $0, explanations: explanations)
         }
     }
+}
+
+/// Keeps timetable minutes in stable columns while leaving room for their attached IDOS markers.
+enum StationTimetableDepartureLayout {
+    static let columnWidth: CGFloat = 40
+    static let columnSpacing: CGFloat = 10
+    static let rowSpacing: CGFloat = 2
 }
 
 /// Keeps the primary minute prominent and exposes the complete IDOS explanation from its smaller

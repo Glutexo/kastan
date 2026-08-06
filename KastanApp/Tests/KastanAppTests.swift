@@ -918,6 +918,23 @@ final class KastanAppTests: XCTestCase {
         XCTAssertGreaterThan(narrow.fittingSize.height, wide.fittingSize.height)
     }
 
+    func testStationTimetableDepartureColumnsStayAlignedWithMarkers() {
+        func renderedWidth(values: [String]) -> CGFloat {
+            let departures = StationTimetableDepartureTimes(
+                values: values,
+                explanations: ["A: první", "BC: druhá"]
+            )
+            let hostingView = NSHostingView(rootView: departures)
+            hostingView.layoutSubtreeIfNeeded()
+            return hostingView.fittingSize.width
+        }
+
+        let expectedWidth = (3 * StationTimetableDepartureLayout.columnWidth)
+            + (2 * StationTimetableDepartureLayout.columnSpacing)
+        XCTAssertEqual(renderedWidth(values: ["05", "15", "25"]), expectedWidth, accuracy: 1)
+        XCTAssertEqual(renderedWidth(values: ["05A", "15BC", "25"]), expectedWidth, accuracy: 1)
+    }
+
     func testRouteStopMarkerIsAnOutlinedCircleWithAnOptionalCenter() throws {
         func centerBrightness(showsCenter: Bool) throws -> CGFloat {
             let marker = RouteStopMarker(
