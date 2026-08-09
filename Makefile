@@ -78,7 +78,7 @@ container-images: ## Build the CLI and MCP Linux container images.
 
 test-container-images: container-images ## Smoke-test the container entry points and CLI resources.
 	$(DOCKER) run --rm "$(CLI_IMAGE)" --language cs --help | grep -F '🌰 Použití:'
-	@response="$$(printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"container-smoke-test","version":"1.0"}}}' | $(DOCKER) run --rm --interactive "$(MCP_IMAGE)")"; \
+	@response="$$( { printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"container-smoke-test","version":"1.0"}}}'; sleep 1; } | $(DOCKER) run --rm --interactive "$(MCP_IMAGE)")"; \
 		printf '%s\n' "$$response" | grep -F 'kastan-mcp'
 
 dist: check-dist ## Create every downloadable archive from a clean Git HEAD.

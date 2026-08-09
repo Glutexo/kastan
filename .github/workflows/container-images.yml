@@ -74,10 +74,16 @@ jobs:
       - name: Test MCP image
         if: matrix.target == 'mcp'
         run: |
-          set -o pipefail
-          response="$({
-            printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"container-smoke-test","version":"1.0"}}}'
-          } | docker run --rm --interactive "${{ matrix.image }}:test")"
+          set -euo pipefail
+          request='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"container-smoke-test","version":"1.0"}}}'
+          coproc server { docker run --rm --interactive "${{ matrix.image }}:test"; }
+          server_pid=$server_PID
+          input_fd=${server[1]}
+          output_fd=${server[0]}
+          printf '%s\n' "$request" >&"$input_fd"
+          IFS= read -r response <&"$output_fd"
+          exec {input_fd}>&-
+          wait "$server_pid"
           printf '%s\n' "$response" | grep --fixed-strings 'kastan-mcp'
 
       - name: Log in to GitHub Container Registry
