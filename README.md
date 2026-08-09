@@ -19,7 +19,16 @@ a stable or guaranteed data API.
 
 ## Quick Start
 
-The command-line package requires Git and Swift 6.3 or newer:
+Run the prebuilt Linux CLI image with Docker:
+
+```sh
+docker run --rm ghcr.io/glutexo/kastan-cli:main Praha Brno --time 12:00
+```
+
+The [container guide](docs/containers.md) covers stable image tags, persistent CLI aliases, and the separate MCP
+image.
+
+For a native command-line build, install Git and Swift 6.3 or newer:
 
 ```sh
 git clone https://github.com/Glutexo/kastan.git

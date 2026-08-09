@@ -10,6 +10,8 @@ keeps its detailed feature behavior, requirements, and examples outside the conc
 - [macOS app](macos-app.md) — complete feature description, requirements, and Xcode and terminal build steps.
 - [CLI](cli.md) — setup for macOS, Windows, and Linux; all commands and options; output formats; localization;
   stop aliases; and timetables.
+- [Container images](containers.md) — prebuilt CLI and MCP images, version tags, persistent CLI aliases, client
+  configuration, and local image builds.
 
 ## Integrate Kaštan
 

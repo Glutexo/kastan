@@ -7,6 +7,10 @@ Windows, and Linux, with the exception of direct calendar opening, which is avai
 
 ## Requirements and Building
 
+A prebuilt AMD64 and ARM64 Linux image is available for users who have Docker but do not need a local Swift
+toolchain. The [container guide](containers.md#cli-image) documents direct commands, tags, and persistent aliases.
+The source builds below remain the supported route for native macOS, Windows, and Linux executables.
+
 Kaštan requires Git and Swift 6.3 or newer. Download Swift only from the
 [official Swift installation page](https://www.swift.org/install/); development snapshots are not required.
 

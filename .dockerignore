@@ -1,0 +1,9 @@
+.build
+.git
+.swiftpm
+dist
+KastanApp
+MCPServer/.build
+**/.DS_Store
+**/DerivedData
+**/xcuserdata

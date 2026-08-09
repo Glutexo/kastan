@@ -8,6 +8,10 @@ or local data.
 
 ## Requirements and Building
 
+Users with Docker can run the prebuilt AMD64 or ARM64 Linux image instead of installing Swift. The
+[container guide](containers.md#mcp-image) provides the complete `docker run` client configuration and image-tag
+policy.
+
 The MCP server requires Git and Swift 6.3 or newer. It supports macOS 13 or newer and Linux. Build and test its
 separate Swift package from the repository root:
 
