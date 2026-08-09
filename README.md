@@ -22,7 +22,7 @@ a stable or guaranteed data API.
 Run the prebuilt Linux CLI image with Docker:
 
 ```sh
-docker run --rm ghcr.io/glutexo/kastan-cli:main Praha Brno --time 12:00
+docker run --rm ghcr.io/glutexo/kastan-cli:latest Praha Brno --time 12:00
 ```
 
 The [container guide](docs/containers.md) covers stable image tags, persistent CLI aliases, and the separate MCP

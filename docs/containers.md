@@ -25,9 +25,9 @@ use `--format ics` and redirect the calendar data to a host file instead.
 Run CLI arguments directly after the image name:
 
 ```sh
-docker run --rm ghcr.io/glutexo/kastan-cli:main Praha Brno --time 12:00
-docker run --rm ghcr.io/glutexo/kastan-cli:main departures --station Praha --format json
-docker run --rm ghcr.io/glutexo/kastan-cli:main --language cs --help
+docker run --rm ghcr.io/glutexo/kastan-cli:latest Praha Brno --time 12:00
+docker run --rm ghcr.io/glutexo/kastan-cli:latest departures --station Praha --format json
+docker run --rm ghcr.io/glutexo/kastan-cli:latest --language cs --help
 ```
 
 Each container is otherwise ephemeral. Mount a named volume at `/home/kastan/.config` to preserve stop aliases
@@ -37,11 +37,11 @@ between commands:
 docker volume create kastan-config
 docker run --rm \
   --volume kastan-config:/home/kastan/.config \
-  ghcr.io/glutexo/kastan-cli:main \
-  aliases add home --station "Frýek,Na Veselé" --timetable odis
+  ghcr.io/glutexo/kastan-cli:latest \
+  aliases add home --station "Frýdek,Na Veselé" --timetable odis
 docker run --rm \
   --volume kastan-config:/home/kastan/.config \
-  ghcr.io/glutexo/kastan-cli:main \
+  ghcr.io/glutexo/kastan-cli:latest \
   aliases list
 ```
 
@@ -62,7 +62,7 @@ that use a JSON server map commonly accept this configuration:
         "run",
         "--rm",
         "--interactive",
-        "ghcr.io/glutexo/kastan-mcp:main"
+        "ghcr.io/glutexo/kastan-mcp:latest"
       ]
     }
   }
