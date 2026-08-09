@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
 
 ARG SWIFT_VERSION=6.3.3
+ARG KASTAN_VERSION=development
+ARG KASTAN_REVISION=unknown
 
 FROM swift:${SWIFT_VERSION}-noble AS source
 
@@ -60,6 +62,12 @@ ENV HOME=/home/kastan \
     LANG=C.UTF-8
 
 COPY LICENSE /usr/share/doc/kastan/LICENSE
+
+ARG KASTAN_VERSION
+ARG KASTAN_REVISION
+
+LABEL org.opencontainers.image.version="${KASTAN_VERSION}" \
+      org.opencontainers.image.revision="${KASTAN_REVISION}"
 
 USER 65532:65532
 

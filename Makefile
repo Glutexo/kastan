@@ -19,6 +19,8 @@ APP_DESTINATION := platform=macOS
 APP_NAME := Kaštan
 APP_ENTITLEMENTS := KastanApp/KastanApp.entitlements
 APP_VERSION := $(shell sed -n 's/^[[:space:]]*MARKETING_VERSION = \([^;]*\);/\1/p' $(APP_PROJECT)/project.pbxproj | head -n 1)
+CONTAINER_VERSION ?= $(APP_VERSION)
+CONTAINER_REVISION ?= $(shell $(GIT) rev-parse --verify HEAD 2>/dev/null || printf '%s' unknown)
 
 DIST_DIR ?= dist
 DIST_BUILD_DIR := .build/distribution
@@ -73,10 +75,26 @@ test-app: ## Test the macOS app.
 		CODE_SIGNING_ALLOWED=NO
 
 container-images: ## Build the CLI and MCP Linux container images.
-	$(DOCKER) build --target cli --tag "$(CLI_IMAGE)" .
-	$(DOCKER) build --target mcp --tag "$(MCP_IMAGE)" .
+	$(DOCKER) build \
+		--build-arg KASTAN_VERSION="$(CONTAINER_VERSION)" \
+		--build-arg KASTAN_REVISION="$(CONTAINER_REVISION)" \
+		--target cli \
+		--tag "$(CLI_IMAGE)" \
+		.
+	$(DOCKER) build \
+		--build-arg KASTAN_VERSION="$(CONTAINER_VERSION)" \
+		--build-arg KASTAN_REVISION="$(CONTAINER_REVISION)" \
+		--target mcp \
+		--tag "$(MCP_IMAGE)" \
+		.
 
 test-container-images: container-images ## Smoke-test the container entry points and CLI resources.
+	@for image in "$(CLI_IMAGE)" "$(MCP_IMAGE)"; do \
+		test "$$($(DOCKER) image inspect --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' "$$image")" = "$(CONTAINER_VERSION)"; \
+		test "$$($(DOCKER) image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$$image")" = "$(CONTAINER_REVISION)"; \
+		test "$$($(DOCKER) image inspect --format '{{ .Config.User }}' "$$image")" = '65532:65532'; \
+	done
+	@test "$$($(DOCKER) run --rm "$(CLI_IMAGE)" --version)" = "$(CONTAINER_VERSION)"
 	$(DOCKER) run --rm "$(CLI_IMAGE)" --language cs --help | grep -F '🌰 Použití:'
 	@response="$$( { printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"container-smoke-test","version":"1.0"}}}'; sleep 1; } | $(DOCKER) run --rm --interactive "$(MCP_IMAGE)")"; \
 		printf '%s\n' "$$response" | grep -F 'kastan-mcp'

@@ -89,12 +89,18 @@ make container-images \
   MCP_IMAGE=example/kastan-mcp:test
 ```
 
+The Make targets stamp both images with the current app version and, when available, Git revision in their OCI
+metadata. Override them with `CONTAINER_VERSION` and `CONTAINER_REVISION` when reproducing a different build.
+
 The shared Dockerfile also exposes independent targets for tools that do not use the Makefile:
 
 ```sh
 docker build --target cli --tag kastan-cli:local .
 docker build --target mcp --tag kastan-mcp:local .
 ```
+
+Direct Dockerfile builds use `development` and `unknown` as the version and revision labels unless the caller
+sets the `KASTAN_VERSION` and `KASTAN_REVISION` build arguments.
 
 GitHub Actions builds and smoke-tests the native AMD64 images for pull requests. Commits on `main` and version
 tags additionally publish both AMD64 and ARM64 variants to GitHub Container Registry.
