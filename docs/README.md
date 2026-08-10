@@ -17,6 +17,8 @@ keeps its detailed feature behavior, requirements, and examples outside the conc
 
 - [MCP server](mcp-server.md) — build and client configuration, the complete read-only tool catalog, arguments,
   limits, output, and errors.
+- [Cloud Run deployment](cloud-run.md) — protected remote Streamable HTTP deployment with a pre-shared Bearer
+  token, scaling limits, verification, rotation, and removal.
 - [Swift library](swift-library.md) — package integration, a complete example, public types, and product behavior.
 
 All four interfaces use the same `Kastan` parsing and search engine. The individual guides document where an

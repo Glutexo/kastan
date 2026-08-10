@@ -2,9 +2,9 @@
 
 [← Documentation](README.md)
 
-The `kastan-mcp` executable gives local MCP clients read-only access to Kaštan's IDOS searches. It communicates
-over standard input and output using the official Swift MCP SDK and does not expose any tools that change remote
-or local data.
+The `kastan-mcp` executable gives local and remote MCP clients read-only access to Kaštan's IDOS searches. It
+uses the official Swift MCP SDK and supports local standard input and output or authenticated Streamable HTTP.
+Neither transport exposes tools that change remote or local data.
 
 ## Requirements and Building
 
@@ -26,7 +26,7 @@ Print the directory containing the resulting `kastan-mcp` executable:
 swift build --package-path MCPServer -c release --show-bin-path
 ```
 
-## Client Configuration
+## Local stdio Configuration
 
 Configure the MCP client to launch the absolute path of the built executable. Clients that use a JSON server map
 commonly accept an entry shaped like this:
@@ -43,6 +43,60 @@ commonly accept an entry shaped like this:
 
 The client must reserve standard input and output for MCP communication. Kaštan does not require credentials or
 environment variables.
+
+## Remote Streamable HTTP
+
+HTTP mode exposes a stateless MCP endpoint at `/mcp` and an unauthenticated liveness endpoint at `/healthz`.
+Kaštan returns one JSON response for each MCP POST request and returns HTTP 405 for `GET /mcp`; it does not hold
+an SSE stream or send server-initiated messages. This makes the server suitable for request-based container
+platforms while retaining all tools and structured results from stdio mode.
+
+Generate a private token and start a development server bound only to localhost:
+
+```sh
+export KASTAN_MCP_BEARER_TOKEN="$(openssl rand -hex 32)"
+swift run --package-path MCPServer kastan-mcp \
+  --transport http \
+  --host 127.0.0.1 \
+  --port 8080
+```
+
+Every `/mcp` request must include `Authorization: Bearer <token>`. Tokens must contain at least 32 non-whitespace
+bytes. The temporary pre-shared-token scheme is intended for a private personal deployment; it does not implement
+OAuth discovery or interactive authorization.
+
+Remote MCP client configurations commonly use this shape:
+
+```json
+{
+  "mcpServers": {
+    "kastan": {
+      "url": "https://example.run.app/mcp",
+      "headers": {
+        "Authorization": "Bearer <private-token>"
+      }
+    }
+  }
+}
+```
+
+The exact syntax for secret or environment-variable interpolation depends on the client. Do not commit the token
+inside a client configuration file.
+
+HTTP configuration is available through these English command-line options and environment variables:
+
+| Setting | Default | Behavior |
+| --- | --- | --- |
+| `--transport stdio\|http` / `KASTAN_MCP_TRANSPORT` | `stdio` | Selects the local or remote transport. |
+| `--host` / `KASTAN_MCP_HOST` | `127.0.0.1` | Selects the HTTP bind address; Cloud Run requires `0.0.0.0`. |
+| `--port` / `KASTAN_MCP_PORT` / `PORT` | `8080` | Selects the listener port in precedence order; Cloud Run supplies `PORT`. |
+| `KASTAN_MCP_BEARER_TOKEN` | required in HTTP mode | Supplies the pre-shared Bearer credential. |
+| `KASTAN_MCP_ALLOWED_ORIGINS` | none | Allows exact comma-separated HTTP origins; requests without `Origin` remain valid. |
+| `--requests-per-minute` / `KASTAN_MCP_REQUESTS_PER_MINUTE` | `60` | Caps all authenticated `/mcp` requests in one process. |
+
+Wildcard origins are rejected. An unlisted `Origin` receives HTTP 403, a missing or incorrect token receives 401,
+and an exhausted request window receives 429 with `Retry-After`. Request bodies larger than 1 MiB receive 413.
+The [Cloud Run guide](cloud-run.md) documents a complete protected deployment.
 
 ## Tools
 

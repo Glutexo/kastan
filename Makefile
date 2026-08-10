@@ -9,6 +9,7 @@ LIPO ?= lipo
 CODESIGN ?= codesign
 UNZIP ?= unzip
 DOCKER ?= docker
+CURL ?= curl
 
 CLI_IMAGE ?= kastan-cli:local
 MCP_IMAGE ?= kastan-mcp:local
@@ -97,6 +98,32 @@ test-container-images: container-images ## Smoke-test the container entry points
 	@test "$$($(DOCKER) run --rm "$(CLI_IMAGE)" --version)" = "$(CONTAINER_VERSION)"
 	$(DOCKER) run --rm "$(CLI_IMAGE)" --language cs --help | grep -F '🌰 Použití:'
 	@response="$$( { printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"container-smoke-test","version":"1.0"}}}'; sleep 1; } | $(DOCKER) run --rm --interactive "$(MCP_IMAGE)")"; \
+		printf '%s\n' "$$response" | grep -F 'kastan-mcp'
+	@token='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'; \
+		container_id="$$($(DOCKER) run --rm --detach \
+			--publish 127.0.0.1::8080 \
+			--env KASTAN_MCP_BEARER_TOKEN="$$token" \
+			"$(MCP_IMAGE)" \
+			--transport http --host 0.0.0.0)"; \
+		trap '$(DOCKER) rm --force "$$container_id" >/dev/null 2>&1 || true' EXIT HUP INT TERM; \
+		port="$$($(DOCKER) port "$$container_id" 8080/tcp | sed -n 's/.*://p' | head -n 1)"; \
+		attempt=0; \
+		until $(CURL) --fail --silent "http://127.0.0.1:$$port/healthz" >/dev/null; do \
+			attempt=$$((attempt + 1)); \
+			if test "$$attempt" -ge 30; then $(DOCKER) logs "$$container_id"; exit 1; fi; \
+			sleep 0.2; \
+		done; \
+		test "$$($(CURL) --silent --output /dev/null --write-out '%{http_code}' \
+			--header 'Content-Type: application/json' \
+			--header 'Accept: application/json, text/event-stream' \
+			--data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"container-http-smoke-test","version":"1.0"}}}' \
+			"http://127.0.0.1:$$port/mcp")" = 401; \
+		response="$$($(CURL) --fail --silent --show-error \
+			--header "Authorization: Bearer $$token" \
+			--header 'Content-Type: application/json' \
+			--header 'Accept: application/json, text/event-stream' \
+			--data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"container-http-smoke-test","version":"1.0"}}}' \
+			"http://127.0.0.1:$$port/mcp")"; \
 		printf '%s\n' "$$response" | grep -F 'kastan-mcp'
 
 dist: check-dist ## Create every downloadable archive from a clean Git HEAD.

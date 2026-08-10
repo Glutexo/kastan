@@ -84,8 +84,10 @@ CMD ["--help"]
 FROM runtime AS mcp
 
 LABEL org.opencontainers.image.title="Kaštan MCP server" \
-      org.opencontainers.image.description="Read-only IDOS search tools over MCP stdio"
+      org.opencontainers.image.description="Read-only IDOS search tools over MCP stdio or Streamable HTTP"
 
 COPY --from=mcp-builder /artifacts/kastan-mcp /usr/local/bin/kastan-mcp
+
+EXPOSE 8080
 
 ENTRYPOINT ["/usr/local/bin/kastan-mcp"]

@@ -42,7 +42,7 @@ jobs:
           - target: mcp
             image: kastan-mcp
             title: Kaštan MCP image
-            description: Read-only IDOS search tools over MCP stdio
+            description: Read-only IDOS search tools over MCP stdio or Streamable HTTP
 
     steps:
       - name: Check out repository
@@ -95,6 +95,44 @@ jobs:
           IFS= read -r response <&"$output_fd"
           exec {input_fd}>&-
           wait "$server_pid"
+          printf '%s\n' "$response" | grep --fixed-strings 'kastan-mcp'
+
+      - name: Test MCP HTTP image
+        if: matrix.target == 'mcp'
+        run: |
+          set -euo pipefail
+          token='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+          container_id="$(docker run --rm --detach \
+            --publish 127.0.0.1::8080 \
+            --env KASTAN_MCP_BEARER_TOKEN="$token" \
+            "${{ matrix.image }}:test" \
+            --transport http --host 0.0.0.0)"
+          trap 'docker rm --force "$container_id" >/dev/null 2>&1 || true' EXIT
+          port="$(docker port "$container_id" 8080/tcp | sed -n 's/.*://p' | head -n 1)"
+
+          for _ in {1..30}; do
+            if curl --fail --silent --show-error "http://127.0.0.1:$port/healthz" >/dev/null; then
+              break
+            fi
+            sleep 0.2
+          done
+          curl --fail --silent --show-error "http://127.0.0.1:$port/healthz" >/dev/null || {
+            docker logs "$container_id"
+            exit 1
+          }
+
+          request='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"container-http-smoke-test","version":"1.0"}}}'
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --header 'Content-Type: application/json' \
+            --header 'Accept: application/json, text/event-stream' \
+            --data "$request" \
+            "http://127.0.0.1:$port/mcp")" = 401
+          response="$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $token" \
+            --header 'Content-Type: application/json' \
+            --header 'Accept: application/json, text/event-stream' \
+            --data "$request" \
+            "http://127.0.0.1:$port/mcp")"
           printf '%s\n' "$response" | grep --fixed-strings 'kastan-mcp'
 
       - name: Log in to GitHub Container Registry

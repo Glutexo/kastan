@@ -1,12 +1,42 @@
 import Foundation
 import Kastan
 import MCP
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 
-/// Runs Kaštan as a local MCP server over standard input and output.
+/// Starts the requested Kaštan MCP transport while keeping standard output clean for protocol messages.
 @main
 struct KastanMCPApp {
-    static func main() async throws {
-        try await KastanMCPServer.run(client: IDOSClient())
+    static func main() async {
+        do {
+            let command = try KastanMCPCommandLine.parse(
+                arguments: Array(CommandLine.arguments.dropFirst()),
+                environment: ProcessInfo.processInfo.environment
+            )
+
+            switch command {
+            case .help:
+                print(KastanMCPCommandLine.help)
+            case .version:
+                print(KastanMCPServer.version)
+            case .run(let configuration):
+                switch configuration.transport {
+                case .stdio:
+                    try await KastanMCPServer.runStdio(client: IDOSClient())
+                case .http:
+                    guard let http = configuration.http else {
+                        throw KastanMCPConfigurationError.missingHTTPConfiguration
+                    }
+                    try await KastanMCPHTTPServer(configuration: http).run()
+                }
+            }
+        } catch {
+            FileHandle.standardError.write(Data("kastan-mcp: \(error.localizedDescription)\n".utf8))
+            exit(EXIT_FAILURE)
+        }
     }
 }
 
@@ -14,7 +44,10 @@ struct KastanMCPApp {
 enum KastanMCPServer {
     static let version = "0.1.2"
 
-    static func makeServer(client: any IDOSClienting) async -> Server {
+    static func makeServer(
+        client: any IDOSClienting,
+        configuration: Server.Configuration = .strict
+    ) async -> Server {
         let tools = KastanMCPTools(client: client)
         let server = Server(
             name: "kastan-mcp",
@@ -22,7 +55,7 @@ enum KastanMCPServer {
             title: "Kaštan",
             instructions: "Search the Czech IDOS journey planner. All tools are read-only and return both JSON text and structured MCP content.",
             capabilities: .init(tools: .init(listChanged: false)),
-            configuration: .strict
+            configuration: configuration
         )
 
         await server.withMethodHandler(ListTools.self) { _ in
@@ -35,7 +68,7 @@ enum KastanMCPServer {
         return server
     }
 
-    static func run(client: any IDOSClienting) async throws {
+    static func runStdio(client: any IDOSClienting) async throws {
         let server = await makeServer(client: client)
         let transport = StdioTransport()
         try await server.start(transport: transport)

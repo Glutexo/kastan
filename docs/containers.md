@@ -10,7 +10,7 @@ Swift installation and run on both AMD64 and ARM64 hosts.
 | Image | Entrypoint | Purpose |
 | --- | --- | --- |
 | `ghcr.io/glutexo/kastan-cli` | `kastan` | Interactive and scripted CLI searches. |
-| `ghcr.io/glutexo/kastan-mcp` | `kastan-mcp` | MCP communication over standard input and output. |
+| `ghcr.io/glutexo/kastan-mcp` | `kastan-mcp` | MCP communication over stdio or authenticated Streamable HTTP. |
 
 Use `latest` for the newest stable release, a complete version such as `0.1.2` for a fixed release, or a
 minor-version tag such as `0.1` for compatible patch updates. The rolling `main` tag contains the newest commit
@@ -50,6 +50,8 @@ Alternatively, mount one host file and set `KASTAN_ALIAS_DATABASE` to its in-con
 
 ## MCP Image
 
+### Stdio Mode
+
 An MCP client must keep the container's standard input open and must not allocate a pseudo-terminal. Clients
 that use a JSON server map commonly accept this configuration:
 
@@ -69,9 +71,28 @@ that use a JSON server map commonly accept this configuration:
 }
 ```
 
-The Docker daemon must be running when the client starts the server. Kaštan needs no credentials, environment
-variables, port publication, or persistent volume. The [complete MCP guide](mcp-server.md) documents every tool
-and result.
+The Docker daemon must be running when the client starts the server. Stdio mode needs no credentials, environment
+variables, port publication, or persistent volume.
+
+### Streamable HTTP Mode
+
+The same image can listen on port 8080 for remote clients. HTTP mode requires a private Bearer token and must be
+selected explicitly, so existing stdio configurations remain unchanged:
+
+```sh
+export KASTAN_MCP_BEARER_TOKEN="$(openssl rand -hex 32)"
+docker run --rm \
+  --publish 127.0.0.1:8080:8080 \
+  --env KASTAN_MCP_BEARER_TOKEN \
+  ghcr.io/glutexo/kastan-mcp:main \
+  --transport http \
+  --host 0.0.0.0
+```
+
+The MCP URL is `http://127.0.0.1:8080/mcp`; `http://127.0.0.1:8080/healthz` is a public liveness check. The
+[complete MCP guide](mcp-server.md#remote-streamable-http) documents transport behavior and security settings,
+while the [Cloud Run guide](cloud-run.md) covers a hosted HTTPS deployment. Use `main` until HTTP mode appears in
+a stable release, then prefer its complete version tag.
 
 ## Local Builds
 
@@ -81,7 +102,8 @@ Build and smoke-test both images from the repository root:
 make test-container-images
 ```
 
-The default local names are `kastan-cli:local` and `kastan-mcp:local`. Override them when needed:
+The default local names are `kastan-cli:local` and `kastan-mcp:local`. The smoke tests exercise both MCP
+transports. Override the image names when needed:
 
 ```sh
 make container-images \

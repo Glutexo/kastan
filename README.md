@@ -3,7 +3,8 @@
 <img src="KastanApp/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-256.png" alt="Kaštan app icon" width="128">
 
 Kaštan is an open-source companion for occasional personal [IDOS](https://idos.cz/en/) searches. Use it as a
-native macOS app or from a terminal, or integrate its search engine as a Swift library or local MCP server.
+native macOS app or from a terminal, or integrate its search engine as a Swift library or local or remote MCP
+server.
 
 ![Kaštan for macOS showing direct train connections from Frýdek-Místek to Frenštát pod Radhoštěm with service-information symbols](docs/images/kastan-macos-connections.png)
 
@@ -15,7 +16,7 @@ a stable or guaranteed data API.
 - [macOS app](docs/macos-app.md) — search connections, station boards, and MHD station timetables in a native app.
 - [CLI](docs/cli.md) — run the same searches on macOS, Windows, or Linux and choose human-readable or structured output.
 - [Swift library](docs/swift-library.md) — build IDOS search features into a Swift project.
-- [MCP server](docs/mcp-server.md) — give a local MCP client read-only access to Kaštan searches.
+- [MCP server](docs/mcp-server.md) — give local or remote MCP clients read-only access to Kaštan searches.
 
 ## Quick Start
 
