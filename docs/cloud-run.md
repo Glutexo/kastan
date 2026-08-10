@@ -16,7 +16,7 @@ limits the service to one instance, four concurrent requests, and 60 authenticat
 - The `gcloud` CLI authenticated as a principal allowed to enable APIs, create a service account and secret, and
   deploy Cloud Run services.
 - `openssl` for generating a 256-bit token.
-- A Kaštan MCP image that includes HTTP mode; until the next stable release, the commands below use `main`.
+- A Kaštan MCP image that includes HTTP mode; the commands below use the fixed `0.2.0` release.
 
 Choose the project, region, and resource names once for the current shell:
 
@@ -26,7 +26,7 @@ export REGION="europe-west3"
 export SERVICE="kastan-mcp"
 export SECRET="kastan-mcp-bearer-token"
 export SERVICE_ACCOUNT="kastan-mcp-runtime"
-export IMAGE="ghcr.io/glutexo/kastan-mcp:main"
+export IMAGE="ghcr.io/glutexo/kastan-mcp:0.2.0"
 
 gcloud config set project "$PROJECT_ID"
 gcloud services enable \
@@ -96,8 +96,7 @@ gcloud run deploy "$SERVICE" \
 ```
 
 Cloud Run resolves an image tag to an immutable digest for the new revision. Repeat the deployment command to
-roll out another image or a rotated secret version. Prefer a complete release tag instead of `main` once the
-HTTP transport is included in a stable release.
+roll out another image or a rotated secret version. Change `IMAGE` explicitly when adopting a newer release.
 
 Read the assigned base URL:
 
