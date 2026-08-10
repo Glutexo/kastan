@@ -46,7 +46,7 @@ environment variables.
 
 ## Remote Streamable HTTP
 
-HTTP mode exposes a stateless MCP endpoint at `/mcp` and an unauthenticated liveness endpoint at `/healthz`.
+HTTP mode exposes a stateless MCP endpoint at `/mcp` and an unauthenticated liveness endpoint at `/health`.
 Kaštan returns one JSON response for each MCP POST request and returns HTTP 405 for `GET /mcp`; it does not hold
 an SSE stream or send server-initiated messages. This makes the server suitable for request-based container
 platforms while retaining all tools and structured results from stdio mode.

@@ -4,7 +4,7 @@
 
 This guide deploys Kaštan's stateless Streamable HTTP transport as a private personal MCP endpoint backed by a
 publicly invokable Google Cloud Run service. Cloud Run terminates HTTPS, while Kaštan requires a pre-shared
-Bearer token on every `/mcp` request. The unauthenticated `/healthz` endpoint exists only for service health
+Bearer token on every `/mcp` request. The unauthenticated `/health` endpoint exists only for service health
 checks. OAuth discovery and user authorization are not part of this deployment.
 
 Kaštan reads public IDOS endpoints and is intended for occasional personal use. The configuration therefore
@@ -114,7 +114,7 @@ printf '%s\n' "$SERVICE_URL"
 The health check must succeed without credentials, while the MCP endpoint must reject an unauthenticated request:
 
 ```sh
-curl --fail --silent --show-error "$SERVICE_URL/healthz"
+curl --fail --silent --show-error "$SERVICE_URL/health"
 
 test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
   --header 'Content-Type: application/json' \

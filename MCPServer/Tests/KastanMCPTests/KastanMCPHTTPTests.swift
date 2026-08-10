@@ -10,6 +10,11 @@ private let testBearerToken = String(repeating: "a", count: 32)
     #expect(command == .run(.init(transport: .stdio, http: nil)))
 }
 
+@Test func healthEndpointAvoidsCloudRunReservedSuffix() {
+    #expect(KastanMCPHTTPConfiguration.healthEndpoint == "/health")
+    #expect(!KastanMCPHTTPConfiguration.healthEndpoint.hasSuffix("z"))
+}
+
 @Test func commandLineBuildsCloudRunHTTPConfiguration() throws {
     let command = try KastanMCPCommandLine.parse(
         arguments: [

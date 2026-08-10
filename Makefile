@@ -108,7 +108,7 @@ test-container-images: container-images ## Smoke-test the container entry points
 		trap '$(DOCKER) rm --force "$$container_id" >/dev/null 2>&1 || true' EXIT HUP INT TERM; \
 		port="$$($(DOCKER) port "$$container_id" 8080/tcp | sed -n 's/.*://p' | head -n 1)"; \
 		attempt=0; \
-		until $(CURL) --fail --silent "http://127.0.0.1:$$port/healthz" >/dev/null; do \
+		until $(CURL) --fail --silent "http://127.0.0.1:$$port/health" >/dev/null; do \
 			attempt=$$((attempt + 1)); \
 			if test "$$attempt" -ge 30; then $(DOCKER) logs "$$container_id"; exit 1; fi; \
 			sleep 0.2; \

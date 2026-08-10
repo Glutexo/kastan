@@ -89,7 +89,7 @@ docker run --rm \
   --host 0.0.0.0
 ```
 
-The MCP URL is `http://127.0.0.1:8080/mcp`; `http://127.0.0.1:8080/healthz` is a public liveness check. The
+The MCP URL is `http://127.0.0.1:8080/mcp`; `http://127.0.0.1:8080/health` is a public liveness check. The
 [complete MCP guide](mcp-server.md#remote-streamable-http) documents transport behavior and security settings,
 while the [Cloud Run guide](cloud-run.md) covers a hosted HTTPS deployment. Use `main` until HTTP mode appears in
 a stable release, then prefer its complete version tag.

@@ -15,7 +15,8 @@ struct KastanMCPRuntimeConfiguration: Equatable, Sendable {
 /// Configures the protected Streamable HTTP endpoint used by remote MCP clients.
 struct KastanMCPHTTPConfiguration: Equatable, Sendable {
     static let endpoint = "/mcp"
-    static let healthEndpoint = "/healthz"
+    // Cloud Run reserves some paths ending in "z", so the public probe must not use /healthz.
+    static let healthEndpoint = "/health"
     static let maximumRequestBodyBytes = 1_048_576
 
     let host: String
