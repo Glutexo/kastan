@@ -12,8 +12,8 @@ Swift installation and run on both AMD64 and ARM64 hosts.
 | `ghcr.io/glutexo/kastan-cli` | `kastan` | Interactive and scripted CLI searches. |
 | `ghcr.io/glutexo/kastan-mcp` | `kastan-mcp` | MCP communication over stdio or authenticated Streamable HTTP. |
 
-Use `latest` for the newest stable release, a complete version such as `0.2.0` for a fixed release, or a
-minor-version tag such as `0.2` for compatible patch updates. The rolling `main` tag contains the newest commit
+Use `latest` for the newest stable release, a complete version such as `0.3.0` for a fixed release, or a
+minor-version tag such as `0.3` for compatible patch updates. The rolling `main` tag contains the newest commit
 on the default branch, while `sha-<commit>` identifies its exact source revision.
 
 Both images run as the unprivileged numeric user `65532` and contain the CA certificates and libraries required
@@ -76,23 +76,41 @@ variables, port publication, or persistent volume.
 
 ### Streamable HTTP Mode
 
-The same image can listen on port 8080 for remote clients. HTTP mode requires a private Bearer token and must be
-selected explicitly, so existing stdio configurations remain unchanged:
+The same image can listen on port 8080 for remote clients. HTTP transport and an authorization mode must be
+selected explicitly, so existing stdio configurations remain unchanged. Static authorization is convenient for
+a localhost smoke test:
 
 ```sh
 export KASTAN_MCP_BEARER_TOKEN="$(openssl rand -hex 32)"
 docker run --rm \
   --publish 127.0.0.1:8080:8080 \
   --env KASTAN_MCP_BEARER_TOKEN \
-  ghcr.io/glutexo/kastan-mcp:0.2.0 \
+  ghcr.io/glutexo/kastan-mcp:0.3.0 \
   --transport http \
   --host 0.0.0.0
 ```
 
-The MCP URL is `http://127.0.0.1:8080/mcp`; `http://127.0.0.1:8080/health` is a public liveness check. The
-[complete MCP guide](mcp-server.md#remote-streamable-http) documents transport behavior and security settings,
-while the [Cloud Run guide](cloud-run.md) covers a hosted HTTPS deployment. Prefer a complete release tag for a
-repeatable deployment, or `latest` when automatic adoption of the newest stable release is intentional.
+For a public HTTPS endpoint, supply the WorkOS issuer and the exact externally reachable resource URL instead of
+a shared secret:
+
+```sh
+docker run --rm \
+  --publish 127.0.0.1:8080:8080 \
+  --env KASTAN_MCP_AUTH_MODE=oauth \
+  --env KASTAN_MCP_OAUTH_ISSUER=https://your-subdomain.authkit.app \
+  --env KASTAN_MCP_OAUTH_RESOURCE=https://mcp.example.com/mcp \
+  --env KASTAN_MCP_OAUTH_REQUIRED_SCOPES=openid \
+  ghcr.io/glutexo/kastan-mcp:0.3.0 \
+  --transport http \
+  --host 0.0.0.0
+```
+
+The local MCP URL is `http://127.0.0.1:8080/mcp`; `http://127.0.0.1:8080/health` is a public liveness check. An
+OAuth resource URL must nevertheless be its real HTTPS deployment URL because it is compared exactly with the
+access token audience. The [complete MCP guide](mcp-server.md#remote-streamable-http) documents transport behavior
+and all security settings, the [WorkOS guide](workos-oauth.md) covers AuthKit, and the
+[Cloud Run guide](cloud-run.md) provides a hosted deployment. Prefer a complete release tag for a repeatable
+deployment, or `latest` when automatic adoption of the newest stable release is intentional.
 
 ## Local Builds
 

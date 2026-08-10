@@ -42,7 +42,7 @@ struct KastanMCPApp {
 
 /// Configures the product-facing MCP tools and connects them to an MCP transport.
 enum KastanMCPServer {
-    static let version = "0.2.0"
+    static let version = "0.3.0"
 
     static func makeServer(
         client: any IDOSClienting,

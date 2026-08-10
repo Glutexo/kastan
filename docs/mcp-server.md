@@ -51,7 +51,7 @@ Kaštan returns one JSON response for each MCP POST request and returns HTTP 405
 an SSE stream or send server-initiated messages. This makes the server suitable for request-based container
 platforms while retaining all tools and structured results from stdio mode.
 
-Generate a private token and start a development server bound only to localhost:
+For a local HTTP smoke test, generate a private token and bind the server only to localhost:
 
 ```sh
 export KASTAN_MCP_BEARER_TOKEN="$(openssl rand -hex 32)"
@@ -61,9 +61,10 @@ swift run --package-path MCPServer kastan-mcp \
   --port 8080
 ```
 
-Every `/mcp` request must include `Authorization: Bearer <token>`. Tokens must contain at least 32 non-whitespace
-bytes. The temporary pre-shared-token scheme is intended for a private personal deployment; it does not implement
-OAuth discovery or interactive authorization.
+This default `static` authorization mode requires `Authorization: Bearer <token>` on every `/mcp` request. Tokens
+must contain at least 32 non-whitespace bytes. It is useful for local development and controlled migrations, but
+OAuth is the recommended mode for an internet-facing MCP server because compatible clients can discover the
+authorization server and open an interactive sign-in flow.
 
 Remote MCP client configurations commonly use this shape:
 
@@ -83,6 +84,35 @@ Remote MCP client configurations commonly use this shape:
 The exact syntax for secret or environment-variable interpolation depends on the client. Do not commit the token
 inside a client configuration file.
 
+An OAuth deployment normally needs only its MCP URL in the client:
+
+```json
+{
+  "mcpServers": {
+    "kastan": {
+      "url": "https://example.run.app/mcp"
+    }
+  }
+}
+```
+
+On the first request, Kaštan returns a Bearer challenge pointing to its public RFC 9728 metadata. The client then
+discovers the configured authorization server, runs Authorization Code with PKCE, and sends the resulting access
+token on subsequent requests. Kaštan validates the RS256 signature from the configured JWKS, exact issuer, exact
+resource audience, expiry, not-before time, nonempty subject, and every configured scope. It never needs an OAuth
+client secret.
+
+`KASTAN_MCP_AUTH_MODE` controls the accepted credentials:
+
+- `static` is the backward-compatible default and accepts only `KASTAN_MCP_BEARER_TOKEN`.
+- `hybrid` accepts either the static token or a valid OAuth access token. Use it only while migrating clients.
+- `oauth` accepts only OAuth access tokens and does not read the static token.
+
+Hybrid and OAuth modes expose `/.well-known/oauth-protected-resource` and the path-specific
+`/.well-known/oauth-protected-resource/mcp`. They also proxy and cache the authorization server's public
+`/.well-known/oauth-authorization-server` document for older MCP clients. The protected-resource document,
+authorization-server metadata, and `/health` are public; `/mcp` remains protected.
+
 HTTP configuration is available through these English command-line options and environment variables:
 
 | Setting | Default | Behavior |
@@ -90,13 +120,23 @@ HTTP configuration is available through these English command-line options and e
 | `--transport stdio\|http` / `KASTAN_MCP_TRANSPORT` | `stdio` | Selects the local or remote transport. |
 | `--host` / `KASTAN_MCP_HOST` | `127.0.0.1` | Selects the HTTP bind address; Cloud Run requires `0.0.0.0`. |
 | `--port` / `KASTAN_MCP_PORT` / `PORT` | `8080` | Selects the listener port in precedence order; Cloud Run supplies `PORT`. |
-| `KASTAN_MCP_BEARER_TOKEN` | required in HTTP mode | Supplies the pre-shared Bearer credential. |
+| `KASTAN_MCP_AUTH_MODE` | `static` | Accepts `static`, `hybrid`, or `oauth` credentials. |
+| `KASTAN_MCP_BEARER_TOKEN` | required in `static` and `hybrid` | Supplies the pre-shared Bearer credential; ignored by `oauth`. |
+| `KASTAN_MCP_OAUTH_ISSUER` | required in `hybrid` and `oauth` | Supplies the exact HTTPS issuer URL expected in access tokens. |
+| `KASTAN_MCP_OAUTH_RESOURCE` | required in `hybrid` and `oauth` | Supplies the exact public HTTPS resource URL; its path must be `/mcp`. |
+| `KASTAN_MCP_OAUTH_JWKS_URL` | `<issuer>/oauth2/jwks` | Overrides the HTTPS public-key endpoint when the provider uses another path. |
+| `KASTAN_MCP_OAUTH_REQUIRED_SCOPES` | none | Requires every listed OAuth scope; accepts comma- or space-separated values. |
 | `KASTAN_MCP_ALLOWED_ORIGINS` | none | Allows exact comma-separated HTTP origins; requests without `Origin` remain valid. |
 | `--requests-per-minute` / `KASTAN_MCP_REQUESTS_PER_MINUTE` | `60` | Caps all authenticated `/mcp` requests in one process. |
 
-Wildcard origins are rejected. An unlisted `Origin` receives HTTP 403, a missing or incorrect token receives 401,
-and an exhausted request window receives 429 with `Retry-After`. Request bodies larger than 1 MiB receive 413.
-The [Cloud Run guide](cloud-run.md) documents a complete protected deployment.
+Wildcard origins are rejected. An unlisted `Origin` receives HTTP 403. Missing, expired, incorrectly signed, or
+misaddressed credentials receive 401 with the appropriate challenge; a valid token missing a required scope
+receives 403 with `insufficient_scope`. An exhausted request window receives 429 with `Retry-After`, and request
+bodies larger than 1 MiB receive 413. JWKS and compatibility discovery responses are bounded to 1 MiB, fetched
+only over the configured HTTPS URLs, and cached; verification fails closed when keys are unavailable.
+
+The [WorkOS OAuth guide](workos-oauth.md) documents AuthKit setup and safe migration from a static token. The
+[Cloud Run guide](cloud-run.md) provides the complete hosted deployment.
 
 ## Tools
 

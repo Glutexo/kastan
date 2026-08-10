@@ -16,7 +16,8 @@ a stable or guaranteed data API.
 - [macOS app](docs/macos-app.md) — search connections, station boards, and MHD station timetables in a native app.
 - [CLI](docs/cli.md) — run the same searches on macOS, Windows, or Linux and choose human-readable or structured output.
 - [Swift library](docs/swift-library.md) — build IDOS search features into a Swift project.
-- [MCP server](docs/mcp-server.md) — give local or remote MCP clients read-only access to Kaštan searches.
+- [MCP server](docs/mcp-server.md) — give local or OAuth-protected remote MCP clients read-only access to Kaštan
+  searches.
 
 ## Quick Start
 

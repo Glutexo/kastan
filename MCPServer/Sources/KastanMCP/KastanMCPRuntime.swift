@@ -6,6 +6,13 @@ enum KastanMCPTransportMode: String, Equatable, Sendable {
     case http
 }
 
+/// Selects the credential types accepted by the remote MCP endpoint during an OAuth migration.
+enum KastanMCPHTTPAuthorizationMode: String, Equatable, Sendable {
+    case staticToken = "static"
+    case hybrid
+    case oauth
+}
+
 /// Holds the process-level transport choice and its validated HTTP settings when applicable.
 struct KastanMCPRuntimeConfiguration: Equatable, Sendable {
     let transport: KastanMCPTransportMode
@@ -21,9 +28,51 @@ struct KastanMCPHTTPConfiguration: Equatable, Sendable {
 
     let host: String
     let port: Int
-    let bearerToken: String
+    let authorizationMode: KastanMCPHTTPAuthorizationMode
+    let bearerToken: String?
+    let oauth: KastanMCPOAuthConfiguration?
     let allowedOrigins: Set<String>
     let requestsPerMinute: Int
+
+    init(
+        host: String,
+        port: Int,
+        authorizationMode: KastanMCPHTTPAuthorizationMode = .staticToken,
+        bearerToken: String?,
+        oauth: KastanMCPOAuthConfiguration? = nil,
+        allowedOrigins: Set<String>,
+        requestsPerMinute: Int
+    ) {
+        self.host = host
+        self.port = port
+        self.authorizationMode = authorizationMode
+        self.bearerToken = bearerToken
+        self.oauth = oauth
+        self.allowedOrigins = allowedOrigins
+        self.requestsPerMinute = requestsPerMinute
+    }
+}
+
+/// Describes one OAuth 2.1 protected resource and the authorization server trusted to issue its tokens.
+struct KastanMCPOAuthConfiguration: Equatable, Sendable {
+    let issuer: URL
+    let resource: URL
+    let jwksURL: URL
+    let requiredScopes: Set<String>
+
+    /// Discovery URL advertised in Bearer challenges and served without authentication.
+    var protectedResourceMetadataURL: URL {
+        var components = URLComponents(url: resource, resolvingAgainstBaseURL: false)!
+        components.path = "/.well-known/oauth-protected-resource"
+        components.query = nil
+        components.fragment = nil
+        return components.url!
+    }
+
+    /// Compatibility discovery URL proxied from the configured authorization server.
+    var authorizationServerMetadataURL: URL {
+        issuer.appending(path: ".well-known/oauth-authorization-server")
+    }
 }
 
 /// Represents one complete command-line action for the MCP executable.
@@ -40,8 +89,13 @@ enum KastanMCPConfigurationError: LocalizedError, Equatable {
     case invalidTransport(String)
     case invalidHost
     case invalidPort(String)
+    case invalidAuthorizationMode(String)
     case missingBearerToken
     case weakBearerToken
+    case missingOAuthSetting(String)
+    case invalidOAuthURL(String, String)
+    case invalidOAuthResource(String)
+    case invalidOAuthScope(String)
     case invalidAllowedOrigin(String)
     case invalidRateLimit(String)
     case standaloneOption(String)
@@ -59,10 +113,20 @@ enum KastanMCPConfigurationError: LocalizedError, Equatable {
             "The HTTP host must not be empty."
         case .invalidPort(let value):
             "Invalid HTTP port '\(value)'. Use a number from 1 through 65535."
+        case .invalidAuthorizationMode(let value):
+            "Invalid HTTP authorization mode '\(value)'. Use static, hybrid, or oauth."
         case .missingBearerToken:
-            "HTTP transport requires KASTAN_MCP_BEARER_TOKEN."
+            "Static and hybrid HTTP authorization require KASTAN_MCP_BEARER_TOKEN."
         case .weakBearerToken:
             "KASTAN_MCP_BEARER_TOKEN must contain at least 32 non-whitespace bytes."
+        case .missingOAuthSetting(let name):
+            "OAuth HTTP authorization requires \(name)."
+        case .invalidOAuthURL(let name, let value):
+            "Invalid \(name) URL '\(value)'. Use an absolute HTTPS URL without credentials, a query, or a fragment."
+        case .invalidOAuthResource(let value):
+            "Invalid KASTAN_MCP_OAUTH_RESOURCE '\(value)'. Its path must be exactly /mcp."
+        case .invalidOAuthScope(let value):
+            "Invalid OAuth scope '\(value)'. Use visible ASCII characters other than quotation marks and backslashes."
         case .invalidAllowedOrigin(let value):
             "Invalid allowed origin '\(value)'. Use an explicit http:// or https:// origin without a path."
         case .invalidRateLimit(let value):
@@ -95,7 +159,13 @@ enum KastanMCPCommandLine {
           --version                   Show the server version
 
         HTTP environment:
-          KASTAN_MCP_BEARER_TOKEN     Required Bearer token with at least 32 bytes
+          KASTAN_MCP_AUTH_MODE        static (default), hybrid, or oauth
+          KASTAN_MCP_BEARER_TOKEN     Bearer token required by static and hybrid modes
+          KASTAN_MCP_OAUTH_ISSUER     OAuth issuer URL required by hybrid and oauth modes
+          KASTAN_MCP_OAUTH_RESOURCE   Exact public /mcp URL required by hybrid and oauth modes
+          KASTAN_MCP_OAUTH_JWKS_URL   Optional JWKS URL; defaults to ISSUER/oauth2/jwks
+          KASTAN_MCP_OAUTH_REQUIRED_SCOPES
+                                      Optional comma- or space-separated required scopes
           KASTAN_MCP_ALLOWED_ORIGINS  Optional comma-separated browser origins
           KASTAN_MCP_TRANSPORT        Default transport when --transport is omitted
           KASTAN_MCP_HOST             Default HTTP bind address
@@ -164,19 +234,39 @@ enum KastanMCPCommandLine {
             throw KastanMCPConfigurationError.invalidRateLimit(rateLimitValue)
         }
 
-        guard let rawToken = environment["KASTAN_MCP_BEARER_TOKEN"] else {
-            throw KastanMCPConfigurationError.missingBearerToken
+        let authorizationModeValue = nonEmpty(environment["KASTAN_MCP_AUTH_MODE"]) ?? "static"
+        guard let authorizationMode = KastanMCPHTTPAuthorizationMode(
+            rawValue: authorizationModeValue.lowercased()
+        ) else {
+            throw KastanMCPConfigurationError.invalidAuthorizationMode(authorizationModeValue)
         }
-        let token = rawToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard token.utf8.count >= 32, !token.contains(where: \Character.isWhitespace) else {
-            throw KastanMCPConfigurationError.weakBearerToken
+
+        let bearerToken: String?
+        if authorizationMode == .oauth {
+            bearerToken = nil
+        } else {
+            guard let rawToken = environment["KASTAN_MCP_BEARER_TOKEN"] else {
+                throw KastanMCPConfigurationError.missingBearerToken
+            }
+            let token = rawToken.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard token.utf8.count >= 32, !token.contains(where: \Character.isWhitespace) else {
+                throw KastanMCPConfigurationError.weakBearerToken
+            }
+            bearerToken = token
         }
+
+        let oauth = try parseOAuthConfiguration(
+            authorizationMode: authorizationMode,
+            environment: environment
+        )
 
         let allowedOrigins = try parseAllowedOrigins(environment["KASTAN_MCP_ALLOWED_ORIGINS"])
         let http = KastanMCPHTTPConfiguration(
             host: normalizedHost,
             port: port,
-            bearerToken: token,
+            authorizationMode: authorizationMode,
+            bearerToken: bearerToken,
+            oauth: oauth,
             allowedOrigins: allowedOrigins,
             requestsPerMinute: requestsPerMinute
         )
@@ -199,6 +289,89 @@ enum KastanMCPCommandLine {
         guard let value else { return nil }
         let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return normalized.isEmpty ? nil : normalized
+    }
+
+    private static func parseOAuthConfiguration(
+        authorizationMode: KastanMCPHTTPAuthorizationMode,
+        environment: [String: String]
+    ) throws -> KastanMCPOAuthConfiguration? {
+        guard authorizationMode != .staticToken else { return nil }
+
+        let issuerName = "KASTAN_MCP_OAUTH_ISSUER"
+        let resourceName = "KASTAN_MCP_OAUTH_RESOURCE"
+        guard let issuerValue = nonEmpty(environment[issuerName]) else {
+            throw KastanMCPConfigurationError.missingOAuthSetting(issuerName)
+        }
+        guard let resourceValue = nonEmpty(environment[resourceName]) else {
+            throw KastanMCPConfigurationError.missingOAuthSetting(resourceName)
+        }
+
+        let issuer = try parseHTTPSURL(issuerValue, setting: issuerName, removingTrailingSlash: true)
+        let resource = try parseHTTPSURL(resourceValue, setting: resourceName)
+        guard resource.path == KastanMCPHTTPConfiguration.endpoint else {
+            throw KastanMCPConfigurationError.invalidOAuthResource(resourceValue)
+        }
+
+        let jwksName = "KASTAN_MCP_OAUTH_JWKS_URL"
+        let jwksURL: URL
+        if let jwksValue = nonEmpty(environment[jwksName]) {
+            jwksURL = try parseHTTPSURL(jwksValue, setting: jwksName)
+        } else {
+            jwksURL = issuer.appending(path: "oauth2/jwks")
+        }
+
+        let requiredScopes = try parseOAuthScopes(environment["KASTAN_MCP_OAUTH_REQUIRED_SCOPES"])
+        return KastanMCPOAuthConfiguration(
+            issuer: issuer,
+            resource: resource,
+            jwksURL: jwksURL,
+            requiredScopes: requiredScopes
+        )
+    }
+
+    private static func parseHTTPSURL(
+        _ value: String,
+        setting: String,
+        removingTrailingSlash: Bool = false
+    ) throws -> URL {
+        guard var components = URLComponents(string: value),
+            components.scheme?.lowercased() == "https",
+            components.host != nil,
+            components.user == nil,
+            components.password == nil,
+            components.query == nil,
+            components.fragment == nil
+        else {
+            throw KastanMCPConfigurationError.invalidOAuthURL(setting, value)
+        }
+
+        if removingTrailingSlash {
+            while components.path.count > 1 && components.path.hasSuffix("/") {
+                components.path.removeLast()
+            }
+            if components.path == "/" {
+                components.path = ""
+            }
+        }
+        guard let url = components.url else {
+            throw KastanMCPConfigurationError.invalidOAuthURL(setting, value)
+        }
+        return url
+    }
+
+    private static func parseOAuthScopes(_ value: String?) throws -> Set<String> {
+        guard let value = nonEmpty(value) else { return [] }
+
+        let scopes = value.split { character in
+            character == "," || character.isWhitespace
+        }.map(String.init)
+
+        for scope in scopes where !scope.utf8.allSatisfy({ byte in
+            byte == 0x21 || (0x23...0x5B).contains(byte) || (0x5D...0x7E).contains(byte)
+        }) {
+            throw KastanMCPConfigurationError.invalidOAuthScope(scope)
+        }
+        return Set(scopes)
     }
 
     private static func parseAllowedOrigins(_ value: String?) throws -> Set<String> {

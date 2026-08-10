@@ -13,7 +13,7 @@ Depend on the latest compatible `0.2.x` release:
 dependencies: [
     .package(
         url: "https://github.com/Glutexo/kastan.git",
-        .upToNextMinor(from: "0.2.0")
+        .upToNextMinor(from: "0.3.0")
     ),
 ]
 ```

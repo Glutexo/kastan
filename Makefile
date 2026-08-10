@@ -125,6 +125,32 @@ test-container-images: container-images ## Smoke-test the container entry points
 			--data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"container-http-smoke-test","version":"1.0"}}}' \
 			"http://127.0.0.1:$$port/mcp")"; \
 		printf '%s\n' "$$response" | grep -F 'kastan-mcp'
+	@container_id="$$($(DOCKER) run --rm --detach \
+			--publish 127.0.0.1::8080 \
+			--env KASTAN_MCP_AUTH_MODE=oauth \
+			--env KASTAN_MCP_OAUTH_ISSUER=https://kastan-test.authkit.app \
+			--env KASTAN_MCP_OAUTH_RESOURCE=https://mcp.example.com/mcp \
+			--env KASTAN_MCP_OAUTH_REQUIRED_SCOPES=openid \
+			"$(MCP_IMAGE)" \
+			--transport http --host 0.0.0.0)"; \
+		trap '$(DOCKER) rm --force "$$container_id" >/dev/null 2>&1 || true' EXIT HUP INT TERM; \
+		port="$$($(DOCKER) port "$$container_id" 8080/tcp | sed -n 's/.*://p' | head -n 1)"; \
+		attempt=0; \
+		until $(CURL) --fail --silent "http://127.0.0.1:$$port/health" >/dev/null; do \
+			attempt=$$((attempt + 1)); \
+			if test "$$attempt" -ge 30; then $(DOCKER) logs "$$container_id"; exit 1; fi; \
+			sleep 0.2; \
+		done; \
+		metadata="$$($(CURL) --fail --silent --show-error \
+			"http://127.0.0.1:$$port/.well-known/oauth-protected-resource")"; \
+		printf '%s\n' "$$metadata" | grep -F '"resource":"https:\/\/mcp.example.com\/mcp"'; \
+		printf '%s\n' "$$metadata" | grep -F '"authorization_servers":["https:\/\/kastan-test.authkit.app"]'; \
+		headers="$$($(CURL) --silent --dump-header - --output /dev/null \
+			--header 'Content-Type: application/json' \
+			--header 'Accept: application/json, text/event-stream' \
+			--data '{}' \
+			"http://127.0.0.1:$$port/mcp")"; \
+		printf '%s\n' "$$headers" | grep -F 'resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource"'
 
 dist: check-dist ## Create every downloadable archive from a clean Git HEAD.
 	$(MAKE) dmg

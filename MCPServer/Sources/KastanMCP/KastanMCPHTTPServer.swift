@@ -97,22 +97,31 @@ actor KastanMCPHTTPApplication {
     typealias ClientFactory = @Sendable () -> any IDOSClienting
 
     private let configuration: KastanMCPHTTPConfiguration
-    private let securityValidation: StandardValidationPipeline
+    private let originValidation: StandardValidationPipeline
+    private let authorization: KastanMCPHTTPAuthorization
     private let protocolValidation: StandardValidationPipeline
     private let clientFactory: ClientFactory
     private var rateLimiter: KastanFixedWindowRateLimiter
 
     init(
         configuration: KastanMCPHTTPConfiguration,
-        clientFactory: @escaping ClientFactory = { IDOSClient() }
+        clientFactory: @escaping ClientFactory = { IDOSClient() },
+        oauthFetcher: @escaping KastanOAuthJWTVerifier.Fetcher = {
+            try await KastanOAuthHTTPClient.fetch($0)
+        },
+        clock: @escaping KastanOAuthJWTVerifier.Clock = { Date() }
     ) {
         self.configuration = configuration
         self.clientFactory = clientFactory
         self.rateLimiter = KastanFixedWindowRateLimiter(limit: configuration.requestsPerMinute)
-        self.securityValidation = StandardValidationPipeline(validators: [
+        self.originValidation = StandardValidationPipeline(validators: [
             KastanAllowedOriginValidator(allowedOrigins: configuration.allowedOrigins),
-            KastanStaticBearerTokenValidator(expectedToken: configuration.bearerToken),
         ])
+        self.authorization = KastanMCPHTTPAuthorization(
+            configuration: configuration,
+            fetcher: oauthFetcher,
+            clock: clock
+        )
         self.protocolValidation = StandardValidationPipeline(validators: [
             AcceptHeaderValidator(mode: .jsonOnly),
             ContentTypeValidator(),
@@ -130,12 +139,17 @@ actor KastanMCPHTTPApplication {
             )
         }
 
+        let validationContext = HTTPValidationContext(httpMethod: request.method.uppercased())
+        if let rejection = originValidation.validate(request, context: validationContext) {
+            return rejection
+        }
+        if let discoveryResponse = await authorization.discoveryResponse(for: request) {
+            return discoveryResponse
+        }
         guard request.path == KastanMCPHTTPConfiguration.endpoint else {
             return .error(statusCode: 404, .invalidRequest("Not Found"))
         }
-
-        let validationContext = HTTPValidationContext(httpMethod: request.method.uppercased())
-        if let rejection = securityValidation.validate(request, context: validationContext) {
+        if let rejection = await authorization.validate(request) {
             return rejection
         }
         if let retryAfter = rateLimiter.retryAfter() {

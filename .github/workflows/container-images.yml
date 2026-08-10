@@ -135,6 +135,45 @@ jobs:
             "http://127.0.0.1:$port/mcp")"
           printf '%s\n' "$response" | grep --fixed-strings 'kastan-mcp'
 
+      - name: Test MCP OAuth discovery image
+        if: matrix.target == 'mcp'
+        run: |
+          set -euo pipefail
+          container_id="$(docker run --rm --detach \
+            --publish 127.0.0.1::8080 \
+            --env KASTAN_MCP_AUTH_MODE=oauth \
+            --env KASTAN_MCP_OAUTH_ISSUER=https://kastan-test.authkit.app \
+            --env KASTAN_MCP_OAUTH_RESOURCE=https://mcp.example.com/mcp \
+            --env KASTAN_MCP_OAUTH_REQUIRED_SCOPES=openid \
+            "${{ matrix.image }}:test" \
+            --transport http --host 0.0.0.0)"
+          trap 'docker rm --force "$container_id" >/dev/null 2>&1 || true' EXIT
+          port="$(docker port "$container_id" 8080/tcp | sed -n 's/.*://p' | head -n 1)"
+
+          for _ in {1..30}; do
+            if curl --fail --silent --show-error "http://127.0.0.1:$port/health" >/dev/null; then
+              break
+            fi
+            sleep 0.2
+          done
+          curl --fail --silent --show-error "http://127.0.0.1:$port/health" >/dev/null || {
+            docker logs "$container_id"
+            exit 1
+          }
+
+          metadata="$(curl --fail --silent --show-error \
+            "http://127.0.0.1:$port/.well-known/oauth-protected-resource")"
+          printf '%s\n' "$metadata" | grep --fixed-strings '"resource":"https:\/\/mcp.example.com\/mcp"'
+          printf '%s\n' "$metadata" | grep --fixed-strings '"authorization_servers":["https:\/\/kastan-test.authkit.app"]'
+
+          headers="$(curl --silent --dump-header - --output /dev/null \
+            --header 'Content-Type: application/json' \
+            --header 'Accept: application/json, text/event-stream' \
+            --data '{}' \
+            "http://127.0.0.1:$port/mcp")"
+          printf '%s\n' "$headers" | grep --fixed-strings \
+            'resource_metadata="https://mcp.example.com/.well-known/oauth-protected-resource"'
+
       - name: Log in to GitHub Container Registry
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v4
