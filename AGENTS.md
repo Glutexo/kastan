@@ -23,6 +23,9 @@ Pravidla budeme prubezne rozsirovat.
 ## Kvalita zmen
 
 - Preferuj jednoducha, citelna reseni pred zbytecnymi abstrakcemi.
+- Po kazdem uspesnem sestaveni macOS aplikace, vcetne sestaveni v ramci testu, spust `make install-app`, aby byla
+  ve Spotlightu nainstalovana aktualni verze. Pokud uz sestaveni probehlo prikazem `make install-app`, instalaci
+  znovu neopakuj.
 - Verejna rozhrani projektu zatim pojmenovavej anglicky, vcetne CLI prikazu, voleb, knihovniho API a dokumentovanych prikladu.
 - Pri anglickem nazvoslovi pouzivej terminy z anglicke verze IDOSu, pokud pro danou vec existuji.
 - Veskery napsany kod dokumentuj z pohledu produktu; dokumentace musi byt soudrzna, uplna a v souladu s implementovanymi funkcemi a vlastnostmi.
