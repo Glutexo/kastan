@@ -583,6 +583,9 @@ struct AppSectionCommands: Commands {
     @Binding var showsItemDetails: Bool
     @Binding var showsAlternatingRowBackgrounds: Bool
     @Binding var showsSymbolsAsText: Bool
+    @Binding var showsAddressSuggestions: Bool
+    @Binding var showsBoroughSuggestions: Bool
+    @Binding var showsMunicipalitySuggestions: Bool
 
     var body: some Commands {
         CommandGroup(after: .toolbar) {
@@ -606,6 +609,14 @@ struct AppSectionCommands: Commands {
             }
             Toggle(isOn: $showsSymbolsAsText) {
                 Label("Replace symbols with text", systemImage: "textformat")
+            }
+
+            Menu {
+                Toggle("Addresses", isOn: $showsAddressSuggestions)
+                Toggle("Boroughs", isOn: $showsBoroughSuggestions)
+                Toggle("Municipalities", isOn: $showsMunicipalitySuggestions)
+            } label: {
+                Label("Place suggestions", systemImage: "text.magnifyingglass")
             }
 
             Divider()
@@ -647,6 +658,12 @@ struct KastanApp: App {
     private var showsAlternatingRowBackgrounds = AlternatingRowBackgroundPreference.defaultValue
     @AppStorage(SymbolTextPreference.storageKey)
     private var showsSymbolsAsText = SymbolTextPreference.defaultValue
+    @AppStorage(PlaceSuggestionVisibilityPreference.addressesStorageKey)
+    private var showsAddressSuggestions = PlaceSuggestionVisibilityPreference.defaultValue
+    @AppStorage(PlaceSuggestionVisibilityPreference.boroughsStorageKey)
+    private var showsBoroughSuggestions = PlaceSuggestionVisibilityPreference.defaultValue
+    @AppStorage(PlaceSuggestionVisibilityPreference.municipalitiesStorageKey)
+    private var showsMunicipalitySuggestions = PlaceSuggestionVisibilityPreference.defaultValue
     private let client = IDOSClient()
 
     init() {
@@ -665,6 +682,14 @@ struct KastanApp: App {
                 showsStopNoteText: showsSymbolsAsText
             )
                 .environment(\.showsAlternatingRowBackgrounds, showsAlternatingRowBackgrounds)
+                .environment(
+                    \.placeSuggestionVisibility,
+                    PlaceSuggestionVisibility(
+                        showsAddresses: showsAddressSuggestions,
+                        showsBoroughs: showsBoroughSuggestions,
+                        showsMunicipalities: showsMunicipalitySuggestions
+                    )
+                )
                 .frame(minWidth: Self.minimumMainWindowWidth, minHeight: 520)
         }
         .defaultSize(width: Self.defaultMainWindowWidth, height: 720)
@@ -675,7 +700,10 @@ struct KastanApp: App {
                 showsConnectionBadges: $showsConnectionBadges,
                 showsItemDetails: $showsItemDetails,
                 showsAlternatingRowBackgrounds: $showsAlternatingRowBackgrounds,
-                showsSymbolsAsText: $showsSymbolsAsText
+                showsSymbolsAsText: $showsSymbolsAsText,
+                showsAddressSuggestions: $showsAddressSuggestions,
+                showsBoroughSuggestions: $showsBoroughSuggestions,
+                showsMunicipalitySuggestions: $showsMunicipalitySuggestions
             )
             SearchEditCommands()
             AppInformationCommands()

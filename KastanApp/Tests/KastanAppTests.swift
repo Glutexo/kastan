@@ -153,6 +153,51 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testViewMenuOffersPersistentPlaceSuggestionSettings() throws {
+        let submenuTitle = AppLocalization.string("Place suggestions")
+        let optionKeys = ["Addresses", "Boroughs", "Municipalities"]
+        let optionTitles = optionKeys.map { AppLocalization.string($0) }
+        let menuItems = try XCTUnwrap(NSApplication.shared.mainMenu).items
+            .compactMap(\.submenu)
+            .flatMap(\.items)
+        let submenuItem = try XCTUnwrap(menuItems.first { $0.title == submenuTitle })
+        let submenu = try XCTUnwrap(submenuItem.submenu)
+        let storageKeys = [
+            PlaceSuggestionVisibilityPreference.addressesStorageKey,
+            PlaceSuggestionVisibilityPreference.boroughsStorageKey,
+            PlaceSuggestionVisibilityPreference.municipalitiesStorageKey,
+        ]
+
+        XCTAssertNotNil(submenuItem.image)
+        XCTAssertEqual(submenu.items.map(\.title), optionTitles)
+        for (title, storageKey) in zip(optionTitles, storageKeys) {
+            let item = try XCTUnwrap(submenu.items.first { $0.title == title })
+            let storedValue = UserDefaults.standard.object(forKey: storageKey) as? Bool
+            XCTAssertEqual(
+                item.state,
+                (storedValue ?? PlaceSuggestionVisibilityPreference.defaultValue)
+                    ? NSControl.StateValue.on
+                    : NSControl.StateValue.off
+            )
+        }
+        XCTAssertTrue(PlaceSuggestionVisibilityPreference.defaultValue)
+
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        XCTAssertEqual(
+            (["Place suggestions"] + optionKeys).map {
+                czech.localizedString(forKey: $0, value: nil, table: nil)
+            },
+            ["Našeptávání míst", "Adresy", "Čtvrti", "Obce"]
+        )
+        XCTAssertEqual(
+            (["Place suggestions"] + optionKeys).map {
+                english.localizedString(forKey: $0, value: nil, table: nil)
+            },
+            ["Place suggestions", "Addresses", "Boroughs", "Municipalities"]
+        )
+    }
+
     func testSymbolTextPreferenceMigratesEitherLegacyChoiceWithoutOverwritingTheNewValue() throws {
         let suiteName = "KastanAppTests.SymbolTextPreference.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
@@ -4109,6 +4154,18 @@ final class KastanAppTests: XCTestCase {
             suggestion: IDOSSuggestion(text: "Roznov", description: "Romania"),
             countryLanguage: .czech
         )
+        let borough = PlaceSuggestionPresentation(
+            suggestion: IDOSSuggestion(
+                text: "Smíchov/Praha",
+                description: "borough, district Praha, trains, buses, PT"
+            )
+        )
+        let servedAddress = PlaceSuggestionPresentation(
+            suggestion: IDOSSuggestion(
+                text: "Aš, Sokolská",
+                description: "address, district Cheb, buses"
+            )
+        )
 
         XCTAssertEqual(municipality.emoji, "🏘️")
         XCTAssertEqual(municipality.kind, .municipality)
@@ -4125,6 +4182,33 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(busStop.emoji, "🚌")
         XCTAssertEqual(busStop.detail?.components(separatedBy: " · ").count, 4)
         XCTAssertEqual(romanianMunicipality.detail, "Rumunsko")
+        XCTAssertEqual(borough.kind, .borough)
+        XCTAssertEqual(borough.emoji, "🏙️")
+        XCTAssertEqual(servedAddress.kind, .address)
+    }
+
+    func testPlaceSuggestionVisibilityFiltersOnlyConfiguredIDOSPlaceTypes() {
+        let suggestions = [
+            IDOSSuggestion(text: "Aš, Sokolská", description: "address, district Cheb, buses"),
+            IDOSSuggestion(text: "Smíchov/Praha", description: "borough, district Praha, trains, buses, PT"),
+            IDOSSuggestion(text: "Praha", description: "municipality, district Praha, trains, buses, PT"),
+            IDOSSuggestion(text: "Praha hl.n.", description: "station, district Praha, trains"),
+            IDOSSuggestion(text: "Praha,,Anděl", description: "stop, district Praha, buses, PT"),
+        ]
+        let hidden = PlaceSuggestionVisibility(
+            showsAddresses: false,
+            showsBoroughs: false,
+            showsMunicipalities: false
+        )
+
+        XCTAssertEqual(
+            suggestions.filter(PlaceSuggestionVisibility.defaultValue.includes).map(\.text),
+            suggestions.map(\.text)
+        )
+        XCTAssertEqual(
+            suggestions.filter(hidden.includes).map(\.text),
+            ["Praha hl.n.", "Praha,,Anděl"]
+        )
     }
 
     func testExactSuggestionSelectionCarriesALocalizedVisibleType() throws {
@@ -5499,6 +5583,31 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(query?.timetableSlug, "pid")
     }
 
+    func testPlaceSuggestionVisibilityRefiltersTheLastResponseWithoutAnotherRequest() async throws {
+        let client = MockIDOSClient()
+        await client.configureSuggestions([
+            IDOSSuggestion(text: "Praha", description: "municipality, district Praha"),
+            IDOSSuggestion(text: "Smíchov/Praha", description: "borough, district Praha"),
+            IDOSSuggestion(text: "Praha 1", description: "address, district Praha"),
+            IDOSSuggestion(text: "Praha hl.n.", description: "station, district Praha, trains"),
+        ])
+        let model = PlaceSuggestionsModel(client: client, scope: .places)
+
+        model.update(query: "Praha", timetable: .defaultTimetable)
+        try await Task.sleep(nanoseconds: 350_000_000)
+        model.updateVisibility(PlaceSuggestionVisibility(
+            showsAddresses: false,
+            showsBoroughs: false,
+            showsMunicipalities: false
+        ))
+
+        XCTAssertEqual(model.suggestions.map(\.text), ["Praha hl.n."])
+        let query = await client.lastSuggestionQuery
+        let requestCount = await client.suggestionRequestCount
+        XCTAssertEqual(query?.limit, 30)
+        XCTAssertEqual(requestCount, 1)
+    }
+
     func testStationTimetableSearchUsesSelectedLineDirectionAndWeekMode() async {
         let client = MockIDOSClient()
         let model = StationTimetablesViewModel(client: client)
@@ -6142,6 +6251,7 @@ private actor MockIDOSClient: IDOSClienting {
     var connectionPageDirections: [IDOSPageDirection] = []
     var departurePageDirections: [IDOSPageDirection] = []
     var connectionSearchCount = 0
+    var suggestionRequestCount = 0
     var serviceDetailRequestCount = 0
     var serviceDetailRequestIDs: [String] = []
     private var serviceShareURL: String?
@@ -6149,6 +6259,11 @@ private actor MockIDOSClient: IDOSClienting {
     private var connectionPages: [IDOSPageDirection: [IDOSConnection]] = [:]
     private var departurePages: [IDOSPageDirection: [IDOSDeparture]] = [:]
     private var connectionPagingSessionExpired = false
+    private var configuredSuggestions: [IDOSSuggestion]?
+
+    func configureSuggestions(_ suggestions: [IDOSSuggestion]) {
+        configuredSuggestions = suggestions
+    }
 
     func configureConnectionPages(
         earlier: [IDOSConnection],
@@ -6177,8 +6292,13 @@ private actor MockIDOSClient: IDOSClienting {
     }
 
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
-        lastSuggestionQuery = SuggestionQuery(prefix: prefix, timetableSlug: timetable.slug)
-        return [IDOSSuggestion(text: "Praha hl.n.")]
+        suggestionRequestCount += 1
+        lastSuggestionQuery = SuggestionQuery(
+            prefix: prefix,
+            timetableSlug: timetable.slug,
+            limit: limit
+        )
+        return configuredSuggestions ?? [IDOSSuggestion(text: "Praha hl.n.")]
     }
 
     func searchStations(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
@@ -6415,6 +6535,7 @@ private actor MockIDOSClient: IDOSClienting {
 private struct SuggestionQuery: Sendable {
     let prefix: String
     let timetableSlug: String
+    let limit: Int
 }
 
 /// Marks both sides of a supplemental search row so its rendered alignment can be verified.

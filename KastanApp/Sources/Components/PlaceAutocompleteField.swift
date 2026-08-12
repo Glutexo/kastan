@@ -52,6 +52,9 @@ enum PlaceSuggestionScope {
 /// Debounces IDOS suggestions so typing does not issue a request for every keystroke.
 @MainActor
 final class PlaceSuggestionsModel: ObservableObject {
+    private static let visibleSuggestionLimit = 6
+    private static let placeSuggestionRequestLimit = 30
+
     @Published private(set) var suggestions: [IDOSSuggestion] = []
     @Published private(set) var isLoading = false
 
@@ -59,6 +62,8 @@ final class PlaceSuggestionsModel: ObservableObject {
     private let scope: PlaceSuggestionScope
     private var task: Task<Void, Never>?
     private var latestQuery = ""
+    private var fetchedSuggestions: [IDOSSuggestion] = []
+    private var visibility = PlaceSuggestionVisibility.defaultValue
 
     init(client: any IDOSClienting, scope: PlaceSuggestionScope) {
         self.client = client
@@ -69,13 +74,20 @@ final class PlaceSuggestionsModel: ObservableObject {
         task?.cancel()
     }
 
-    func update(query: String, timetable: IDOSTimetable, line: String? = nil) {
+    func update(
+        query: String,
+        timetable: IDOSTimetable,
+        line: String? = nil,
+        visibility: PlaceSuggestionVisibility = .defaultValue
+    ) {
         task?.cancel()
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         latestQuery = query
+        self.visibility = visibility
 
         let minimumLength = scope == .stationTimetableLines ? 1 : 2
         guard query.count >= minimumLength else {
+            fetchedSuggestions = []
             suggestions = []
             isLoading = false
             return
@@ -90,13 +102,21 @@ final class PlaceSuggestionsModel: ObservableObject {
                 }
                 let suggestions: [IDOSSuggestion] = switch self.scope {
                 case .places:
-                    try await self.client.suggest(prefix: query, limit: 6, timetable: timetable)
+                    try await self.client.suggest(
+                        prefix: query,
+                        limit: Self.placeSuggestionRequestLimit,
+                        timetable: timetable
+                    )
                 case .stations:
-                    try await self.client.searchStations(prefix: query, limit: 6, timetable: timetable)
+                    try await self.client.searchStations(
+                        prefix: query,
+                        limit: Self.visibleSuggestionLimit,
+                        timetable: timetable
+                    )
                 case .stationTimetableLines:
                     try await self.client.searchStationTimetableLines(
                         prefix: query,
-                        limit: 6,
+                        limit: Self.visibleSuggestionLimit,
                         timetable: timetable
                     )
                 case .stationTimetableStops:
@@ -104,7 +124,7 @@ final class PlaceSuggestionsModel: ObservableObject {
                         try await self.client.searchStationTimetableStops(
                             prefix: query,
                             line: line,
-                            limit: 6,
+                            limit: Self.visibleSuggestionLimit,
                             timetable: timetable
                         )
                     } else {
@@ -114,7 +134,8 @@ final class PlaceSuggestionsModel: ObservableObject {
                 guard !Task.isCancelled, self.latestQuery == query else {
                     return
                 }
-                self.suggestions = suggestions
+                self.fetchedSuggestions = suggestions
+                self.publishVisibleSuggestions()
                 self.isLoading = false
             } catch is CancellationError {
                 return
@@ -122,22 +143,84 @@ final class PlaceSuggestionsModel: ObservableObject {
                 guard let self, self.latestQuery == query else {
                     return
                 }
+                self.fetchedSuggestions = []
                 self.suggestions = []
                 self.isLoading = false
             }
         }
     }
 
+    /// Refilters the last response immediately when its application-wide menu choice changes.
+    func updateVisibility(_ visibility: PlaceSuggestionVisibility) {
+        self.visibility = visibility
+        publishVisibleSuggestions()
+    }
+
     func selectedSuggestion() {
         task?.cancel()
+        fetchedSuggestions = []
         suggestions = []
         isLoading = false
+    }
+
+    private func publishVisibleSuggestions() {
+        let visible = scope == .places
+            ? fetchedSuggestions.filter(visibility.includes)
+            : fetchedSuggestions
+        suggestions = Array(visible.prefix(Self.visibleSuggestionLimit))
+    }
+}
+
+/// Defines the persisted choices that can hide non-station place types from connection suggestions.
+enum PlaceSuggestionVisibilityPreference {
+    static let addressesStorageKey = "showsAddressSuggestions"
+    static let boroughsStorageKey = "showsBoroughSuggestions"
+    static let municipalitiesStorageKey = "showsMunicipalitySuggestions"
+    static let defaultValue = true
+}
+
+/// Filters only the explicitly configurable IDOS place types while retaining every station and stop.
+struct PlaceSuggestionVisibility: Equatable {
+    var showsAddresses: Bool
+    var showsBoroughs: Bool
+    var showsMunicipalities: Bool
+
+    static let defaultValue = Self(
+        showsAddresses: PlaceSuggestionVisibilityPreference.defaultValue,
+        showsBoroughs: PlaceSuggestionVisibilityPreference.defaultValue,
+        showsMunicipalities: PlaceSuggestionVisibilityPreference.defaultValue
+    )
+
+    func includes(_ suggestion: IDOSSuggestion) -> Bool {
+        switch PlaceSuggestionKind(description: suggestion.description) {
+        case .address:
+            showsAddresses
+        case .borough:
+            showsBoroughs
+        case .municipality:
+            showsMunicipalities
+        case .train, .bus, .publicTransport, .stop, .station, .place:
+            true
+        }
+    }
+}
+
+private struct PlaceSuggestionVisibilityEnvironmentKey: EnvironmentKey {
+    static let defaultValue = PlaceSuggestionVisibility.defaultValue
+}
+
+extension EnvironmentValues {
+    /// Propagates the application-wide place-suggestion menu choices to connection inputs.
+    var placeSuggestionVisibility: PlaceSuggestionVisibility {
+        get { self[PlaceSuggestionVisibilityEnvironmentKey.self] }
+        set { self[PlaceSuggestionVisibilityEnvironmentKey.self] = newValue }
     }
 }
 
 /// Classifies an exact autocomplete choice for a concise visible identity marker.
 enum PlaceSuggestionKind: Equatable {
     case municipality
+    case borough
     case train
     case bus
     case publicTransport
@@ -154,6 +237,10 @@ enum PlaceSuggestionKind: Equatable {
 
         if metadata.contains("municipality") || metadata.contains("city") {
             self = .municipality
+        } else if metadata.contains("borough") {
+            self = .borough
+        } else if metadata.contains("address") {
+            self = .address
         } else if metadata.contains("trains") || description.localizedCaseInsensitiveContains("railway") {
             self = .train
         } else if metadata.contains("buses") || metadata.contains("bus") {
@@ -162,8 +249,6 @@ enum PlaceSuggestionKind: Equatable {
             self = .publicTransport
         } else if metadata.contains("stop") || metadata.contains(where: { $0.hasPrefix("stop (") }) {
             self = .stop
-        } else if metadata.contains("address") {
-            self = .address
         } else if metadata.contains("station") || metadata.contains(where: { $0.hasPrefix("station (") }) {
             self = .station
         } else {
@@ -183,6 +268,8 @@ enum PlaceSuggestionKind: Equatable {
         switch self {
         case .municipality:
             "🏘️"
+        case .borough:
+            "🏙️"
         case .train:
             "🚆"
         case .bus:
@@ -202,6 +289,8 @@ enum PlaceSuggestionKind: Equatable {
         switch self {
         case .municipality:
             "municipality"
+        case .borough:
+            "borough"
         case .train:
             "train"
         case .bus:
@@ -300,6 +389,8 @@ struct PlaceSuggestionPresentation: Equatable {
             return AppLocalization.string("buses")
         case "municipality", "city":
             return AppLocalization.string("municipality")
+        case "borough":
+            return AppLocalization.string("borough")
         case "address":
             return AppLocalization.string("address")
         case "pt", "urban public transport":
@@ -363,6 +454,8 @@ struct PlaceSuggestionButton: View {
 
 /// Presents a native text field with IDOS suggestions directly below the current input.
 struct PlaceAutocompleteField: View {
+    @Environment(\.placeSuggestionVisibility) private var placeSuggestionVisibility
+
     let title: LocalizedStringKey
     let prompt: LocalizedStringKey
     @Binding var text: String
@@ -423,16 +516,34 @@ struct PlaceAutocompleteField: View {
                        selectedPlace.text != value {
                         selection?.wrappedValue = nil
                     }
-                    model.update(query: value, timetable: timetable, line: stationTimetableLine)
+                    model.update(
+                        query: value,
+                        timetable: timetable,
+                        line: stationTimetableLine,
+                        visibility: placeSuggestionVisibility
+                    )
                 }
                 .onChange(of: timetable.slug) { _ in
                     if selection?.wrappedValue?.isCurrentLocation != true {
                         selection?.wrappedValue = nil
                     }
-                    model.update(query: text, timetable: timetable, line: stationTimetableLine)
+                    model.update(
+                        query: text,
+                        timetable: timetable,
+                        line: stationTimetableLine,
+                        visibility: placeSuggestionVisibility
+                    )
                 }
                 .onChange(of: stationTimetableLine ?? "") { _ in
-                    model.update(query: text, timetable: timetable, line: stationTimetableLine)
+                    model.update(
+                        query: text,
+                        timetable: timetable,
+                        line: stationTimetableLine,
+                        visibility: placeSuggestionVisibility
+                    )
+                }
+                .onChange(of: placeSuggestionVisibility) { visibility in
+                    model.updateVisibility(visibility)
                 }
                 .overlay(alignment: .trailing) {
                     if model.isLoading {

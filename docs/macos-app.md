@@ -9,6 +9,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 
 - Connection searches with full-row selectable place suggestions whose icons distinguish municipalities from
   stations and stops. Suggestion metadata, including foreign country names, follows the app language.
+  The View menu's persistent Place suggestions submenu independently includes or excludes addresses, boroughs,
+  and municipalities; all three types are included by default, while stations and stops always remain available.
   Choosing a suggestion also preserves its exact IDOS identity, so a station is not broadened to a same-named
   municipality. The selected field marks that identity with a subdued localized type such as municipality,
   train, or bus, clipped to the input when space is limited; editing the field removes the marker and returns it

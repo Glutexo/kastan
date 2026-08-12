@@ -5,6 +5,7 @@
 "Add journey option" = "Add journey option";
 "Add via place" = "Add via place";
 "address" = "address";
+"Addresses" = "Addresses";
 "All timetables" = "All timetables";
 "Applies" = "Applies";
 "Applies on days %@ throughout timetable validity" = "Applies on days %@ throughout timetable validity";
@@ -16,6 +17,8 @@
 "Arrival tends to be on time" = "Arrival tends to be on time";
 "Attachments" = "Attachments";
 "Board type" = "Board type";
+"borough" = "borough";
+"Boroughs" = "Boroughs";
 "bus" = "bus";
 "Buses" = "Buses";
 "buses" = "buses";
@@ -125,6 +128,7 @@
 "New Tab" = "New Tab";
 "Now" = "Now";
 "municipality" = "municipality";
+"Municipalities" = "Municipalities";
 "name@example.com" = "name@example.com";
 "My location" = "My location";
 "No application could open the attachment." = "No application could open the attachment.";
@@ -150,6 +154,7 @@
 "platform %@" = "platform %@";
 "platform/track %@" = "platform/track %@";
 "place" = "place";
+"Place suggestions" = "Place suggestions";
 "Powered by public IDOS web data" = "Powered by public IDOS web data";
 "Preparing email…" = "Preparing email…";
 "Preview is not available." = "Preview is not available.";
