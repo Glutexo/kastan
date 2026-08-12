@@ -254,6 +254,22 @@ xcodebuild test \
   -destination 'platform=macOS'
 ```
 
+## Keep One Development Build in Spotlight
+
+Xcode keeps products from different project paths in separate Derived Data directories. Spotlight may therefore
+offer several identically named development builds. Build and install one current copy for the signed-in user from
+the repository root:
+
+```sh
+make install-app
+```
+
+The command creates a fresh ad-hoc-signed Debug build in the repository's non-indexed `.build/` directory and
+replaces `~/Applications/Kaštan.app`. It also removes prior `Kaštan.app` products from `KastanApp` Derived Data
+directories so only the installed copy remains in Spotlight; Xcode retains its intermediate files and recreates a
+removed product when needed. Run the command again after local changes whenever the Spotlight copy should be
+updated. Set `APP_INSTALL_DIR` to choose a different destination directory.
+
 ## Create Download Archives
 
 Create both download archives from the repository root, or select either artifact separately:

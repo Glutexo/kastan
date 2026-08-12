@@ -20,6 +20,10 @@ APP_DESTINATION := platform=macOS
 APP_NAME := Kaštan
 APP_ENTITLEMENTS := KastanApp/KastanApp.entitlements
 APP_VERSION := $(shell sed -n 's/^[[:space:]]*MARKETING_VERSION = \([^;]*\);/\1/p' $(APP_PROJECT)/project.pbxproj | head -n 1)
+APP_INSTALL_DIR ?= $(HOME)/Applications
+APP_INSTALL_BUILD_DIR := .build/install-app.noindex
+APP_INSTALL_SOURCE := $(APP_INSTALL_BUILD_DIR)/Build/Products/Debug/$(APP_NAME).app
+APP_INSTALL_PATH := $(APP_INSTALL_DIR)/$(APP_NAME).app
 CONTAINER_VERSION ?= $(APP_VERSION)
 CONTAINER_REVISION ?= $(shell $(GIT) rev-parse --verify HEAD 2>/dev/null || printf '%s' unknown)
 
@@ -32,7 +36,7 @@ SOURCE_ZIP_PATH := $(DIST_DIR)/kastan-$(APP_VERSION)-source.zip
 
 .DEFAULT_GOAL := dist
 
-.PHONY: help build test test-library test-mcp test-app container-images test-container-images dist dmg source-zip check-dist
+.PHONY: help build install-app test test-library test-mcp test-app container-images test-container-images dist dmg source-zip check-dist
 
 help: ## Show the available development commands.
 	@printf '%s\n' \
@@ -41,6 +45,7 @@ help: ## Show the available development commands.
 		'  make                       Create the macOS DMG and source ZIP.' \
 		'  make help                  Show the available development commands.' \
 		'  make build                 Build the Swift package, MCP server, and macOS app.' \
+		'  make install-app           Build and install the one Spotlight-visible macOS app.' \
 		'  make test                  Run every test suite.' \
 		'  make test-library          Test the shared Swift package and CLI.' \
 		'  make test-mcp              Test the MCP server.' \
@@ -59,6 +64,30 @@ build: ## Build every Kaštan interface.
 		-scheme $(APP_SCHEME) \
 		-destination '$(APP_DESTINATION)' \
 		CODE_SIGNING_ALLOWED=NO
+
+install-app: ## Build, install, and de-duplicate the macOS app for Spotlight.
+	$(XCODEBUILD) build \
+		-project $(APP_PROJECT) \
+		-scheme $(APP_SCHEME) \
+		-configuration Debug \
+		-destination '$(APP_DESTINATION)' \
+		-derivedDataPath "$(APP_INSTALL_BUILD_DIR)" \
+		CODE_SIGN_IDENTITY=- \
+		CODE_SIGN_STYLE=Manual \
+		CODE_SIGNING_ALLOWED=YES
+	$(CODESIGN) --verify --deep --strict "$(APP_INSTALL_SOURCE)"
+	@mkdir -p "$(APP_INSTALL_DIR)"
+	@rm -rf "$(APP_INSTALL_PATH).installing"
+	$(DITTO) "$(APP_INSTALL_SOURCE)" "$(APP_INSTALL_PATH).installing"
+	@rm -rf "$(APP_INSTALL_PATH)"
+	@mv "$(APP_INSTALL_PATH).installing" "$(APP_INSTALL_PATH)"
+	@for products in "$(HOME)"/Library/Developer/Xcode/DerivedData/KastanApp-*/Build/Products; do \
+		if test -d "$$products"; then \
+			find "$$products" -mindepth 2 -maxdepth 2 -type d -name '$(APP_NAME).app' -exec rm -rf {} +; \
+		fi; \
+	done
+	@mdimport "$(APP_INSTALL_PATH)"
+	@printf 'Installed %s\n' "$(APP_INSTALL_PATH)"
 
 test: test-library test-mcp test-app ## Run every test suite.
 
