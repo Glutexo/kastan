@@ -611,6 +611,8 @@ struct AppSectionCommands: Commands {
                 Label("Replace symbols with text", systemImage: "textformat")
             }
 
+            Divider()
+
             Menu {
                 Toggle("Addresses", isOn: $showsAddressSuggestions)
                 Toggle("Boroughs", isOn: $showsBoroughSuggestions)
