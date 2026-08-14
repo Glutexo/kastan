@@ -10,6 +10,8 @@ CODESIGN ?= codesign
 UNZIP ?= unzip
 DOCKER ?= docker
 CURL ?= curl
+LSREGISTER ?= /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
+PLISTBUDDY ?= /usr/libexec/PlistBuddy
 
 CLI_IMAGE ?= kastan-cli:local
 MCP_IMAGE ?= kastan-mcp:local
@@ -18,6 +20,7 @@ APP_PROJECT := KastanApp/KastanApp.xcodeproj
 APP_SCHEME := KastanApp
 APP_DESTINATION := platform=macOS
 APP_NAME := Kaštan
+APP_BUNDLE_IDENTIFIER := cz.glutexo.kastan
 APP_ENTITLEMENTS := KastanApp/KastanApp.entitlements
 APP_VERSION := $(shell sed -n 's/^[[:space:]]*MARKETING_VERSION = \([^;]*\);/\1/p' $(APP_PROJECT)/project.pbxproj | head -n 1)
 APP_INSTALL_DIR ?= $(HOME)/Applications
@@ -79,13 +82,25 @@ install-app: ## Build, install, and de-duplicate the macOS app for Spotlight.
 	@mkdir -p "$(APP_INSTALL_DIR)"
 	@rm -rf "$(APP_INSTALL_PATH).installing"
 	$(DITTO) "$(APP_INSTALL_SOURCE)" "$(APP_INSTALL_PATH).installing"
+	@if test -d "$(APP_INSTALL_PATH)"; then \
+		"$(LSREGISTER)" -u "$(APP_INSTALL_PATH)" >/dev/null 2>&1 || true; \
+	fi
 	@rm -rf "$(APP_INSTALL_PATH)"
 	@mv "$(APP_INSTALL_PATH).installing" "$(APP_INSTALL_PATH)"
-	@for products in "$(HOME)"/Library/Developer/Xcode/DerivedData/KastanApp-*/Build/Products; do \
-		if test -d "$$products"; then \
-			find "$$products" -mindepth 2 -maxdepth 2 -type d -name '$(APP_NAME).app' -exec rm -rf {} +; \
+	@for root in "$(CURDIR)/.build" "$(HOME)/Library/Developer/Xcode/DerivedData"; do \
+		if test -d "$$root"; then \
+			find "$$root" -type d -name '*.app' -prune -print; \
+		fi; \
+	done | while IFS= read -r app; do \
+		bundle_identifier="$$("$(PLISTBUDDY)" -c 'Print :CFBundleIdentifier' \
+			"$$app/Contents/Info.plist" 2>/dev/null || true)"; \
+		if test "$$bundle_identifier" = "$(APP_BUNDLE_IDENTIFIER)" \
+				&& ! test "$$app" -ef "$(APP_INSTALL_PATH)"; then \
+			"$(LSREGISTER)" -u "$$app" >/dev/null 2>&1 || true; \
+			rm -rf "$$app"; \
 		fi; \
 	done
+	@"$(LSREGISTER)" -f "$(APP_INSTALL_PATH)" >/dev/null
 	@mdimport "$(APP_INSTALL_PATH)"
 	@printf 'Installed %s\n' "$(APP_INSTALL_PATH)"
 

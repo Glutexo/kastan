@@ -267,10 +267,12 @@ make install-app
 ```
 
 The command creates a fresh ad-hoc-signed Debug build in the repository's non-indexed `.build/` directory and
-replaces `~/Applications/Kaštan.app`. It also removes prior `Kaštan.app` products from `KastanApp` Derived Data
-directories so only the installed copy remains in Spotlight; Xcode retains its intermediate files and recreates a
-removed product when needed. Run the command again after local changes whenever the Spotlight copy should be
-updated. Set `APP_INSTALL_DIR` to choose a different destination directory.
+replaces `~/Applications/Kaštan.app`. It unregisters the previous installation before replacement, then identifies
+Kaštan build products by their bundle identifier, unregisters them from Launch Services, and removes them from the
+repository's `.build/` directory and Xcode Derived Data. Finally, it explicitly registers and indexes only the
+installed copy for Spotlight. Xcode retains its intermediate files and recreates a removed product when needed. Run
+the command again after local changes whenever the Spotlight copy should be updated. Set `APP_INSTALL_DIR` to choose
+a different destination directory.
 
 ## Create Download Archives
 
