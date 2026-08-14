@@ -11,7 +11,7 @@ UNZIP ?= unzip
 DOCKER ?= docker
 CURL ?= curl
 LSREGISTER ?= /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
-PLISTBUDDY ?= /usr/libexec/PlistBuddy
+KILLALL ?= killall
 
 CLI_IMAGE ?= kastan-cli:local
 MCP_IMAGE ?= kastan-mcp:local
@@ -39,7 +39,7 @@ SOURCE_ZIP_PATH := $(DIST_DIR)/kastan-$(APP_VERSION)-source.zip
 
 .DEFAULT_GOAL := dist
 
-.PHONY: help build install-app test test-library test-mcp test-app container-images test-container-images dist dmg source-zip check-dist
+.PHONY: help build install-app test test-library test-mcp test-app test-tooling container-images test-container-images dist dmg source-zip check-dist
 
 help: ## Show the available development commands.
 	@printf '%s\n' \
@@ -53,6 +53,7 @@ help: ## Show the available development commands.
 		'  make test-library          Test the shared Swift package and CLI.' \
 		'  make test-mcp              Test the MCP server.' \
 		'  make test-app              Test the macOS app.' \
+		'  make test-tooling          Test repository development tooling.' \
 		'  make container-images      Build the CLI and MCP container images.' \
 		'  make test-container-images Build and smoke-test both container images.' \
 		'  make dist                  Create the macOS DMG and source ZIP.' \
@@ -87,24 +88,14 @@ install-app: ## Build, install, and de-duplicate the macOS app for Spotlight.
 	fi
 	@rm -rf "$(APP_INSTALL_PATH)"
 	@mv "$(APP_INSTALL_PATH).installing" "$(APP_INSTALL_PATH)"
-	@for root in "$(CURDIR)/.build" "$(HOME)/Library/Developer/Xcode/DerivedData"; do \
-		if test -d "$$root"; then \
-			find "$$root" -type d -name '*.app' -prune -print; \
-		fi; \
-	done | while IFS= read -r app; do \
-		bundle_identifier="$$("$(PLISTBUDDY)" -c 'Print :CFBundleIdentifier' \
-			"$$app/Contents/Info.plist" 2>/dev/null || true)"; \
-		if test "$$bundle_identifier" = "$(APP_BUNDLE_IDENTIFIER)" \
-				&& ! test "$$app" -ef "$(APP_INSTALL_PATH)"; then \
-			"$(LSREGISTER)" -u "$$app" >/dev/null 2>&1 || true; \
-			rm -rf "$$app"; \
-		fi; \
-	done
+	@LSREGISTER="$(LSREGISTER)" sh Scripts/keep-current-app-registered.sh \
+		"$(APP_BUNDLE_IDENTIFIER)" "$(APP_INSTALL_PATH)"
+	@$(KILLALL) Spotlight >/dev/null 2>&1 || true
 	@"$(LSREGISTER)" -f "$(APP_INSTALL_PATH)" >/dev/null
 	@mdimport "$(APP_INSTALL_PATH)"
 	@printf 'Installed %s\n' "$(APP_INSTALL_PATH)"
 
-test: test-library test-mcp test-app ## Run every test suite.
+test: test-library test-mcp test-app test-tooling ## Run every test suite.
 
 test-library: ## Test the shared Swift package and CLI.
 	$(SWIFT) test
@@ -118,6 +109,9 @@ test-app: ## Test the macOS app.
 		-scheme $(APP_SCHEME) \
 		-destination '$(APP_DESTINATION)' \
 		CODE_SIGNING_ALLOWED=NO
+
+test-tooling: ## Test repository development tooling.
+	sh Scripts/Tests/keep-current-app-registered-tests.sh
 
 container-images: ## Build the CLI and MCP Linux container images.
 	$(DOCKER) build \
