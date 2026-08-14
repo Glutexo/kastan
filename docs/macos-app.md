@@ -267,12 +267,14 @@ make install-app
 ```
 
 The command creates a fresh ad-hoc-signed Debug build in the repository's non-indexed `.build/` directory and
-replaces `~/Applications/Kaštan.app`. It unregisters the previous installation, every other live build product, and
-stale Launch Services records left by build products that were already removed from temporary or Derived Data
-locations. Finally, it explicitly registers and indexes only the installed copy and refreshes Spotlight application
-search. Xcode retains its intermediate files and recreates a removed product when needed. Run the command again after
-local changes whenever the Spotlight copy should be updated. Set `APP_INSTALL_DIR` to choose a different destination
-directory.
+replaces `~/Applications/Kaštan.app`. It first removes the prior copy long enough for Spotlight and its knowledge
+cache to discard the prior app identity, then asks Finder to perform a coordinated installation of the new build.
+This prevents the shell replacement from leaving a second application result that points to the same path. It also
+unregisters every other live build product and stale Launch Services records left by products that were already
+removed from temporary or Derived Data locations. Xcode retains its intermediate files and recreates a removed
+product when needed. The first run may ask for permission to control Finder; this access is required for the
+coordinated replacement. Run the command again after local changes whenever the Spotlight copy should be updated.
+Set `APP_INSTALL_DIR` to choose a different destination directory.
 
 ## Create Download Archives
 

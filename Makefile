@@ -12,6 +12,8 @@ DOCKER ?= docker
 CURL ?= curl
 LSREGISTER ?= /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister
 KILLALL ?= killall
+MDFIND ?= mdfind
+OSASCRIPT ?= osascript
 
 CLI_IMAGE ?= kastan-cli:local
 MCP_IMAGE ?= kastan-mcp:local
@@ -80,19 +82,14 @@ install-app: ## Build, install, and de-duplicate the macOS app for Spotlight.
 		CODE_SIGN_STYLE=Manual \
 		CODE_SIGNING_ALLOWED=YES
 	$(CODESIGN) --verify --deep --strict "$(APP_INSTALL_SOURCE)"
-	@mkdir -p "$(APP_INSTALL_DIR)"
-	@rm -rf "$(APP_INSTALL_PATH).installing"
-	$(DITTO) "$(APP_INSTALL_SOURCE)" "$(APP_INSTALL_PATH).installing"
-	@if test -d "$(APP_INSTALL_PATH)"; then \
-		"$(LSREGISTER)" -u "$(APP_INSTALL_PATH)" >/dev/null 2>&1 || true; \
-	fi
-	@rm -rf "$(APP_INSTALL_PATH)"
-	@mv "$(APP_INSTALL_PATH).installing" "$(APP_INSTALL_PATH)"
+	@DITTO="$(DITTO)" KILLALL="$(KILLALL)" LSREGISTER="$(LSREGISTER)" \
+		MDFIND="$(MDFIND)" OSASCRIPT="$(OSASCRIPT)" \
+		sh Scripts/install-app-for-spotlight.sh \
+			"$(APP_BUNDLE_IDENTIFIER)" "$(abspath $(APP_INSTALL_SOURCE))" \
+			"$(abspath $(APP_INSTALL_PATH))"
 	@LSREGISTER="$(LSREGISTER)" sh Scripts/keep-current-app-registered.sh \
-		"$(APP_BUNDLE_IDENTIFIER)" "$(APP_INSTALL_PATH)"
+		"$(APP_BUNDLE_IDENTIFIER)" "$(abspath $(APP_INSTALL_PATH))"
 	@$(KILLALL) Spotlight >/dev/null 2>&1 || true
-	@"$(LSREGISTER)" -f "$(APP_INSTALL_PATH)" >/dev/null
-	@mdimport "$(APP_INSTALL_PATH)"
 	@printf 'Installed %s\n' "$(APP_INSTALL_PATH)"
 
 test: test-library test-mcp test-app test-tooling ## Run every test suite.
@@ -111,6 +108,7 @@ test-app: ## Test the macOS app.
 		CODE_SIGNING_ALLOWED=NO
 
 test-tooling: ## Test repository development tooling.
+	sh Scripts/Tests/install-app-for-spotlight-tests.sh
 	sh Scripts/Tests/keep-current-app-registered-tests.sh
 
 container-images: ## Build the CLI and MCP Linux container images.
