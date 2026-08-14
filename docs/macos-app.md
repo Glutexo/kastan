@@ -267,14 +267,17 @@ make install-app
 ```
 
 The command creates a fresh ad-hoc-signed Debug build in the repository's non-indexed `.build/` directory and
-replaces `~/Applications/Kaštan.app`. It first removes the prior copy long enough for Spotlight and its knowledge
-cache to discard the prior app identity, then asks Finder to perform a coordinated installation of the new build.
-This prevents the shell replacement from leaving a second application result that points to the same path. It also
-unregisters every other live build product and stale Launch Services records left by products that were already
-removed from temporary or Derived Data locations. Xcode retains its intermediate files and recreates a removed
-product when needed. The first run may ask for permission to control Finder; this access is required for the
-coordinated replacement. Run the command again after local changes whenever the Spotlight copy should be updated.
-Set `APP_INSTALL_DIR` to choose a different destination directory.
+installs `~/Applications/Kastan.app`. Finder and Spotlight display its localized product name, `Kaštan`. The ASCII
+on-disk bundle name prevents Spotlight from treating the canonically decomposed form of an accented filename as a
+second application result. The command removes the former `~/Applications/Kaštan.app` path during migration.
+
+Installation also unregisters every other live build product and stale Launch Services records left by products
+that were already removed from temporary or Derived Data locations. It removes the prior copy long enough for
+Spotlight to discard its metadata identity, then asks Finder to perform a coordinated installation of the new build.
+Xcode retains its intermediate files and recreates a removed product when needed. The first run may ask for
+permission to control Finder; this access is required for the coordinated replacement. Run the command again after
+local changes whenever the Spotlight copy should be updated. Set `APP_INSTALL_DIR` to choose a different destination
+directory.
 
 ## Create Download Archives
 
@@ -288,9 +291,10 @@ make source-zip
 
 Plain `make` is equivalent to `make dist` and creates both downloads. The artifact names use the app's current
 marketing version and are written to `dist/`. For version `0.3.0`,
-`make dmg` creates `kastan-0.3.0-macos.dmg` with a Release build of `Kaštan.app` for both Apple Silicon and Intel
-Macs. The image also contains an Applications shortcut. Xcode gives this local build an ad-hoc signature that
-preserves the app sandbox and hardened runtime, but it is not signed with an Apple Developer ID or notarized.
+`make dmg` creates `kastan-0.3.0-macos.dmg` with a Release build stored as `Kastan.app` and displayed as `Kaštan`
+for both Apple Silicon and Intel Macs. The image also contains an Applications shortcut. Xcode gives this local
+build an ad-hoc signature that preserves the app sandbox and hardened runtime, but it is not signed with an Apple
+Developer ID or notarized.
 Gatekeeper can therefore require the user to explicitly approve the first launch; a seamless public download
 requires a Developer ID certificate and Apple notarization outside this workflow.
 

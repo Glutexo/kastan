@@ -21,20 +21,23 @@ MCP_IMAGE ?= kastan-mcp:local
 APP_PROJECT := KastanApp/KastanApp.xcodeproj
 APP_SCHEME := KastanApp
 APP_DESTINATION := platform=macOS
-APP_NAME := Kaštan
+# Spotlight de-duplicates the ASCII bundle filename while localization preserves the Kaštan product name.
+APP_BUNDLE_NAME := Kastan
+APP_DISPLAY_NAME := Kaštan
 APP_BUNDLE_IDENTIFIER := cz.glutexo.kastan
 APP_ENTITLEMENTS := KastanApp/KastanApp.entitlements
 APP_VERSION := $(shell sed -n 's/^[[:space:]]*MARKETING_VERSION = \([^;]*\);/\1/p' $(APP_PROJECT)/project.pbxproj | head -n 1)
 APP_INSTALL_DIR ?= $(HOME)/Applications
 APP_INSTALL_BUILD_DIR := .build/install-app.noindex
-APP_INSTALL_SOURCE := $(APP_INSTALL_BUILD_DIR)/Build/Products/Debug/$(APP_NAME).app
-APP_INSTALL_PATH := $(APP_INSTALL_DIR)/$(APP_NAME).app
+APP_INSTALL_SOURCE := $(APP_INSTALL_BUILD_DIR)/Build/Products/Debug/$(APP_BUNDLE_NAME).app
+APP_INSTALL_PATH := $(APP_INSTALL_DIR)/$(APP_BUNDLE_NAME).app
+APP_LEGACY_INSTALL_PATH := $(APP_INSTALL_DIR)/$(APP_DISPLAY_NAME).app
 CONTAINER_VERSION ?= $(APP_VERSION)
 CONTAINER_REVISION ?= $(shell $(GIT) rev-parse --verify HEAD 2>/dev/null || printf '%s' unknown)
 
 DIST_DIR ?= dist
 DIST_BUILD_DIR := .build/distribution
-DIST_APP := $(DIST_BUILD_DIR)/Build/Products/Release/$(APP_NAME).app
+DIST_APP := $(DIST_BUILD_DIR)/Build/Products/Release/$(APP_BUNDLE_NAME).app
 DMG_ROOT := $(DIST_BUILD_DIR)/dmg-root
 DMG_PATH := $(DIST_DIR)/kastan-$(APP_VERSION)-macos.dmg
 SOURCE_ZIP_PATH := $(DIST_DIR)/kastan-$(APP_VERSION)-source.zip
@@ -82,11 +85,13 @@ install-app: ## Build, install, and de-duplicate the macOS app for Spotlight.
 		CODE_SIGN_STYLE=Manual \
 		CODE_SIGNING_ALLOWED=YES
 	$(CODESIGN) --verify --deep --strict "$(APP_INSTALL_SOURCE)"
+	@LSREGISTER="$(LSREGISTER)" sh Scripts/keep-current-app-registered.sh \
+		"$(APP_BUNDLE_IDENTIFIER)" "$(abspath $(APP_INSTALL_SOURCE))"
 	@DITTO="$(DITTO)" KILLALL="$(KILLALL)" LSREGISTER="$(LSREGISTER)" \
 		MDFIND="$(MDFIND)" OSASCRIPT="$(OSASCRIPT)" \
 		sh Scripts/install-app-for-spotlight.sh \
 			"$(APP_BUNDLE_IDENTIFIER)" "$(abspath $(APP_INSTALL_SOURCE))" \
-			"$(abspath $(APP_INSTALL_PATH))"
+			"$(abspath $(APP_INSTALL_PATH))" "$(abspath $(APP_LEGACY_INSTALL_PATH))"
 	@LSREGISTER="$(LSREGISTER)" sh Scripts/keep-current-app-registered.sh \
 		"$(APP_BUNDLE_IDENTIFIER)" "$(abspath $(APP_INSTALL_PATH))"
 	@$(KILLALL) Spotlight >/dev/null 2>&1 || true
@@ -108,6 +113,7 @@ test-app: ## Test the macOS app.
 		CODE_SIGNING_ALLOWED=NO
 
 test-tooling: ## Test repository development tooling.
+	sh Scripts/Tests/macos-app-name-tests.sh
 	sh Scripts/Tests/install-app-for-spotlight-tests.sh
 	sh Scripts/Tests/keep-current-app-registered-tests.sh
 
@@ -222,11 +228,11 @@ dmg: ## Create an ad-hoc-signed universal macOS DMG.
 	$(CODESIGN) --verify --deep --strict "$(DIST_APP)"
 	rm -rf "$(DMG_ROOT)"
 	mkdir -p "$(DMG_ROOT)"
-	$(DITTO) "$(DIST_APP)" "$(DMG_ROOT)/$(APP_NAME).app"
+	$(DITTO) "$(DIST_APP)" "$(DMG_ROOT)/$(APP_BUNDLE_NAME).app"
 	ln -s /Applications "$(DMG_ROOT)/Applications"
 	rm -f "$(DMG_PATH)"
 	$(HDIUTIL) create \
-		-volname "$(APP_NAME) $(APP_VERSION)" \
+		-volname "$(APP_DISPLAY_NAME) $(APP_VERSION)" \
 		-srcfolder "$(DMG_ROOT)" \
 		-format UDZO \
 		"$(DMG_PATH)"

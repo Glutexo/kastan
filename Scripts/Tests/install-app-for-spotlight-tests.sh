@@ -7,11 +7,13 @@ script_directory=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 temporary_directory=$(mktemp -d)
 trap 'rm -rf "$temporary_directory"' EXIT HUP INT TERM
 
-source_app="$temporary_directory/build/Kaštan.app"
-installed_app="$temporary_directory/Applications/Kaštan.app"
-mkdir -p "$source_app/Contents" "$installed_app/Contents"
+source_app="$temporary_directory/build/Kastan.app"
+installed_app="$temporary_directory/Applications/Kastan.app"
+obsolete_app="$temporary_directory/Applications/Kaštan.app"
+mkdir -p "$source_app/Contents" "$installed_app/Contents" "$obsolete_app/Contents"
 printf 'current build\n' > "$source_app/Contents/version"
 printf 'previous build\n' > "$installed_app/Contents/version"
+printf 'obsolete build\n' > "$obsolete_app/Contents/version"
 
 unregistered_file="$temporary_directory/unregistered.txt"
 killed_file="$temporary_directory/killed.txt"
@@ -48,13 +50,16 @@ LSREGISTER="$fake_lsregister" \
 MDFIND="$fake_mdfind" \
 OSASCRIPT="$fake_osascript" \
     sh "$script_directory/install-app-for-spotlight.sh" \
-        cz.glutexo.kastan "$source_app" "$installed_app"
+        cz.glutexo.kastan "$source_app" "$installed_app" "$obsolete_app"
 
 test "$(cat "$installed_app/Contents/version")" = 'current build'
 test ! -e "$source_app"
+test ! -e "$obsolete_app"
 grep -Fqx "$source_app" "$unregistered_file"
 grep -Fqx "$installed_app" "$unregistered_file"
-test "$(wc -l < "$unregistered_file" | tr -d ' ')" = 2
+grep -Fqx "$obsolete_app" "$unregistered_file"
+test "$(wc -l < "$unregistered_file" | tr -d ' ')" = 3
 grep -Fqx 'Spotlight' "$killed_file"
 grep -Fqx 'spotlightknowledged' "$killed_file"
-test "$(wc -l < "$killed_file" | tr -d ' ')" = 2
+grep -Fqx 'spotlightknowledged.updater' "$killed_file"
+test "$(wc -l < "$killed_file" | tr -d ' ')" = 3

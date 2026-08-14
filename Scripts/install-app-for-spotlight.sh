@@ -3,14 +3,15 @@
 # Reinstalls Kaštan through Finder so Spotlight replaces the prior app identity instead of retaining a duplicate result.
 set -eu
 
-if test "$#" -ne 3; then
-    printf 'Usage: %s BUNDLE_IDENTIFIER SOURCE_APP INSTALLED_APP\n' "$0" >&2
+if test "$#" -lt 3; then
+    printf 'Usage: %s BUNDLE_IDENTIFIER SOURCE_APP INSTALLED_APP [OBSOLETE_APP ...]\n' "$0" >&2
     exit 64
 fi
 
 bundle_identifier=$1
 source_app=$2
 installed_app=$3
+shift 3
 install_directory=$(dirname "$installed_app")
 ditto=${DITTO:-ditto}
 killall=${KILLALL:-killall}
@@ -54,14 +55,17 @@ metadata_paths() {
 finder_copy check >/dev/null
 
 "$lsregister" -u "$source_app" >/dev/null 2>&1 || true
-if test -d "$installed_app"; then
-    "$lsregister" -u "$installed_app" >/dev/null 2>&1 || true
-fi
-rm -rf "$installed_app"
+for app in "$installed_app" "$@"; do
+    if test -d "$app"; then
+        "$lsregister" -u "$app" >/dev/null 2>&1 || true
+    fi
+    rm -rf "$app"
+done
 
 # Drop both the visible search process and its app-suggestion cache after neither app identity remains registered.
 "$killall" Spotlight >/dev/null 2>&1 || true
 "$killall" spotlightknowledged >/dev/null 2>&1 || true
+"$killall" spotlightknowledged.updater >/dev/null 2>&1 || true
 
 attempt=0
 while test "$attempt" -lt 40 && test -n "$(metadata_paths)"; do

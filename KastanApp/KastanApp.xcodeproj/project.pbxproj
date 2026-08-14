@@ -54,7 +54,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		A00000000000000000000101 /* Kaštan.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Kaštan.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00000000000000000000101 /* Kastan.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Kastan.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A00000000000000000000102 /* KastanAppTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KastanAppTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A00000000000000000000110 /* KastanApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KastanApp.swift; sourceTree = "<group>"; };
 		A00000000000000000000111 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -128,7 +128,7 @@
 		A00000000000000000000003 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A00000000000000000000101 /* Kaštan.app */,
+				A00000000000000000000101 /* Kastan.app */,
 				A00000000000000000000102 /* KastanAppTests.xctest */,
 			);
 			name = Products;
@@ -247,7 +247,7 @@
 				A00000000000000000000601 /* Kastan */,
 			);
 			productName = KastanApp;
-			productReference = A00000000000000000000101 /* Kaštan.app */;
+			productReference = A00000000000000000000101 /* Kastan.app */;
 			productType = "com.apple.product-type.application";
 		};
 		A00000000000000000000402 /* KastanAppTests */ = {
@@ -473,14 +473,14 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				EXECUTABLE_NAME = KastanApp;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Kaštan";
+				INFOPLIST_KEY_CFBundleDisplayName = Kastan;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Kaštan uses your location only when you choose My location for a journey endpoint.";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = cz.glutexo.kastan;
 				PRODUCT_MODULE_NAME = KastanApp;
-				PRODUCT_NAME = "Kaštan";
+				PRODUCT_NAME = Kastan;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
 			name = Debug;
@@ -498,14 +498,14 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				EXECUTABLE_NAME = KastanApp;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Kaštan";
+				INFOPLIST_KEY_CFBundleDisplayName = Kastan;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Kaštan uses your location only when you choose My location for a journey endpoint.";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MARKETING_VERSION = 0.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = cz.glutexo.kastan;
 				PRODUCT_MODULE_NAME = KastanApp;
-				PRODUCT_NAME = "Kaštan";
+				PRODUCT_NAME = Kastan;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
 			name = Release;
@@ -519,7 +519,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = cz.glutexo.kastan.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Kaštan.app/Contents/MacOS/KastanApp";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Kastan.app/Contents/MacOS/KastanApp";
 			};
 			name = Debug;
 		};
@@ -532,7 +532,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
 				PRODUCT_BUNDLE_IDENTIFIER = cz.glutexo.kastan.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Kaštan.app/Contents/MacOS/KastanApp";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Kastan.app/Contents/MacOS/KastanApp";
 			};
 			name = Release;
 		};
