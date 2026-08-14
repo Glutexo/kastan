@@ -11,8 +11,9 @@ test "$(grep -Fc 'path = Kastan.app;' "$project")" = 1
 test "$(grep -Fc '/Kastan.app/Contents/MacOS/KastanApp' "$project")" = 2
 ! grep -Fq 'Kaštan.app' "$project"
 
-grep -Fqx 'APP_BUNDLE_NAME := Kastan' "$repository_root/Makefile"
-grep -Fqx 'APP_DISPLAY_NAME := Kaštan' "$repository_root/Makefile"
+grep -Fqx 'APP_BUNDLE_NAME := Kaštan' "$repository_root/Makefile"
+grep -Fqx 'APP_BUNDLE_FILENAME := Kastan' "$repository_root/Makefile"
+! grep -Fq 'APP_DISPLAY_NAME' "$repository_root/Makefile"
 
 for localization in cs en; do
     strings="$repository_root/KastanApp/Resources/$localization.lproj/InfoPlist.strings"
