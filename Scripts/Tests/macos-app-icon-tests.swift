@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-/// Protects the two app-icon roles required by macOS: an opaque searchable icon and transparent runtime artwork.
+/// Keeps the same transparent chestnut artwork recognizable across every macOS app surface.
 let repositoryRoot = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent()
     .deletingLastPathComponent()
@@ -63,8 +63,8 @@ for icon in appIcons {
     )
     let alphas = cornerAlphas(of: image)
     precondition(
-        alphas.count == 4 && alphas.allSatisfy { $0 >= 0.999 },
-        "\(icon.lastPathComponent) must remain opaque so macOS does not add a legacy icon frame"
+        alphas.count == 4 && alphas.allSatisfy { $0 <= 0.001 },
+        "\(icon.lastPathComponent) must retain the freeform icon used by the app switcher"
     )
 }
 
@@ -91,5 +91,23 @@ for artwork in runtimeArtwork {
     precondition(
         alphas.count == 4 && alphas.allSatisfy { $0 <= 0.001 },
         "\(artwork.lastPathComponent) must remain transparent for the Dock and app switcher"
+    )
+}
+
+/// Protects the exact full-size pixels shared by Spotlight and the running app from drifting apart.
+let matchingFullSizeRenditions = [
+    "ApplicationArtwork.png": "AppIcon-512.png",
+    "ApplicationArtwork@2x.png": "AppIcon-512@2x.png",
+]
+for artwork in runtimeArtwork {
+    let appIconName = matchingFullSizeRenditions[artwork.lastPathComponent]!
+    let appIcon = assetCatalog
+        .appendingPathComponent("AppIcon.appiconset", isDirectory: true)
+        .appendingPathComponent(appIconName)
+    let artworkData = try Data(contentsOf: artwork)
+    let appIconData = try Data(contentsOf: appIcon)
+    precondition(
+        artworkData == appIconData,
+        "\(appIconName) must use the same artwork as \(artwork.lastPathComponent)"
     )
 }

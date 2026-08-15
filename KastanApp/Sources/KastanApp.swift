@@ -2,7 +2,7 @@ import AppKit
 import Kastan
 import SwiftUI
 
-/// Keeps Kaštan's transparent artwork separate from the opaque icon used by system search surfaces.
+/// Keeps Kaštan's transparent artwork consistent across bundle-driven and running-app surfaces.
 @MainActor
 enum ApplicationArtwork {
     static let icon: NSImage = {

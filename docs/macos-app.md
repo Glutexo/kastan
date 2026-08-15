@@ -272,8 +272,9 @@ The command creates a fresh ad-hoc-signed Debug build in the repository's non-in
 installs `~/Applications/Kastan.app`. Finder and Spotlight display its localized product name, `Kaštan`. The ASCII
 on-disk bundle name prevents Spotlight from treating the canonically decomposed form of an accented filename as a
 second application result. The command removes the former `~/Applications/Kaštan.app` path during migration.
-The static bundle icon uses its own opaque chestnut-toned background so macOS does not surround it with the legacy
-application-icon frame. The running app keeps the transparent chestnut artwork in the Dock and app switcher.
+The static bundle icon and the running app use the same transparent, freeform chestnut artwork. macOS may place the
+bundle icon on its neutral system tile in Finder or Spotlight, but Kaštan does not bake a different background into
+those surfaces; the Dock and app switcher continue to present the artwork without a frame.
 
 Installation also unregisters every other live build product and stale Launch Services records left by products
 that were already removed from temporary or Derived Data locations. It removes the prior copy long enough for
