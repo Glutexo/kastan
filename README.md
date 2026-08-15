@@ -1,6 +1,6 @@
 # 🌰 Kaštan
 
-<img src="KastanApp/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon-256.png" alt="Kaštan app icon" width="128">
+<img src="KastanApp/Resources/Assets.xcassets/ApplicationArtwork.imageset/ApplicationArtwork.png" alt="Kaštan app icon" width="128">
 
 Kaštan is an open-source companion for occasional personal [IDOS](https://idos.cz/en/) searches. Use it as a
 native macOS app or from a terminal, or integrate its search engine as a Swift library or local or remote MCP

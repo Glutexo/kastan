@@ -2,13 +2,11 @@ import AppKit
 import Kastan
 import SwiftUI
 
-/// Keeps Kaštan's transparent artwork consistent between the Dock and in-app identity elements.
+/// Keeps Kaštan's transparent artwork separate from the opaque icon used by system search surfaces.
 @MainActor
 enum ApplicationArtwork {
     static let icon: NSImage = {
-        guard let url = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
-              let image = NSImage(contentsOf: url)
-        else {
+        guard let image = NSImage(named: "ApplicationArtwork") else {
             return NSApplication.shared.applicationIconImage ?? NSImage()
         }
         return image

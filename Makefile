@@ -114,6 +114,7 @@ test-app: ## Test the macOS app.
 
 test-tooling: ## Test repository development tooling.
 	sh Scripts/Tests/macos-app-name-tests.sh
+	swift Scripts/Tests/macos-app-icon-tests.swift
 	sh Scripts/Tests/install-app-for-spotlight-tests.sh
 	sh Scripts/Tests/keep-current-app-registered-tests.sh
 

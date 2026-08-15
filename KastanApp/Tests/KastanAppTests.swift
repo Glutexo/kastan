@@ -24,6 +24,12 @@ final class KastanAppTests: XCTestCase {
         XCTAssertIdentical(imageView.image, ApplicationArtwork.icon)
         XCTAssertEqual(imageView.imageFrameStyle, .none)
         XCTAssertEqual(imageView.imageScaling, .scaleProportionallyUpOrDown)
+
+        let representation = try XCTUnwrap(
+            ApplicationArtwork.icon.tiffRepresentation.flatMap(NSBitmapImageRep.init(data:))
+        )
+        let cornerAlpha = try XCTUnwrap(representation.colorAt(x: 0, y: 0)?.alphaComponent)
+        XCTAssertEqual(cornerAlpha, 0, accuracy: 0.001)
     }
 
     func testProductMenuActionsAppearOnlyOnce() throws {
