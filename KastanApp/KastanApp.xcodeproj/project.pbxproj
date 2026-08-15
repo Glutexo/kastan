@@ -38,6 +38,7 @@
 		A00000000000000000000231 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000133 /* Assets.xcassets */; };
 		A00000000000000000000232 /* Localizable.stringsdict in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000136 /* Localizable.stringsdict */; };
 		A00000000000000000000233 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000138 /* InfoPlist.strings */; };
+		A00000000000000000000234 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000013B /* AppIcon.icon */; };
 		A00000000000000000000241 /* Kastan in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000601 /* Kastan */; };
 		A00000000000000000000242 /* Kastan in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000602 /* Kastan */; };
 		A00000000000000000000250 /* KastanAppTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000150 /* KastanAppTests.swift */; };
@@ -91,6 +92,7 @@
 		A00000000000000000000137 /* KastanApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = KastanApp.entitlements; sourceTree = "<group>"; };
 		A00000000000000000000139 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		A0000000000000000000013A /* cs */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = cs; path = cs.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		A0000000000000000000013B /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		A00000000000000000000150 /* KastanAppTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KastanAppTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -211,6 +213,7 @@
 		A00000000000000000000009 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				A0000000000000000000013B /* AppIcon.icon */,
 				A00000000000000000000133 /* Assets.xcassets */,
 				A00000000000000000000138 /* InfoPlist.strings */,
 				A00000000000000000000132 /* Localizable.strings */,
@@ -323,6 +326,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A00000000000000000000234 /* AppIcon.icon in Resources */,
 				A00000000000000000000231 /* Assets.xcassets in Resources */,
 				A00000000000000000000233 /* InfoPlist.strings in Resources */,
 				A00000000000000000000230 /* Localizable.strings in Resources */,
