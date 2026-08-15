@@ -4376,6 +4376,21 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(hostingView.fittingSize.height, fieldSize.height, accuracy: 0.5)
     }
 
+    func testHeaderlessPlaceAutocompleteFitsTheJourneyOptionRow() {
+        let field = PlaceAutocompleteField(
+            prompt: "Via place",
+            text: .constant(""),
+            timetable: .defaultTimetable,
+            scope: .places,
+            client: MockIDOSClient()
+        )
+        .frame(width: 320)
+        let hostingView = NSHostingView(rootView: field)
+
+        XCTAssertGreaterThan(hostingView.fittingSize.height, 0)
+        XCTAssertLessThanOrEqual(hostingView.fittingSize.height, 28)
+    }
+
     func testSuggestionButtonAcceptsClicksAcrossTheFullRow() {
         var didSelect = false
         let row = PlaceSuggestionButton(
@@ -4862,9 +4877,17 @@ final class KastanAppTests: XCTestCase {
             idosSelection: IDOSPlaceSelection(text: "Praha", listID: "100003", itemID: "5457076"),
             kind: .train
         )
+        let viaSelection = PlaceFieldSelection(
+            idosSelection: IDOSPlaceSelection(
+                text: "Pardubice",
+                listID: "100003",
+                itemID: "5456463"
+            ),
+            kind: .train
+        )
         model.fromSelection = fromSelection
         model.journeyOptions = [
-            JourneyOptionEntry(viaPlace: " Pardubice "),
+            JourneyOptionEntry(viaPlace: " Pardubice ", viaSelection: viaSelection),
             JourneyOptionEntry(viaPlace: ""),
             JourneyOptionEntry(viaPlace: "Olomouc"),
             JourneyOptionEntry(kind: .maximumTransfers, maximumTransfers: 2),
@@ -4879,6 +4902,9 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(request?.fromSelection, fromSelection.idosSelection)
         XCTAssertNil(request?.toSelection)
         XCTAssertEqual(request?.via, ["Pardubice", "Olomouc"])
+        XCTAssertEqual(request?.viaSelections?.count, 2)
+        XCTAssertEqual(request?.viaSelections?[0], viaSelection.idosSelection)
+        XCTAssertNil(request?.viaSelections?[1])
         XCTAssertEqual(request?.timetable.slug, "vlaky")
         XCTAssertEqual(request?.isArrival, true)
         XCTAssertEqual(request?.maxTransfers, 2)
@@ -4963,6 +4989,38 @@ final class KastanAppTests: XCTestCase {
         model.timetable = IDOSTimetable(slug: "pid", displayName: "Prague + PID")
 
         XCTAssertNil(model.fromSelection)
+    }
+
+    func testViaPlaceSelectionsClearAfterEditingOrChangingTimetable() {
+        let selection = PlaceFieldSelection(
+            idosSelection: IDOSPlaceSelection(
+                text: "Pardubice hl.n.",
+                listID: "100003",
+                itemID: "5456463"
+            ),
+            kind: .train
+        )
+        var entry = JourneyOptionEntry(
+            viaPlace: selection.text,
+            viaSelection: selection
+        )
+
+        entry.viaPlace = "Pardubice centrum"
+
+        XCTAssertNil(entry.viaSelection)
+
+        let model = ConnectionsViewModel(
+            client: MockIDOSClient(),
+            calendarImporter: RecordingCalendarImporter()
+        )
+        model.journeyOptions = [JourneyOptionEntry(
+            viaPlace: selection.text,
+            viaSelection: selection
+        )]
+
+        model.timetable = IDOSTimetable(slug: "pid", displayName: "Prague + PID")
+
+        XCTAssertNil(model.journeyOptions[0].viaSelection)
     }
 
     func testJourneyOptionRowsCanBeAddedAndRemovedWithoutDroppingTheLastField() {

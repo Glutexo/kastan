@@ -1041,7 +1041,8 @@ public struct IDOSClient: IDOSClienting {
 /// An exact IDOS place selected from suggestions or represented by geographic coordinates.
 ///
 /// Supplying this value with a request distinguishes a station or stop from a municipality
-/// with the same visible name and lets IDOS route from or to the user's current location.
+/// with the same visible name and lets IDOS route from, to, or via that exact object.
+/// Endpoint selections can also represent the user's current location.
 /// Omitting it keeps the corresponding request field as free text.
 public struct IDOSPlaceSelection: Codable, Equatable, Sendable {
     /// The text IDOS places into the visible search field after selection.
@@ -1353,6 +1354,8 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
     public var isArrival: Bool
     public var onlyDirect: Bool
     public var via: [String]
+    /// Exact autocomplete choices aligned with `via`, with `nil` entries retaining free-text interpretation.
+    public var viaSelections: [IDOSPlaceSelection?]?
     public var maxTransfers: Int?
     public var minimumTransferTime: Int?
     public var resultLimit: Int?
@@ -1368,6 +1371,7 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
         isArrival: Bool = false,
         onlyDirect: Bool = false,
         via: [String] = [],
+        viaSelections: [IDOSPlaceSelection?]? = nil,
         maxTransfers: Int? = nil,
         minimumTransferTime: Int? = nil,
         resultLimit: Int? = nil
@@ -1382,6 +1386,7 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
         self.isArrival = isArrival
         self.onlyDirect = onlyDirect
         self.via = via
+        self.viaSelections = viaSelections
         self.maxTransfers = maxTransfers
         self.minimumTransferTime = minimumTransferTime
         self.resultLimit = resultLimit
@@ -1413,6 +1418,13 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
 
             for (index, place) in via.enumerated() {
                 items.append(URLQueryItem(name: "AdvancedForm.Via[\(index)]", value: place))
+                let selection = viaSelections.flatMap { selections in
+                    selections.indices.contains(index) ? selections[index] : nil
+                }
+                items.append(URLQueryItem(
+                    name: "AdvancedForm.ViaHidden[\(index)]",
+                    value: selection?.formValue ?? ""
+                ))
             }
 
             items.append(URLQueryItem(

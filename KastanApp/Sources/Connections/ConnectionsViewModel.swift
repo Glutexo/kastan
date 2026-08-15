@@ -28,18 +28,28 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
 struct JourneyOptionEntry: Identifiable, Equatable {
     let id: UUID
     var kind: JourneyOptionKind
-    var viaPlace: String
+    var viaPlace: String {
+        didSet {
+            if viaSelection?.text != viaPlace {
+                viaSelection = nil
+            }
+        }
+    }
+    /// Retains an exact IDOS place only while its visible via-place text remains unchanged.
+    var viaSelection: PlaceFieldSelection?
     var maximumTransfers: Int
 
     init(
         id: UUID = UUID(),
         kind: JourneyOptionKind = .via,
         viaPlace: String = "",
+        viaSelection: PlaceFieldSelection? = nil,
         maximumTransfers: Int = 4
     ) {
         self.id = id
         self.kind = kind
         self.viaPlace = viaPlace
+        self.viaSelection = viaSelection
         self.maximumTransfers = maximumTransfers
     }
 }
@@ -82,6 +92,9 @@ final class ConnectionsViewModel: ObservableObject {
             }
             if toSelection?.isCurrentLocation != true {
                 toSelection = nil
+            }
+            for index in journeyOptions.indices {
+                journeyOptions[index].viaSelection = nil
             }
         }
     }
@@ -309,9 +322,19 @@ final class ConnectionsViewModel: ObservableObject {
 
         let departure = from.trimmingCharacters(in: .whitespacesAndNewlines)
         let arrival = to.trimmingCharacters(in: .whitespacesAndNewlines)
-        let requestedViaPlaces = viaPlaceNames
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
+        let requestedViaEntries = journeyOptions.compactMap {
+            option -> (place: String, selection: IDOSPlaceSelection?)? in
+            guard option.kind == .via else { return nil }
+            let place = option.viaPlace.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !place.isEmpty else { return nil }
+            let selection = option.viaSelection?.text == place
+                ? option.viaSelection?.idosSelection
+                : nil
+            return (place, selection)
+        }
+        let requestedViaSelections = requestedViaEntries.isEmpty
+            ? nil
+            : requestedViaEntries.map(\.selection)
         let requestedMaximumTransfers = maximumTransfers
         let request = IDOSConnectionRequest(
             timetable: timetable,
@@ -323,7 +346,8 @@ final class ConnectionsViewModel: ObservableObject {
             time: IDOSRequestFormatting.time(from: time),
             isArrival: isArrival,
             onlyDirect: requestedMaximumTransfers == 0,
-            via: requestedViaPlaces,
+            via: requestedViaEntries.map(\.place),
+            viaSelections: requestedViaSelections,
             maxTransfers: requestedMaximumTransfers,
             resultLimit: 10
         )

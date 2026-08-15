@@ -562,8 +562,14 @@ struct ConnectionsView: View {
     private func journeyOptionValue(option: Binding<JourneyOptionEntry>) -> some View {
         switch option.wrappedValue.kind {
         case .via:
-            TextField("Via place", text: option.viaPlace)
-                .textFieldStyle(.roundedBorder)
+            PlaceAutocompleteField(
+                prompt: "Via place",
+                text: option.viaPlace,
+                selection: option.viaSelection,
+                timetable: model.timetable,
+                scope: .places,
+                client: client
+            )
                 .frame(minWidth: 160, maxWidth: 520)
                 .layoutPriority(1)
         case .maximumTransfers:

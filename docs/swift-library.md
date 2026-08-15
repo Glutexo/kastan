@@ -144,10 +144,12 @@ such as replacement transport, accommodation, seating-class availability, onboar
 tickets and reservations, operating calendars, restrictions, routes including skipped-stop instructions, and
 carriers; unrecognized text remains in the `general` category.
 
-Create an `IDOSPlaceSelection` from a chosen `IDOSSuggestion` and pass it as `fromSelection`, `toSelection`, or
-`stationSelection` when the query must target that exact IDOS object. This distinguishes, for example, a railway
-station from a municipality with the same visible name. Leave the selection unset for the same free-text
-interpretation as typing into the IDOS form without choosing a suggestion.
+Create an `IDOSPlaceSelection` from a chosen `IDOSSuggestion` and pass it as `fromSelection`, `toSelection`,
+`stationSelection`, or the corresponding element of `viaSelections` when the query must target that exact IDOS
+object. This distinguishes, for example, a railway station from a municipality with the same visible name.
+`viaSelections` follows the order of `via`; use `nil` for any element that should retain free-text interpretation.
+Leave endpoint or station selections unset for the same free-text interpretation as typing into the IDOS form
+without choosing a suggestion.
 
 For a connection endpoint obtained from a device's WGS-84 coordinates, use
 `IDOSPlaceSelection.currentLocation(text:latitude:longitude:)` and pass the returned value together with its `text`

@@ -453,10 +453,11 @@ struct PlaceSuggestionButton: View {
 }
 
 /// Presents a native text field with IDOS suggestions directly below the current input.
+/// A title can be omitted when the field is embedded in a separately labeled row editor.
 struct PlaceAutocompleteField: View {
     @Environment(\.placeSuggestionVisibility) private var placeSuggestionVisibility
 
-    let title: LocalizedStringKey
+    let title: LocalizedStringKey?
     let prompt: LocalizedStringKey
     @Binding var text: String
     let selection: Binding<PlaceFieldSelection?>?
@@ -474,7 +475,7 @@ struct PlaceAutocompleteField: View {
     @State private var inputWidth: CGFloat = 320
 
     init(
-        title: LocalizedStringKey,
+        title: LocalizedStringKey? = nil,
         prompt: LocalizedStringKey,
         text: Binding<String>,
         selection: Binding<PlaceFieldSelection?>? = nil,
@@ -594,19 +595,21 @@ struct PlaceAutocompleteField: View {
 
     @ViewBuilder
     private var fieldHeader: some View {
-        if let headerShortcutTitle, let headerShortcutAction {
-            SearchFieldHeader(
-                title: title,
-                shortcutTitle: headerShortcutTitle,
-                showsShortcut: showsHeaderShortcut,
-                isPerformingShortcut: isPerformingHeaderShortcut,
-                isShortcutDisabled: isHeaderShortcutDisabled,
-                action: headerShortcutAction
-            )
-        } else {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        if let title {
+            if let headerShortcutTitle, let headerShortcutAction {
+                SearchFieldHeader(
+                    title: title,
+                    shortcutTitle: headerShortcutTitle,
+                    showsShortcut: showsHeaderShortcut,
+                    isPerformingShortcut: isPerformingHeaderShortcut,
+                    isShortcutDisabled: isHeaderShortcutDisabled,
+                    action: headerShortcutAction
+                )
+            } else {
+                Text(title)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 

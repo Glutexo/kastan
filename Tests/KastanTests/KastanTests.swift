@@ -1533,16 +1533,34 @@ import Testing
     #expect(!normalRequest.formItems.contains { $0.name == "AdvancedForm.MinTime" })
 }
 
-@Test func connectionRequestUsesIDOSViaParameters() {
-    let viaRequest = IDOSConnectionRequest(from: "Praha", to: "Brno", via: ["Pardubice", "Olomouc"])
+@Test func connectionRequestUsesIDOSViaParameters() throws {
+    let selectedVia = try #require(IDOSPlaceSelection(suggestion: IDOSSuggestion(
+        selectedText: "Pardubice hl.n.",
+        text: "Pardubice hl.n.",
+        description: "station, district Pardubice, trains",
+        value: "100003",
+        value2: "5456463"
+    )))
+    let viaRequest = IDOSConnectionRequest(
+        from: "Praha",
+        to: "Brno",
+        via: ["Pardubice hl.n.", "Olomouc"],
+        viaSelections: [selectedVia, nil]
+    )
     let normalRequest = IDOSConnectionRequest(from: "Praha", to: "Brno")
 
     #expect(viaRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "True")))
-    #expect(viaRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.Via[0]", value: "Pardubice")))
+    #expect(viaRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.Via[0]", value: "Pardubice hl.n.")))
     #expect(viaRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.Via[1]", value: "Olomouc")))
+    #expect(viaRequest.formItems.contains(URLQueryItem(
+        name: "AdvancedForm.ViaHidden[0]",
+        value: "Pardubice hl.n.%100003%5456463"
+    )))
+    #expect(viaRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.ViaHidden[1]", value: "")))
     #expect(viaRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.MaxChange", value: "4")))
     #expect(viaRequest.formItems.contains(URLQueryItem(name: "trTypeId[301]", value: "301")))
     #expect(!normalRequest.formItems.contains { $0.name.hasPrefix("AdvancedForm.Via[") })
+    #expect(!normalRequest.formItems.contains { $0.name.hasPrefix("AdvancedForm.ViaHidden[") })
 }
 
 @Test func connectionRequestCarriesResultLimit() {
