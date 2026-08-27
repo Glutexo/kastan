@@ -784,6 +784,74 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testExactIDOSOperatingDaysOverrideTheInterpretedServiceNote() throws {
+        let dateLimits = IDOSServiceDateLimits(
+            referenceDate: serviceDate(2026, 7, 18),
+            days: [
+                .init(date: serviceDate(2026, 7, 18), status: .doesNotRun),
+                .init(date: serviceDate(2026, 7, 19), status: .informationUnavailable),
+                .init(date: serviceDate(2026, 7, 20), status: .runs),
+            ]
+        )
+        let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(
+            note: "jede 19.VII.",
+            validityStart: serviceDate(2026, 7, 1),
+            validityEnd: serviceDate(2026, 7, 31),
+            dateLimits: dateLimits
+        ))
+
+        XCTAssertTrue(serviceCalendar.usesExactOperatingDays)
+        XCTAssertEqual(serviceCalendar.calendarStart, serviceDate(2026, 7, 18))
+        XCTAssertEqual(serviceCalendar.calendarEnd, serviceDate(2026, 7, 20))
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 18)), .doesNotRun)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 19)), .informationUnavailable)
+        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 20)), .runs)
+    }
+
+    func testExactServiceDaysDoNotReplaceASeparateNoteApplicabilityRule() throws {
+        let dateLimits = IDOSServiceDateLimits(
+            referenceDate: serviceDate(2026, 7, 25),
+            days: [.init(date: serviceDate(2026, 7, 25), status: .runs)]
+        )
+        let noteCalendar = try XCTUnwrap(StationTimetableServiceCalendar(
+            note: "občerstvení v 1-5",
+            validityStart: serviceDate(2026, 7, 1),
+            validityEnd: serviceDate(2026, 7, 31),
+            dateLimits: dateLimits
+        ))
+
+        XCTAssertFalse(noteCalendar.usesExactOperatingDays)
+        XCTAssertEqual(noteCalendar.rule.subject, .noteApplicability)
+        XCTAssertEqual(noteCalendar.status(on: serviceDate(2026, 7, 25)), .doesNotRun)
+    }
+
+    func testServiceDetailNotesDoNotInferOperatingDaysWhenExactIDOSDataIsAbsent() {
+        let note = "jede 19.VII."
+        let validity = IDOSTimetableValidity(
+            validFrom: serviceDate(2026, 7, 1),
+            validThrough: serviceDate(2026, 7, 31)
+        )
+        let withoutExactData = ServiceNotesView(
+            notes: [note],
+            timetableValidity: validity,
+            requiresExactServiceOperatingDays: true
+        )
+        let dateLimits = IDOSServiceDateLimits(
+            referenceDate: serviceDate(2026, 7, 19),
+            days: [.init(date: serviceDate(2026, 7, 19), status: .runs)]
+        )
+        let withExactData = ServiceNotesView(
+            notes: [note],
+            timetableValidity: validity,
+            serviceDateLimits: dateLimits,
+            requiresExactServiceOperatingDays: true
+        )
+        let destination = ServiceNotesView.calendarDestination(for: 0)
+
+        XCTAssertFalse(withoutExactData.linkedContent.runs.compactMap(\.link).contains(destination))
+        XCTAssertTrue(withExactData.linkedContent.runs.compactMap(\.link).contains(destination))
+    }
+
     func testOptionClickRequestsRecognizedCalendarConditions() {
         XCTAssertTrue(ServiceCalendarOpeningOptions.showsRecognizedConditions(for: [.option]))
         XCTAssertTrue(ServiceCalendarOpeningOptions.showsRecognizedConditions(for: [.option, .shift]))
@@ -5512,13 +5580,20 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(model.actionErrorMessage)
     }
 
-    func testServiceDetailLoadsItsTimetableValidityForInformationCalendars() async {
-        let model = ServiceDetailViewModel(id: "service-1", client: MockIDOSClient())
+    func testServiceDetailLoadsExactOperatingDaysAndTimetableValidityForInformationCalendars() async {
+        let client = MockIDOSClient()
+        let model = ServiceDetailViewModel(id: "service-1", client: client)
 
         await model.load()
 
         XCTAssertEqual(model.timetableValidity?.validFrom, serviceDate(2025, 12, 14))
         XCTAssertEqual(model.timetableValidity?.validThrough, serviceDate(2026, 12, 12))
+        XCTAssertEqual(
+            model.serviceDateLimits?.status(on: serviceDate(2026, 8, 27)),
+            .runs
+        )
+        let language = await client.lastServiceDateLimitsLanguage
+        XCTAssertEqual(language, AppLanguagePreference.idosLanguage)
     }
 
     func testServicePDFOpensDocumentReturnedByIDOSInPreview() async {
@@ -6304,6 +6379,7 @@ private actor MockIDOSClient: IDOSClienting {
     var lastConnectionCalendarLanguage: IDOSLanguage?
     var lastCalendarServiceID: String?
     var lastServiceCalendarLanguage: IDOSLanguage?
+    var lastServiceDateLimitsLanguage: IDOSLanguage?
     var lastPDFServiceID: String?
     var lastServicePDFLanguage: IDOSLanguage?
     var lastStationTimetableRequest: IDOSStationTimetableRequest?
@@ -6423,6 +6499,20 @@ private actor MockIDOSClient: IDOSClienting {
         return IDOSTimetableValidity(
             validFrom: calendar.date(from: DateComponents(year: 2025, month: 12, day: 14))!,
             validThrough: calendar.date(from: DateComponents(year: 2026, month: 12, day: 12))!
+        )
+    }
+
+    func serviceDateLimits(
+        for service: IDOSServiceDetail,
+        language: IDOSLanguage
+    ) async throws -> IDOSServiceDateLimits {
+        lastServiceDateLimitsLanguage = language
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "Europe/Prague")!
+        let date = calendar.date(from: DateComponents(year: 2026, month: 8, day: 27))!
+        return IDOSServiceDateLimits(
+            referenceDate: date,
+            days: [.init(date: date, status: .runs)]
         )
     }
 

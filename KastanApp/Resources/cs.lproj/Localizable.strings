@@ -63,12 +63,14 @@
 "Direction to" = "Směr do";
 "district %@" = "okres %@";
 "Data source and limitations" = "Zdroj dat a omezení";
+"Data source" = "Zdroj dat";
 "Enter a route and start a search." = "Zadejte trasu a spusťte hledání.";
 "Enter a station or stop." = "Zadejte stanici nebo zastávku.";
 "Enter both a departure and an arrival place." = "Zadejte výchozí i cílové místo.";
 "Enter a valid email address." = "Zadejte platnou e-mailovou adresu.";
 "Enter a line and both direction stops." = "Zadejte linku a obě zastávky určující směr.";
 "Explanations" = "Vysvětlivky";
+"Exact operating days supplied by IDOS" = "Přesné dny provozu poskytl IDOS";
 "Edit search" = "Upravit vyhledávání";
 "Email address can contain at most 320 characters." = "E-mailová adresa může obsahovat nejvýše 320 znaků.";
 "Email Sent" = "E-mail odeslán";
@@ -80,6 +82,7 @@
 "From" = "Odkud";
 "From Place" = "Místo odkud";
 "Here" = "Tady";
+"Information unavailable" = "Informace nejsou k dispozici";
 "IDOS could not generate a station timetable for this line, direction, and date." = "IDOS nemohl pro tuto linku, směr a datum vytvořit zastávkový jízdní řád.";
 "IDOS could not load this service detail." = "IDOS nedokázal načíst detail tohoto spoje.";
 "IDOS could not load this service detail. %@" = "IDOS nedokázal načíst detail tohoto spoje. %@";
@@ -88,6 +91,7 @@
 "IDOS Terms and Conditions" = "Smluvní podmínky IDOSu";
 "IDOS did not provide calendar export data for this connection." = "IDOS pro toto spojení neposkytl data pro export do kalendáře.";
 "IDOS did not provide email data for this connection." = "IDOS pro toto spojení neposkytl data pro e-mail.";
+"IDOS did not provide operating-day data for this service." = "IDOS pro tento spoj neposkytl údaje o dnech provozu.";
 "IDOS did not provide PDF export data for this connection." = "IDOS pro toto spojení neposkytl data pro export do PDF.";
 "IDOS returned an unexpected JSONP format." = "IDOS vrátil neočekávaný formát JSONP.";
 "IDOS returned an unexpected response." = "IDOS vrátil neočekávanou odpověď.";

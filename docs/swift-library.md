@@ -79,6 +79,8 @@ let serviceInformation = service.serviceInformation
 let firstInformationCategory = serviceInformation.first?.category
 let firstInformationText = serviceInformation.first?.displayText
 let validity = try await client.timetableValidity(for: service.timetable, language: .czech)
+let operatingDays = try await client.serviceDateLimits(for: service, language: .czech)
+let selectedDayStatus = operatingDays.status(on: operatingDays.referenceDate)
 let serviceCalendar = try await client.serviceCalendar(for: service, language: .czech)
 let servicePDF = try await client.servicePDF(for: service, language: .czech)
 
@@ -161,6 +163,11 @@ resolve a dated service's permanent result link and return the corresponding nat
 exports accept an explicit language for their human-readable text; calendar calls without one retain the historical
 English default for source compatibility.
 `timetableValidity` returns the inclusive first and last dates published by the selected IDOS timetable.
+`serviceDateLimits` returns the exact `runs`, `doesNotRun`, or `informationUnavailable` state that IDOS publishes
+for every civil day in its native service date-restriction calendar. Its `referenceDate` anchors the first returned
+month, while `firstDate`, `lastDate`, and `status(on:)` let a client present only the interval actually supplied by
+IDOS instead of interpreting operating rules from prose. The call throws `IDOSError.dateLimitsUnavailable` when
+IDOS does not expose a usable native calendar for that service.
 
 `connectionEmailDraft` loads IDOS's localized default message and the PDF and calendar attachment names for one
 connection result. After an application has collected one or more recipient addresses and received explicit user

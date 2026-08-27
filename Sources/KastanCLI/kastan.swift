@@ -178,6 +178,8 @@ struct CommandRunner {
                     : localization.text(.emailSendingFailedWithDetail, detail)
             case .calendarUnavailable:
                 return localization.text(.calendarUnavailable)
+            case .dateLimitsUnavailable:
+                return localization.text(.dateLimitsUnavailable)
             case .pdfUnavailable:
                 return localization.text(.pdfUnavailable)
             case .stationTimetableUnavailable:

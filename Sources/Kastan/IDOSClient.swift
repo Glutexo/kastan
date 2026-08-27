@@ -166,6 +166,11 @@ public protocol IDOSClienting: Sendable {
         timetable: IDOSTimetable,
         language: IDOSLanguage
     ) async throws -> IDOSServiceDetail
+    /// Loads IDOS's exact per-day operating states for one dated service.
+    func serviceDateLimits(
+        for service: IDOSServiceDetail,
+        language: IDOSLanguage
+    ) async throws -> IDOSServiceDateLimits
 }
 
 public extension IDOSClienting {
@@ -317,6 +322,14 @@ public extension IDOSClienting {
         language: IDOSLanguage
     ) async throws -> IDOSServiceDetail {
         try await serviceDetail(id: id, timetable: timetable)
+    }
+
+    /// Preserves compatibility for custom clients that do not expose IDOS date-limit data yet.
+    func serviceDateLimits(
+        for service: IDOSServiceDetail,
+        language: IDOSLanguage
+    ) async throws -> IDOSServiceDateLimits {
+        throw IDOSError.dateLimitsUnavailable
     }
 }
 
@@ -972,6 +985,55 @@ public struct IDOSClient: IDOSClienting {
         }
 
         return detail
+    }
+
+    /// Loads the same exact run, non-run, and unavailable states shown by IDOS's date-restriction dialog.
+    public func serviceDateLimits(
+        for service: IDOSServiceDetail,
+        language: IDOSLanguage = .english
+    ) async throws -> IDOSServiceDateLimits {
+        let reference = try IDOSServiceReference(
+            id: service.id,
+            fallbackTimetable: service.timetable
+        )
+
+        var formComponents = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        formComponents.path = language.path(timetable: reference.timetable, endpoint: "spojeni/")
+        let formData = try await data(from: formComponents.requiredURL)
+        guard let formHTML = String(data: formData, encoding: .utf8),
+              let combinationID = IDOSConnectionFormParser.combinationID(in: formHTML)
+        else {
+            throw IDOSError.dateLimitsUnavailable
+        }
+
+        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        components.path = language.path(
+            timetable: reference.timetable,
+            endpoint: "Ajax/GetDateLimitsRoute"
+        )
+        components.queryItems = [
+            URLQueryItem(name: "ttIndex", value: String(reference.timetableIndex)),
+            URLQueryItem(name: "train", value: String(reference.trainID)),
+            URLQueryItem(name: "combId", value: combinationID),
+            URLQueryItem(name: "stationFromIndex", value: "0"),
+            URLQueryItem(name: "dateFrom", value: "\(reference.day).\(reference.month)."),
+            URLQueryItem(name: "isArr", value: "false"),
+            URLQueryItem(name: "format", value: "json"),
+            URLQueryItem(name: "callback", value: "idosCallback"),
+        ]
+
+        let data = try await data(from: components.requiredURL)
+        guard !data.isEmpty else {
+            throw IDOSError.dateLimitsUnavailable
+        }
+        let json = try IDOSJSONP.decodePayload(from: data)
+        guard let response = try JSONSerialization.jsonObject(with: json) as? [String: Any],
+              let script = response["result"] as? String,
+              let limits = IDOSServiceDateLimitsParser.parse(script: script)
+        else {
+            throw IDOSError.dateLimitsUnavailable
+        }
+        return limits
     }
 
     private func data(from url: URL) async throws -> Data {
@@ -1716,6 +1778,63 @@ public struct IDOSTimetableValidity: Codable, Equatable, Sendable {
     }
 }
 
+/// Exact operating states returned by IDOS's native date-restriction calendar for one service.
+public struct IDOSServiceDateLimits: Codable, Equatable, Sendable {
+    /// Mirrors the three meanings shown by IDOS without inferring missing days from prose.
+    public enum DayStatus: Int, Codable, Equatable, Sendable {
+        case doesNotRun = 0
+        case runs = 1
+        case informationUnavailable = 2
+    }
+
+    /// Associates one civil service date with the state published by IDOS.
+    public struct Day: Codable, Equatable, Sendable {
+        public var date: Date
+        public var status: DayStatus
+
+        public init(date: Date, status: DayStatus) {
+            self.date = date
+            self.status = status
+        }
+    }
+
+    /// The reference day with which IDOS anchors the first returned calendar month.
+    public var referenceDate: Date
+    /// Every day supplied by IDOS, ordered chronologically across its returned months.
+    public var days: [Day]
+
+    public init(referenceDate: Date, days: [Day]) {
+        let calendar = Self.serviceCalendar
+        self.referenceDate = calendar.startOfDay(for: referenceDate)
+        self.days = days
+            .map { Day(date: calendar.startOfDay(for: $0.date), status: $0.status) }
+            .sorted { $0.date < $1.date }
+    }
+
+    /// The first civil date for which IDOS returned a state.
+    public var firstDate: Date? {
+        days.first?.date
+    }
+
+    /// The last civil date for which IDOS returned a state.
+    public var lastDate: Date? {
+        days.last?.date
+    }
+
+    /// Returns only a state explicitly supplied by IDOS; dates outside the response remain absent.
+    public func status(on date: Date) -> DayStatus? {
+        let date = Self.serviceCalendar.startOfDay(for: date)
+        return days.first(where: { $0.date == date })?.status
+    }
+
+    private static var serviceCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "en_US_POSIX")
+        calendar.timeZone = TimeZone(identifier: "Europe/Prague")!
+        return calendar
+    }
+}
+
 public struct IDOSSuggestion: Codable, Equatable, Sendable {
     public var selectedText: String?
     public var text: String
@@ -2393,6 +2512,7 @@ public enum IDOSError: LocalizedError, Sendable {
     case emailUnavailable
     case emailSendingFailed(String)
     case calendarUnavailable
+    case dateLimitsUnavailable
     case pdfUnavailable
     case stationTimetableUnavailable
     case invalidServiceIdentifier(String)
@@ -2424,6 +2544,8 @@ public enum IDOSError: LocalizedError, Sendable {
                 : "IDOS could not send the connection by email. \(detail)"
         case .calendarUnavailable:
             return "IDOS did not provide calendar export data for this connection."
+        case .dateLimitsUnavailable:
+            return "IDOS did not provide operating-day data for this service."
         case .pdfUnavailable:
             return "IDOS did not provide PDF export data for this connection."
         case .stationTimetableUnavailable:
@@ -3077,6 +3199,112 @@ enum IDOSTimetableValidityParser {
         let parsed = calendar.dateComponents([.year, .month, .day], from: date)
         guard parsed.year == year, parsed.month == month, parsed.day == day else { return nil }
         return calendar.startOfDay(for: date)
+    }
+}
+
+enum IDOSConnectionFormParser {
+    /// Reads the timetable-combination identifier passed to IDOS's connection form JavaScript.
+    static func combinationID(in html: String) -> String? {
+        guard let value = RegexSupport.capture(
+            pattern: #"new\s+Conn\.ConnFormParams\s*\(.*?\},\s*\d+\s*,\s*[\"'][^\"']*[\"']\s*,\s*[\"']([^\"']+)[\"']\s*,\s*[\"'][^\"']*[\"']"#,
+            in: html,
+            options: [.dotMatchesLineSeparators]
+        ) else {
+            return nil
+        }
+        let identifier = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return identifier.isEmpty ? nil : identifier
+    }
+}
+
+enum IDOSServiceDateLimitsParser {
+    /// Converts the JavaScript assignments returned by IDOS's date-restriction endpoint into civil dates.
+    static func parse(script: String) -> IDOSServiceDateLimits? {
+        guard let referenceValues = RegexSupport.captures(
+            pattern: #"_startDay\.setFullYear\s*\(\s*(\d{4})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*\)"#,
+            in: script
+        ).first,
+              referenceValues.count == 3,
+              let year = Int(referenceValues[0]),
+              let zeroBasedMonth = Int(referenceValues[1]),
+              let day = Int(referenceValues[2]),
+              (0...11).contains(zeroBasedMonth),
+              let referenceDate = date(year: year, month: zeroBasedMonth + 1, day: day),
+              let monthSource = RegexSupport.capture(
+                  pattern: #"_aiDateLim\s*=\s*new\s+Array\s*\((.*?)\)\s*;"#,
+                  in: script,
+                  options: [.dotMatchesLineSeparators]
+              )
+        else {
+            return nil
+        }
+
+        let rawMonths = RegexSupport.captures(
+            pattern: #"new\s+Array\s*\(([^()]*)\)"#,
+            in: monthSource,
+            options: [.dotMatchesLineSeparators]
+        ).compactMap(\.first)
+        guard !rawMonths.isEmpty else { return nil }
+
+        let calendar = serviceCalendar
+        guard let firstMonth = calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: year,
+            month: zeroBasedMonth + 1,
+            day: 1
+        )) else {
+            return nil
+        }
+
+        var days: [IDOSServiceDateLimits.Day] = []
+        for (monthOffset, rawMonth) in rawMonths.enumerated() {
+            guard let month = calendar.date(byAdding: .month, value: monthOffset, to: firstMonth),
+                  let dayRange = calendar.range(of: .day, in: .month, for: month)
+            else {
+                return nil
+            }
+
+            let rawStatuses = rawMonth.split(
+                separator: ",",
+                omittingEmptySubsequences: false
+            )
+            guard rawStatuses.count == dayRange.count else { return nil }
+            let statuses = rawStatuses.compactMap { value -> IDOSServiceDateLimits.DayStatus? in
+                Int(value.trimmingCharacters(in: .whitespacesAndNewlines))
+                    .flatMap(IDOSServiceDateLimits.DayStatus.init(rawValue:))
+            }
+            guard statuses.count == rawStatuses.count else { return nil }
+
+            for (index, status) in statuses.enumerated() {
+                guard let date = calendar.date(bySetting: .day, value: index + 1, of: month) else {
+                    return nil
+                }
+                days.append(IDOSServiceDateLimits.Day(date: date, status: status))
+            }
+        }
+
+        return IDOSServiceDateLimits(referenceDate: referenceDate, days: days)
+    }
+
+    private static func date(year: Int, month: Int, day: Int) -> Date? {
+        let calendar = serviceCalendar
+        let components = DateComponents(
+            timeZone: calendar.timeZone,
+            year: year,
+            month: month,
+            day: day
+        )
+        guard let date = calendar.date(from: components) else { return nil }
+        let parsed = calendar.dateComponents([.year, .month, .day], from: date)
+        guard parsed.year == year, parsed.month == month, parsed.day == day else { return nil }
+        return calendar.startOfDay(for: date)
+    }
+
+    private static var serviceCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "en_US_POSIX")
+        calendar.timeZone = TimeZone(identifier: "Europe/Prague")!
+        return calendar
     }
 }
 

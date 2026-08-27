@@ -2349,6 +2349,67 @@ import Testing
     ))
 }
 
+@Test func connectionFormParserReadsIDOSCombinationIdentifier() {
+    let html = """
+    <script>
+    var params = new Conn.ConnFormParams(
+        new Date('12/14/2025'), new Date('12/12/2026'), '/en/vlaky/Ajax/',
+        {"advanced":{"maximumChanges":4}}, 50, '1', 'Vlak', 'VlakBusMHDVSECZ', false
+    );
+    </script>
+    """
+
+    #expect(IDOSConnectionFormParser.combinationID(in: html) == "Vlak")
+    #expect(IDOSConnectionFormParser.combinationID(in: "<html></html>") == nil)
+}
+
+@Test func serviceDateLimitsParserReadsExactIDOSMonthStates() throws {
+    let august = Array(repeating: 2, count: 26) + [1, 0, 1, 0, 1]
+    let september = Array(repeating: 1, count: 30)
+    let script = """
+    this._startDay.setFullYear(2026,7,27);
+    this._aiDateLim = new Array(
+        new Array(\(august.map(String.init).joined(separator: ", "))),
+        new Array(\(september.map(String.init).joined(separator: ", ")))
+    );
+    this._actMonthIndex = 0;
+    """
+    let limits = try #require(IDOSServiceDateLimitsParser.parse(script: script))
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "Europe/Prague")!
+    let date: (Int, Int, Int) -> Date = { year, month, day in
+        calendar.date(from: DateComponents(year: year, month: month, day: day))!
+    }
+
+    #expect(calendar.dateComponents([.year, .month, .day], from: limits.referenceDate) == DateComponents(
+        year: 2026,
+        month: 8,
+        day: 27
+    ))
+    #expect(limits.days.count == 61)
+    #expect(limits.firstDate == date(2026, 8, 1))
+    #expect(limits.lastDate == date(2026, 9, 30))
+    #expect(limits.status(on: date(2026, 8, 26)) == .informationUnavailable)
+    #expect(limits.status(on: date(2026, 8, 27)) == .runs)
+    #expect(limits.status(on: date(2026, 8, 28)) == .doesNotRun)
+    #expect(limits.status(on: date(2026, 9, 30)) == .runs)
+    #expect(limits.status(on: date(2026, 10, 1)) == nil)
+}
+
+@Test func serviceDateLimitsParserRejectsIncompleteMonthsAndUnknownStates() {
+    let incomplete = """
+    this._startDay.setFullYear(2026,7,27);
+    this._aiDateLim = new Array(new Array(1, 0));
+    """
+    let unknownState = """
+    this._startDay.setFullYear(2026,8,1);
+    this._aiDateLim = new Array(new Array(3, \(Array(repeating: 1, count: 29).map(String.init).joined(separator: ", "))));
+    """
+
+    #expect(IDOSServiceDateLimitsParser.parse(script: incomplete) == nil)
+    #expect(IDOSServiceDateLimitsParser.parse(script: unknownState) == nil)
+}
+
 @Test func serviceDetailParserReadsCzechStopMetadata() throws {
     let html = """
     <div id="train-detail-151">

@@ -2,7 +2,7 @@ import AppKit
 import Kastan
 import SwiftUI
 
-/// Interprets one dated or recurring IDOS condition only within the validity of its current timetable.
+/// Presents one dated or recurring IDOS condition within the validity of its current timetable.
 struct StationTimetableServiceCalendar: Equatable {
     struct Rule: Equatable {
         enum Subject: Equatable {
@@ -57,6 +57,7 @@ struct StationTimetableServiceCalendar: Equatable {
     enum DayStatus: Equatable {
         case runs
         case doesNotRun
+        case informationUnavailable
         case outsideTimetableValidity
     }
 
@@ -66,6 +67,8 @@ struct StationTimetableServiceCalendar: Equatable {
     let listedDates: [Date]
     let recognizedDateRanges: [ClosedRange<Date>]
     let rule: Rule
+    /// Uses IDOS's native states only for service operation; note applicability remains tied to its own wording.
+    let dateLimits: IDOSServiceDateLimits?
 
     /// Builds a calendar when IDOS supplied a complete validity interval and a dated or recurring condition.
     init?(note: String, allNotes: [String]) {
@@ -74,7 +77,12 @@ struct StationTimetableServiceCalendar: Equatable {
     }
 
     /// Builds a calendar from validity loaded separately from an IDOS connection timetable.
-    init?(note: String, validityStart: Date, validityEnd: Date) {
+    init?(
+        note: String,
+        validityStart: Date,
+        validityEnd: Date,
+        dateLimits: IDOSServiceDateLimits? = nil
+    ) {
         let calendar = Self.serviceCalendar
         let validityStart = calendar.startOfDay(for: validityStart)
         let validityEnd = calendar.startOfDay(for: validityEnd)
@@ -92,12 +100,28 @@ struct StationTimetableServiceCalendar: Equatable {
         listedDates = parsedRule.listedDates
         recognizedDateRanges = parsedRule.recognizedDateRanges
         rule = parsedRule.rule
+        self.dateLimits = parsedRule.rule.subject == .serviceOperation ? dateLimits : nil
     }
 
-    /// Distinguishes matching days, non-matching days, and dates not covered by the current timetable.
+    /// Distinguishes running, non-running, unavailable, and out-of-validity service dates.
     func status(on date: Date) -> DayStatus {
         let calendar = Self.serviceCalendar
         let day = calendar.startOfDay(for: date)
+        if let dateLimits {
+            switch dateLimits.status(on: day) {
+            case .some(.runs):
+                return .runs
+            case .some(.doesNotRun):
+                return .doesNotRun
+            case .some(.informationUnavailable):
+                return .informationUnavailable
+            case .none:
+                guard day >= validityStart, day <= validityEnd else {
+                    return .outsideTimetableValidity
+                }
+                return .informationUnavailable
+            }
+        }
         guard day >= validityStart, day <= validityEnd else {
             return .outsideTimetableValidity
         }
@@ -149,14 +173,27 @@ struct StationTimetableServiceCalendar: Equatable {
         guard let requestedMonth = calendar.date(
             from: calendar.dateComponents([.year, .month], from: date)
         ), let firstMonth = calendar.date(
-            from: calendar.dateComponents([.year, .month], from: validityStart)
+            from: calendar.dateComponents([.year, .month], from: calendarStart)
         ), let lastMonth = calendar.date(
-            from: calendar.dateComponents([.year, .month], from: validityEnd)
+            from: calendar.dateComponents([.year, .month], from: calendarEnd)
         ) else {
-            return validityStart
+            return calendarStart
         }
 
         return min(max(requestedMonth, firstMonth), lastMonth)
+    }
+
+    /// Exact responses can cover fewer months than the complete timetable validity interval.
+    var calendarStart: Date {
+        dateLimits?.firstDate ?? validityStart
+    }
+
+    var calendarEnd: Date {
+        dateLimits?.lastDate ?? validityEnd
+    }
+
+    var usesExactOperatingDays: Bool {
+        dateLimits != nil
     }
 
     /// Uses the transport network's civil timezone so service dates do not move when the Mac is elsewhere.
@@ -785,6 +822,9 @@ struct StationTimetableServiceCalendar: Equatable {
 struct ServiceNotesView: View {
     let notes: [String]
     let timetableValidity: IDOSTimetableValidity?
+    let serviceDateLimits: IDOSServiceDateLimits?
+    /// Prevents dated service details from falling back to a prose interpretation when exact IDOS data is absent.
+    let requiresExactServiceOperatingDays: Bool
     /// Retains validity information from sibling remark sections when their visible text is split.
     let calendarContext: [String]
     @State private var presentedServiceCalendar: StationTimetableServiceCalendar?
@@ -798,10 +838,14 @@ struct ServiceNotesView: View {
     init(
         notes: [String],
         timetableValidity: IDOSTimetableValidity? = nil,
+        serviceDateLimits: IDOSServiceDateLimits? = nil,
+        requiresExactServiceOperatingDays: Bool = false,
         calendarContext: [String]? = nil
     ) {
         self.notes = notes
         self.timetableValidity = timetableValidity
+        self.serviceDateLimits = serviceDateLimits
+        self.requiresExactServiceOperatingDays = requiresExactServiceOperatingDays
         self.calendarContext = calendarContext ?? notes
     }
 
@@ -867,14 +911,26 @@ struct ServiceNotesView: View {
     }
 
     private func serviceCalendar(for note: String) -> StationTimetableServiceCalendar? {
+        let serviceCalendar: StationTimetableServiceCalendar?
         if let timetableValidity {
-            return StationTimetableServiceCalendar(
+            serviceCalendar = StationTimetableServiceCalendar(
                 note: note,
                 validityStart: timetableValidity.validFrom,
-                validityEnd: timetableValidity.validThrough
+                validityEnd: timetableValidity.validThrough,
+                dateLimits: serviceDateLimits
             )
+        } else {
+            serviceCalendar = StationTimetableServiceCalendar(note: note, allNotes: calendarContext)
         }
-        return StationTimetableServiceCalendar(note: note, allNotes: calendarContext)
+
+        guard let serviceCalendar else { return nil }
+        if requiresExactServiceOperatingDays,
+           serviceCalendar.rule.subject == .serviceOperation,
+           !serviceCalendar.usesExactOperatingDays
+        {
+            return nil
+        }
+        return serviceCalendar
     }
 
     static func calendarDestination(for noteIndex: Int) -> URL {
@@ -1002,7 +1058,7 @@ enum ServiceCalendarLink {
     }
 }
 
-/// Shows every month touched by the current timetable and distinguishes matching, non-matching, and invalid days.
+/// Shows every month in the supplied calendar interval and distinguishes all available service-day states.
 private struct StationTimetableServiceCalendarView: View {
     let serviceCalendar: StationTimetableServiceCalendar
     let showsRecognizedConditions: Bool
@@ -1048,55 +1104,64 @@ private struct StationTimetableServiceCalendarView: View {
     }
 
     private var recognizedConditionsView: some View {
-        GroupBox("Recognized conditions") {
+        let title: LocalizedStringKey = serviceCalendar.usesExactOperatingDays
+            ? "Data source"
+            : "Recognized conditions"
+        return GroupBox {
             VStack(alignment: .leading, spacing: 7) {
-                Label(recognizedRuleDescription, systemImage: "checkmark.circle")
-                if serviceCalendar.rule.hasExplicitOperatingRange {
-                    Label(
-                        recognizedRangeDescription(serviceCalendar.rule.operatingRange),
-                        systemImage: "calendar"
-                    )
-                }
-                ForEach(
-                    Array(serviceCalendar.rule.additionalRunningRanges.enumerated()),
-                    id: \.offset
-                ) { _, range in
-                    let description = recognizedRangeDescription(range)
-                    if serviceCalendar.rule.recurrence == .none {
-                        Label(description, systemImage: "calendar")
-                    } else {
+                if serviceCalendar.usesExactOperatingDays {
+                    Label("Exact operating days supplied by IDOS", systemImage: "checkmark.seal")
+                } else {
+                    Label(recognizedRuleDescription, systemImage: "checkmark.circle")
+                    if serviceCalendar.rule.hasExplicitOperatingRange {
                         Label(
-                            AppLocalization.string("Additionally runs %@", description),
-                            systemImage: "plus.circle"
+                            recognizedRangeDescription(serviceCalendar.rule.operatingRange),
+                            systemImage: "calendar"
                         )
                     }
-                }
-                ForEach(
-                    Array(serviceCalendar.rule.nonRunningConditions.enumerated()),
-                    id: \.offset
-                ) { _, condition in
-                    switch condition {
-                    case let .dates(range):
-                        Label(
-                            AppLocalization.string("Does not run %@", recognizedRangeDescription(range)),
-                            systemImage: "minus.circle"
-                        )
-                    case let .selectedDays(weekdays, includesSundaysAndPublicHolidays, within: range):
-                        Label(
-                            AppLocalization.string(
-                                "Does not run on days %@ within %@",
-                                operatingDayDescription(
-                                    weekdays: weekdays,
-                                    includesSundaysAndPublicHolidays: includesSundaysAndPublicHolidays
+                    ForEach(
+                        Array(serviceCalendar.rule.additionalRunningRanges.enumerated()),
+                        id: \.offset
+                    ) { _, range in
+                        let description = recognizedRangeDescription(range)
+                        if serviceCalendar.rule.recurrence == .none {
+                            Label(description, systemImage: "calendar")
+                        } else {
+                            Label(
+                                AppLocalization.string("Additionally runs %@", description),
+                                systemImage: "plus.circle"
+                            )
+                        }
+                    }
+                    ForEach(
+                        Array(serviceCalendar.rule.nonRunningConditions.enumerated()),
+                        id: \.offset
+                    ) { _, condition in
+                        switch condition {
+                        case let .dates(range):
+                            Label(
+                                AppLocalization.string("Does not run %@", recognizedRangeDescription(range)),
+                                systemImage: "minus.circle"
+                            )
+                        case let .selectedDays(weekdays, includesSundaysAndPublicHolidays, within: range):
+                            Label(
+                                AppLocalization.string(
+                                    "Does not run on days %@ within %@",
+                                    operatingDayDescription(
+                                        weekdays: weekdays,
+                                        includesSundaysAndPublicHolidays: includesSundaysAndPublicHolidays
+                                    ),
+                                    recognizedRangeDescription(range)
                                 ),
-                                recognizedRangeDescription(range)
-                            ),
-                            systemImage: "minus.circle"
-                        )
+                                systemImage: "minus.circle"
+                            )
+                        }
                     }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        } label: {
+            Text(title)
         }
         .font(.caption)
         .textSelection(.enabled)
@@ -1169,7 +1234,12 @@ private struct StationTimetableServiceCalendarView: View {
                 legendItem("Runs", color: .green)
                 legendItem("Does not run", color: .red)
             }
-            legendItem("Outside timetable validity", color: .secondary)
+            legendItem(
+                serviceCalendar.usesExactOperatingDays
+                    ? "Information unavailable"
+                    : "Outside timetable validity",
+                color: .secondary
+            )
         }
         .font(.caption)
         .fixedSize(horizontal: false, vertical: true)
@@ -1227,7 +1297,7 @@ private struct StationTimetableServiceCalendarView: View {
             return .green
         case .doesNotRun:
             return .red
-        case .outsideTimetableValidity:
+        case .informationUnavailable, .outsideTimetableValidity:
             return .secondary
         }
     }
@@ -1238,6 +1308,8 @@ private struct StationTimetableServiceCalendarView: View {
             return .green.opacity(0.16)
         case .doesNotRun:
             return .red.opacity(0.13)
+        case .informationUnavailable:
+            return .secondary.opacity(0.1)
         case .outsideTimetableValidity:
             return .clear
         }
@@ -1249,6 +1321,8 @@ private struct StationTimetableServiceCalendarView: View {
             return serviceCalendar.rule.subject == .noteApplicability ? "Applies" : "Runs"
         case .doesNotRun:
             return serviceCalendar.rule.subject == .noteApplicability ? "Does not apply" : "Does not run"
+        case .informationUnavailable:
+            return "Information unavailable"
         case .outsideTimetableValidity:
             return "Outside timetable validity"
         }
@@ -1264,9 +1338,9 @@ private struct StationTimetableServiceCalendarView: View {
 
     private var monthStarts: [Date] {
         guard let firstMonth = calendar.date(
-            from: calendar.dateComponents([.year, .month], from: serviceCalendar.validityStart)
+            from: calendar.dateComponents([.year, .month], from: serviceCalendar.calendarStart)
         ), let lastMonth = calendar.date(
-            from: calendar.dateComponents([.year, .month], from: serviceCalendar.validityEnd)
+            from: calendar.dateComponents([.year, .month], from: serviceCalendar.calendarEnd)
         ) else {
             return []
         }

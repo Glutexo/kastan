@@ -231,6 +231,8 @@ enum AppErrorPresentation {
                 : AppLocalization.string("IDOS could not send the connection by email. %@", detail)
         case .calendarUnavailable:
             return AppLocalization.string("IDOS did not provide calendar export data for this connection.")
+        case .dateLimitsUnavailable:
+            return AppLocalization.string("IDOS did not provide operating-day data for this service.")
         case .pdfUnavailable:
             return AppLocalization.string("IDOS did not provide PDF export data for this connection.")
         case .stationTimetableUnavailable:

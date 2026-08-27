@@ -7,6 +7,7 @@ import SwiftUI
 final class ServiceDetailViewModel: ObservableObject {
     @Published private(set) var service: IDOSServiceDetail?
     @Published private(set) var timetableValidity: IDOSTimetableValidity?
+    @Published private(set) var serviceDateLimits: IDOSServiceDateLimits?
     @Published private(set) var isLoading = false
     @Published private(set) var isProcessingCalendar = false
     @Published private(set) var isProcessingPDF = false
@@ -73,10 +74,18 @@ final class ServiceDetailViewModel: ObservableObject {
             activeLoadIdentifier = nil
             self.service = service
             isLoading = false
-            timetableValidity = try? await client.timetableValidity(
+            let language = AppLanguagePreference.idosLanguage
+            async let loadedTimetableValidity = try? client.timetableValidity(
                 for: service.timetable,
-                language: AppLanguagePreference.idosLanguage
+                language: language
             )
+            async let loadedServiceDateLimits = try? client.serviceDateLimits(
+                for: service,
+                language: language
+            )
+            let auxiliaryData = await (loadedTimetableValidity, loadedServiceDateLimits)
+            timetableValidity = auxiliaryData.0
+            serviceDateLimits = auxiliaryData.1
         } catch {
             guard activeLoadIdentifier == loadIdentifier else { return }
 
@@ -619,6 +628,7 @@ struct ServiceDetailView: View {
                             ServiceInformationDisclosure(
                                 notes: service.information,
                                 timetableValidity: model.timetableValidity,
+                                serviceDateLimits: model.serviceDateLimits,
                                 isExpanded: $isServiceInformationExpanded
                             )
                         }
@@ -691,15 +701,18 @@ struct ServiceDetailView: View {
 struct ServiceInformationDisclosure: View {
     let notes: [String]
     let timetableValidity: IDOSTimetableValidity?
+    let serviceDateLimits: IDOSServiceDateLimits?
     @Binding var isExpanded: Bool
 
     init(
         notes: [String],
         timetableValidity: IDOSTimetableValidity? = nil,
+        serviceDateLimits: IDOSServiceDateLimits? = nil,
         isExpanded: Binding<Bool>
     ) {
         self.notes = notes
         self.timetableValidity = timetableValidity
+        self.serviceDateLimits = serviceDateLimits
         _isExpanded = isExpanded
     }
 
@@ -707,7 +720,9 @@ struct ServiceInformationDisclosure: View {
         DisclosureGroup(isExpanded: $isExpanded) {
             ServiceNotesView(
                 notes: notes,
-                timetableValidity: timetableValidity
+                timetableValidity: timetableValidity,
+                serviceDateLimits: serviceDateLimits,
+                requiresExactServiceOperatingDays: true
             )
             .textSelection(.enabled)
             .padding(.top, 8)

@@ -92,6 +92,7 @@ enum LocalizationKey: String, CaseIterable {
     case emailSendingFailed = "error.emailSendingFailed"
     case emailSendingFailedWithDetail = "error.emailSendingFailedWithDetail"
     case calendarUnavailable = "error.calendarUnavailable"
+    case dateLimitsUnavailable = "error.dateLimitsUnavailable"
     case pdfUnavailable = "error.pdfUnavailable"
     case invalidServiceIdentifier = "error.invalidServiceIdentifier"
     case serviceDetailUnavailable = "error.serviceDetailUnavailable"

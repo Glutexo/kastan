@@ -38,6 +38,7 @@
 "error.emailSendingFailed" = "IDOS nedokázal odeslat spojení e-mailem.";
 "error.emailSendingFailedWithDetail" = "IDOS nedokázal odeslat spojení e-mailem. {0}";
 "error.calendarUnavailable" = "IDOS pro toto spojení neposkytl data pro export do kalendáře.";
+"error.dateLimitsUnavailable" = "IDOS pro tento spoj neposkytl údaje o dnech provozu.";
 "error.pdfUnavailable" = "IDOS pro toto spojení neposkytl data pro export do PDF.";
 "error.invalidServiceIdentifier" = "Neplatné ID spoje: {0}. Zkopírujte celé ID z podrobného výstupu spojení nebo odjezdů.";
 "error.serviceDetailUnavailable" = "IDOS nemohl načíst detail tohoto spoje.";

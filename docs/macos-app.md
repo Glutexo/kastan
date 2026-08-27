@@ -76,9 +76,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   other search modes while
   exposing only the date supported by IDOS; its fixed caption height keeps the search header's top inset aligned with
   the other modes. Whole week lives in that popover and remains visible in the closed control.
-  Dated service notes such as a connection that runs or does not run on listed dates, or
-  runs through a named date such as `3.XII.`, open an operating calendar. Working-day rules compose with dated
-  exceptions and exclude weekends and Czech public holidays, while numbered weekday rules such as `v 6,7`
+  In Station Timetables, dated service notes such as a connection that runs or does not run on listed dates, or
+  runs through a named date such as `3.XII.`, open an interpreted operating calendar. Working-day rules compose with
+  dated exceptions and exclude weekends and Czech public holidays, while numbered weekday rules such as `v 6,7`
   or `v 1-6` restrict a dated operating range to the selected weekdays. The IDOS `+` symbol adds Sundays and Czech
   public holidays, so `v 6,+` means Saturdays, Sundays, and public holidays. An operating-day clause after a dated
   non-running range likewise restricts only that exclusion. Positive and negative dated exceptions then override
@@ -215,12 +215,15 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   are distinct from carrier fares and broader fare conditions. A single selection can span multiple rows while
   retaining clickable web-address and phone-number links and the standard macOS copy command. Each leading semantic
   emoji is an Option-click target for the same classifier popover used by compact service summaries. The popover opens
-  beside the selected emoji instead of attaching to the edge of the complete text flow. Dated operating
-  exceptions, including abbreviated ranges such as `17. to 20.VIII.` and
-  same-month lists such as `18.,19.IX.`, open the same running/non-running calendar using the exact validity
-  interval published by the current IDOS timetable. When opened, the calendar scrolls to the current month or
-  to the nearest month covered by that timetable. Option-clicking a calendar note also lists the operating rule
-  or note-applicability rule and every individual date or range recognized from it.
+  beside the selected emoji instead of attaching to the edge of the complete text flow. Dated operating exceptions
+  open a service calendar backed by the exact running, non-running, and unavailable day states returned by IDOS's
+  native date-restriction interface; their colors are not inferred from the note text. The calendar presents only
+  the months supplied by IDOS and initially scrolls to the current or nearest available month. Option-clicking it
+  confirms IDOS as the exact data source. If IDOS does not supply exact states, the detail keeps the original note
+  readable without substituting a prose-derived operating calendar. Separate note-applicability calendars continue
+  to explain the weekday condition recognized in that note. Station Timetables have no concrete dated service ID,
+  so their operating calendars continue to interpret printed rules, including abbreviated ranges such as
+  `17. to 20.VIII.` and same-month lists such as `18.,19.IX.`, inside the validity interval printed by IDOS.
 - Permanent connection and service-detail links using the IDOS language that matches the app, shared through
   the standard macOS picker. Alongside the system sharing services, that picker offers Open in IDOS without a
   redundant standalone result action. Every service-detail action is an individually visible control in that

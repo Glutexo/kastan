@@ -38,6 +38,7 @@
 "error.emailSendingFailed" = "IDOS could not send the connection by email.";
 "error.emailSendingFailedWithDetail" = "IDOS could not send the connection by email. {0}";
 "error.calendarUnavailable" = "IDOS did not provide calendar export data for this connection.";
+"error.dateLimitsUnavailable" = "IDOS did not provide operating-day data for this service.";
 "error.pdfUnavailable" = "IDOS did not provide PDF export data for this connection.";
 "error.invalidServiceIdentifier" = "Invalid service ID: {0}. Copy the complete ID from verbose connection or departure output.";
 "error.serviceDetailUnavailable" = "IDOS could not load this service detail.";
