@@ -346,11 +346,16 @@ struct PlaceSuggestionPresentation: Equatable {
 
     init(
         suggestion: IDOSSuggestion,
+        scope: PlaceSuggestionScope = .places,
         countryLanguage: IDOSLanguage = AppLanguagePreference.idosLanguage
     ) {
         let rawDescription = suggestion.description ?? ""
-        kind = PlaceSuggestionKind(description: rawDescription)
-        emoji = kind.emoji
+        if case .stationTimetableLines = scope {
+            (kind, emoji) = Self.stationTimetableLineIdentity(for: suggestion)
+        } else {
+            kind = PlaceSuggestionKind(description: rawDescription)
+            emoji = kind.emoji
+        }
 
         var components = rawDescription
             .split(separator: ",")
@@ -369,6 +374,47 @@ struct PlaceSuggestionPresentation: Equatable {
         }
 
         detail = uniqueComponents.isEmpty ? nil : uniqueComponents.joined(separator: " · ")
+    }
+
+    /// Uses IDOS's transport metadata for a line instead of presenting its terminal-pair description as a place.
+    private static func stationTimetableLineIdentity(
+        for suggestion: IDOSSuggestion
+    ) -> (kind: PlaceSuggestionKind, emoji: String) {
+        let lineName = suggestion.text
+            .folding(
+                options: [.diacriticInsensitive, .caseInsensitive],
+                locale: Locale(identifier: "en_US_POSIX")
+            )
+            .lowercased()
+
+        if lineName.contains("trolleybus") || lineName.contains("trolejbus") {
+            return (.publicTransport, "🚎")
+        }
+        if lineName.contains("metro") || lineName.contains("subway") {
+            return (.publicTransport, "🚇")
+        }
+        if lineName.contains("tram") || lineName.contains("streetcar") || lineName.contains("tramvaj") {
+            return (.publicTransport, "🚋")
+        }
+        if lineName.contains("train") || lineName.contains("vlak") {
+            return (.train, "🚆")
+        }
+        if lineName.contains("bus") || lineName.contains("autobus") {
+            return (.bus, "🚌")
+        }
+
+        switch suggestion.iconId {
+        case 4:
+            return (.bus, "🚌")
+        case 5:
+            return (.publicTransport, "🚇")
+        case 14:
+            return (.train, "🚆")
+        case 15:
+            return (.publicTransport, "🚋")
+        default:
+            return (.publicTransport, "🛣️")
+        }
     }
 
     private static func localizedComponent(
@@ -416,13 +462,24 @@ struct PlaceSuggestionPresentation: Equatable {
     }
 }
 
-/// Makes the complete visual suggestion row select the represented IDOS place.
+/// Makes the complete visual suggestion row select the represented IDOS object.
 struct PlaceSuggestionButton: View {
     let suggestion: IDOSSuggestion
+    let scope: PlaceSuggestionScope
     let action: () -> Void
 
+    init(
+        suggestion: IDOSSuggestion,
+        scope: PlaceSuggestionScope = .places,
+        action: @escaping () -> Void
+    ) {
+        self.suggestion = suggestion
+        self.scope = scope
+        self.action = action
+    }
+
     var body: some View {
-        let presentation = PlaceSuggestionPresentation(suggestion: suggestion)
+        let presentation = PlaceSuggestionPresentation(suggestion: suggestion, scope: scope)
 
         Button(action: action) {
             HStack(spacing: 10) {
@@ -462,6 +519,7 @@ struct PlaceAutocompleteField: View {
     @Binding var text: String
     let selection: Binding<PlaceFieldSelection?>?
     let timetable: IDOSTimetable
+    let suggestionScope: PlaceSuggestionScope
     let stationTimetableLine: String?
     let onSelection: ((IDOSSuggestion) -> Void)?
     let headerShortcutTitle: LocalizedStringKey?
@@ -495,6 +553,7 @@ struct PlaceAutocompleteField: View {
         _text = text
         self.selection = selection
         self.timetable = timetable
+        suggestionScope = scope
         self.stationTimetableLine = stationTimetableLine
         self.onSelection = onSelection
         self.headerShortcutTitle = headerShortcutTitle
@@ -627,7 +686,7 @@ struct PlaceAutocompleteField: View {
     private var suggestionsList: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(model.suggestions.enumerated()), id: \.offset) { _, suggestion in
-                PlaceSuggestionButton(suggestion: suggestion) {
+                PlaceSuggestionButton(suggestion: suggestion, scope: suggestionScope) {
                     let selectedText = suggestion.selectedText ?? suggestion.text
                     selection?.wrappedValue = PlaceFieldSelection(suggestion: suggestion)
                     text = selectedText

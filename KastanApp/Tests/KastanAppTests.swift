@@ -4261,6 +4261,31 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(servedAddress.kind, .address)
     }
 
+    func testStationTimetableLineSuggestionsUseTransportIconsInsteadOfAPlacePin() {
+        let suggestions: [(text: String, iconID: Int?, emoji: String)] = [
+            ("302", 4, "🚌"),
+            ("A", 5, "🚇"),
+            ("S2", 14, "🚆"),
+            ("9", 15, "🚋"),
+            ("Trolleybus 25", 4, "🚎"),
+            ("Line X", nil, "🛣️"),
+        ]
+
+        for suggestion in suggestions {
+            let presentation = PlaceSuggestionPresentation(
+                suggestion: IDOSSuggestion(
+                    text: suggestion.text,
+                    description: "First terminal-Second terminal",
+                    iconId: suggestion.iconID
+                ),
+                scope: .stationTimetableLines
+            )
+
+            XCTAssertEqual(presentation.emoji, suggestion.emoji)
+            XCTAssertNotEqual(presentation.emoji, "📍")
+        }
+    }
+
     func testPlaceSuggestionVisibilityFiltersOnlyConfiguredIDOSPlaceTypes() {
         let suggestions = [
             IDOSSuggestion(text: "Aš, Sokolská", description: "address, district Cheb, buses"),
