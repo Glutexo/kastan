@@ -7,13 +7,13 @@ Swift 6.3 or newer and declares macOS 12 as its minimum Apple-platform deploymen
 
 ## Package Dependency
 
-Depend on the latest compatible `0.3.x` release:
+Depend on the latest compatible `0.4.x` release:
 
 ```swift
 dependencies: [
     .package(
         url: "https://github.com/Glutexo/kastan.git",
-        .upToNextMinor(from: "0.3.1")
+        .upToNextMinor(from: "0.4.0")
     ),
 ]
 ```
