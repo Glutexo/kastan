@@ -498,7 +498,7 @@ struct KastanMCPTools: Sendable {
     )
 
     private static let stationTimetableMunicipalitySchema = stringSchema(
-        "Municipality within a multi-municipality Station Timetable catalog. ODIS defaults to Ostrava."
+        "Municipality within a multi-municipality Station Timetable catalog. ODIS defaults to Ostrava; IREDO defaults to Dvůr Králové nad Labem."
     )
 
     private static let languageSchema: Value = .object([

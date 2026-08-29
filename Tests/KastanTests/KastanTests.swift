@@ -955,6 +955,28 @@ import Testing
     #expect(output.contains("(ODIS · Frýdek-Místek)"))
 }
 
+@Test func stationTimetablesCommandSelectsIREDOMunicipality() async throws {
+    let iredo = try IDOSTimetable.resolve("iredo")
+    let municipality = try #require(
+        try IDOSStationTimetableMunicipality.resolve("Chrudim", timetable: iredo)
+    )
+    let output = await englishCommandRunner(client: MockIDOSClient(
+        expectedStationTimetable: "iredo",
+        expectedStationTimetableMunicipality: municipality,
+        expectedStationTimetableLine: "Bus 1",
+        expectedStationTimetableFrom: "Dopravní terminál",
+        expectedStationTimetableTo: "Na Větrníku"
+    )).output(
+        for: [
+            "station-timetables", "-L", "Bus 1", "-f", "Dopravní terminál",
+            "-t", "Na Větrníku", "-T", "iredo", "-u", "Chrudim",
+            "-d", "17.7.2026", "-w",
+        ]
+    )
+
+    #expect(output.contains("(IREDO · Chrudim)"))
+}
+
 @Test func stationTimetablesCommandRejectsMunicipalityOutsideSelectedTimetable() async {
     let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: [
@@ -1694,6 +1716,55 @@ import Testing
     )
     let defaultValues = Dictionary(uniqueKeysWithValues: defaultRequest.queryItems.map { ($0.name, $0.value) })
     #expect(defaultValues["ttn"] == "ODIS")
+}
+
+@Test func iredoStationTimetableMunicipalitiesMatchIDOSParameters() throws {
+    let iredo = try IDOSTimetable.resolve("iredo")
+    let municipalities = IDOSStationTimetableMunicipality.available(for: iredo)
+    let chrudim = try #require(
+        try IDOSStationTimetableMunicipality.resolve("Chrudim", timetable: iredo)
+    )
+    let request = IDOSStationTimetableRequest(
+        timetable: iredo,
+        municipality: chrudim,
+        line: "Bus 1",
+        from: "Dopravní terminál",
+        to: "Na Větrníku"
+    )
+    let requestValues = Dictionary(uniqueKeysWithValues: request.queryItems.map { ($0.name, $0.value) })
+    let suggestionValues = Dictionary(uniqueKeysWithValues: IDOSClient
+        .stationTimetableSuggestionQueryItems(
+            prefix: "1",
+            limit: 8,
+            municipality: chrudim,
+            onlyStation: false
+        )
+        .map { ($0.name, $0.value) })
+
+    #expect(municipalities.map(\.name) == [
+        "Dvůr Králové nad Labem", "Chrudim", "Náchod", "Přelouč",
+        "Rychnov nad Kněžnou", "Týniště nad Orlicí", "Vrchlabí",
+    ])
+    #expect(chrudim.timetableIndex == 3)
+    #expect(chrudim.timetableName == "Chrudim")
+    #expect(
+        try IDOSStationTimetableMunicipality.resolve("DvurKral", timetable: iredo)?.name
+            == "Dvůr Králové nad Labem"
+    )
+    #expect(IDOSStationTimetableMunicipality.default(for: iredo)?.name == "Dvůr Králové nad Labem")
+    #expect(requestValues["ttn"] == "Chrudim")
+    #expect(suggestionValues["bindTtIndex"] == "3")
+
+    let defaultRequest = IDOSStationTimetableRequest(
+        timetable: iredo,
+        line: "Bus 481",
+        from: "Dvůr Králové n.L.,,nemocnice",
+        to: "Dvůr Králové n.L.,,žel.st."
+    )
+    let defaultValues = Dictionary(
+        uniqueKeysWithValues: defaultRequest.queryItems.map { ($0.name, $0.value) }
+    )
+    #expect(defaultValues["ttn"] == "DvurKral")
 }
 
 @Test func stationTimetableLineSuggestionKeepsDirectionTerminals() throws {
@@ -2569,6 +2640,9 @@ private struct MockIDOSClient: IDOSClienting {
     var expectedServiceLanguage: IDOSLanguage = .english
     var expectedStationTimetable = "pid"
     var expectedStationTimetableMunicipality: IDOSStationTimetableMunicipality? = nil
+    var expectedStationTimetableLine = "Bus 154"
+    var expectedStationTimetableFrom = "Strašnická"
+    var expectedStationTimetableTo = "Sídliště Libuš"
     var expectedStationTimetableLanguage: IDOSLanguage = .english
     var expectedCalendarLanguage: IDOSLanguage = .english
 
@@ -2722,9 +2796,9 @@ private struct MockIDOSClient: IDOSClienting {
     ) async throws -> IDOSStationTimetable {
         #expect(request.timetable.slug == expectedStationTimetable)
         #expect(request.municipality == expectedStationTimetableMunicipality)
-        #expect(request.line == "Bus 154")
-        #expect(request.from == "Strašnická")
-        #expect(request.to == "Sídliště Libuš")
+        #expect(request.line == expectedStationTimetableLine)
+        #expect(request.from == expectedStationTimetableFrom)
+        #expect(request.to == expectedStationTimetableTo)
         #expect(request.date == "17.7.2026")
         #expect(request.wholeWeek)
         #expect(language == expectedStationTimetableLanguage)

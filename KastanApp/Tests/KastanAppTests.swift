@@ -2996,6 +2996,53 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(compactLineWidth, wideLineWidth, accuracy: 1)
     }
 
+    func testIREDOOffersItsPublishedMunicipalityPicker() throws {
+        let client = MockIDOSClient()
+        let model = StationTimetablesViewModel(client: client)
+        model.selectTimetable(slug: "iredo")
+        let municipalityNames = [
+            "Dvůr Králové nad Labem", "Chrudim", "Náchod", "Přelouč",
+            "Rychnov nad Kněžnou", "Týniště nad Orlicí", "Vrchlabí",
+        ]
+        let width = KastanApp.minimumMainWindowWidth
+        let hostingView = NSHostingView(rootView: StationTimetablesView(
+            model: model,
+            client: client,
+            showsItemDetails: false,
+            showsStopNoteText: false
+        ).frame(width: width, height: 600))
+        hostingView.frame = NSRect(x: 0, y: 0, width: width, height: 600)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        XCTAssertEqual(model.municipalities.map(\.name), municipalityNames)
+        XCTAssertEqual(model.municipality?.name, "Dvůr Králové nad Labem")
+        let municipalityPicker = try XCTUnwrap(
+            hostingView.allDescendantViews.compactMap { $0 as? NSPopUpButton }.first {
+                $0.itemTitles == municipalityNames
+            }
+        )
+        let chrudimIndex = try XCTUnwrap(
+            model.municipalities.firstIndex(where: { $0.name == "Chrudim" })
+        )
+
+        municipalityPicker.selectItem(at: chrudimIndex)
+        municipalityPicker.sendAction(
+            municipalityPicker.action,
+            to: municipalityPicker.target
+        )
+
+        XCTAssertEqual(model.municipality?.name, "Chrudim")
+    }
+
     func testStationTimetableSearchHeaderMatchesJourneyHeaderHeight() {
         let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
         let stationHeader = NSHostingView(rootView: StationTimetableSearchHeader(

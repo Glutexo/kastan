@@ -1311,12 +1311,28 @@ public struct IDOSStationTimetableMunicipality: Codable, Equatable, Hashable, Se
 
     /// Returns the municipalities published within a supported multi-municipality timetable.
     public static func available(for timetable: IDOSTimetable) -> [Self] {
-        timetable.slug == "odis" ? odisMunicipalities : []
+        switch timetable.slug {
+        case "odis":
+            odisMunicipalities
+        case "iredo":
+            iredoMunicipalities
+        default:
+            []
+        }
     }
 
     /// Returns the municipality selected initially by IDOS for the given timetable.
     public static func `default`(for timetable: IDOSTimetable) -> Self? {
-        available(for: timetable).first { $0.timetableName == "ODIS" }
+        let timetableName: String
+        switch timetable.slug {
+        case "odis":
+            timetableName = "ODIS"
+        case "iredo":
+            timetableName = "DvurKral"
+        default:
+            return nil
+        }
+        return available(for: timetable).first { $0.timetableName == timetableName }
     }
 
     /// Resolves a displayed municipality name or its opaque IDOS identifier, defaulting like IDOS when omitted.
@@ -1360,12 +1376,23 @@ public struct IDOSStationTimetableMunicipality: Codable, Equatable, Hashable, Se
         Self(name: "Studénka", timetableIndex: 12, timetableName: "Studenka"),
         Self(name: "Třinec", timetableIndex: 13, timetableName: "Trinec"),
     ]
+
+    /// Mirrors the complete municipality chooser currently published by the IREDO Station Timetable form.
+    private static let iredoMunicipalities: [Self] = [
+        Self(name: "Dvůr Králové nad Labem", timetableIndex: 2, timetableName: "DvurKral"),
+        Self(name: "Chrudim", timetableIndex: 3, timetableName: "Chrudim"),
+        Self(name: "Náchod", timetableIndex: 4, timetableName: "Nachod"),
+        Self(name: "Přelouč", timetableIndex: 5, timetableName: "Prelouc"),
+        Self(name: "Rychnov nad Kněžnou", timetableIndex: 6, timetableName: "RychnovNadKneznou"),
+        Self(name: "Týniště nad Orlicí", timetableIndex: 7, timetableName: "TynisteNadOrlici"),
+        Self(name: "Vrchlabí", timetableIndex: 8, timetableName: "Vrchlabi"),
+    ]
 }
 
 /// A station-timetable query for one MHD or integrated-transport line and direction.
 public struct IDOSStationTimetableRequest: Codable, Equatable, Sendable {
     public var timetable: IDOSTimetable
-    /// Narrows a multi-municipality timetable such as ODIS to one local network.
+    /// Narrows a multi-municipality timetable such as ODIS or IREDO to one local network.
     public var municipality: IDOSStationTimetableMunicipality?
     public var line: String
     public var from: String

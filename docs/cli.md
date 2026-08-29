@@ -183,11 +183,13 @@ notes. Human-readable output places explanations directly after the schedules an
 Platform legends are attached directly to their route stops instead of being repeated as notes.
 `station-timetable` is accepted as a singular command alias.
 Select an MHD or integrated-system catalog such as `pid`, `odis`, `idsjmk`, or `iredo` for unambiguous line results.
-For ODIS, `--municipality` / `-u` selects Bruntál, Český Těšín, Frýdek-Místek, Havířov, Karviná,
-Krnov, Nový Jičín, Opava, Orlová, Ostrava, Studénka, or Třinec. Names are case- and
-diacritic-insensitive, and the short IDOS identifiers such as `FM` are also accepted. Omitting the option follows
-the ODIS default, Ostrava. Supplying a municipality for a timetable without that chooser is rejected before a
-network request.
+For a catalog with local networks, `--municipality` / `-u` selects the municipality used for line and stop
+suggestions. ODIS offers Bruntál, Český Těšín, Frýdek-Místek, Havířov, Karviná, Krnov, Nový Jičín, Opava,
+Orlová, Ostrava, Studénka, and Třinec. IREDO offers Dvůr Králové nad Labem, Chrudim, Náchod, Přelouč,
+Rychnov nad Kněžnou, Týniště nad Orlicí, and Vrchlabí. Names are case- and diacritic-insensitive, and short IDOS
+identifiers such as `FM` or `DvurKral` are also accepted. Omitting the option follows the IDOS default: Ostrava
+for ODIS and Dvůr Králové nad Labem for IREDO. Supplying a municipality for a timetable without that chooser is
+rejected before a network request.
 
 ### Service Details
 

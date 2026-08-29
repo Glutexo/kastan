@@ -71,7 +71,7 @@ struct StationTimetablesView: View {
 
                 standardRouteFields
             } else {
-                odisContextFields(usesCompactLayout: usesCompactLayout)
+                municipalityContextFields(usesCompactLayout: usesCompactLayout)
                 directionFields
             }
 
@@ -93,7 +93,7 @@ struct StationTimetablesView: View {
         }
     }
 
-    private func odisContextFields(usesCompactLayout: Bool) -> some View {
+    private func municipalityContextFields(usesCompactLayout: Bool) -> some View {
         let horizontalSpacing: CGFloat = usesCompactLayout ? 8 : 12
 
         return Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 14) {
@@ -1075,7 +1075,7 @@ struct StationTimetableDateSearchControl: View {
     }
 }
 
-/// Keeps the ODIS municipality beside the line whose suggestions it scopes.
+/// Keeps a multi-municipality catalog's local network beside the line whose suggestions it scopes.
 struct StationTimetableMunicipalityPicker: View {
     @Binding var municipality: IDOSStationTimetableMunicipality?
     let municipalities: [IDOSStationTimetableMunicipality]
@@ -1095,7 +1095,7 @@ struct StationTimetableMunicipalityPicker: View {
     }
 }
 
-/// Presents the ODIS municipality with the same native width as the timetable popup above it.
+/// Presents the selected local network with the same native width as the timetable popup above it.
 struct StationTimetableMunicipalityPopUpButton: NSViewRepresentable {
     @Binding var municipality: IDOSStationTimetableMunicipality?
     let municipalities: [IDOSStationTimetableMunicipality]
