@@ -2958,11 +2958,17 @@ final class KastanAppTests: XCTestCase {
             )
             let lineFrame = hostingView.convert(lineField.bounds, from: lineField)
             let layout = DetailLayout(availableWidth: width)
+            let dateControl = NSHostingView(rootView: StationTimetableDateSearchControl(
+                date: .constant(model.date),
+                wholeWeek: .constant(model.wholeWeek)
+            ))
+            dateControl.layoutSubtreeIfNeeded()
 
             XCTAssertEqual(model.municipalities.count, 12)
             XCTAssertEqual(model.municipality?.name, "Ostrava")
             XCTAssertEqual(municipalityFrame.minX, timetableFrame.minX, accuracy: 1)
             XCTAssertEqual(municipalityFrame.width, timetableFrame.width, accuracy: 1)
+            XCTAssertEqual(lineFrame.width, dateControl.fittingSize.width, accuracy: 1)
             XCTAssertEqual(
                 lineFrame.maxX,
                 width - layout.horizontalPadding,

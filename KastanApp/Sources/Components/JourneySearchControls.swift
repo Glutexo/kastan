@@ -402,6 +402,8 @@ enum JourneyDateTimePresentation {
 /// Keeps date-based search criteria visually identical until their native editors are opened.
 enum SearchDatePickerLayout {
     static let buttonContentWidth: CGFloat = 190
+    /// Keeps the complete closed date control and its paired search field at one width.
+    static let buttonWidth: CGFloat = buttonContentWidth + 24
 }
 
 /// Presents one compact date-selection button and its lazily opened editor.
@@ -441,6 +443,7 @@ struct SearchDatePickerButton<Editor: View>: View {
             }
             .frame(width: SearchDatePickerLayout.buttonContentWidth, alignment: .leading)
         }
+        .frame(width: SearchDatePickerLayout.buttonWidth)
         .accessibilityLabel(Text(accessibilityLabel))
         .accessibilityValue(Text(title))
         .popover(isPresented: $isEditorPresented, arrowEdge: .bottom) {

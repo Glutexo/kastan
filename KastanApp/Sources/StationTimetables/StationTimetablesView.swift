@@ -119,6 +119,7 @@ struct StationTimetablesView: View {
                 Spacer(minLength: horizontalSpacing)
                     .gridCellUnsizedAxes(.vertical)
                 lineField
+                    .frame(width: SearchDatePickerLayout.buttonWidth)
                     .gridCellUnsizedAxes(.horizontal)
             }
         }
