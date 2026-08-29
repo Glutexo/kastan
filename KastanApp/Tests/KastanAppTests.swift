@@ -2911,25 +2911,55 @@ final class KastanAppTests: XCTestCase {
         XCTAssertLessThanOrEqual(hostingView.fittingSize.width, layout.contentWidth)
     }
 
-    func testODISStationTimetableHeaderFitsMunicipalityAtMinimumWidth() throws {
-        let model = StationTimetablesViewModel(client: MockIDOSClient())
-        model.selectTimetable(slug: "odis")
-        let layout = DetailLayout(availableWidth: KastanApp.minimumMainWindowWidth)
-        let header = StationTimetableSearchHeader(
-            timetable: .constant(model.timetable),
-            municipality: .constant(model.municipality),
-            municipalities: model.municipalities,
-            date: .constant(model.date),
-            wholeWeek: .constant(model.wholeWeek),
-            usesCompactLayout: true
-        )
-        let hostingView = NSHostingView(rootView: header)
+    func testODISMunicipalityAndLineShareOneRowAtCompactAndWideWidths() throws {
+        func assertMunicipalityAndLineShareOneRow(width: CGFloat) throws {
+            let client = MockIDOSClient()
+            let model = StationTimetablesViewModel(client: client)
+            model.selectTimetable(slug: "odis")
+            let hostingView = NSHostingView(rootView: StationTimetablesView(
+                model: model,
+                client: client,
+                showsItemDetails: false,
+                showsStopNoteText: false
+            ).frame(width: width, height: 600))
+            hostingView.frame = NSRect(x: 0, y: 0, width: width, height: 600)
+            let window = NSWindow(
+                contentRect: hostingView.frame,
+                styleMask: .borderless,
+                backing: .buffered,
+                defer: false
+            )
+            window.contentView = hostingView
+            window.makeKeyAndOrderFront(nil)
+            hostingView.layoutSubtreeIfNeeded()
+            defer { window.orderOut(nil) }
 
-        hostingView.layoutSubtreeIfNeeded()
+            let descendants = hostingView.allDescendantViews
+            let municipalityNames = model.municipalities.map(\.name)
+            let municipalityPicker = try XCTUnwrap(
+                descendants.compactMap { $0 as? NSPopUpButton }.first {
+                    $0.itemTitles == municipalityNames
+                }
+            )
+            let lineField = try XCTUnwrap(
+                descendants.compactMap { $0 as? NSTextField }.first {
+                    $0.placeholderString == AppLocalization.string("Line number or name")
+                }
+            )
+            let municipalityFrame = hostingView.convert(
+                municipalityPicker.bounds,
+                from: municipalityPicker
+            )
+            let lineFrame = hostingView.convert(lineField.bounds, from: lineField)
 
-        XCTAssertEqual(model.municipalities.count, 12)
-        XCTAssertEqual(model.municipality?.name, "Ostrava")
-        XCTAssertLessThanOrEqual(hostingView.fittingSize.width, layout.contentWidth)
+            XCTAssertEqual(model.municipalities.count, 12)
+            XCTAssertEqual(model.municipality?.name, "Ostrava")
+            XCTAssertLessThan(municipalityFrame.maxX, lineFrame.minX)
+            XCTAssertEqual(municipalityFrame.midY, lineFrame.midY, accuracy: 2)
+        }
+
+        try assertMunicipalityAndLineShareOneRow(width: KastanApp.minimumMainWindowWidth)
+        try assertMunicipalityAndLineShareOneRow(width: 900)
     }
 
     func testStationTimetableSearchHeaderMatchesJourneyHeaderHeight() {

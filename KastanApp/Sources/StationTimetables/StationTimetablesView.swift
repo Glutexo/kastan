@@ -62,29 +62,12 @@ struct StationTimetablesView: View {
         VStack(alignment: .leading, spacing: 14) {
             StationTimetableSearchHeader(
                 timetable: timetableBinding,
-                municipality: municipalityBinding,
-                municipalities: model.municipalities,
                 date: $model.date,
                 wholeWeek: $model.wholeWeek,
                 usesCompactLayout: usesCompactLayout
             )
 
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .placeInputCenter, spacing: 12) {
-                    lineField
-                    fromField
-                    swapButton
-                    toField
-                }
-                VStack(alignment: .leading, spacing: 12) {
-                    lineField
-                    HStack(alignment: .placeInputCenter, spacing: 12) {
-                        fromField
-                        swapButton
-                        toField
-                    }
-                }
-            }
+            routeFields
 
             HStack(alignment: .center, spacing: 12) {
                 Spacer(minLength: 0)
@@ -92,6 +75,47 @@ struct StationTimetablesView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder
+    private var routeFields: some View {
+        if model.municipalities.isEmpty {
+            ViewThatFits(in: .horizontal) {
+                allRouteFields
+                VStack(alignment: .leading, spacing: 12) {
+                    lineField
+                    directionFields
+                }
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
+                    StationTimetableMunicipalityPicker(
+                        municipality: municipalityBinding,
+                        municipalities: model.municipalities
+                    )
+                    lineField
+                }
+                directionFields
+            }
+        }
+    }
+
+    private var allRouteFields: some View {
+        HStack(alignment: .placeInputCenter, spacing: 12) {
+            lineField
+            fromField
+            swapButton
+            toField
+        }
+    }
+
+    private var directionFields: some View {
+        HStack(alignment: .placeInputCenter, spacing: 12) {
+            fromField
+            swapButton
+            toField
+        }
     }
 
     private var lineField: some View {
@@ -969,54 +993,28 @@ struct StationTimetableRemarksDisclosure: View {
 /// Aligns the station-timetable service date with the shared timetable-first search header.
 struct StationTimetableSearchHeader: View {
     @Binding private var timetable: IDOSTimetable
-    @Binding private var municipality: IDOSStationTimetableMunicipality?
     @Binding private var date: Date
     @Binding private var wholeWeek: Bool
 
     private let usesCompactLayout: Bool
-    private let municipalities: [IDOSStationTimetableMunicipality]
 
     init(
         timetable: Binding<IDOSTimetable>,
-        municipality: Binding<IDOSStationTimetableMunicipality?> = .constant(nil),
-        municipalities: [IDOSStationTimetableMunicipality] = [],
         date: Binding<Date>,
         wholeWeek: Binding<Bool>,
         usesCompactLayout: Bool
     ) {
         _timetable = timetable
-        _municipality = municipality
         _date = date
         _wholeWeek = wholeWeek
-        self.municipalities = municipalities
         self.usesCompactLayout = usesCompactLayout
     }
 
     var body: some View {
-        Group {
-            if usesCompactLayout, !municipalities.isEmpty {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(alignment: .bottom, spacing: 0) {
-                        timetablePicker
-                        Spacer(minLength: 8)
-                        datePicker
-                    }
-
-                    municipalityPicker
-                }
-            } else {
-                HStack(alignment: .bottom, spacing: 0) {
-                    timetablePicker
-
-                    if !municipalities.isEmpty {
-                        Spacer(minLength: usesCompactLayout ? 8 : 12)
-                        municipalityPicker
-                    }
-
-                    Spacer(minLength: usesCompactLayout ? 8 : 12)
-                    datePicker
-                }
-            }
+        HStack(alignment: .bottom, spacing: 0) {
+            timetablePicker
+            Spacer(minLength: usesCompactLayout ? 8 : 12)
+            datePicker
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -1027,23 +1025,6 @@ struct StationTimetableSearchHeader: View {
             allowedTimetables: AppTimetableGroup.stationTimetables,
             usesCompactLayout: usesCompactLayout
         )
-    }
-
-    private var municipalityPicker: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Municipality")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Picker("Municipality", selection: $municipality) {
-                ForEach(municipalities, id: \.timetableName) { municipality in
-                    Text(municipality.name).tag(Optional(municipality))
-                }
-            }
-            .labelsHidden()
-            .frame(width: 150, alignment: .leading)
-        }
-        .fixedSize(horizontal: true, vertical: false)
     }
 
     private var datePicker: some View {
@@ -1057,6 +1038,31 @@ struct StationTimetableSearchHeader: View {
                 date: $date,
                 wholeWeek: $wholeWeek
             )
+        }
+        .fixedSize(horizontal: true, vertical: false)
+    }
+}
+
+/// Keeps the ODIS municipality beside the line whose suggestions it scopes.
+struct StationTimetableMunicipalityPicker: View {
+    static let pickerWidth: CGFloat = 150
+
+    @Binding var municipality: IDOSStationTimetableMunicipality?
+    let municipalities: [IDOSStationTimetableMunicipality]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Municipality")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Picker("Municipality", selection: $municipality) {
+                ForEach(municipalities, id: \.timetableName) { municipality in
+                    Text(municipality.name).tag(Optional(municipality))
+                }
+            }
+            .labelsHidden()
+            .frame(width: Self.pickerWidth, alignment: .leading)
         }
         .fixedSize(horizontal: true, vertical: false)
     }

@@ -50,8 +50,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   route stops, optional tariff zones and platforms or stands, lockout labels, keyed departure explanations,
   timetable-wide notes, and links back to the matching IDOS result. Selecting ODIS adds its complete Municipality
   picker and initially selects Ostrava, matching IDOS. Changing the municipality clears the previous line and
-  direction before all three fields request suggestions from the newly selected local catalog. The picker moves to
-  its own row at compact window widths so the timetable and date controls remain unclipped. Line suggestions use the transport icon supplied
+  direction before all three fields request suggestions from the newly selected local catalog. Municipality and Line
+  share one row at every supported window width, directly associating the local catalog with its available lines.
+  Line suggestions use the transport icon supplied
   by IDOS, such as 🚌 for a bus or 🚋 for a tram, instead of presenting the line as a generic place. Schedule
   headings keep the numeric date and follow the selected language's weekday capitalization, such as lowercase Czech
   `středa` and uppercase English `Wednesday`. The route, explanations, and notes use icon headings. Route stops use
