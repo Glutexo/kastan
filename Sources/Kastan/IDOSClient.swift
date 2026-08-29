@@ -1729,6 +1729,7 @@ public struct IDOSTimetable: Codable, Equatable, Sendable {
         IDOSTimetable(slug: "idsjmk", displayName: "IDS JMK / Brno"),
         IDOSTimetable(slug: "odis", displayName: "ODIS"),
         IDOSTimetable(slug: "idol", displayName: "IDOL"),
+        IDOSTimetable(slug: "iredo", displayName: "IREDO"),
     ]
 
     public static func resolve(_ value: String?) throws -> IDOSTimetable {

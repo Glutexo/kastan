@@ -4199,7 +4199,7 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             AppTimetableGroup.integratedSystems.timetables.map(\.slug),
-            ["pid", "idsjmk", "odis", "idol"]
+            ["pid", "idsjmk", "odis", "idol", "iredo"]
         )
         XCTAssertTrue(
             AppTimetableGroup.cityTransport.timetables.allSatisfy {
@@ -4213,11 +4213,11 @@ final class KastanAppTests: XCTestCase {
         let groupedSlugs = Set(AppTimetableGroup.allCases.flatMap { $0.timetables.map(\.slug) })
         XCTAssertEqual(groupedSlugs, Set(IDOSTimetable.known.map(\.slug)))
         XCTAssertEqual(
-            AppTimetableGroup.stationTimetables.prefix(5).map(\.slug),
-            ["vlaky", "pid", "idsjmk", "odis", "idol"]
+            AppTimetableGroup.stationTimetables.prefix(6).map(\.slug),
+            ["vlaky", "pid", "idsjmk", "odis", "idol", "iredo"]
         )
         XCTAssertTrue(
-            AppTimetableGroup.stationTimetables.dropFirst(5).allSatisfy {
+            AppTimetableGroup.stationTimetables.dropFirst(6).allSatisfy {
                 $0.displayName.hasPrefix("Urban Public Transport ")
             }
         )

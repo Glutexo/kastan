@@ -1243,6 +1243,8 @@ import Testing
     #expect(output.contains("pid"))
     #expect(output.contains("frydekmistek"))
     #expect(output.contains("odis"))
+    #expect(output.contains("iredo"))
+    #expect(output.contains("IREDO"))
     #expect(output.contains("karlovyvary"))
     #expect(output.contains("zlin"))
 }
@@ -1454,6 +1456,7 @@ import Testing
 @Test func timetableResolverAcceptsKnownAliasesAndCustomSlugs() throws {
     #expect(try IDOSTimetable.resolve("all timetables").slug == "vlakyautobusymhdvse")
     #expect(try IDOSTimetable.resolve("Prague + PID").slug == "pid")
+    #expect(try IDOSTimetable.resolve("IREDO").slug == "iredo")
     #expect(try IDOSTimetable.resolve("Frýdek-Místek").slug == "frydekmistek")
     #expect(try IDOSTimetable.resolve("Urban Public Transport Karlovy Vary").slug == "karlovyvary")
     #expect(try IDOSTimetable.resolve("Zlín a Otrokovice").slug == "zlin")

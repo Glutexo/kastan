@@ -103,7 +103,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   timetable-favorites manager and app information in their own windows, with concise labels that name their content.
 - Timetable menus grouped into general rail and bus choices, integrated transport systems, and city networks,
   with Trains selected initially in every search mode. Station Timetables offer that shared rail default together
-  with integrated systems and city networks while omitting unsupported broad combinations such as All timetables.
+  with integrated systems, including IREDO, and city networks while omitting unsupported broad combinations such as
+  All timetables.
   Persistent favorites repeat in their own first section without disappearing from the catalog, and the favorite
   button stays consistently close to its picker across all three search modes without overlapping it, with the
   standard wider separation retained in the wide search layout.

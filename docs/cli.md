@@ -182,7 +182,7 @@ service day and hour, lockout status, keyed explanations for markers used beside
 notes. Human-readable output places explanations directly after the schedules and keeps notes at the very bottom.
 Platform legends are attached directly to their route stops instead of being repeated as notes.
 `station-timetable` is accepted as a singular command alias.
-Select an MHD or integrated-system catalog such as `pid`, `odis`, or `idsjmk` for unambiguous line results.
+Select an MHD or integrated-system catalog such as `pid`, `odis`, `idsjmk`, or `iredo` for unambiguous line results.
 For ODIS, `--municipality` / `-u` selects Bruntál, Český Těšín, Frýdek-Místek, Havířov, Karviná,
 Krnov, Nový Jičín, Opava, Orlová, Ostrava, Studénka, or Třinec. Names are case- and
 diacritic-insensitive, and the short IDOS identifiers such as `FM` are also accepted. Omitting the option follows

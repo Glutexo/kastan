@@ -222,7 +222,7 @@ tracks, distance, stop notes, and service information.
 Unless a tool says otherwise, `timetable` accepts a known Kaštan alias, an English IDOS catalog name, or a custom
 IDOS URL slug. It defaults to `vlakyautobusymhdvse`, called **All timetables** by English IDOS. Use
 `list_timetables` to discover the built-in values. Select an MHD or integrated-system catalog such as `pid`,
-`odis`, or `idsjmk` for Station Timetable searches.
+`odis`, `idsjmk`, or `iredo` for Station Timetable searches.
 
 ## Results and Errors
 
