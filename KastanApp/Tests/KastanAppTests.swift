@@ -2911,8 +2911,8 @@ final class KastanAppTests: XCTestCase {
         XCTAssertLessThanOrEqual(hostingView.fittingSize.width, layout.contentWidth)
     }
 
-    func testODISMunicipalityAndLineShareOneRowAtCompactAndWideWidths() throws {
-        func assertMunicipalityAndLineShareOneRow(width: CGFloat) throws {
+    func testODISMunicipalityAndLineMatchHeaderColumnsAtCompactAndWideWidths() throws {
+        func assertFieldsMatchHeaderColumns(width: CGFloat) throws -> CGFloat {
             let client = MockIDOSClient()
             let model = StationTimetablesViewModel(client: client)
             model.selectTimetable(slug: "odis")
@@ -2941,25 +2941,53 @@ final class KastanAppTests: XCTestCase {
                     $0.itemTitles == municipalityNames
                 }
             )
+            let timetablePicker = try XCTUnwrap(
+                descendants.compactMap { $0 as? NSPopUpButton }.first {
+                    $0 !== municipalityPicker
+                }
+            )
             let lineField = try XCTUnwrap(
                 descendants.compactMap { $0 as? NSTextField }.first {
                     $0.placeholderString == AppLocalization.string("Line number or name")
                 }
             )
+            let timetableFrame = hostingView.convert(timetablePicker.bounds, from: timetablePicker)
             let municipalityFrame = hostingView.convert(
                 municipalityPicker.bounds,
                 from: municipalityPicker
             )
             let lineFrame = hostingView.convert(lineField.bounds, from: lineField)
+            let layout = DetailLayout(availableWidth: width)
 
             XCTAssertEqual(model.municipalities.count, 12)
             XCTAssertEqual(model.municipality?.name, "Ostrava")
+            XCTAssertEqual(municipalityFrame.minX, timetableFrame.minX, accuracy: 1)
+            XCTAssertEqual(municipalityFrame.width, timetableFrame.width, accuracy: 1)
+            XCTAssertEqual(
+                lineFrame.maxX,
+                width - layout.horizontalPadding,
+                accuracy: 1
+            )
             XCTAssertLessThan(municipalityFrame.maxX, lineFrame.minX)
             XCTAssertEqual(municipalityFrame.midY, lineFrame.midY, accuracy: 2)
+
+            let municipalityIndex = try XCTUnwrap(
+                model.municipalities.firstIndex(where: { $0.name == "Havířov" })
+            )
+            municipalityPicker.selectItem(at: municipalityIndex)
+            municipalityPicker.sendAction(
+                municipalityPicker.action,
+                to: municipalityPicker.target
+            )
+            XCTAssertEqual(model.municipality?.name, "Havířov")
+            return lineFrame.width
         }
 
-        try assertMunicipalityAndLineShareOneRow(width: KastanApp.minimumMainWindowWidth)
-        try assertMunicipalityAndLineShareOneRow(width: 900)
+        let compactLineWidth = try assertFieldsMatchHeaderColumns(
+            width: KastanApp.minimumMainWindowWidth
+        )
+        let wideLineWidth = try assertFieldsMatchHeaderColumns(width: 900)
+        XCTAssertEqual(compactLineWidth, wideLineWidth, accuracy: 1)
     }
 
     func testStationTimetableSearchHeaderMatchesJourneyHeaderHeight() {

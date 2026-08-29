@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Kastan
 import SwiftUI
@@ -60,14 +61,19 @@ struct StationTimetablesView: View {
 
     private func searchPanel(usesCompactLayout: Bool) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            StationTimetableSearchHeader(
-                timetable: timetableBinding,
-                date: $model.date,
-                wholeWeek: $model.wholeWeek,
-                usesCompactLayout: usesCompactLayout
-            )
+            if model.municipalities.isEmpty {
+                StationTimetableSearchHeader(
+                    timetable: timetableBinding,
+                    date: $model.date,
+                    wholeWeek: $model.wholeWeek,
+                    usesCompactLayout: usesCompactLayout
+                )
 
-            routeFields
+                standardRouteFields
+            } else {
+                odisContextFields(usesCompactLayout: usesCompactLayout)
+                directionFields
+            }
 
             HStack(alignment: .center, spacing: 12) {
                 Spacer(minLength: 0)
@@ -77,28 +83,46 @@ struct StationTimetablesView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    @ViewBuilder
-    private var routeFields: some View {
-        if model.municipalities.isEmpty {
-            ViewThatFits(in: .horizontal) {
-                allRouteFields
-                VStack(alignment: .leading, spacing: 12) {
-                    lineField
-                    directionFields
-                }
-            }
-        } else {
+    private var standardRouteFields: some View {
+        ViewThatFits(in: .horizontal) {
+            allRouteFields
             VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .top, spacing: 12) {
-                    StationTimetableMunicipalityPicker(
-                        municipality: municipalityBinding,
-                        municipalities: model.municipalities
-                    )
-                    lineField
-                }
+                lineField
                 directionFields
             }
         }
+    }
+
+    private func odisContextFields(usesCompactLayout: Bool) -> some View {
+        let horizontalSpacing: CGFloat = usesCompactLayout ? 8 : 12
+
+        return Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 14) {
+            GridRow(alignment: .bottom) {
+                SearchTimetablePicker(
+                    timetable: timetableBinding,
+                    allowedTimetables: AppTimetableGroup.stationTimetables,
+                    usesCompactLayout: usesCompactLayout
+                )
+                Spacer(minLength: horizontalSpacing)
+                    .gridCellUnsizedAxes(.vertical)
+                StationTimetableDateSearchControl(
+                    date: $model.date,
+                    wholeWeek: $model.wholeWeek
+                )
+            }
+
+            GridRow(alignment: .bottom) {
+                StationTimetableMunicipalityPicker(
+                    municipality: municipalityBinding,
+                    municipalities: model.municipalities
+                )
+                Spacer(minLength: horizontalSpacing)
+                    .gridCellUnsizedAxes(.vertical)
+                lineField
+                    .gridCellUnsizedAxes(.horizontal)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var allRouteFields: some View {
@@ -1028,16 +1052,23 @@ struct StationTimetableSearchHeader: View {
     }
 
     private var datePicker: some View {
+        StationTimetableDateSearchControl(date: $date, wholeWeek: $wholeWeek)
+    }
+}
+
+/// Labels the compact station-timetable date button consistently in every search layout.
+struct StationTimetableDateSearchControl: View {
+    @Binding var date: Date
+    @Binding var wholeWeek: Bool
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Date")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .frame(height: SearchFieldHeader.contentHeight, alignment: .leading)
 
-            StationTimetableDatePicker(
-                date: $date,
-                wholeWeek: $wholeWeek
-            )
+            StationTimetableDatePicker(date: $date, wholeWeek: $wholeWeek)
         }
         .fixedSize(horizontal: true, vertical: false)
     }
@@ -1045,8 +1076,6 @@ struct StationTimetableSearchHeader: View {
 
 /// Keeps the ODIS municipality beside the line whose suggestions it scopes.
 struct StationTimetableMunicipalityPicker: View {
-    static let pickerWidth: CGFloat = 150
-
     @Binding var municipality: IDOSStationTimetableMunicipality?
     let municipalities: [IDOSStationTimetableMunicipality]
 
@@ -1056,15 +1085,101 @@ struct StationTimetableMunicipalityPicker: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Picker("Municipality", selection: $municipality) {
-                ForEach(municipalities, id: \.timetableName) { municipality in
-                    Text(municipality.name).tag(Optional(municipality))
-                }
-            }
-            .labelsHidden()
-            .frame(width: Self.pickerWidth, alignment: .leading)
+            StationTimetableMunicipalityPopUpButton(
+                municipality: $municipality,
+                municipalities: municipalities
+            )
         }
         .fixedSize(horizontal: true, vertical: false)
+    }
+}
+
+/// Presents the ODIS municipality with the same native width as the timetable popup above it.
+struct StationTimetableMunicipalityPopUpButton: NSViewRepresentable {
+    @Binding var municipality: IDOSStationTimetableMunicipality?
+    let municipalities: [IDOSStationTimetableMunicipality]
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(municipality: $municipality, municipalities: municipalities)
+    }
+
+    func makeNSView(context: Context) -> FixedWidthPopUpButton {
+        let button = FixedWidthPopUpButton(frame: .zero, pullsDown: false)
+        button.controlSize = .regular
+        button.setContentHuggingPriority(.required, for: .horizontal)
+        button.setContentCompressionResistancePriority(.required, for: .horizontal)
+        button.target = context.coordinator
+        button.action = #selector(Coordinator.selectMunicipality(_:))
+        button.setAccessibilityLabel(AppLocalization.string("Municipality"))
+        return button
+    }
+
+    func updateNSView(_ button: FixedWidthPopUpButton, context: Context) {
+        context.coordinator.municipality = $municipality
+        context.coordinator.municipalities = municipalities
+
+        let representedMunicipalities = button.itemArray.compactMap {
+            $0.representedObject as? String
+        }
+        let timetableNames = municipalities.map(\.timetableName)
+        if representedMunicipalities != timetableNames {
+            button.removeAllItems()
+            for municipality in municipalities {
+                button.addItem(withTitle: municipality.name)
+                button.lastItem?.representedObject = municipality.timetableName
+            }
+        }
+
+        if let municipality,
+           let index = municipalities.firstIndex(where: {
+               $0.timetableName == municipality.timetableName
+           })
+        {
+            button.selectItem(at: index)
+            button.setAccessibilityValue(municipality.name)
+        }
+    }
+
+    func sizeThatFits(
+        _ proposal: ProposedViewSize,
+        nsView button: FixedWidthPopUpButton,
+        context: Context
+    ) -> CGSize? {
+        button.intrinsicContentSize
+    }
+
+    /// Passes the selected native menu item back into the station-timetable search model.
+    @MainActor
+    final class Coordinator: NSObject {
+        var municipality: Binding<IDOSStationTimetableMunicipality?>
+        var municipalities: [IDOSStationTimetableMunicipality]
+
+        init(
+            municipality: Binding<IDOSStationTimetableMunicipality?>,
+            municipalities: [IDOSStationTimetableMunicipality]
+        ) {
+            self.municipality = municipality
+            self.municipalities = municipalities
+        }
+
+        @objc func selectMunicipality(_ sender: NSPopUpButton) {
+            guard let timetableName = sender.selectedItem?.representedObject as? String,
+                  let selected = municipalities.first(where: {
+                      $0.timetableName == timetableName
+                  })
+            else { return }
+
+            municipality.wrappedValue = selected
+        }
+    }
+
+    /// Keeps the rendered AppKit popup at the shared timetable-control width.
+    final class FixedWidthPopUpButton: NSPopUpButton {
+        override var intrinsicContentSize: NSSize {
+            var size = super.intrinsicContentSize
+            size.width = SearchTimetablePicker.controlWidth
+            return size
+        }
     }
 }
 

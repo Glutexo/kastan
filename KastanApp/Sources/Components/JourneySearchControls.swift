@@ -39,6 +39,9 @@ struct JourneySearchControlsSupplement {
 
 /// Presents the transport catalog before place-specific input so users choose the search context first.
 struct SearchTimetablePicker: View {
+    /// Keeps the visible native popup aligned with other controls in the timetable column.
+    static let controlWidth: CGFloat = 229
+    /// Reserves the SwiftUI picker host width required for the shared native control width.
     static let pickerWidth: CGFloat = 236
 
     /// Keeps compact click targets adjacent while giving the wide search layout standard separation.
