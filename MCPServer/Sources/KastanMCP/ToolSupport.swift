@@ -175,6 +175,7 @@ struct StationsOutput: Encodable {
 struct StationTimetableLinesOutput: Encodable {
     let query: String
     let timetable: IDOSTimetable
+    let municipality: IDOSStationTimetableMunicipality?
     let lines: [IDOSSuggestion]
 }
 
@@ -183,6 +184,7 @@ struct StationTimetableStopsOutput: Encodable {
     let query: String
     let line: String
     let timetable: IDOSTimetable
+    let municipality: IDOSStationTimetableMunicipality?
     let stops: [IDOSSuggestion]
 }
 
@@ -234,6 +236,7 @@ enum MCPOutputSchemas {
         properties: [
             "query": stringSchema,
             "timetable": timetableSchema,
+            "municipality": stationTimetableMunicipalitySchema,
             "lines": arraySchema(items: suggestionSchema),
         ],
         required: ["query", "timetable", "lines"]
@@ -244,6 +247,7 @@ enum MCPOutputSchemas {
             "query": stringSchema,
             "line": stringSchema,
             "timetable": timetableSchema,
+            "municipality": stationTimetableMunicipalitySchema,
             "stops": arraySchema(items: suggestionSchema),
         ],
         required: ["query", "line", "timetable", "stops"]
@@ -289,6 +293,15 @@ enum MCPOutputSchemas {
             "displayName": stringSchema,
         ],
         required: ["slug", "displayName"]
+    )
+
+    private static let stationTimetableMunicipalitySchema = objectSchema(
+        properties: [
+            "name": stringSchema,
+            "timetableIndex": integerSchema,
+            "timetableName": stringSchema,
+        ],
+        required: ["name", "timetableIndex", "timetableName"]
     )
 
     private static let suggestionSchema = objectSchema(
@@ -403,6 +416,7 @@ enum MCPOutputSchemas {
     private static let stationTimetableRequestSchema = objectSchema(
         properties: [
             "timetable": timetableSchema,
+            "municipality": stationTimetableMunicipalitySchema,
             "line": stringSchema,
             "from": stringSchema,
             "to": stringSchema,
@@ -415,6 +429,7 @@ enum MCPOutputSchemas {
     private static let stationTimetableSchema = objectSchema(
         properties: [
             "timetable": timetableSchema,
+            "municipality": stationTimetableMunicipalitySchema,
             "lineName": stringSchema,
             "transportMode": transportModeSchema,
             "fromStop": stringSchema,

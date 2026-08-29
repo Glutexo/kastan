@@ -84,11 +84,24 @@ public protocol IDOSClienting: Sendable {
         limit: Int,
         timetable: IDOSTimetable
     ) async throws -> [IDOSSuggestion]
+    func searchStationTimetableLines(
+        prefix: String,
+        limit: Int,
+        timetable: IDOSTimetable,
+        municipality: IDOSStationTimetableMunicipality?
+    ) async throws -> [IDOSSuggestion]
     func searchStationTimetableStops(
         prefix: String,
         line: String,
         limit: Int,
         timetable: IDOSTimetable
+    ) async throws -> [IDOSSuggestion]
+    func searchStationTimetableStops(
+        prefix: String,
+        line: String,
+        limit: Int,
+        timetable: IDOSTimetable,
+        municipality: IDOSStationTimetableMunicipality?
     ) async throws -> [IDOSSuggestion]
     func findStationTimetable(
         request: IDOSStationTimetableRequest,
@@ -246,6 +259,16 @@ public extension IDOSClienting {
         throw IDOSError.stationTimetableUnavailable
     }
 
+    /// Lets existing custom clients ignore a municipality until they adopt the municipality-aware overload.
+    func searchStationTimetableLines(
+        prefix: String,
+        limit: Int,
+        timetable: IDOSTimetable,
+        municipality: IDOSStationTimetableMunicipality?
+    ) async throws -> [IDOSSuggestion] {
+        try await searchStationTimetableLines(prefix: prefix, limit: limit, timetable: timetable)
+    }
+
     /// Preserves compatibility for custom clients that do not provide station-timetable searches yet.
     func searchStationTimetableStops(
         prefix: String,
@@ -254,6 +277,22 @@ public extension IDOSClienting {
         timetable: IDOSTimetable
     ) async throws -> [IDOSSuggestion] {
         throw IDOSError.stationTimetableUnavailable
+    }
+
+    /// Lets existing custom clients ignore a municipality until they adopt the municipality-aware overload.
+    func searchStationTimetableStops(
+        prefix: String,
+        line: String,
+        limit: Int,
+        timetable: IDOSTimetable,
+        municipality: IDOSStationTimetableMunicipality?
+    ) async throws -> [IDOSSuggestion] {
+        try await searchStationTimetableStops(
+            prefix: prefix,
+            line: line,
+            limit: limit,
+            timetable: timetable
+        )
     }
 
     /// Preserves compatibility for custom clients that do not provide station-timetable searches yet.
@@ -354,12 +393,28 @@ public struct IDOSClient: IDOSClienting {
         limit: Int = 8,
         timetable: IDOSTimetable
     ) async throws -> [IDOSSuggestion] {
+        try await searchStationTimetableLines(
+            prefix: prefix,
+            limit: limit,
+            timetable: timetable,
+            municipality: IDOSStationTimetableMunicipality.default(for: timetable)
+        )
+    }
+
+    /// Suggests line directions within the municipality selected by a multi-municipality IDOS catalog.
+    public func searchStationTimetableLines(
+        prefix: String,
+        limit: Int = 8,
+        timetable: IDOSTimetable,
+        municipality: IDOSStationTimetableMunicipality?
+    ) async throws -> [IDOSSuggestion] {
         try await searchStationTimetableObjects(
             endpoint: "ZJRLines",
             prefix: prefix,
             line: nil,
             limit: limit,
             timetable: timetable,
+            municipality: municipality,
             onlyStation: false
         )
     }
@@ -371,12 +426,30 @@ public struct IDOSClient: IDOSClienting {
         limit: Int = 8,
         timetable: IDOSTimetable
     ) async throws -> [IDOSSuggestion] {
+        try await searchStationTimetableStops(
+            prefix: prefix,
+            line: line,
+            limit: limit,
+            timetable: timetable,
+            municipality: IDOSStationTimetableMunicipality.default(for: timetable)
+        )
+    }
+
+    /// Suggests line stops within the municipality selected by a multi-municipality IDOS catalog.
+    public func searchStationTimetableStops(
+        prefix: String,
+        line: String,
+        limit: Int = 8,
+        timetable: IDOSTimetable,
+        municipality: IDOSStationTimetableMunicipality?
+    ) async throws -> [IDOSSuggestion] {
         try await searchStationTimetableObjects(
             endpoint: "ZJRStationsOnLine",
             prefix: prefix,
             line: line,
             limit: limit,
             timetable: timetable,
+            municipality: municipality,
             onlyStation: true
         )
     }
@@ -410,20 +483,17 @@ public struct IDOSClient: IDOSClienting {
         line: String?,
         limit: Int,
         timetable: IDOSTimetable,
+        municipality: IDOSStationTimetableMunicipality?,
         onlyStation: Bool
     ) async throws -> [IDOSSuggestion] {
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         components.path = "/en/\(timetable.slug)/Ajax/\(endpoint)/"
-        var queryItems = [
-            URLQueryItem(name: "count", value: String(limit)),
-            URLQueryItem(name: "prefixText", value: prefix),
-            URLQueryItem(name: "positionAccuracy", value: "0"),
-            URLQueryItem(name: "searchByPosition", value: "false"),
-            URLQueryItem(name: "onlyStation", value: onlyStation ? "true" : "false"),
-            URLQueryItem(name: "format", value: "json"),
-            URLQueryItem(name: "bindTtIndex", value: "0"),
-            URLQueryItem(name: "callback", value: "idosCallback"),
-        ]
+        var queryItems = Self.stationTimetableSuggestionQueryItems(
+            prefix: prefix,
+            limit: limit,
+            municipality: municipality,
+            onlyStation: onlyStation
+        )
         if let line, !line.isEmpty {
             queryItems.append(URLQueryItem(name: "line", value: line))
         }
@@ -431,6 +501,25 @@ public struct IDOSClient: IDOSClienting {
 
         let data = try await data(from: components.requiredURL)
         return try decodedSuggestions(from: data)
+    }
+
+    /// Builds the municipality-aware query shared by both Station Timetable suggestion endpoints.
+    static func stationTimetableSuggestionQueryItems(
+        prefix: String,
+        limit: Int,
+        municipality: IDOSStationTimetableMunicipality?,
+        onlyStation: Bool
+    ) -> [URLQueryItem] {
+        [
+            URLQueryItem(name: "count", value: String(limit)),
+            URLQueryItem(name: "prefixText", value: prefix),
+            URLQueryItem(name: "positionAccuracy", value: "0"),
+            URLQueryItem(name: "searchByPosition", value: "false"),
+            URLQueryItem(name: "onlyStation", value: onlyStation ? "true" : "false"),
+            URLQueryItem(name: "format", value: "json"),
+            URLQueryItem(name: "bindTtIndex", value: String(municipality?.timetableIndex ?? 0)),
+            URLQueryItem(name: "callback", value: "idosCallback"),
+        ]
     }
 
     /// Decodes IDOS suggestions while applying the same readable symbols used by every other result.
@@ -1205,9 +1294,79 @@ public struct IDOSDeparturesRequest: Codable, Equatable, Sendable {
     }
 }
 
+/// Selects one municipality inside an IDOS Station Timetable catalog that contains several local networks.
+public struct IDOSStationTimetableMunicipality: Codable, Equatable, Hashable, Sendable {
+    /// Municipality name presented by IDOS.
+    public var name: String
+    /// Catalog index required by the IDOS line and stop suggestion endpoints.
+    public var timetableIndex: Int
+    /// Opaque municipality identifier carried by a permanent Station Timetable result URL.
+    public var timetableName: String
+
+    public init(name: String, timetableIndex: Int, timetableName: String) {
+        self.name = name
+        self.timetableIndex = timetableIndex
+        self.timetableName = timetableName
+    }
+
+    /// Returns the municipalities published within a supported multi-municipality timetable.
+    public static func available(for timetable: IDOSTimetable) -> [Self] {
+        timetable.slug == "odis" ? odisMunicipalities : []
+    }
+
+    /// Returns the municipality selected initially by IDOS for the given timetable.
+    public static func `default`(for timetable: IDOSTimetable) -> Self? {
+        available(for: timetable).first { $0.timetableName == "ODIS" }
+    }
+
+    /// Resolves a displayed municipality name or its opaque IDOS identifier, defaulting like IDOS when omitted.
+    public static func resolve(_ value: String?, timetable: IDOSTimetable) throws -> Self? {
+        guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return Self.default(for: timetable)
+        }
+
+        let key = lookupKey(value)
+        if let municipality = available(for: timetable).first(where: {
+            lookupKey($0.name) == key || lookupKey($0.timetableName) == key
+        }) {
+            return municipality
+        }
+        throw IDOSError.invalidStationTimetableMunicipality(value, timetable: timetable)
+    }
+
+    private static func lookupKey(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .folding(
+                options: [.diacriticInsensitive, .caseInsensitive],
+                locale: Locale(identifier: "cs_CZ")
+            )
+            .filter { $0.isLetter || $0.isNumber }
+    }
+
+    /// Mirrors the complete municipality chooser currently published by the ODIS Station Timetable form.
+    private static let odisMunicipalities: [Self] = [
+        Self(name: "Bruntál", timetableIndex: 4, timetableName: "Bruntal"),
+        Self(name: "Český Těšín", timetableIndex: 5, timetableName: "CesTes"),
+        Self(name: "Frýdek-Místek", timetableIndex: 3, timetableName: "FM"),
+        Self(name: "Havířov", timetableIndex: 6, timetableName: "Havirov"),
+        Self(name: "Karviná", timetableIndex: 7, timetableName: "Karvina"),
+        Self(name: "Krnov", timetableIndex: 8, timetableName: "Krnov"),
+        Self(name: "Nový Jičín", timetableIndex: 9, timetableName: "NJ"),
+        Self(name: "Opava", timetableIndex: 10, timetableName: "Opava"),
+        Self(name: "Orlová", timetableIndex: 11, timetableName: "Orlova"),
+        Self(name: "Ostrava", timetableIndex: 2, timetableName: "ODIS"),
+        Self(name: "Studénka", timetableIndex: 12, timetableName: "Studenka"),
+        Self(name: "Třinec", timetableIndex: 13, timetableName: "Trinec"),
+    ]
+}
+
 /// A station-timetable query for one MHD or integrated-transport line and direction.
 public struct IDOSStationTimetableRequest: Codable, Equatable, Sendable {
     public var timetable: IDOSTimetable
+    /// Narrows a multi-municipality timetable such as ODIS to one local network.
+    public var municipality: IDOSStationTimetableMunicipality?
     public var line: String
     public var from: String
     public var to: String
@@ -1216,6 +1375,7 @@ public struct IDOSStationTimetableRequest: Codable, Equatable, Sendable {
 
     public init(
         timetable: IDOSTimetable,
+        municipality: IDOSStationTimetableMunicipality? = nil,
         line: String,
         from: String,
         to: String,
@@ -1223,6 +1383,7 @@ public struct IDOSStationTimetableRequest: Codable, Equatable, Sendable {
         wholeWeek: Bool = false
     ) {
         self.timetable = timetable
+        self.municipality = municipality
         self.line = line
         self.from = from
         self.to = to
@@ -1242,6 +1403,9 @@ public struct IDOSStationTimetableRequest: Codable, Equatable, Sendable {
             URLQueryItem(name: "f", value: from.trimmingCharacters(in: .whitespacesAndNewlines)),
             URLQueryItem(name: "t", value: to.trimmingCharacters(in: .whitespacesAndNewlines)),
         ]
+        if let municipality = effectiveMunicipality {
+            items.append(URLQueryItem(name: "ttn", value: municipality.timetableName))
+        }
         if let date, !date.isEmpty {
             items.insert(URLQueryItem(name: "date", value: date), at: 0)
         }
@@ -1251,11 +1415,18 @@ public struct IDOSStationTimetableRequest: Codable, Equatable, Sendable {
         items.append(URLQueryItem(name: "submit", value: "true"))
         return items
     }
+
+    /// Applies the same initial municipality as IDOS when a multi-municipality timetable omits one.
+    var effectiveMunicipality: IDOSStationTimetableMunicipality? {
+        municipality ?? IDOSStationTimetableMunicipality.default(for: timetable)
+    }
 }
 
 /// A complete IDOS station timetable with its route, hourly departures, keyed explanations, and notes.
 public struct IDOSStationTimetable: Codable, Equatable, Sendable {
     public var timetable: IDOSTimetable
+    /// Identifies the local network selected inside a multi-municipality timetable.
+    public var municipality: IDOSStationTimetableMunicipality?
     public var lineName: String
     public var transportMode: IDOSTransportMode?
     public var fromStop: String
@@ -1272,6 +1443,7 @@ public struct IDOSStationTimetable: Codable, Equatable, Sendable {
 
     public init(
         timetable: IDOSTimetable,
+        municipality: IDOSStationTimetableMunicipality? = nil,
         lineName: String,
         transportMode: IDOSTransportMode? = nil,
         fromStop: String,
@@ -1284,6 +1456,7 @@ public struct IDOSStationTimetable: Codable, Equatable, Sendable {
         shareURL: String? = nil
     ) {
         self.timetable = timetable
+        self.municipality = municipality
         self.lineName = lineName
         self.transportMode = transportMode
         self.fromStop = fromStop
@@ -1302,6 +1475,7 @@ public struct IDOSStationTimetable: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case timetable
+        case municipality
         case lineName
         case transportMode
         case fromStop
@@ -1319,6 +1493,10 @@ public struct IDOSStationTimetable: Codable, Equatable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
             timetable: try container.decode(IDOSTimetable.self, forKey: .timetable),
+            municipality: try container.decodeIfPresent(
+                IDOSStationTimetableMunicipality.self,
+                forKey: .municipality
+            ),
             lineName: try container.decode(String.self, forKey: .lineName),
             transportMode: try container.decodeIfPresent(
                 IDOSTransportMode.self,
@@ -2508,6 +2686,7 @@ public enum IDOSError: LocalizedError, Sendable {
     case invalidURL
     case invalidJSONP
     case invalidTimetable(String)
+    case invalidStationTimetableMunicipality(String, timetable: IDOSTimetable)
     case networkUnavailable(String)
     case emailUnavailable
     case emailSendingFailed(String)
@@ -2528,6 +2707,14 @@ public enum IDOSError: LocalizedError, Sendable {
             return "IDOS returned an unexpected JSONP format."
         case .invalidTimetable(let value):
             return "Invalid timetable: \(value). Use an alias or a URL slug without slashes."
+        case .invalidStationTimetableMunicipality(let value, let timetable):
+            let available = IDOSStationTimetableMunicipality.available(for: timetable)
+                .map(\.name)
+                .joined(separator: ", ")
+            guard !available.isEmpty else {
+                return "Timetable \(timetable.displayName) does not offer a municipality choice."
+            }
+            return "Invalid municipality: \(value). Available for \(timetable.displayName): \(available)."
         case .networkUnavailable(let detail):
             let detail = detail.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !detail.isEmpty else {
@@ -3338,6 +3525,7 @@ enum IDOSStationTimetableParser {
 
         return IDOSStationTimetable(
             timetable: request.timetable,
+            municipality: request.effectiveMunicipality,
             lineName: lineName,
             transportMode: IDOSTransportMode.infer(from: lineName),
             fromStop: request.from.trimmingCharacters(in: .whitespacesAndNewlines),

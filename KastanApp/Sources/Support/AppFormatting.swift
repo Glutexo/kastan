@@ -217,6 +217,22 @@ enum AppErrorPresentation {
             return AppLocalization.string("IDOS returned an unexpected JSONP format.")
         case .invalidTimetable(let value):
             return AppLocalization.string("Invalid timetable: %@.", value)
+        case .invalidStationTimetableMunicipality(let value, let timetable):
+            let available = IDOSStationTimetableMunicipality.available(for: timetable)
+                .map(\.name)
+                .joined(separator: ", ")
+            if available.isEmpty {
+                return AppLocalization.string(
+                    "Timetable %@ does not offer a municipality choice.",
+                    timetable.appDisplayName
+                )
+            }
+            return AppLocalization.string(
+                "Invalid municipality: %@. Available for %@: %@.",
+                value,
+                timetable.appDisplayName,
+                available
+            )
         case .networkUnavailable(let detail):
             let detail = detail.trimmingCharacters(in: .whitespacesAndNewlines)
             return detail.isEmpty

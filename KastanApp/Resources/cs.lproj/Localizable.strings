@@ -97,6 +97,8 @@
 "IDOS returned an unexpected response." = "IDOS vrátil neočekávanou odpověď.";
 "Invalid service ID: %@." = "Neplatné ID spoje: %@.";
 "Invalid timetable: %@." = "Neplatný jízdní řád: %@.";
+"Invalid municipality: %@. Available for %@: %@." = "Neplatná obec: %@. Pro %@ jsou dostupné: %@.";
+"Timetable %@ does not offer a municipality choice." = "Jízdní řád %@ nenabízí výběr obce.";
 "Journey options" = "Možnosti cesty";
 "Journey option" = "Možnost cesty";
 "Line" = "Linka";
@@ -132,6 +134,7 @@
 "New Tab" = "Nový panel";
 "Now" = "Nyní";
 "municipality" = "obec";
+"Municipality" = "Obec";
 "Municipalities" = "Obce";
 "name@example.com" = "jmeno@priklad.cz";
 "My location" = "Moje poloha";

@@ -119,6 +119,7 @@ struct KastanMCPTools: Sendable {
                 properties: [
                     "prefix": stringSchema("Line number or name prefix to search for."),
                     "timetable": timetableSchema,
+                    "municipality": stationTimetableMunicipalitySchema,
                     "limit": integerSchema("Maximum number of line directions to return. Defaults to 8.", minimum: 1, maximum: 20),
                 ],
                 required: ["prefix"]
@@ -135,6 +136,7 @@ struct KastanMCPTools: Sendable {
                     "prefix": stringSchema("Stop name prefix to search for."),
                     "line": stringSchema("Line name returned by search_station_timetable_lines."),
                     "timetable": timetableSchema,
+                    "municipality": stationTimetableMunicipalitySchema,
                     "limit": integerSchema("Maximum number of stops to return. Defaults to 8.", minimum: 1, maximum: 20),
                 ],
                 required: ["prefix", "line"]
@@ -193,6 +195,7 @@ struct KastanMCPTools: Sendable {
                     "from": stringSchema("Stop at which the displayed timetable starts."),
                     "to": stringSchema("Direction stop for the selected line."),
                     "timetable": timetableSchema,
+                    "municipality": stationTimetableMunicipalitySchema,
                     "date": stringSchema("Search date in the IDOS format d.M.yyyy. Omit to let IDOS use the current date."),
                     "wholeWeek": booleanSchema("When true, return schedules for the whole week instead of one date."),
                     "language": languageSchema,
@@ -288,33 +291,60 @@ struct KastanMCPTools: Sendable {
     private func searchStationTimetableLines(
         _ values: [String: Value]
     ) async throws -> StationTimetableLinesOutput {
-        let arguments = try ToolArguments(values, allowed: ["prefix", "timetable", "limit"])
+        let arguments = try ToolArguments(
+            values,
+            allowed: ["prefix", "timetable", "municipality", "limit"]
+        )
         let prefix = try arguments.requiredString("prefix")
         let timetable = try IDOSTimetable.resolve(arguments.optionalString("timetable"))
+        let municipality = try IDOSStationTimetableMunicipality.resolve(
+            arguments.optionalString("municipality"),
+            timetable: timetable
+        )
         let limit = try arguments.integer("limit", default: 8, range: 1...20)
         let lines = try await client.searchStationTimetableLines(
             prefix: prefix,
             limit: limit,
-            timetable: timetable
+            timetable: timetable,
+            municipality: municipality
         )
-        return StationTimetableLinesOutput(query: prefix, timetable: timetable, lines: lines)
+        return StationTimetableLinesOutput(
+            query: prefix,
+            timetable: timetable,
+            municipality: municipality,
+            lines: lines
+        )
     }
 
     private func searchStationTimetableStops(
         _ values: [String: Value]
     ) async throws -> StationTimetableStopsOutput {
-        let arguments = try ToolArguments(values, allowed: ["prefix", "line", "timetable", "limit"])
+        let arguments = try ToolArguments(
+            values,
+            allowed: ["prefix", "line", "timetable", "municipality", "limit"]
+        )
         let prefix = try arguments.requiredString("prefix")
         let line = try arguments.requiredString("line")
         let timetable = try IDOSTimetable.resolve(arguments.optionalString("timetable"))
+        let municipality = try IDOSStationTimetableMunicipality.resolve(
+            arguments.optionalString("municipality"),
+            timetable: timetable
+        )
         let limit = try arguments.integer("limit", default: 8, range: 1...20)
         let stops = try await client.searchStationTimetableStops(
             prefix: prefix,
             line: line,
             limit: limit,
-            timetable: timetable
+            timetable: timetable,
+            municipality: municipality
         )
-        return StationTimetableStopsOutput(query: prefix, line: line, timetable: timetable, stops: stops)
+        return StationTimetableStopsOutput(
+            query: prefix,
+            line: line,
+            timetable: timetable,
+            municipality: municipality,
+            stops: stops
+        )
     }
 
     private func findConnections(_ values: [String: Value]) async throws -> ConnectionsOutput {
@@ -361,10 +391,18 @@ struct KastanMCPTools: Sendable {
     private func findStationTimetable(_ values: [String: Value]) async throws -> StationTimetableOutput {
         let arguments = try ToolArguments(
             values,
-            allowed: ["line", "from", "to", "timetable", "date", "wholeWeek", "language"]
+            allowed: [
+                "line", "from", "to", "timetable", "municipality", "date", "wholeWeek",
+                "language",
+            ]
         )
+        let timetable = try IDOSTimetable.resolve(arguments.optionalString("timetable"))
         let request = IDOSStationTimetableRequest(
-            timetable: try IDOSTimetable.resolve(arguments.optionalString("timetable")),
+            timetable: timetable,
+            municipality: try IDOSStationTimetableMunicipality.resolve(
+                arguments.optionalString("municipality"),
+                timetable: timetable
+            ),
             line: try arguments.requiredString("line"),
             from: try arguments.requiredString("from"),
             to: try arguments.requiredString("to"),
@@ -457,6 +495,10 @@ struct KastanMCPTools: Sendable {
 
     private static let timetableSchema = stringSchema(
         "Timetable alias, English catalog name, or IDOS URL slug. Defaults to vlakyautobusymhdvse (All timetables)."
+    )
+
+    private static let stationTimetableMunicipalitySchema = stringSchema(
+        "Municipality within a multi-municipality Station Timetable catalog. ODIS defaults to Ostrava."
     )
 
     private static let languageSchema: Value = .object([

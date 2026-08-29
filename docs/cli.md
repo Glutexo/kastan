@@ -173,6 +173,7 @@ Search the third IDOS mode, **Station Timetables**, for an MHD or integrated-tra
 swift run kastan station-timetables --line 154 --from "Strašnická" --to "Sídliště Libuš" --timetable pid
 swift run kastan station-timetables -L "Bus 154" -f "Strašnická" -t "Sídliště Libuš" -T pid -d 17.7.2026
 swift run kastan station-timetables -L "Bus 154" -f "Strašnická" -t "Sídliště Libuš" -T pid --whole-week
+swift run kastan station-timetables -L "Bus 301" -f "Řepiště,,U kříže" -t "Místek,Riviéra" -T odis -u "Frýdek-Místek"
 ```
 
 `--from` selects the stop whose departures are displayed, while `--to` selects the line direction. The result
@@ -182,6 +183,11 @@ notes. Human-readable output places explanations directly after the schedules an
 Platform legends are attached directly to their route stops instead of being repeated as notes.
 `station-timetable` is accepted as a singular command alias.
 Select an MHD or integrated-system catalog such as `pid`, `odis`, or `idsjmk` for unambiguous line results.
+For ODIS, `--municipality` / `-u` selects Bruntál, Český Těšín, Frýdek-Místek, Havířov, Karviná,
+Krnov, Nový Jičín, Opava, Orlová, Ostrava, Studénka, or Třinec. Names are case- and
+diacritic-insensitive, and the short IDOS identifiers such as `FM` are also accepted. Omitting the option follows
+the ODIS default, Ostrava. Supplying a municipality for a timetable without that chooser is rejected before a
+network request.
 
 ### Service Details
 

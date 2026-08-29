@@ -159,6 +159,8 @@ The server advertises these read-only tools:
 The four suggestion tools accept a `timetable` and a `limit` in addition to their required arguments. The default
 limit is 8, and callers can request from 1 through 20 results. `search_station_timetable_stops` expects the exact
 `line` value returned by `search_station_timetable_lines`, preserving its direction context.
+The two Station Timetable suggestion tools also accept `municipality`; use the same value for both calls and the
+final Station Timetable request when searching ODIS.
 
 ### Connections
 
@@ -192,6 +194,8 @@ stops before calling `find_station_timetable`. In the final call, `from` is the 
 and `to` selects the line direction. The optional arguments are:
 
 - `timetable` selects an MHD or integrated-transport catalog.
+- `municipality` selects a local catalog inside ODIS. It accepts a displayed name or short IDOS identifier and
+  defaults to Ostrava when omitted.
 - `date` uses the IDOS `d.M.yyyy` format and defaults to the current date.
 - `wholeWeek` returns schedules for the whole week when `true`.
 - `language` selects `en` or `cs` for IDOS text and defaults to English.
@@ -199,6 +203,10 @@ and `to` selects the line direction. The optional arguments are:
 The result includes the complete route, minute offsets, tariff zones, platforms or stands, departures grouped by
 service day and hour, lockout state, keyed `explanations` for markers used beside concrete departures, general
 `notes`, and the matching IDOS URL.
+Both suggestion results and the final request and result retain the resolved municipality as structured data.
+ODIS offers Bruntál, Český Těšín, Frýdek-Místek, Havířov, Karviná, Krnov, Nový Jičín, Opava,
+Orlová, Ostrava, Studénka, and Třinec. A municipality supplied for another timetable is rejected before IDOS
+is called.
 
 ### Service Details
 

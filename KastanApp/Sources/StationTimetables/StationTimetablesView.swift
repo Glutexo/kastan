@@ -62,6 +62,8 @@ struct StationTimetablesView: View {
         VStack(alignment: .leading, spacing: 14) {
             StationTimetableSearchHeader(
                 timetable: timetableBinding,
+                municipality: municipalityBinding,
+                municipalities: model.municipalities,
                 date: $model.date,
                 wholeWeek: $model.wholeWeek,
                 usesCompactLayout: usesCompactLayout
@@ -99,6 +101,7 @@ struct StationTimetablesView: View {
             text: $model.line,
             timetable: model.timetable,
             scope: .stationTimetableLines,
+            stationTimetableMunicipality: model.municipality,
             client: client,
             onSelection: model.selectLineSuggestion
         )
@@ -113,6 +116,7 @@ struct StationTimetablesView: View {
             timetable: model.timetable,
             scope: .stationTimetableStops,
             stationTimetableLine: model.line,
+            stationTimetableMunicipality: model.municipality,
             client: client
         )
         .frame(minWidth: 180, maxWidth: .infinity)
@@ -126,6 +130,7 @@ struct StationTimetablesView: View {
             timetable: model.timetable,
             scope: .stationTimetableStops,
             stationTimetableLine: model.line,
+            stationTimetableMunicipality: model.municipality,
             client: client
         )
         .frame(minWidth: 180, maxWidth: .infinity)
@@ -148,8 +153,11 @@ struct StationTimetablesView: View {
     private var searchSummary: SearchSummaryPresentation {
         var details = [
             model.timetable.appDisplayName,
-            IDOSRequestFormatting.date(from: model.date),
         ]
+        if let municipality = model.municipality {
+            details.append(municipality.name)
+        }
+        details.append(IDOSRequestFormatting.date(from: model.date))
         if model.wholeWeek {
             details.append(AppLocalization.string("Whole week"))
         }
@@ -163,6 +171,17 @@ struct StationTimetablesView: View {
         Binding(
             get: { model.timetable },
             set: { timetable in model.selectTimetable(slug: timetable.slug) }
+        )
+    }
+
+    private var municipalityBinding: Binding<IDOSStationTimetableMunicipality?> {
+        Binding(
+            get: { model.municipality },
+            set: { municipality in
+                if let municipality {
+                    model.selectMunicipality(municipality)
+                }
+            }
         )
     }
 
@@ -950,47 +969,96 @@ struct StationTimetableRemarksDisclosure: View {
 /// Aligns the station-timetable service date with the shared timetable-first search header.
 struct StationTimetableSearchHeader: View {
     @Binding private var timetable: IDOSTimetable
+    @Binding private var municipality: IDOSStationTimetableMunicipality?
     @Binding private var date: Date
     @Binding private var wholeWeek: Bool
 
     private let usesCompactLayout: Bool
+    private let municipalities: [IDOSStationTimetableMunicipality]
 
     init(
         timetable: Binding<IDOSTimetable>,
+        municipality: Binding<IDOSStationTimetableMunicipality?> = .constant(nil),
+        municipalities: [IDOSStationTimetableMunicipality] = [],
         date: Binding<Date>,
         wholeWeek: Binding<Bool>,
         usesCompactLayout: Bool
     ) {
         _timetable = timetable
+        _municipality = municipality
         _date = date
         _wholeWeek = wholeWeek
+        self.municipalities = municipalities
         self.usesCompactLayout = usesCompactLayout
     }
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 0) {
-            SearchTimetablePicker(
-                timetable: $timetable,
-                allowedTimetables: AppTimetableGroup.stationTimetables,
-                usesCompactLayout: usesCompactLayout
-            )
+        Group {
+            if usesCompactLayout, !municipalities.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .bottom, spacing: 0) {
+                        timetablePicker
+                        Spacer(minLength: 8)
+                        datePicker
+                    }
 
-            Spacer(minLength: usesCompactLayout ? 8 : 12)
+                    municipalityPicker
+                }
+            } else {
+                HStack(alignment: .bottom, spacing: 0) {
+                    timetablePicker
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Date")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(height: SearchFieldHeader.contentHeight, alignment: .leading)
+                    if !municipalities.isEmpty {
+                        Spacer(minLength: usesCompactLayout ? 8 : 12)
+                        municipalityPicker
+                    }
 
-                StationTimetableDatePicker(
-                    date: $date,
-                    wholeWeek: $wholeWeek
-                )
+                    Spacer(minLength: usesCompactLayout ? 8 : 12)
+                    datePicker
+                }
             }
-            .fixedSize(horizontal: true, vertical: false)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var timetablePicker: some View {
+        SearchTimetablePicker(
+            timetable: $timetable,
+            allowedTimetables: AppTimetableGroup.stationTimetables,
+            usesCompactLayout: usesCompactLayout
+        )
+    }
+
+    private var municipalityPicker: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Municipality")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Picker("Municipality", selection: $municipality) {
+                ForEach(municipalities, id: \.timetableName) { municipality in
+                    Text(municipality.name).tag(Optional(municipality))
+                }
+            }
+            .labelsHidden()
+            .frame(width: 150, alignment: .leading)
+        }
+        .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var datePicker: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Date")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(height: SearchFieldHeader.contentHeight, alignment: .leading)
+
+            StationTimetableDatePicker(
+                date: $date,
+                wholeWeek: $wholeWeek
+            )
+        }
+        .fixedSize(horizontal: true, vertical: false)
     }
 }
 

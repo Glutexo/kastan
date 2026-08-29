@@ -26,6 +26,7 @@ import Testing
     #expect(output.contains("--departure"))
     #expect(output.contains("--whole-week"))
     #expect(output.contains("--line"))
+    #expect(output.contains("--municipality"))
     #expect(output.contains("--via"))
     #expect(output.contains("--direct"))
     #expect(output.contains("--add-to-calendar"))
@@ -935,6 +936,36 @@ import Testing
     #expect(explanations.lowerBound < notes.lowerBound)
 }
 
+@Test func stationTimetablesCommandSelectsODISMunicipality() async throws {
+    let odis = try IDOSTimetable.resolve("odis")
+    let municipality = try #require(
+        try IDOSStationTimetableMunicipality.resolve("frydek-mistek", timetable: odis)
+    )
+    let output = await englishCommandRunner(client: MockIDOSClient(
+        expectedStationTimetable: "odis",
+        expectedStationTimetableMunicipality: municipality
+    )).output(
+        for: [
+            "station-timetables", "-L", "Bus 154", "-f", "Strašnická",
+            "-t", "Sídliště Libuš", "-T", "odis", "-u", "Frýdek-Místek",
+            "-d", "17.7.2026", "-w",
+        ]
+    )
+
+    #expect(output.contains("(ODIS · Frýdek-Místek)"))
+}
+
+@Test func stationTimetablesCommandRejectsMunicipalityOutsideSelectedTimetable() async {
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+        for: [
+            "station-timetables", "-L", "Bus 154", "-f", "Strašnická",
+            "-t", "Sídliště Libuš", "-T", "pid", "-u", "Ostrava",
+        ]
+    )
+
+    #expect(output.contains("Timetable Prague + PID does not offer a municipality choice."))
+}
+
 @Test func stationTimetablesCommandAcceptsShortOptionsAndPrintsMarkdown() async {
     let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: [
@@ -1613,6 +1644,53 @@ import Testing
     #expect(values["t"] == "Sídliště Libuš")
     #expect(values["wholeweek"] == "true")
     #expect(values["submit"] == "true")
+}
+
+@Test func odisStationTimetableMunicipalitiesMatchIDOSParameters() throws {
+    let odis = try IDOSTimetable.resolve("odis")
+    let municipalities = IDOSStationTimetableMunicipality.available(for: odis)
+    let frydekMistek = try #require(
+        try IDOSStationTimetableMunicipality.resolve("frydek-mistek", timetable: odis)
+    )
+    let request = IDOSStationTimetableRequest(
+        timetable: odis,
+        municipality: frydekMistek,
+        line: "Bus 301",
+        from: "Řepiště,,U kříže",
+        to: "Místek,Riviéra"
+    )
+    let requestValues = Dictionary(uniqueKeysWithValues: request.queryItems.map { ($0.name, $0.value) })
+    let suggestionValues = Dictionary(uniqueKeysWithValues: IDOSClient
+        .stationTimetableSuggestionQueryItems(
+            prefix: "301",
+            limit: 8,
+            municipality: frydekMistek,
+            onlyStation: false
+        )
+        .map { ($0.name, $0.value) })
+
+    #expect(municipalities.map(\.name) == [
+        "Bruntál", "Český Těšín", "Frýdek-Místek", "Havířov", "Karviná", "Krnov",
+        "Nový Jičín", "Opava", "Orlová", "Ostrava", "Studénka", "Třinec",
+    ])
+    #expect(frydekMistek.timetableIndex == 3)
+    #expect(frydekMistek.timetableName == "FM")
+    #expect(try IDOSStationTimetableMunicipality.resolve("FM", timetable: odis) == frydekMistek)
+    #expect(IDOSStationTimetableMunicipality.default(for: odis)?.name == "Ostrava")
+    #expect(IDOSStationTimetableMunicipality.available(
+        for: IDOSTimetable(slug: "pid", displayName: "Prague + PID")
+    ).isEmpty)
+    #expect(requestValues["ttn"] == "FM")
+    #expect(suggestionValues["bindTtIndex"] == "3")
+
+    let defaultRequest = IDOSStationTimetableRequest(
+        timetable: odis,
+        line: "Tram 1",
+        from: "Dubina",
+        to: "Hlučínská"
+    )
+    let defaultValues = Dictionary(uniqueKeysWithValues: defaultRequest.queryItems.map { ($0.name, $0.value) })
+    #expect(defaultValues["ttn"] == "ODIS")
 }
 
 @Test func stationTimetableLineSuggestionKeepsDirectionTerminals() throws {
@@ -2486,6 +2564,8 @@ private struct MockIDOSClient: IDOSClienting {
     var suggestionResultsByPrefix: [String: [IDOSSuggestion]] = [:]
     var stationResultsByPrefix: [String: [IDOSSuggestion]] = [:]
     var expectedServiceLanguage: IDOSLanguage = .english
+    var expectedStationTimetable = "pid"
+    var expectedStationTimetableMunicipality: IDOSStationTimetableMunicipality? = nil
     var expectedStationTimetableLanguage: IDOSLanguage = .english
     var expectedCalendarLanguage: IDOSLanguage = .english
 
@@ -2637,7 +2717,8 @@ private struct MockIDOSClient: IDOSClienting {
         request: IDOSStationTimetableRequest,
         language: IDOSLanguage
     ) async throws -> IDOSStationTimetable {
-        #expect(request.timetable.slug == "pid")
+        #expect(request.timetable.slug == expectedStationTimetable)
+        #expect(request.municipality == expectedStationTimetableMunicipality)
         #expect(request.line == "Bus 154")
         #expect(request.from == "Strašnická")
         #expect(request.to == "Sídliště Libuš")
@@ -2647,6 +2728,7 @@ private struct MockIDOSClient: IDOSClienting {
 
         return IDOSStationTimetable(
             timetable: request.timetable,
+            municipality: request.municipality,
             lineName: request.line,
             transportMode: .bus,
             fromStop: request.from,

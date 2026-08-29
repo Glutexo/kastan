@@ -164,6 +164,19 @@ struct CommandRunner {
                 return localization.text(.idosInvalidJSONP)
             case .invalidTimetable(let value):
                 return localization.text(.idosInvalidTimetable, value)
+            case .invalidStationTimetableMunicipality(let value, let timetable):
+                let timetableName = localization.timetableName(timetable)
+                let available = IDOSStationTimetableMunicipality.available(for: timetable)
+                    .map(\.name)
+                    .joined(separator: ", ")
+                return available.isEmpty
+                    ? localization.text(.timetableWithoutMunicipality, timetableName)
+                    : localization.text(
+                        .invalidStationTimetableMunicipality,
+                        value,
+                        timetableName,
+                        available
+                    )
             case .networkUnavailable(let detail):
                 let detail = detail.trimmingCharacters(in: .whitespacesAndNewlines)
                 return detail.isEmpty
@@ -384,7 +397,7 @@ struct CommandRunner {
             allowedFlags: ["--whole-week", "-w"],
             allowedValueOptions: [
                 "--line", "-L", "--from", "-f", "--to", "-t", "--timetable", "-T",
-                "--date", "-d", "--format", "-o",
+                "--municipality", "-u", "--date", "-d", "--format", "-o",
             ]
         )
         let format = try options.outputFormat()
@@ -408,8 +421,13 @@ struct CommandRunner {
             explicitValue: options.value(for: "--timetable", short: "-T"),
             aliases: [fromPlace.alias, toPlace.alias].compactMap(\.self)
         )
+        let municipality = try IDOSStationTimetableMunicipality.resolve(
+            options.value(for: "--municipality", short: "-u"),
+            timetable: timetable
+        )
         let request = IDOSStationTimetableRequest(
             timetable: timetable,
+            municipality: municipality,
             line: line,
             from: fromPlace.station,
             to: toPlace.station,
@@ -1448,6 +1466,11 @@ private enum OutputFormat: String {
             .compactMap(\.self)
             .filter { !$0.isEmpty }
             .joined(separator: " ")
+        let municipality = result.municipality ?? output.request.municipality
+        let timetableContext = [
+            localization.timetableName(result.timetable),
+            municipality?.name,
+        ].compactMap(\.self).joined(separator: " · ")
 
         switch self {
         case .text:
@@ -1493,7 +1516,7 @@ private enum OutputFormat: String {
             """
 
             return """
-            🗓️ \(localization.text(.stationTimetable)) \(lineName) · \(result.fromStop) → \(result.toStop) (\(localization.timetableName(result.timetable))):\(lockout)
+            🗓️ \(localization.text(.stationTimetable)) \(lineName) · \(result.fromStop) → \(result.toStop) (\(timetableContext)):\(lockout)
             🛤️ \(localization.text(.route)):
             \(routeRows)
 
@@ -1533,6 +1556,9 @@ private enum OutputFormat: String {
 
             \(result.notes.map { "- \(Markdown.escape($0))" }.joined(separator: "\n"))
             """
+            let municipalityLine = municipality.map {
+                "\n**\(localization.text(.municipality)):** \(Markdown.escape($0.name))"
+            } ?? ""
 
             return """
             ## 🗓️ \(localization.text(.stationTimetable))
@@ -1540,7 +1566,7 @@ private enum OutputFormat: String {
             **\(localization.text(.line)):** \(Markdown.escape(lineName))
             **\(localization.text(.from)):** \(Markdown.escape(result.fromStop))
             **\(localization.text(.to)):** \(Markdown.escape(result.toStop))
-            **\(localization.text(.timetable)):** \(Markdown.escape(localization.timetableName(result.timetable)))\(lockout)
+            **\(localization.text(.timetable)):** \(Markdown.escape(localization.timetableName(result.timetable)))\(municipalityLine)\(lockout)
 
             ### 🛤️ \(localization.text(.route))
 
@@ -1551,6 +1577,18 @@ private enum OutputFormat: String {
             \(schedules)\(explanations)\(notes)
             """
         case .html:
+            var details = [
+                (label: localization.text(.line), value: lineName),
+                (label: localization.text(.from), value: result.fromStop),
+                (label: localization.text(.to), value: result.toStop),
+                (
+                    label: localization.text(.timetable),
+                    value: localization.timetableName(result.timetable)
+                ),
+            ]
+            if let municipality {
+                details.append((label: localization.text(.municipality), value: municipality.name))
+            }
             let routeRows = result.stops.enumerated().map { index, stop in
                 [
                     HTML.escape(String(index + 1)),
@@ -1597,15 +1635,7 @@ private enum OutputFormat: String {
                 language: localization.language,
                 body: """
                 <h1>🗓️ \(HTML.escape(localization.text(.stationTimetable)))</h1>
-                \(HTML.definitionList([
-                    (label: localization.text(.line), value: lineName),
-                    (label: localization.text(.from), value: result.fromStop),
-                    (label: localization.text(.to), value: result.toStop),
-                    (
-                        label: localization.text(.timetable),
-                        value: localization.timetableName(result.timetable)
-                    ),
-                ]))
+                \(HTML.definitionList(details))
                 \(lockout)
                 <h2>🛤️ \(HTML.escape(localization.text(.route)))</h2>
                 \(HTML.table(

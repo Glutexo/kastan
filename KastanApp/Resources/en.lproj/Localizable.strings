@@ -97,6 +97,8 @@
 "IDOS returned an unexpected response." = "IDOS returned an unexpected response.";
 "Invalid service ID: %@." = "Invalid service ID: %@.";
 "Invalid timetable: %@." = "Invalid timetable: %@.";
+"Invalid municipality: %@. Available for %@: %@." = "Invalid municipality: %@. Available for %@: %@.";
+"Timetable %@ does not offer a municipality choice." = "Timetable %@ does not offer a municipality choice.";
 "Journey options" = "Journey options";
 "Journey option" = "Journey option";
 "Line" = "Line";
@@ -132,6 +134,7 @@
 "New Tab" = "New Tab";
 "Now" = "Now";
 "municipality" = "municipality";
+"Municipality" = "Municipality";
 "Municipalities" = "Municipalities";
 "name@example.com" = "name@example.com";
 "My location" = "My location";

@@ -84,11 +84,19 @@ let selectedDayStatus = operatingDays.status(on: operatingDays.referenceDate)
 let serviceCalendar = try await client.serviceCalendar(for: service, language: .czech)
 let servicePDF = try await client.servicePDF(for: service, language: .czech)
 
-let pid = try IDOSTimetable.resolve("pid")
-let lines = try await client.searchStationTimetableLines(prefix: "154", timetable: pid)
+let municipality = try IDOSStationTimetableMunicipality.resolve(
+    "Frýdek-Místek",
+    timetable: timetable
+)
+let lines = try await client.searchStationTimetableLines(
+    prefix: "301",
+    timetable: timetable,
+    municipality: municipality
+)
 let stationTimetable = try await client.findStationTimetable(
     request: IDOSStationTimetableRequest(
-        timetable: pid,
+        timetable: timetable,
+        municipality: municipality,
         line: lines[0].text,
         from: lines[0].from!,
         to: lines[0].to!,
@@ -116,7 +124,7 @@ The main public types are:
 
 - Client and errors: `IDOSClient`, `IDOSClienting`, and `IDOSError`.
 - Requests and timetables: `IDOSConnectionRequest`, `IDOSDeparturesRequest`, `IDOSStationTimetableRequest`,
-  `IDOSPlaceSelection`, `IDOSTimetable`, and `IDOSTimetableValidity`.
+  `IDOSStationTimetableMunicipality`, `IDOSPlaceSelection`, `IDOSTimetable`, and `IDOSTimetableValidity`.
 - Results: `IDOSSuggestion`, `IDOSConnection`, `IDOSConnectionEmailDraft`, `IDOSConnectionLeg`, `IDOSDeparture`, `IDOSServiceDetail`,
   `IDOSServiceInformation`, `IDOSServiceStop`, `IDOSStationTimetable`, `IDOSStationTimetableStop`,
   `IDOSStationTimetableSchedule`, `IDOSStationTimetableHour`, and `IDOSTransportMode`.
@@ -203,6 +211,13 @@ key occurs beside a concrete departure. Platform or stand numbers are exposed on
 `IDOSStationTimetableStop` instead of being duplicated in the timetable-wide notes. Human-readable text
 received from IDOS uses the Unicode `→` symbol instead of an ASCII substitute; opaque identifiers and URLs
 remain unchanged.
+
+ODIS contains separate municipal Station Timetable catalogs. Use
+`IDOSStationTimetableMunicipality.available(for:)` to present the supported choices or `resolve(_:timetable:)`
+to accept either an IDOS municipality name or identifier. Pass the same municipality to the line and stop
+suggestion overloads and to `IDOSStationTimetableRequest`; the parsed `IDOSStationTimetable` retains that choice.
+Omitting it for ODIS follows the IDOS form default, Ostrava. Timetables without a municipality chooser return an
+empty choice list and continue to use the municipality-free overloads.
 
 ## Data Source
 

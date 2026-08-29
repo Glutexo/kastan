@@ -8,6 +8,7 @@ final class StationTimetablesViewModel: ObservableObject {
     @Published var from = ""
     @Published var to = ""
     @Published var timetable: IDOSTimetable
+    @Published var municipality: IDOSStationTimetableMunicipality?
     @Published var date = Date()
     @Published var wholeWeek = false
     @Published private(set) var result: IDOSStationTimetable?
@@ -19,12 +20,18 @@ final class StationTimetablesViewModel: ObservableObject {
     init(client: any IDOSClienting) {
         self.client = client
         timetable = AppTimetableDefaults.search
+        municipality = IDOSStationTimetableMunicipality.default(for: timetable)
+    }
+
+    /// Municipalities available inside the currently selected Station Timetable catalog.
+    var municipalities: [IDOSStationTimetableMunicipality] {
+        IDOSStationTimetableMunicipality.available(for: timetable)
     }
 
     var canSearch: Bool {
         [line, from, to].allSatisfy {
             !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        } && !isSearching
+        } && (municipalities.isEmpty || municipality != nil) && !isSearching
     }
 
     /// Applies both terminal names supplied by IDOS with a selected line direction.
@@ -44,6 +51,18 @@ final class StationTimetablesViewModel: ObservableObject {
             return
         }
         timetable = selected
+        municipality = IDOSStationTimetableMunicipality.default(for: selected)
+        clearRoute()
+    }
+
+    /// Selects one local network within a multi-municipality catalog and clears its previous route.
+    func selectMunicipality(_ selected: IDOSStationTimetableMunicipality) {
+        guard municipalities.contains(selected), selected != municipality else { return }
+        municipality = selected
+        clearRoute()
+    }
+
+    private func clearRoute() {
         line = ""
         from = ""
         to = ""
@@ -77,6 +96,7 @@ final class StationTimetablesViewModel: ObservableObject {
 
         let request = IDOSStationTimetableRequest(
             timetable: timetable,
+            municipality: municipality,
             line: line,
             from: from,
             to: to,

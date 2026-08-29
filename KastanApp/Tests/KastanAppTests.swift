@@ -2911,6 +2911,27 @@ final class KastanAppTests: XCTestCase {
         XCTAssertLessThanOrEqual(hostingView.fittingSize.width, layout.contentWidth)
     }
 
+    func testODISStationTimetableHeaderFitsMunicipalityAtMinimumWidth() throws {
+        let model = StationTimetablesViewModel(client: MockIDOSClient())
+        model.selectTimetable(slug: "odis")
+        let layout = DetailLayout(availableWidth: KastanApp.minimumMainWindowWidth)
+        let header = StationTimetableSearchHeader(
+            timetable: .constant(model.timetable),
+            municipality: .constant(model.municipality),
+            municipalities: model.municipalities,
+            date: .constant(model.date),
+            wholeWeek: .constant(model.wholeWeek),
+            usesCompactLayout: true
+        )
+        let hostingView = NSHostingView(rootView: header)
+
+        hostingView.layoutSubtreeIfNeeded()
+
+        XCTAssertEqual(model.municipalities.count, 12)
+        XCTAssertEqual(model.municipality?.name, "Ostrava")
+        XCTAssertLessThanOrEqual(hostingView.fittingSize.width, layout.contentWidth)
+    }
+
     func testStationTimetableSearchHeaderMatchesJourneyHeaderHeight() {
         let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
         let stationHeader = NSHostingView(rootView: StationTimetableSearchHeader(
@@ -5772,6 +5793,30 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(requestCount, 1)
     }
 
+    func testStationTimetableSuggestionsUseSelectedODISMunicipality() async throws {
+        let client = MockIDOSClient()
+        let odis = try IDOSTimetable.resolve("odis")
+        let municipality = try XCTUnwrap(
+            IDOSStationTimetableMunicipality.resolve("Frýdek-Místek", timetable: odis)
+        )
+        let lines = PlaceSuggestionsModel(client: client, scope: .stationTimetableLines)
+        let stops = PlaceSuggestionsModel(client: client, scope: .stationTimetableStops)
+
+        lines.update(query: "301", timetable: odis, municipality: municipality)
+        stops.update(
+            query: "Ře",
+            timetable: odis,
+            line: "Bus 301",
+            municipality: municipality
+        )
+        try await Task.sleep(nanoseconds: 350_000_000)
+
+        let lineMunicipality = await client.lastStationTimetableLineMunicipality
+        let stopMunicipality = await client.lastStationTimetableStopMunicipality
+        XCTAssertEqual(lineMunicipality, municipality)
+        XCTAssertEqual(stopMunicipality, municipality)
+    }
+
     func testStationTimetableSearchUsesSelectedLineDirectionAndWeekMode() async {
         let client = MockIDOSClient()
         let model = StationTimetablesViewModel(client: client)
@@ -5796,6 +5841,39 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(language, AppLanguagePreference.idosLanguage)
         XCTAssertEqual(model.result?.selectedStop?.name, "Strašnická")
         XCTAssertNil(model.errorMessage)
+    }
+
+    func testStationTimetableMunicipalitySelectionClearsAndScopesTheRoute() async throws {
+        let client = MockIDOSClient()
+        let model = StationTimetablesViewModel(client: client)
+        model.selectTimetable(slug: "odis")
+        model.selectLineSuggestion(IDOSSuggestion(
+            text: "Tram 1",
+            from: "Dubina",
+            to: "Hlučínská"
+        ))
+        let municipality = try XCTUnwrap(
+            model.municipalities.first { $0.name == "Frýdek-Místek" }
+        )
+
+        model.selectMunicipality(municipality)
+
+        XCTAssertEqual(model.municipality, municipality)
+        XCTAssertTrue(model.line.isEmpty)
+        XCTAssertTrue(model.from.isEmpty)
+        XCTAssertTrue(model.to.isEmpty)
+        XCTAssertNil(model.result)
+
+        model.selectLineSuggestion(IDOSSuggestion(
+            text: "Bus 301",
+            from: "Řepiště,,U kříže",
+            to: "Místek,Riviéra"
+        ))
+        await model.search()
+
+        let request = await client.lastStationTimetableRequest
+        XCTAssertEqual(request?.municipality, municipality)
+        XCTAssertEqual(model.result?.municipality, municipality)
     }
 
     func testStationTimetableStopSelectionStartsAtThatStop() async {
@@ -6409,6 +6487,8 @@ private actor MockIDOSClient: IDOSClienting {
     var lastServicePDFLanguage: IDOSLanguage?
     var lastStationTimetableRequest: IDOSStationTimetableRequest?
     var lastStationTimetableLanguage: IDOSLanguage?
+    var lastStationTimetableLineMunicipality: IDOSStationTimetableMunicipality?
+    var lastStationTimetableStopMunicipality: IDOSStationTimetableMunicipality?
     var lastEmailRecipient: String?
     var lastEmailMessage: String?
     var lastEmailTimetable: IDOSTimetable?
@@ -6478,6 +6558,16 @@ private actor MockIDOSClient: IDOSClienting {
         [IDOSSuggestion(text: "Bus 154", from: "Strašnická", to: "Sídliště Libuš")]
     }
 
+    func searchStationTimetableLines(
+        prefix: String,
+        limit: Int,
+        timetable: IDOSTimetable,
+        municipality: IDOSStationTimetableMunicipality?
+    ) async throws -> [IDOSSuggestion] {
+        lastStationTimetableLineMunicipality = municipality
+        return [IDOSSuggestion(text: "Bus 301", from: "Řepiště,,U kříže", to: "Místek,Riviéra")]
+    }
+
     func searchStationTimetableStops(
         prefix: String,
         line: String,
@@ -6485,6 +6575,17 @@ private actor MockIDOSClient: IDOSClienting {
         timetable: IDOSTimetable
     ) async throws -> [IDOSSuggestion] {
         [IDOSSuggestion(text: "Strašnická")]
+    }
+
+    func searchStationTimetableStops(
+        prefix: String,
+        line: String,
+        limit: Int,
+        timetable: IDOSTimetable,
+        municipality: IDOSStationTimetableMunicipality?
+    ) async throws -> [IDOSSuggestion] {
+        lastStationTimetableStopMunicipality = municipality
+        return [IDOSSuggestion(text: "Řepiště,,U kříže")]
     }
 
     func findStationTimetable(
@@ -6495,6 +6596,7 @@ private actor MockIDOSClient: IDOSClienting {
         lastStationTimetableLanguage = language
         return IDOSStationTimetable(
             timetable: request.timetable,
+            municipality: request.municipality,
             lineName: request.line,
             transportMode: .bus,
             fromStop: request.from,

@@ -78,6 +78,7 @@ final class PlaceSuggestionsModel: ObservableObject {
         query: String,
         timetable: IDOSTimetable,
         line: String? = nil,
+        municipality: IDOSStationTimetableMunicipality? = nil,
         visibility: PlaceSuggestionVisibility = .defaultValue
     ) {
         task?.cancel()
@@ -117,7 +118,8 @@ final class PlaceSuggestionsModel: ObservableObject {
                     try await self.client.searchStationTimetableLines(
                         prefix: query,
                         limit: Self.visibleSuggestionLimit,
-                        timetable: timetable
+                        timetable: timetable,
+                        municipality: municipality
                     )
                 case .stationTimetableStops:
                     if let line, !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -125,7 +127,8 @@ final class PlaceSuggestionsModel: ObservableObject {
                             prefix: query,
                             line: line,
                             limit: Self.visibleSuggestionLimit,
-                            timetable: timetable
+                            timetable: timetable,
+                            municipality: municipality
                         )
                     } else {
                         [IDOSSuggestion]()
@@ -521,6 +524,7 @@ struct PlaceAutocompleteField: View {
     let timetable: IDOSTimetable
     let suggestionScope: PlaceSuggestionScope
     let stationTimetableLine: String?
+    let stationTimetableMunicipality: IDOSStationTimetableMunicipality?
     let onSelection: ((IDOSSuggestion) -> Void)?
     let headerShortcutTitle: LocalizedStringKey?
     let showsHeaderShortcut: Bool
@@ -540,6 +544,7 @@ struct PlaceAutocompleteField: View {
         timetable: IDOSTimetable,
         scope: PlaceSuggestionScope,
         stationTimetableLine: String? = nil,
+        stationTimetableMunicipality: IDOSStationTimetableMunicipality? = nil,
         client: any IDOSClienting,
         onSelection: ((IDOSSuggestion) -> Void)? = nil,
         headerShortcutTitle: LocalizedStringKey? = nil,
@@ -555,6 +560,7 @@ struct PlaceAutocompleteField: View {
         self.timetable = timetable
         suggestionScope = scope
         self.stationTimetableLine = stationTimetableLine
+        self.stationTimetableMunicipality = stationTimetableMunicipality
         self.onSelection = onSelection
         self.headerShortcutTitle = headerShortcutTitle
         self.showsHeaderShortcut = showsHeaderShortcut
@@ -580,6 +586,7 @@ struct PlaceAutocompleteField: View {
                         query: value,
                         timetable: timetable,
                         line: stationTimetableLine,
+                        municipality: stationTimetableMunicipality,
                         visibility: placeSuggestionVisibility
                     )
                 }
@@ -591,6 +598,7 @@ struct PlaceAutocompleteField: View {
                         query: text,
                         timetable: timetable,
                         line: stationTimetableLine,
+                        municipality: stationTimetableMunicipality,
                         visibility: placeSuggestionVisibility
                     )
                 }
@@ -599,6 +607,16 @@ struct PlaceAutocompleteField: View {
                         query: text,
                         timetable: timetable,
                         line: stationTimetableLine,
+                        municipality: stationTimetableMunicipality,
+                        visibility: placeSuggestionVisibility
+                    )
+                }
+                .onChange(of: stationTimetableMunicipality) { _ in
+                    model.update(
+                        query: text,
+                        timetable: timetable,
+                        line: stationTimetableLine,
+                        municipality: stationTimetableMunicipality,
                         visibility: placeSuggestionVisibility
                     )
                 }

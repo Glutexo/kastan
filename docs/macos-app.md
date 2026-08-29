@@ -48,7 +48,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, optional tariff zones and platforms or stands, lockout labels, keyed departure explanations,
-  timetable-wide notes, and links back to the matching IDOS result. Line suggestions use the transport icon supplied
+  timetable-wide notes, and links back to the matching IDOS result. Selecting ODIS adds its complete Municipality
+  picker and initially selects Ostrava, matching IDOS. Changing the municipality clears the previous line and
+  direction before all three fields request suggestions from the newly selected local catalog. The picker moves to
+  its own row at compact window widths so the timetable and date controls remain unclipped. Line suggestions use the transport icon supplied
   by IDOS, such as 🚌 for a bus or 🚋 for a tram, instead of presenting the line as a generic place. Schedule
   headings keep the numeric date and follow the selected language's weekday capitalization, such as lowercase Czech
   `středa` and uppercase English `Wednesday`. The route, explanations, and notes use icon headings. Route stops use
