@@ -255,16 +255,12 @@ open KastanApp/KastanApp.xcodeproj
 ## Build and Test from Terminal
 
 ```sh
-xcodebuild build \
-  -project KastanApp/KastanApp.xcodeproj \
-  -scheme KastanApp \
-  -destination 'platform=macOS'
-
-xcodebuild test \
-  -project KastanApp/KastanApp.xcodeproj \
-  -scheme KastanApp \
-  -destination 'platform=macOS'
+make build
+make test-app
 ```
+
+Both commands keep their Xcode products in a `.noindex` build directory and unregister the temporary app bundle
+after Xcode finishes, so it never becomes an additional Spotlight result.
 
 ## Keep One Development Build in Spotlight
 

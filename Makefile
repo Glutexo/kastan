@@ -27,6 +27,8 @@ APP_BUNDLE_FILENAME := Kastan
 APP_BUNDLE_IDENTIFIER := cz.glutexo.kastan
 APP_ENTITLEMENTS := KastanApp/KastanApp.entitlements
 APP_VERSION := $(shell sed -n 's/^[[:space:]]*MARKETING_VERSION = \([^;]*\);/\1/p' $(APP_PROJECT)/project.pbxproj | head -n 1)
+APP_BUILD_DIR := .build/macos-app.noindex
+APP_BUILD_PRODUCT := $(APP_BUILD_DIR)/Build/Products/Debug/$(APP_BUNDLE_FILENAME).app
 APP_INSTALL_DIR ?= $(HOME)/Applications
 APP_INSTALL_BUILD_DIR := .build/install-app.noindex
 APP_INSTALL_SOURCE := $(APP_INSTALL_BUILD_DIR)/Build/Products/Debug/$(APP_BUNDLE_FILENAME).app
@@ -36,7 +38,7 @@ CONTAINER_VERSION ?= $(APP_VERSION)
 CONTAINER_REVISION ?= $(shell $(GIT) rev-parse --verify HEAD 2>/dev/null || printf '%s' unknown)
 
 DIST_DIR ?= dist
-DIST_BUILD_DIR := .build/distribution
+DIST_BUILD_DIR := .build/distribution.noindex
 DIST_APP := $(DIST_BUILD_DIR)/Build/Products/Release/$(APP_BUNDLE_FILENAME).app
 DMG_ROOT := $(DIST_BUILD_DIR)/dmg-root
 DMG_PATH := $(DIST_DIR)/kastan-$(APP_VERSION)-macos.dmg
@@ -68,14 +70,17 @@ help: ## Show the available development commands.
 build: ## Build every Kaštan interface.
 	$(SWIFT) build
 	$(SWIFT) build --package-path MCPServer
-	$(XCODEBUILD) build \
+	LSREGISTER="$(LSREGISTER)" sh Scripts/run-xcodebuild-without-spotlight.sh \
+		"$(abspath $(APP_BUILD_PRODUCT))" "$(XCODEBUILD)" build \
 		-project $(APP_PROJECT) \
 		-scheme $(APP_SCHEME) \
 		-destination '$(APP_DESTINATION)' \
+		-derivedDataPath "$(APP_BUILD_DIR)" \
 		CODE_SIGNING_ALLOWED=NO
 
 install-app: ## Build, install, and de-duplicate the macOS app for Spotlight.
-	$(XCODEBUILD) build \
+	LSREGISTER="$(LSREGISTER)" sh Scripts/run-xcodebuild-without-spotlight.sh \
+		"$(abspath $(APP_INSTALL_SOURCE))" "$(XCODEBUILD)" build \
 		-project $(APP_PROJECT) \
 		-scheme $(APP_SCHEME) \
 		-configuration Debug \
@@ -106,17 +111,21 @@ test-mcp: ## Test the MCP server.
 	$(SWIFT) test --package-path MCPServer
 
 test-app: ## Test the macOS app.
-	$(XCODEBUILD) test \
+	LSREGISTER="$(LSREGISTER)" sh Scripts/run-xcodebuild-without-spotlight.sh \
+		"$(abspath $(APP_BUILD_PRODUCT))" "$(XCODEBUILD)" test \
 		-project $(APP_PROJECT) \
 		-scheme $(APP_SCHEME) \
 		-destination '$(APP_DESTINATION)' \
+		-derivedDataPath "$(APP_BUILD_DIR)" \
 		CODE_SIGNING_ALLOWED=NO
 
 test-tooling: ## Test repository development tooling.
 	sh Scripts/Tests/macos-app-name-tests.sh
+	sh Scripts/Tests/macos-app-build-path-tests.sh
 	swift Scripts/Tests/macos-app-icon-tests.swift
 	sh Scripts/Tests/install-app-for-spotlight-tests.sh
 	sh Scripts/Tests/keep-current-app-registered-tests.sh
+	sh Scripts/Tests/run-xcodebuild-without-spotlight-tests.sh
 
 container-images: ## Build the CLI and MCP Linux container images.
 	$(DOCKER) build \
@@ -207,7 +216,8 @@ check-dist:
 
 dmg: ## Create an ad-hoc-signed universal macOS DMG.
 	mkdir -p "$(DIST_DIR)"
-	$(XCODEBUILD) build \
+	LSREGISTER="$(LSREGISTER)" sh Scripts/run-xcodebuild-without-spotlight.sh \
+		"$(abspath $(DIST_APP))" "$(XCODEBUILD)" build \
 		-project $(APP_PROJECT) \
 		-scheme $(APP_SCHEME) \
 		-configuration Release \
