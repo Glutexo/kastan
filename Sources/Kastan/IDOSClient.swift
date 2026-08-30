@@ -1316,6 +1316,8 @@ public struct IDOSStationTimetableMunicipality: Codable, Equatable, Hashable, Se
             odisMunicipalities
         case "iredo":
             iredoMunicipalities
+        case "idol":
+            idolMunicipalities
         default:
             []
         }
@@ -1329,6 +1331,8 @@ public struct IDOSStationTimetableMunicipality: Codable, Equatable, Hashable, Se
             timetableName = "ODIS"
         case "iredo":
             timetableName = "DvurKral"
+        case "idol":
+            timetableName = "CeskaLipa"
         default:
             return nil
         }
@@ -1387,12 +1391,20 @@ public struct IDOSStationTimetableMunicipality: Codable, Equatable, Hashable, Se
         Self(name: "Týniště nad Orlicí", timetableIndex: 7, timetableName: "TynisteNadOrlici"),
         Self(name: "Vrchlabí", timetableIndex: 8, timetableName: "Vrchlabi"),
     ]
+
+    /// Mirrors the complete municipality chooser currently published by the IDOL Station Timetable form.
+    private static let idolMunicipalities: [Self] = [
+        Self(name: "Česká Lípa", timetableIndex: 2, timetableName: "CeskaLipa"),
+        Self(name: "Jablonec nad Nisou", timetableIndex: 3, timetableName: "Jablonec"),
+        Self(name: "Liberec", timetableIndex: 4, timetableName: "Liberec"),
+        Self(name: "Turnov", timetableIndex: 5, timetableName: "Turnov"),
+    ]
 }
 
 /// A station-timetable query for one MHD or integrated-transport line and direction.
 public struct IDOSStationTimetableRequest: Codable, Equatable, Sendable {
     public var timetable: IDOSTimetable
-    /// Narrows a multi-municipality timetable such as ODIS or IREDO to one local network.
+    /// Narrows a multi-municipality timetable such as ODIS, IREDO, or IDOL to one local network.
     public var municipality: IDOSStationTimetableMunicipality?
     public var line: String
     public var from: String

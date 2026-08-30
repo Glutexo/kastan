@@ -180,6 +180,27 @@ import Testing
     #expect(await mock.lastStationTimetableLineMunicipality?.timetableName == "DvurKral")
 }
 
+@Test func stationTimetableSuggestionToolsUseIDOLDefaultMunicipality() async {
+    let mock = MockIDOSClient()
+    let tools = KastanMCPTools(client: mock)
+    let lines = await tools.call(
+        name: "search_station_timetable_lines",
+        arguments: ["prefix": "202", "timetable": "idol"]
+    )
+
+    #expect(
+        lines.structuredContent?.objectValue?["municipality"]?.objectValue?["name"]
+            == "Česká Lípa"
+    )
+    #expect(await mock.lastStationTimetableLineQuery == QueryCall(
+        prefix: "202",
+        limit: 8,
+        timetableSlug: "idol"
+    ))
+    #expect(await mock.lastStationTimetableLineMunicipality?.timetableIndex == 2)
+    #expect(await mock.lastStationTimetableLineMunicipality?.timetableName == "CeskaLipa")
+}
+
 @Test func departureToolLimitsReturnedRowsWithoutChangingIDOSRequest() async {
     let mock = MockIDOSClient()
     let tools = KastanMCPTools(client: mock)

@@ -3043,6 +3043,52 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(model.municipality?.name, "Chrudim")
     }
 
+    func testIDOLOffersItsPublishedMunicipalityPicker() throws {
+        let client = MockIDOSClient()
+        let model = StationTimetablesViewModel(client: client)
+        model.selectTimetable(slug: "idol")
+        let municipalityNames = [
+            "Česká Lípa", "Jablonec nad Nisou", "Liberec", "Turnov",
+        ]
+        let width = KastanApp.minimumMainWindowWidth
+        let hostingView = NSHostingView(rootView: StationTimetablesView(
+            model: model,
+            client: client,
+            showsItemDetails: false,
+            showsStopNoteText: false
+        ).frame(width: width, height: 600))
+        hostingView.frame = NSRect(x: 0, y: 0, width: width, height: 600)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        XCTAssertEqual(model.municipalities.map(\.name), municipalityNames)
+        XCTAssertEqual(model.municipality?.name, "Česká Lípa")
+        let municipalityPicker = try XCTUnwrap(
+            hostingView.allDescendantViews.compactMap { $0 as? NSPopUpButton }.first {
+                $0.itemTitles == municipalityNames
+            }
+        )
+        let liberecIndex = try XCTUnwrap(
+            model.municipalities.firstIndex(where: { $0.name == "Liberec" })
+        )
+
+        municipalityPicker.selectItem(at: liberecIndex)
+        municipalityPicker.sendAction(
+            municipalityPicker.action,
+            to: municipalityPicker.target
+        )
+
+        XCTAssertEqual(model.municipality?.name, "Liberec")
+    }
+
     func testStationTimetableSearchHeaderMatchesJourneyHeaderHeight() {
         let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
         let stationHeader = NSHostingView(rootView: StationTimetableSearchHeader(

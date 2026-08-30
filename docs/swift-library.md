@@ -212,12 +212,15 @@ key occurs beside a concrete departure. Platform or stand numbers are exposed on
 received from IDOS uses the Unicode `→` symbol instead of an ASCII substitute; opaque identifiers and URLs
 remain unchanged.
 
-ODIS contains separate municipal Station Timetable catalogs. Use
+ODIS, IREDO, and IDOL contain separate municipal Station Timetable catalogs. Use
 `IDOSStationTimetableMunicipality.available(for:)` to present the supported choices or `resolve(_:timetable:)`
 to accept either an IDOS municipality name or identifier. Pass the same municipality to the line and stop
 suggestion overloads and to `IDOSStationTimetableRequest`; the parsed `IDOSStationTimetable` retains that choice.
-Omitting it for ODIS follows the IDOS form default, Ostrava. Timetables without a municipality chooser return an
-empty choice list and continue to use the municipality-free overloads.
+ODIS offers Bruntál, Český Těšín, Frýdek-Místek, Havířov, Karviná, Krnov, Nový Jičín, Opava, Orlová,
+Ostrava, Studénka, and Třinec and defaults to Ostrava. IREDO offers Dvůr Králové nad Labem, Chrudim, Náchod,
+Přelouč, Rychnov nad Kněžnou, Týniště nad Orlicí, and Vrchlabí and defaults to Dvůr Králové nad Labem.
+IDOL offers Česká Lípa, Jablonec nad Nisou, Liberec, and Turnov and defaults to Česká Lípa. Timetables without
+a municipality chooser return an empty choice list and continue to use the municipality-free overloads.
 
 ## Data Source
 

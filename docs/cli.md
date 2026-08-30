@@ -186,10 +186,11 @@ Select an MHD or integrated-system catalog such as `pid`, `odis`, `idsjmk`, or `
 For a catalog with local networks, `--municipality` / `-u` selects the municipality used for line and stop
 suggestions. ODIS offers Bruntál, Český Těšín, Frýdek-Místek, Havířov, Karviná, Krnov, Nový Jičín, Opava,
 Orlová, Ostrava, Studénka, and Třinec. IREDO offers Dvůr Králové nad Labem, Chrudim, Náchod, Přelouč,
-Rychnov nad Kněžnou, Týniště nad Orlicí, and Vrchlabí. Names are case- and diacritic-insensitive, and short IDOS
-identifiers such as `FM` or `DvurKral` are also accepted. Omitting the option follows the IDOS default: Ostrava
-for ODIS and Dvůr Králové nad Labem for IREDO. Supplying a municipality for a timetable without that chooser is
-rejected before a network request.
+Rychnov nad Kněžnou, Týniště nad Orlicí, and Vrchlabí. IDOL offers Česká Lípa, Jablonec nad Nisou, Liberec,
+and Turnov. Names are case- and diacritic-insensitive, and short IDOS identifiers such as `FM`, `DvurKral`, or
+`CeskaLipa` are also accepted. Omitting the option follows the IDOS default: Ostrava for ODIS, Dvůr Králové nad
+Labem for IREDO, and Česká Lípa for IDOL. Supplying a municipality for a timetable without that chooser is rejected
+before a network request.
 
 ### Service Details
 

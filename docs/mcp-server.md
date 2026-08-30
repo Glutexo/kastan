@@ -160,7 +160,7 @@ The four suggestion tools accept a `timetable` and a `limit` in addition to thei
 limit is 8, and callers can request from 1 through 20 results. `search_station_timetable_stops` expects the exact
 `line` value returned by `search_station_timetable_lines`, preserving its direction context.
 The two Station Timetable suggestion tools also accept `municipality`; use the same value for both calls and the
-final Station Timetable request when searching ODIS or IREDO.
+final Station Timetable request when searching ODIS, IREDO, or IDOL.
 
 ### Connections
 
@@ -194,8 +194,8 @@ stops before calling `find_station_timetable`. In the final call, `from` is the 
 and `to` selects the line direction. The optional arguments are:
 
 - `timetable` selects an MHD or integrated-transport catalog.
-- `municipality` selects a local catalog inside ODIS or IREDO. It accepts a displayed name or short IDOS identifier
-  and follows that catalog's IDOS default when omitted.
+- `municipality` selects a local catalog inside ODIS, IREDO, or IDOL. It accepts a displayed name or short IDOS
+  identifier and follows that catalog's IDOS default when omitted.
 - `date` uses the IDOS `d.M.yyyy` format and defaults to the current date.
 - `wholeWeek` returns schedules for the whole week when `true`.
 - `language` selects `en` or `cs` for IDOS text and defaults to English.
@@ -207,7 +207,8 @@ Both suggestion results and the final request and result retain the resolved mun
 ODIS offers Bruntál, Český Těšín, Frýdek-Místek, Havířov, Karviná, Krnov, Nový Jičín, Opava,
 Orlová, Ostrava, Studénka, and Třinec and defaults to Ostrava. IREDO offers Dvůr Králové nad Labem, Chrudim,
 Náchod, Přelouč, Rychnov nad Kněžnou, Týniště nad Orlicí, and Vrchlabí and defaults to Dvůr Králové nad Labem.
-A municipality supplied for another timetable is rejected before IDOS is called.
+IDOL offers Česká Lípa, Jablonec nad Nisou, Liberec, and Turnov and defaults to Česká Lípa. A municipality supplied
+for another timetable is rejected before IDOS is called.
 
 ### Service Details
 

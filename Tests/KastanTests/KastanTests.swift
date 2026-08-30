@@ -977,6 +977,28 @@ import Testing
     #expect(output.contains("(IREDO · Chrudim)"))
 }
 
+@Test func stationTimetablesCommandSelectsIDOLMunicipality() async throws {
+    let idol = try IDOSTimetable.resolve("idol")
+    let municipality = try #require(
+        try IDOSStationTimetableMunicipality.resolve("Liberec", timetable: idol)
+    )
+    let output = await englishCommandRunner(client: MockIDOSClient(
+        expectedStationTimetable: "idol",
+        expectedStationTimetableMunicipality: municipality,
+        expectedStationTimetableLine: "Tram 2",
+        expectedStationTimetableFrom: "Fügnerova",
+        expectedStationTimetableTo: "Dolní Hanychov"
+    )).output(
+        for: [
+            "station-timetables", "-L", "Tram 2", "-f", "Fügnerova",
+            "-t", "Dolní Hanychov", "-T", "idol", "-u", "Liberec",
+            "-d", "17.7.2026", "-w",
+        ]
+    )
+
+    #expect(output.contains("(IDOL · Liberec)"))
+}
+
 @Test func stationTimetablesCommandRejectsMunicipalityOutsideSelectedTimetable() async {
     let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: [
@@ -1765,6 +1787,54 @@ import Testing
         uniqueKeysWithValues: defaultRequest.queryItems.map { ($0.name, $0.value) }
     )
     #expect(defaultValues["ttn"] == "DvurKral")
+}
+
+@Test func idolStationTimetableMunicipalitiesMatchIDOSParameters() throws {
+    let idol = try IDOSTimetable.resolve("idol")
+    let municipalities = IDOSStationTimetableMunicipality.available(for: idol)
+    let liberec = try #require(
+        try IDOSStationTimetableMunicipality.resolve("Liberec", timetable: idol)
+    )
+    let request = IDOSStationTimetableRequest(
+        timetable: idol,
+        municipality: liberec,
+        line: "Tram 2",
+        from: "Fügnerova",
+        to: "Dolní Hanychov"
+    )
+    let requestValues = Dictionary(uniqueKeysWithValues: request.queryItems.map { ($0.name, $0.value) })
+    let suggestionValues = Dictionary(uniqueKeysWithValues: IDOSClient
+        .stationTimetableSuggestionQueryItems(
+            prefix: "2",
+            limit: 8,
+            municipality: liberec,
+            onlyStation: false
+        )
+        .map { ($0.name, $0.value) })
+
+    #expect(municipalities.map(\.name) == [
+        "Česká Lípa", "Jablonec nad Nisou", "Liberec", "Turnov",
+    ])
+    #expect(liberec.timetableIndex == 4)
+    #expect(liberec.timetableName == "Liberec")
+    #expect(
+        try IDOSStationTimetableMunicipality.resolve("CeskaLipa", timetable: idol)?.name
+            == "Česká Lípa"
+    )
+    #expect(IDOSStationTimetableMunicipality.default(for: idol)?.name == "Česká Lípa")
+    #expect(requestValues["ttn"] == "Liberec")
+    #expect(suggestionValues["bindTtIndex"] == "4")
+
+    let defaultRequest = IDOSStationTimetableRequest(
+        timetable: idol,
+        line: "Bus 202",
+        from: "Sídliště Lada",
+        to: "Hlavní nádraží"
+    )
+    let defaultValues = Dictionary(
+        uniqueKeysWithValues: defaultRequest.queryItems.map { ($0.name, $0.value) }
+    )
+    #expect(defaultValues["ttn"] == "CeskaLipa")
 }
 
 @Test func stationTimetableLineSuggestionKeepsDirectionTerminals() throws {
