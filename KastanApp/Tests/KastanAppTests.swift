@@ -4342,6 +4342,16 @@ final class KastanAppTests: XCTestCase {
                 $0.displayName.hasPrefix("Urban Public Transport ")
             }
         )
+        let citySlugs = Set(AppTimetableGroup.cityTransport.timetables.map(\.slug))
+        XCTAssertEqual(citySlugs.count, 106)
+        XCTAssertTrue(
+            Set([
+                "ceskykrumlov", "milevsko", "vimperk", "novemestonamorave", "dvurkralove",
+                "kostelecnadorlici", "rychnov", "jablonec", "ustinadorlici", "kralupy",
+                "mnisekpodbrdy", "ricany", "roudnice", "varnsdorf",
+            ]).isSubset(of: citySlugs)
+        )
+        XCTAssertFalse(citySlugs.contains("praha"))
         XCTAssertEqual(
             AppTimetableGroup.cityTransport.timetables.first { $0.slug == "karlovyvary" }?.appDisplayName,
             "Karlovy Vary"

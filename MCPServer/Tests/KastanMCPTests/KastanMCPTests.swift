@@ -58,6 +58,9 @@ import Testing
     #expect(text(from: result.content)?.contains("\"slug\" : \"idsok\"") == true)
     #expect(text(from: result.content)?.contains("\"slug\" : \"iredo\"") == true)
     #expect(text(from: result.content)?.contains("\"slug\" : \"ideska\"") == true)
+    #expect(text(from: result.content)?.contains("\"slug\" : \"ceskykrumlov\"") == true)
+    #expect(text(from: result.content)?.contains("\"slug\" : \"varnsdorf\"") == true)
+    #expect(text(from: result.content)?.contains("\"slug\" : \"praha\"") == false)
 
     await client.disconnect()
     await server.stop()

@@ -130,6 +130,11 @@ The main public types are:
   `IDOSStationTimetableSchedule`, `IDOSStationTimetableHour`, and `IDOSTransportMode`.
 - Personal aliases: `StopAlias`, `StopAliasDatabase`, `StopAliasFile`, and `StopAliasError`.
 
+`IDOSTimetable.known` mirrors the current IDOS catalog, including all ten integrated systems and all 106 standalone
+Urban Public Transport cities. Prague is represented by its `pid` catalog instead of a duplicate standalone city.
+`IDOSTimetable.resolve(_:)` accepts each built-in display name or URL slug and continues to accept a valid custom
+IDOS slug.
+
 Connection-result, service, and departure identifiers are opaque and must not be parsed by clients. Models
 preserve the semantic information received from IDOS, including line colors, transport modes, platforms,
 tariff zones, carriers, delay details, and localized service notes when available. `IDOSConnectionLeg` and

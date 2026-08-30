@@ -106,7 +106,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Timetable menus grouped into general rail and bus choices, integrated transport systems, and city networks,
   with Trains selected initially in every search mode. Station Timetables offer that shared rail default together
   with the complete current IDOS integrated-system catalog — PID, IDS JMK, ODIS, IDOL, IDSOK, IREDO, DÚK, IDPK,
-  IDZK, and IDESKA — and city networks while omitting unsupported broad combinations such as All timetables.
+  IDZK, and IDESKA — and all 106 standalone city networks currently published by IDOS while omitting unsupported
+  broad combinations such as All timetables. Prague remains available through PID rather than a duplicate standalone
+  city catalog, matching IDOS.
   Persistent favorites repeat in their own first section without disappearing from the catalog, and the favorite
   button stays consistently close to its picker across all three search modes without overlapping it, with the
   standard wider separation retained in the wide search layout.

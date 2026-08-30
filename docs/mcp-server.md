@@ -233,6 +233,8 @@ Unless a tool says otherwise, `timetable` accepts a known Kaštan alias, an Engl
 IDOS URL slug. It defaults to `vlakyautobusymhdvse`, called **All timetables** by English IDOS. Use
 `list_timetables` to discover the built-in values. The integrated-system choices mirror the current IDOS catalog:
 `pid`, `idsjmk`, `odis`, `idol`, `idsok`, `iredo`, `duk`, `idpk`, `idzk`, and `ideska`.
+The same catalog includes all 106 standalone Urban Public Transport cities currently published by IDOS. Prague uses
+`pid` rather than a duplicate standalone city entry.
 
 ## Results and Errors
 

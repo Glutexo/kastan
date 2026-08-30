@@ -1820,7 +1820,6 @@ public struct IDOSTimetable: Codable, Equatable, Sendable {
 
     public static var known: [IDOSTimetable] {
         baseTimetables + mhdNames
-            .filter { !unsupportedMHDNames.contains($0) }
             .map { name in
                 IDOSTimetable(
                     slug: mhdSlugOverrides[name] ?? slugify(name),
@@ -1924,50 +1923,35 @@ public struct IDOSTimetable: Codable, Equatable, Sendable {
             .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "cs_CZ"))
     }
 
+    /// Preserves the shorter URL slugs published by IDOS when they cannot be derived from the visible city name.
     private static let mhdSlugOverrides: [String: String] = [
         "Brandýs n.L.-St.Bol.": "brandys",
         "Bystřice nad Pernštejnem": "bystrice",
+        "Dvůr Králové n. L.": "dvurkralove",
+        "Jablonec nad Nisou": "jablonec",
+        "Kralupy nad Vltavou": "kralupy",
         "Most a Litvínov": "most",
+        "Roudnice nad Labem": "roudnice",
+        "Rychnov nad Kněžnou": "rychnov",
         "Zlín a Otrokovice": "zlin",
     ]
 
-    private static let unsupportedMHDNames: Set<String> = [
-        "Beroun",
-        "Čáslav",
-        "Dačice",
-        "Dvůr Králové n. L.",
-        "Hořice",
-        "Jablonec nad Nisou",
-        "Kralupy nad Vltavou",
-        "Mělník",
-        "Mikulov",
-        "Neratovice",
-        "Nymburk",
-        "Přeštice",
-        "Roudnice nad Labem",
-        "Rychnov nad Kněžnou",
-        "Štětí",
-        "Žamberk",
-    ]
-
+    /// Mirrors the complete standalone Urban Public Transport catalog currently published by IDOS.
     private static let mhdNames = [
-        "Praha",
         "Ostrava",
         "Adamov",
         "Aš",
         "Benešov",
-        "Beroun",
         "Bílina",
         "Blansko",
         "Brandýs n.L.-St.Bol.",
         "Bruntál",
         "Bystřice nad Pernštejnem",
         "Břeclav",
-        "Čáslav",
         "Česká Lípa",
         "České Budějovice",
+        "Český Krumlov",
         "Český Těšín",
-        "Dačice",
         "Děčín",
         "Domažlice",
         "Duchcov",
@@ -1976,7 +1960,6 @@ public struct IDOSTimetable: Codable, Equatable, Sendable {
         "Havířov",
         "Havlíčkův Brod",
         "Hodonín",
-        "Hořice",
         "Hradec Králové",
         "Hranice",
         "Cheb",
@@ -1994,6 +1977,7 @@ public struct IDOSTimetable: Codable, Equatable, Sendable {
         "Klášterec nad Ohří",
         "Klatovy",
         "Kolín",
+        "Kostelec nad Orlicí",
         "Kralupy nad Vltavou",
         "Krnov",
         "Kroměříž",
@@ -2005,14 +1989,13 @@ public struct IDOSTimetable: Codable, Equatable, Sendable {
         "Louny",
         "Lovosice",
         "Mariánské Lázně",
-        "Mělník",
-        "Mikulov",
+        "Milevsko",
         "Mladá Boleslav",
+        "Mníšek pod Brdy",
         "Most a Litvínov",
         "Náchod",
-        "Neratovice",
+        "Nové Město na Moravě",
         "Nový Jičín",
-        "Nymburk",
         "Olomouc",
         "Opava",
         "Orlová",
@@ -2025,11 +2008,11 @@ public struct IDOSTimetable: Codable, Equatable, Sendable {
         "Prostějov",
         "Přelouč",
         "Přerov",
-        "Přeštice",
         "Příbram",
         "Rokycany",
         "Roudnice nad Labem",
         "Rychnov nad Kněžnou",
+        "Říčany",
         "Slaný",
         "Sokolov",
         "Strakonice",
@@ -2047,8 +2030,11 @@ public struct IDOSTimetable: Codable, Equatable, Sendable {
         "Týniště nad Orlicí",
         "Uherské Hradiště",
         "Ústí nad Labem",
+        "Ústí nad Orlicí",
         "Valašské Meziříčí",
+        "Varnsdorf",
         "Velké Meziříčí",
+        "Vimperk",
         "Vlašim",
         "Vrchlabí",
         "Vsetín",

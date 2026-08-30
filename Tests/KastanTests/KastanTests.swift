@@ -1304,9 +1304,36 @@ import Testing
     let output = await englishCommandRunner(client: MockIDOSClient()).output(for: ["timetables", "-o=json"])
     let json = try jsonDictionary(output)
     let timetables = json["timetables"] as? [[String: Any]]
+    let cityTimetables = timetables?.filter {
+        ($0["displayName"] as? String)?.hasPrefix("Urban Public Transport ") == true
+    }
+    let addedCityCatalogs = [
+        "ceskykrumlov": "Český Krumlov",
+        "milevsko": "Milevsko",
+        "vimperk": "Vimperk",
+        "novemestonamorave": "Nové Město na Moravě",
+        "dvurkralove": "Dvůr Králové n. L.",
+        "kostelecnadorlici": "Kostelec nad Orlicí",
+        "rychnov": "Rychnov nad Kněžnou",
+        "jablonec": "Jablonec nad Nisou",
+        "ustinadorlici": "Ústí nad Orlicí",
+        "kralupy": "Kralupy nad Vltavou",
+        "mnisekpodbrdy": "Mníšek pod Brdy",
+        "ricany": "Říčany",
+        "roudnice": "Roudnice nad Labem",
+        "varnsdorf": "Varnsdorf",
+    ]
 
     #expect(timetables?.contains { $0["slug"] as? String == "vlakyautobusymhdvse" } == true)
     #expect(timetables?.contains { $0["displayName"] as? String == "All timetables" } == true)
+    #expect(cityTimetables?.count == 106)
+    #expect(cityTimetables?.contains { $0["slug"] as? String == "praha" } == false)
+    for (slug, city) in addedCityCatalogs {
+        #expect(cityTimetables?.contains {
+            $0["slug"] as? String == slug
+                && $0["displayName"] as? String == "Urban Public Transport \(city)"
+        } == true)
+    }
 }
 
 @Test func timetablesCommandRejectsUnknownOptions() async {
@@ -1515,6 +1542,12 @@ import Testing
     #expect(try IDOSTimetable.resolve("IDESKA").slug == "ideska")
     #expect(try IDOSTimetable.resolve("Frýdek-Místek").slug == "frydekmistek")
     #expect(try IDOSTimetable.resolve("Urban Public Transport Karlovy Vary").slug == "karlovyvary")
+    #expect(try IDOSTimetable.resolve("Český Krumlov").slug == "ceskykrumlov")
+    #expect(try IDOSTimetable.resolve("Dvůr Králové n. L.").slug == "dvurkralove")
+    #expect(try IDOSTimetable.resolve("Jablonec nad Nisou").slug == "jablonec")
+    #expect(try IDOSTimetable.resolve("Kralupy nad Vltavou").slug == "kralupy")
+    #expect(try IDOSTimetable.resolve("Roudnice nad Labem").slug == "roudnice")
+    #expect(try IDOSTimetable.resolve("Rychnov nad Kněžnou").slug == "rychnov")
     #expect(try IDOSTimetable.resolve("Zlín a Otrokovice").slug == "zlin")
     #expect(try IDOSTimetable.resolve("karlovyvary").slug == "karlovyvary")
 }
