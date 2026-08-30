@@ -194,8 +194,8 @@ stops before calling `find_station_timetable`. In the final call, `from` is the 
 and `to` selects the line direction. The optional arguments are:
 
 - `timetable` selects an MHD or integrated-transport catalog.
-- `municipality` selects a local catalog inside ODIS, IREDO, or IDOL. It accepts a displayed name or short IDOS
-  identifier and follows that catalog's IDOS default when omitted.
+- `municipality` selects a local catalog inside an integrated system that offers multiple municipalities. It accepts
+  a displayed name or short IDOS identifier and follows that catalog's IDOS default when omitted.
 - `date` uses the IDOS `d.M.yyyy` format and defaults to the current date.
 - `wholeWeek` returns schedules for the whole week when `true`.
 - `language` selects `en` or `cs` for IDOS text and defaults to English.
@@ -204,11 +204,19 @@ The result includes the complete route, minute offsets, tariff zones, platforms 
 service day and hour, lockout state, keyed `explanations` for markers used beside concrete departures, general
 `notes`, and the matching IDOS URL.
 Both suggestion results and the final request and result retain the resolved municipality as structured data.
-ODIS offers Bruntál, Český Těšín, Frýdek-Místek, Havířov, Karviná, Krnov, Nový Jičín, Opava,
-Orlová, Ostrava, Studénka, and Třinec and defaults to Ostrava. IREDO offers Dvůr Králové nad Labem, Chrudim,
-Náchod, Přelouč, Rychnov nad Kněžnou, Týniště nad Orlicí, and Vrchlabí and defaults to Dvůr Králové nad Labem.
-IDOL offers Česká Lípa, Jablonec nad Nisou, Liberec, and Turnov and defaults to Česká Lípa. A municipality supplied
-for another timetable is rejected before IDOS is called.
+
+| Timetable | Municipalities | Default |
+| --- | --- | --- |
+| ODIS | Bruntál, Český Těšín, Frýdek-Místek, Havířov, Karviná, Krnov, Nový Jičín, Opava, Orlová, Ostrava, Studénka, Třinec | Ostrava |
+| IDOL | Česká Lípa, Jablonec nad Nisou, Liberec, Turnov | Česká Lípa |
+| IDSOK | Hranice, Olomouc, Prostějov, Přerov, Šumperk, Zábřeh | Hranice |
+| IREDO | Dvůr Králové nad Labem, Chrudim, Náchod, Přelouč, Rychnov nad Kněžnou, Týniště nad Orlicí, Vrchlabí | Dvůr Králové nad Labem |
+| DÚK | Bílina, Děčín, Chomutov, Klášterec nad Ohří, Most-Litvínov, Roudnice nad Labem, Teplice, Ústí nad Labem, Varnsdorf | Ústí nad Labem |
+| IDPK | Domažlice, Klatovy, Plzeň, Rokycany, Stříbro, Tachov | Plzeň |
+| IDZK | Uherské Hradiště, Vsetín | Uherské Hradiště |
+| IDESKA | České Budějovice, Český Krumlov, Jindřichův Hradec, Milevsko, Písek, Strakonice, Tábor, Vimperk | České Budějovice |
+
+A municipality supplied for another timetable is rejected before IDOS is called.
 
 ### Service Details
 
@@ -223,8 +231,8 @@ tracks, distance, stop notes, and service information.
 
 Unless a tool says otherwise, `timetable` accepts a known Kaštan alias, an English IDOS catalog name, or a custom
 IDOS URL slug. It defaults to `vlakyautobusymhdvse`, called **All timetables** by English IDOS. Use
-`list_timetables` to discover the built-in values. Select an MHD or integrated-system catalog such as `pid`,
-`odis`, `idsjmk`, or `iredo` for Station Timetable searches.
+`list_timetables` to discover the built-in values. The integrated-system choices mirror the current IDOS catalog:
+`pid`, `idsjmk`, `odis`, `idol`, `idsok`, `iredo`, `duk`, `idpk`, `idzk`, and `ideska`.
 
 ## Results and Errors
 

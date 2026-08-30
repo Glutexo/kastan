@@ -1287,8 +1287,15 @@ import Testing
     #expect(output.contains("pid"))
     #expect(output.contains("frydekmistek"))
     #expect(output.contains("odis"))
+    #expect(output.contains("idsok"))
+    #expect(output.contains("IDSOK"))
     #expect(output.contains("iredo"))
     #expect(output.contains("IREDO"))
+    #expect(output.contains("duk"))
+    #expect(output.contains("DÚK"))
+    #expect(output.contains("idpk"))
+    #expect(output.contains("idzk"))
+    #expect(output.contains("ideska"))
     #expect(output.contains("karlovyvary"))
     #expect(output.contains("zlin"))
 }
@@ -1500,7 +1507,12 @@ import Testing
 @Test func timetableResolverAcceptsKnownAliasesAndCustomSlugs() throws {
     #expect(try IDOSTimetable.resolve("all timetables").slug == "vlakyautobusymhdvse")
     #expect(try IDOSTimetable.resolve("Prague + PID").slug == "pid")
+    #expect(try IDOSTimetable.resolve("IDSOK").slug == "idsok")
     #expect(try IDOSTimetable.resolve("IREDO").slug == "iredo")
+    #expect(try IDOSTimetable.resolve("DÚK").slug == "duk")
+    #expect(try IDOSTimetable.resolve("IDPK").slug == "idpk")
+    #expect(try IDOSTimetable.resolve("IDZK").slug == "idzk")
+    #expect(try IDOSTimetable.resolve("IDESKA").slug == "ideska")
     #expect(try IDOSTimetable.resolve("Frýdek-Místek").slug == "frydekmistek")
     #expect(try IDOSTimetable.resolve("Urban Public Transport Karlovy Vary").slug == "karlovyvary")
     #expect(try IDOSTimetable.resolve("Zlín a Otrokovice").slug == "zlin")
@@ -1835,6 +1847,126 @@ import Testing
         uniqueKeysWithValues: defaultRequest.queryItems.map { ($0.name, $0.value) }
     )
     #expect(defaultValues["ttn"] == "CeskaLipa")
+}
+
+@Test func additionalIntegratedSystemMunicipalitiesMatchIDOSParameters() throws {
+    let cases: [(
+        slug: String,
+        defaultIdentifier: String,
+        municipalities: [IDOSStationTimetableMunicipality]
+    )] = [
+        (
+            "idsok",
+            "Hranice",
+            [
+                .init(name: "Hranice", timetableIndex: 2, timetableName: "Hranice"),
+                .init(name: "Olomouc", timetableIndex: 3, timetableName: "Olomouc"),
+                .init(name: "Prostějov", timetableIndex: 5, timetableName: "Prostej"),
+                .init(name: "Přerov", timetableIndex: 4, timetableName: "Prerov"),
+                .init(name: "Šumperk", timetableIndex: 6, timetableName: "Sumperk"),
+                .init(name: "Zábřeh", timetableIndex: 7, timetableName: "Zabreh"),
+            ]
+        ),
+        (
+            "duk",
+            "UL",
+            [
+                .init(name: "Bílina", timetableIndex: 8, timetableName: "Bilina"),
+                .init(name: "Děčín", timetableIndex: 5, timetableName: "DC"),
+                .init(name: "Chomutov", timetableIndex: 3, timetableName: "Chomutov"),
+                .init(
+                    name: "Klášterec nad Ohří",
+                    timetableIndex: 9,
+                    timetableName: "KlasterecNadOhri"
+                ),
+                .init(name: "Most-Litvínov", timetableIndex: 6, timetableName: "Most"),
+                .init(
+                    name: "Roudnice nad Labem",
+                    timetableIndex: 7,
+                    timetableName: "RoudniceNadLabem"
+                ),
+                .init(name: "Teplice", timetableIndex: 4, timetableName: "Teplice"),
+                .init(name: "Ústí nad Labem", timetableIndex: 2, timetableName: "UL"),
+                .init(name: "Varnsdorf", timetableIndex: 10, timetableName: "Varnsdorf"),
+            ]
+        ),
+        (
+            "idpk",
+            "Plzen",
+            [
+                .init(name: "Domažlice", timetableIndex: 3, timetableName: "DO"),
+                .init(name: "Klatovy", timetableIndex: 4, timetableName: "KT"),
+                .init(name: "Plzeň", timetableIndex: 2, timetableName: "Plzen"),
+                .init(name: "Rokycany", timetableIndex: 5, timetableName: "Rokycany"),
+                .init(name: "Stříbro", timetableIndex: 6, timetableName: "Stribro"),
+                .init(name: "Tachov", timetableIndex: 7, timetableName: "Tachov"),
+            ]
+        ),
+        (
+            "idzk",
+            "UherskeHradiste",
+            [
+                .init(
+                    name: "Uherské Hradiště",
+                    timetableIndex: 2,
+                    timetableName: "UherskeHradiste"
+                ),
+                .init(name: "Vsetín", timetableIndex: 3, timetableName: "Vsetin"),
+            ]
+        ),
+        (
+            "ideska",
+            "CesBud",
+            [
+                .init(name: "České Budějovice", timetableIndex: 2, timetableName: "CesBud"),
+                .init(name: "Český Krumlov", timetableIndex: 3, timetableName: "CeskyKrumlov"),
+                .init(name: "Jindřichův Hradec", timetableIndex: 4, timetableName: "JinHrad"),
+                .init(name: "Milevsko", timetableIndex: 5, timetableName: "Milevsko"),
+                .init(name: "Písek", timetableIndex: 6, timetableName: "Pisek"),
+                .init(name: "Strakonice", timetableIndex: 7, timetableName: "Strakon"),
+                .init(name: "Tábor", timetableIndex: 8, timetableName: "Tabor"),
+                .init(name: "Vimperk", timetableIndex: 9, timetableName: "Vimperk"),
+            ]
+        ),
+    ]
+
+    for item in cases {
+        let timetable = try IDOSTimetable.resolve(item.slug)
+        let municipalities = IDOSStationTimetableMunicipality.available(for: timetable)
+        let expectedDefault = try #require(
+            item.municipalities.first { $0.timetableName == item.defaultIdentifier }
+        )
+        let selected = try #require(item.municipalities.last)
+        let request = IDOSStationTimetableRequest(
+            timetable: timetable,
+            municipality: selected,
+            line: "Bus 1",
+            from: "Start",
+            to: "Destination"
+        )
+        let requestValues = Dictionary(
+            uniqueKeysWithValues: request.queryItems.map { ($0.name, $0.value) }
+        )
+        let suggestionValues = Dictionary(uniqueKeysWithValues: IDOSClient
+            .stationTimetableSuggestionQueryItems(
+                prefix: "1",
+                limit: 8,
+                municipality: selected,
+                onlyStation: false
+            )
+            .map { ($0.name, $0.value) })
+
+        #expect(municipalities == item.municipalities)
+        #expect(IDOSStationTimetableMunicipality.default(for: timetable) == expectedDefault)
+        #expect(
+            try IDOSStationTimetableMunicipality.resolve(
+                selected.timetableName,
+                timetable: timetable
+            ) == selected
+        )
+        #expect(requestValues["ttn"] == selected.timetableName)
+        #expect(suggestionValues["bindTtIndex"] == String(selected.timetableIndex))
+    }
 }
 
 @Test func stationTimetableLineSuggestionKeepsDirectionTerminals() throws {

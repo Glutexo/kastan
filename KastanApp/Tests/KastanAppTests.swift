@@ -3089,6 +3089,46 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(model.municipality?.name, "Liberec")
     }
 
+    func testAdditionalIntegratedSystemsOfferTheirPublishedMunicipalities() {
+        let cases: [(slug: String, names: [String], defaultName: String)] = [
+            (
+                "idsok",
+                ["Hranice", "Olomouc", "Prostějov", "Přerov", "Šumperk", "Zábřeh"],
+                "Hranice"
+            ),
+            (
+                "duk",
+                [
+                    "Bílina", "Děčín", "Chomutov", "Klášterec nad Ohří", "Most-Litvínov",
+                    "Roudnice nad Labem", "Teplice", "Ústí nad Labem", "Varnsdorf",
+                ],
+                "Ústí nad Labem"
+            ),
+            (
+                "idpk",
+                ["Domažlice", "Klatovy", "Plzeň", "Rokycany", "Stříbro", "Tachov"],
+                "Plzeň"
+            ),
+            ("idzk", ["Uherské Hradiště", "Vsetín"], "Uherské Hradiště"),
+            (
+                "ideska",
+                [
+                    "České Budějovice", "Český Krumlov", "Jindřichův Hradec", "Milevsko",
+                    "Písek", "Strakonice", "Tábor", "Vimperk",
+                ],
+                "České Budějovice"
+            ),
+        ]
+        let model = StationTimetablesViewModel(client: MockIDOSClient())
+
+        for item in cases {
+            model.selectTimetable(slug: item.slug)
+
+            XCTAssertEqual(model.municipalities.map(\.name), item.names, item.slug)
+            XCTAssertEqual(model.municipality?.name, item.defaultName, item.slug)
+        }
+    }
+
     func testStationTimetableSearchHeaderMatchesJourneyHeaderHeight() {
         let fixedDate = Date(timeIntervalSinceReferenceDate: 0)
         let stationHeader = NSHostingView(rootView: StationTimetableSearchHeader(
@@ -4292,7 +4332,10 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             AppTimetableGroup.integratedSystems.timetables.map(\.slug),
-            ["pid", "idsjmk", "odis", "idol", "iredo"]
+            [
+                "pid", "idsjmk", "odis", "idol", "idsok", "iredo", "duk", "idpk", "idzk",
+                "ideska",
+            ]
         )
         XCTAssertTrue(
             AppTimetableGroup.cityTransport.timetables.allSatisfy {
@@ -4306,11 +4349,14 @@ final class KastanAppTests: XCTestCase {
         let groupedSlugs = Set(AppTimetableGroup.allCases.flatMap { $0.timetables.map(\.slug) })
         XCTAssertEqual(groupedSlugs, Set(IDOSTimetable.known.map(\.slug)))
         XCTAssertEqual(
-            AppTimetableGroup.stationTimetables.prefix(6).map(\.slug),
-            ["vlaky", "pid", "idsjmk", "odis", "idol", "iredo"]
+            AppTimetableGroup.stationTimetables.prefix(11).map(\.slug),
+            [
+                "vlaky", "pid", "idsjmk", "odis", "idol", "idsok", "iredo", "duk", "idpk",
+                "idzk", "ideska",
+            ]
         )
         XCTAssertTrue(
-            AppTimetableGroup.stationTimetables.dropFirst(6).allSatisfy {
+            AppTimetableGroup.stationTimetables.dropFirst(11).allSatisfy {
                 $0.displayName.hasPrefix("Urban Public Transport ")
             }
         )

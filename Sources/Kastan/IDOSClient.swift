@@ -1318,6 +1318,16 @@ public struct IDOSStationTimetableMunicipality: Codable, Equatable, Hashable, Se
             iredoMunicipalities
         case "idol":
             idolMunicipalities
+        case "idsok":
+            idsokMunicipalities
+        case "duk":
+            dukMunicipalities
+        case "idpk":
+            idpkMunicipalities
+        case "idzk":
+            idzkMunicipalities
+        case "ideska":
+            ideskaMunicipalities
         default:
             []
         }
@@ -1333,6 +1343,16 @@ public struct IDOSStationTimetableMunicipality: Codable, Equatable, Hashable, Se
             timetableName = "DvurKral"
         case "idol":
             timetableName = "CeskaLipa"
+        case "idsok":
+            timetableName = "Hranice"
+        case "duk":
+            timetableName = "UL"
+        case "idpk":
+            timetableName = "Plzen"
+        case "idzk":
+            timetableName = "UherskeHradiste"
+        case "ideska":
+            timetableName = "CesBud"
         default:
             return nil
         }
@@ -1399,12 +1419,63 @@ public struct IDOSStationTimetableMunicipality: Codable, Equatable, Hashable, Se
         Self(name: "Liberec", timetableIndex: 4, timetableName: "Liberec"),
         Self(name: "Turnov", timetableIndex: 5, timetableName: "Turnov"),
     ]
+
+    /// Mirrors the complete municipality chooser currently published by the IDSOK Station Timetable form.
+    private static let idsokMunicipalities: [Self] = [
+        Self(name: "Hranice", timetableIndex: 2, timetableName: "Hranice"),
+        Self(name: "Olomouc", timetableIndex: 3, timetableName: "Olomouc"),
+        Self(name: "Prostějov", timetableIndex: 5, timetableName: "Prostej"),
+        Self(name: "Přerov", timetableIndex: 4, timetableName: "Prerov"),
+        Self(name: "Šumperk", timetableIndex: 6, timetableName: "Sumperk"),
+        Self(name: "Zábřeh", timetableIndex: 7, timetableName: "Zabreh"),
+    ]
+
+    /// Mirrors the complete municipality chooser currently published by the DÚK Station Timetable form.
+    private static let dukMunicipalities: [Self] = [
+        Self(name: "Bílina", timetableIndex: 8, timetableName: "Bilina"),
+        Self(name: "Děčín", timetableIndex: 5, timetableName: "DC"),
+        Self(name: "Chomutov", timetableIndex: 3, timetableName: "Chomutov"),
+        Self(name: "Klášterec nad Ohří", timetableIndex: 9, timetableName: "KlasterecNadOhri"),
+        Self(name: "Most-Litvínov", timetableIndex: 6, timetableName: "Most"),
+        Self(name: "Roudnice nad Labem", timetableIndex: 7, timetableName: "RoudniceNadLabem"),
+        Self(name: "Teplice", timetableIndex: 4, timetableName: "Teplice"),
+        Self(name: "Ústí nad Labem", timetableIndex: 2, timetableName: "UL"),
+        Self(name: "Varnsdorf", timetableIndex: 10, timetableName: "Varnsdorf"),
+    ]
+
+    /// Mirrors the complete municipality chooser currently published by the IDPK Station Timetable form.
+    private static let idpkMunicipalities: [Self] = [
+        Self(name: "Domažlice", timetableIndex: 3, timetableName: "DO"),
+        Self(name: "Klatovy", timetableIndex: 4, timetableName: "KT"),
+        Self(name: "Plzeň", timetableIndex: 2, timetableName: "Plzen"),
+        Self(name: "Rokycany", timetableIndex: 5, timetableName: "Rokycany"),
+        Self(name: "Stříbro", timetableIndex: 6, timetableName: "Stribro"),
+        Self(name: "Tachov", timetableIndex: 7, timetableName: "Tachov"),
+    ]
+
+    /// Mirrors the complete municipality chooser currently published by the IDZK Station Timetable form.
+    private static let idzkMunicipalities: [Self] = [
+        Self(name: "Uherské Hradiště", timetableIndex: 2, timetableName: "UherskeHradiste"),
+        Self(name: "Vsetín", timetableIndex: 3, timetableName: "Vsetin"),
+    ]
+
+    /// Mirrors the complete municipality chooser currently published by the IDESKA Station Timetable form.
+    private static let ideskaMunicipalities: [Self] = [
+        Self(name: "České Budějovice", timetableIndex: 2, timetableName: "CesBud"),
+        Self(name: "Český Krumlov", timetableIndex: 3, timetableName: "CeskyKrumlov"),
+        Self(name: "Jindřichův Hradec", timetableIndex: 4, timetableName: "JinHrad"),
+        Self(name: "Milevsko", timetableIndex: 5, timetableName: "Milevsko"),
+        Self(name: "Písek", timetableIndex: 6, timetableName: "Pisek"),
+        Self(name: "Strakonice", timetableIndex: 7, timetableName: "Strakon"),
+        Self(name: "Tábor", timetableIndex: 8, timetableName: "Tabor"),
+        Self(name: "Vimperk", timetableIndex: 9, timetableName: "Vimperk"),
+    ]
 }
 
 /// A station-timetable query for one MHD or integrated-transport line and direction.
 public struct IDOSStationTimetableRequest: Codable, Equatable, Sendable {
     public var timetable: IDOSTimetable
-    /// Narrows a multi-municipality timetable such as ODIS, IREDO, or IDOL to one local network.
+    /// Narrows a multi-municipality integrated timetable to one local network.
     public var municipality: IDOSStationTimetableMunicipality?
     public var line: String
     public var from: String
@@ -1768,7 +1839,12 @@ public struct IDOSTimetable: Codable, Equatable, Sendable {
         IDOSTimetable(slug: "idsjmk", displayName: "IDS JMK / Brno"),
         IDOSTimetable(slug: "odis", displayName: "ODIS"),
         IDOSTimetable(slug: "idol", displayName: "IDOL"),
+        IDOSTimetable(slug: "idsok", displayName: "IDSOK"),
         IDOSTimetable(slug: "iredo", displayName: "IREDO"),
+        IDOSTimetable(slug: "duk", displayName: "DÚK"),
+        IDOSTimetable(slug: "idpk", displayName: "IDPK"),
+        IDOSTimetable(slug: "idzk", displayName: "IDZK"),
+        IDOSTimetable(slug: "ideska", displayName: "IDESKA"),
     ]
 
     public static func resolve(_ value: String?) throws -> IDOSTimetable {

@@ -212,15 +212,24 @@ key occurs beside a concrete departure. Platform or stand numbers are exposed on
 received from IDOS uses the Unicode `→` symbol instead of an ASCII substitute; opaque identifiers and URLs
 remain unchanged.
 
-ODIS, IREDO, and IDOL contain separate municipal Station Timetable catalogs. Use
+Eight integrated systems contain separate municipal Station Timetable catalogs. Use
 `IDOSStationTimetableMunicipality.available(for:)` to present the supported choices or `resolve(_:timetable:)`
 to accept either an IDOS municipality name or identifier. Pass the same municipality to the line and stop
 suggestion overloads and to `IDOSStationTimetableRequest`; the parsed `IDOSStationTimetable` retains that choice.
-ODIS offers Bruntál, Český Těšín, Frýdek-Místek, Havířov, Karviná, Krnov, Nový Jičín, Opava, Orlová,
-Ostrava, Studénka, and Třinec and defaults to Ostrava. IREDO offers Dvůr Králové nad Labem, Chrudim, Náchod,
-Přelouč, Rychnov nad Kněžnou, Týniště nad Orlicí, and Vrchlabí and defaults to Dvůr Králové nad Labem.
-IDOL offers Česká Lípa, Jablonec nad Nisou, Liberec, and Turnov and defaults to Česká Lípa. Timetables without
-a municipality chooser return an empty choice list and continue to use the municipality-free overloads.
+
+| Timetable | Municipalities | Default |
+| --- | --- | --- |
+| ODIS | Bruntál, Český Těšín, Frýdek-Místek, Havířov, Karviná, Krnov, Nový Jičín, Opava, Orlová, Ostrava, Studénka, Třinec | Ostrava |
+| IDOL | Česká Lípa, Jablonec nad Nisou, Liberec, Turnov | Česká Lípa |
+| IDSOK | Hranice, Olomouc, Prostějov, Přerov, Šumperk, Zábřeh | Hranice |
+| IREDO | Dvůr Králové nad Labem, Chrudim, Náchod, Přelouč, Rychnov nad Kněžnou, Týniště nad Orlicí, Vrchlabí | Dvůr Králové nad Labem |
+| DÚK | Bílina, Děčín, Chomutov, Klášterec nad Ohří, Most-Litvínov, Roudnice nad Labem, Teplice, Ústí nad Labem, Varnsdorf | Ústí nad Labem |
+| IDPK | Domažlice, Klatovy, Plzeň, Rokycany, Stříbro, Tachov | Plzeň |
+| IDZK | Uherské Hradiště, Vsetín | Uherské Hradiště |
+| IDESKA | České Budějovice, Český Krumlov, Jindřichův Hradec, Milevsko, Písek, Strakonice, Tábor, Vimperk | České Budějovice |
+
+Timetables without a municipality chooser return an empty choice list and continue to use the
+municipality-free overloads.
 
 ## Data Source
 

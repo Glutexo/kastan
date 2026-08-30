@@ -48,11 +48,12 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, optional tariff zones and platforms or stands, lockout labels, keyed departure explanations,
-  timetable-wide notes, and links back to the matching IDOS result. Selecting ODIS, IREDO, or IDOL adds its complete
-  Municipality picker and initially selects Ostrava, Dvůr Králové nad Labem, or Česká Lípa, respectively, matching
-  IDOS. Changing the municipality clears the previous line and direction before all three fields request suggestions
-  from the newly selected local catalog. Municipality and Line share one row at every supported window width,
-  directly associating the local catalog with its available lines.
+  timetable-wide notes, and links back to the matching IDOS result. Selecting ODIS, IDOL, IDSOK, IREDO, DÚK, IDPK,
+  IDZK, or IDESKA adds its complete Municipality picker. Their initial choices match IDOS: Ostrava, Česká Lípa,
+  Hranice, Dvůr Králové nad Labem, Ústí nad Labem, Plzeň, Uherské Hradiště, and České Budějovice,
+  respectively. Changing the municipality clears the previous line and direction before all three fields request
+  suggestions from the newly selected local catalog. Municipality and Line share one row at every supported window
+  width, directly associating the local catalog with its available lines.
   They align below Timetable and Date and reuse the matching control widths. Line suggestions use the transport icon
   supplied by IDOS, such as 🚌 for a bus or 🚋 for a tram, instead of presenting the line as a generic place. Schedule
   headings keep the numeric date and follow the selected language's weekday capitalization, such as lowercase Czech
@@ -104,8 +105,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   timetable-favorites manager and app information in their own windows, with concise labels that name their content.
 - Timetable menus grouped into general rail and bus choices, integrated transport systems, and city networks,
   with Trains selected initially in every search mode. Station Timetables offer that shared rail default together
-  with integrated systems, including IREDO, and city networks while omitting unsupported broad combinations such as
-  All timetables.
+  with the complete current IDOS integrated-system catalog — PID, IDS JMK, ODIS, IDOL, IDSOK, IREDO, DÚK, IDPK,
+  IDZK, and IDESKA — and city networks while omitting unsupported broad combinations such as All timetables.
   Persistent favorites repeat in their own first section without disappearing from the catalog, and the favorite
   button stays consistently close to its picker across all three search modes without overlapping it, with the
   standard wider separation retained in the wide search layout.

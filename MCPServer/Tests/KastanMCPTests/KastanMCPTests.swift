@@ -55,7 +55,9 @@ import Testing
     let result: (content: [Tool.Content], isError: Bool?) = try await client.callTool(name: "list_timetables")
     #expect(result.isError == false)
     #expect(text(from: result.content)?.contains("\"slug\" : \"vlakyautobusymhdvse\"") == true)
+    #expect(text(from: result.content)?.contains("\"slug\" : \"idsok\"") == true)
     #expect(text(from: result.content)?.contains("\"slug\" : \"iredo\"") == true)
+    #expect(text(from: result.content)?.contains("\"slug\" : \"ideska\"") == true)
 
     await client.disconnect()
     await server.stop()

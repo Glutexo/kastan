@@ -182,15 +182,25 @@ service day and hour, lockout status, keyed explanations for markers used beside
 notes. Human-readable output places explanations directly after the schedules and keeps notes at the very bottom.
 Platform legends are attached directly to their route stops instead of being repeated as notes.
 `station-timetable` is accepted as a singular command alias.
-Select an MHD or integrated-system catalog such as `pid`, `odis`, `idsjmk`, or `iredo` for unambiguous line results.
+The built-in integrated-system catalog mirrors the current IDOS choices: `pid`, `idsjmk`, `odis`, `idol`, `idsok`,
+`iredo`, `duk`, `idpk`, `idzk`, and `ideska`. Select one of these or an MHD catalog for unambiguous line results.
 For a catalog with local networks, `--municipality` / `-u` selects the municipality used for line and stop
-suggestions. ODIS offers Bruntál, Český Těšín, Frýdek-Místek, Havířov, Karviná, Krnov, Nový Jičín, Opava,
-Orlová, Ostrava, Studénka, and Třinec. IREDO offers Dvůr Králové nad Labem, Chrudim, Náchod, Přelouč,
-Rychnov nad Kněžnou, Týniště nad Orlicí, and Vrchlabí. IDOL offers Česká Lípa, Jablonec nad Nisou, Liberec,
-and Turnov. Names are case- and diacritic-insensitive, and short IDOS identifiers such as `FM`, `DvurKral`, or
-`CeskaLipa` are also accepted. Omitting the option follows the IDOS default: Ostrava for ODIS, Dvůr Králové nad
-Labem for IREDO, and Česká Lípa for IDOL. Supplying a municipality for a timetable without that chooser is rejected
-before a network request.
+suggestions. The choices and defaults follow the corresponding IDOS Station Timetable forms:
+
+| Timetable | Municipalities | Default |
+| --- | --- | --- |
+| ODIS | Bruntál, Český Těšín, Frýdek-Místek, Havířov, Karviná, Krnov, Nový Jičín, Opava, Orlová, Ostrava, Studénka, Třinec | Ostrava |
+| IDOL | Česká Lípa, Jablonec nad Nisou, Liberec, Turnov | Česká Lípa |
+| IDSOK | Hranice, Olomouc, Prostějov, Přerov, Šumperk, Zábřeh | Hranice |
+| IREDO | Dvůr Králové nad Labem, Chrudim, Náchod, Přelouč, Rychnov nad Kněžnou, Týniště nad Orlicí, Vrchlabí | Dvůr Králové nad Labem |
+| DÚK | Bílina, Děčín, Chomutov, Klášterec nad Ohří, Most-Litvínov, Roudnice nad Labem, Teplice, Ústí nad Labem, Varnsdorf | Ústí nad Labem |
+| IDPK | Domažlice, Klatovy, Plzeň, Rokycany, Stříbro, Tachov | Plzeň |
+| IDZK | Uherské Hradiště, Vsetín | Uherské Hradiště |
+| IDESKA | České Budějovice, Český Krumlov, Jindřichův Hradec, Milevsko, Písek, Strakonice, Tábor, Vimperk | České Budějovice |
+
+Names are case- and diacritic-insensitive, and short IDOS identifiers such as `FM`, `DvurKral`, `UL`, or `CesBud`
+are also accepted. Omitting the option uses the listed IDOS default. Supplying a municipality for a timetable
+without that chooser is rejected before a network request.
 
 ### Service Details
 
