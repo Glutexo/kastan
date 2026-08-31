@@ -282,10 +282,10 @@ installs `~/Applications/Kastan.app`. Finder and Spotlight display its localized
 on-disk bundle name prevents Spotlight from treating the canonically decomposed form of an accented filename as a
 second application result. The command removes the former `~/Applications/Kaštan.app` path during migration.
 The static bundle icon is formed entirely by the chestnut shell, without a separate colored or neutral plate in Finder
-and Spotlight. Its dark contour fills the edge of the rounded rectangular system mask, while the shell surface rises
-into a suggested upper-right point without breaking that silhouette. Its layered Icon Composer source adapts to current
-macOS appearances, while Xcode generates a matching flattened icon for earlier supported releases. The running app
-keeps the complete transparent, freeform artwork in the Dock and app switcher.
+and Spotlight. Its continuous dark contour forms an even frame around the rounded rectangular system mask, while the
+upper highlights taper toward a suggested point inside that uninterrupted edge. Its layered Icon Composer source adapts
+to current macOS appearances, while Xcode generates a matching flattened icon for earlier supported releases. The
+running app keeps the complete transparent, freeform artwork in the Dock and app switcher.
 
 The checked-in bitmap renditions use the same source artwork and remain reproducible with
 `swift Scripts/generate-macos-app-icon.swift` after changing the artwork, surface crop, or contour geometry.

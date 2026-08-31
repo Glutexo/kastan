@@ -42,45 +42,19 @@ let artworkCrop = NSRect(
     height: artwork.size.height * 0.645
 )
 
-/// Suggests the chestnut's point inside a rectangular silhouette that remains flush with the macOS icon mask.
+/// Insets the shell surface evenly so the dark outer contour reads as one continuous frame.
 func shellSurfacePath(length: CGFloat) -> NSBezierPath {
-    func point(_ x: CGFloat, _ y: CGFloat) -> NSPoint {
-        NSPoint(x: length * x, y: length * y)
-    }
-
-    let path = NSBezierPath()
-    path.move(to: point(0.20, 0.035))
-    path.line(to: point(0.73, 0.035))
-    path.curve(
-        to: point(0.965, 0.23),
-        controlPoint1: point(0.87, 0.035),
-        controlPoint2: point(0.965, 0.11)
+    let inset = length * 0.03
+    return NSBezierPath(
+        roundedRect: NSRect(
+            x: inset,
+            y: inset,
+            width: length - 2 * inset,
+            height: length - 2 * inset
+        ),
+        xRadius: length * 0.18,
+        yRadius: length * 0.18
     )
-    path.line(to: point(0.965, 0.69))
-    path.curve(
-        to: point(0.845, 0.985),
-        controlPoint1: point(0.965, 0.82),
-        controlPoint2: point(0.885, 0.90)
-    )
-    path.curve(
-        to: point(0.69, 0.95),
-        controlPoint1: point(0.815, 0.95),
-        controlPoint2: point(0.77, 0.95)
-    )
-    path.line(to: point(0.22, 0.95))
-    path.curve(
-        to: point(0.035, 0.75),
-        controlPoint1: point(0.105, 0.95),
-        controlPoint2: point(0.035, 0.87)
-    )
-    path.line(to: point(0.035, 0.22))
-    path.curve(
-        to: point(0.20, 0.035),
-        controlPoint1: point(0.035, 0.105),
-        controlPoint2: point(0.10, 0.035)
-    )
-    path.close()
-    return path
 }
 
 /// Renders one opaque icon made only from the chestnut surface and its natural dark contour.

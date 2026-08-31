@@ -69,6 +69,13 @@ func isDarkChestnut(_ color: NSColor) -> Bool {
         && color.greenComponent >= color.blueComponent
 }
 
+/// Recognizes the brighter shell surface immediately inside the continuous dark frame.
+func isChestnutSurface(_ color: NSColor) -> Bool {
+    color.redComponent >= 0.45
+        && color.redComponent - color.greenComponent >= 0.20
+        && color.greenComponent - color.blueComponent >= 0.10
+}
+
 let iconDocumentURL = iconComposer.appendingPathComponent("icon.json")
 let iconDocument = try jsonDictionary(at: iconDocumentURL)
 let automaticGradient = (iconDocument["fill"] as? [String: Any])?["automatic-gradient"] as? String
@@ -119,13 +126,35 @@ precondition(
     iconComposerCorners.count == 4 && iconComposerCorners.allSatisfy(isDarkChestnut),
     "The shell's dark contour must form every outer corner of the Finder icon"
 )
-let centerTop = color(of: iconComposerImage, x: 0.50, y: 0.02)
-let pointTop = color(of: iconComposerImage, x: 0.845, y: 0.02)
+let frameSamples = [
+    color(of: iconComposerImage, x: 0.50, y: 0.015),
+    color(of: iconComposerImage, x: 0.985, y: 0.50),
+    color(of: iconComposerImage, x: 0.50, y: 0.985),
+    color(of: iconComposerImage, x: 0.015, y: 0.50),
+].compactMap { $0 }
 precondition(
-    centerTop.map { center in
-        pointTop.map { point in point.redComponent - center.redComponent >= 0.20 } ?? false
+    frameSamples.count == 4 && frameSamples.allSatisfy(isDarkChestnut),
+    "The shell contour must form one continuous frame at every edge midpoint"
+)
+let surfaceSamples = [
+    color(of: iconComposerImage, x: 0.50, y: 0.045),
+    color(of: iconComposerImage, x: 0.955, y: 0.50),
+    color(of: iconComposerImage, x: 0.50, y: 0.955),
+    color(of: iconComposerImage, x: 0.045, y: 0.50),
+].compactMap { $0 }
+precondition(
+    surfaceSamples.count == 4 && surfaceSamples.allSatisfy(isChestnutSurface),
+    "The shell surface must begin evenly inside every side of the dark frame"
+)
+let topSurface = color(of: iconComposerImage, x: 0.50, y: 0.045)
+let pointHighlight = color(of: iconComposerImage, x: 0.72, y: 0.045)
+precondition(
+    topSurface.map { surface in
+        pointHighlight.map { highlight in
+            highlight.greenComponent - surface.greenComponent >= 0.15
+        } ?? false
     } == true,
-    "The shell surface must rise into a visible point near the upper-right edge"
+    "The upper highlight must suggest the chestnut point without interrupting the frame"
 )
 
 let appIcons = try pngFiles(
