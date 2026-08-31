@@ -28,15 +28,15 @@ let renditions = [
     "AppIcon-512@2x.png": 1_024,
 ]
 
-/// Matches the full-bleed crop in the Icon Composer document at every legacy rendition size.
-let artworkScale: CGFloat = 1.3
-let artworkVerticalOffset: CGFloat = 20 / 1_024
+/// Matches the balanced placement in the Icon Composer document at every legacy rendition size.
+let artworkScale: CGFloat = 1
+let artworkVerticalOffset: CGFloat = 0
 
 guard let artwork = NSImage(contentsOf: sourceURL) else {
     throw CocoaError(.fileReadCorruptFile, userInfo: [NSURLErrorKey: sourceURL])
 }
 
-/// Renders one opaque, full-bleed asset-catalog size that avoids macOS's gray legacy frame.
+/// Renders one opaque asset-catalog size with a deliberate chestnut-colored edge instead of macOS's gray frame.
 func iconData(size: Int) throws -> Data {
     guard let bitmap = NSBitmapImageRep(
         bitmapDataPlanes: nil,
@@ -63,8 +63,8 @@ func iconData(size: Int) throws -> Data {
         height: artworkLength
     )
     let backdrop = NSGradient(
-        starting: NSColor(srgbRed: 0.976, green: 0.949, blue: 0.913, alpha: 1),
-        ending: NSColor(srgbRed: 0.878, green: 0.794, blue: 0.718, alpha: 1)
+        starting: NSColor(srgbRed: 0.67, green: 0.31, blue: 0.22, alpha: 1),
+        ending: NSColor(srgbRed: 0.38, green: 0.075, blue: 0.015, alpha: 1)
     )!
 
     NSGraphicsContext.saveGraphicsState()

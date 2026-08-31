@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-/// Protects Kaštan's full-bleed bundle icon and the complete transparent runtime artwork.
+/// Protects Kaštan's color-backed bundle icon and the complete transparent runtime artwork.
 let repositoryRoot = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent()
     .deletingLastPathComponent()
@@ -61,6 +61,11 @@ func middleEdgeColors(of image: NSBitmapImageRep) -> [NSColor] {
 
 let iconDocumentURL = iconComposer.appendingPathComponent("icon.json")
 let iconDocument = try jsonDictionary(at: iconDocumentURL)
+let automaticGradient = (iconDocument["fill"] as? [String: Any])?["automatic-gradient"] as? String
+precondition(
+    automaticGradient == "extended-srgb:0.48000,0.12000,0.02500,1.00000",
+    "The Icon Composer document must retain its saturated chestnut backdrop"
+)
 let iconComposerArtwork = iconComposer
     .appendingPathComponent("Assets", isDirectory: true)
     .appendingPathComponent("ApplicationArtwork.png")
@@ -78,11 +83,11 @@ let artworkPosition = artworkLayer?["position"] as? [String: Any]
 let artworkScale = (artworkPosition?["scale"] as? NSNumber)?.doubleValue
 let artworkTranslation = artworkPosition?["translation-in-points"] as? [NSNumber]
 precondition(
-    artworkScale.map { abs($0 - 1.3) <= 0.000_1 } == true
+    artworkScale.map { abs($0 - 1) <= 0.000_1 } == true
         && artworkTranslation?.count == 2
         && abs(artworkTranslation?[0].doubleValue ?? .infinity) <= 0.000_1
-        && abs((artworkTranslation?[1].doubleValue ?? .infinity) + 20) <= 0.000_1,
-    "The Icon Composer artwork must retain its frame-free full-bleed crop"
+        && abs(artworkTranslation?[1].doubleValue ?? .infinity) <= 0.000_1,
+    "The Icon Composer artwork must retain its balanced placement inside the colored edge"
 )
 
 let iconComposerImage = try bitmap(at: iconComposerArtwork)
@@ -131,11 +136,10 @@ for icon in appIcons {
     let colors = middleEdgeColors(of: image)
     precondition(
         colors.count == 4 && colors.allSatisfy { color in
-            return color.redComponent > color.greenComponent
-                && color.greenComponent > color.blueComponent
-                && color.redComponent - color.blueComponent >= 0.08
+            return color.redComponent - color.greenComponent >= 0.15
+                && color.greenComponent - color.blueComponent >= 0.03
         },
-        "\(icon.lastPathComponent) must keep chestnut artwork along every visible edge"
+        "\(icon.lastPathComponent) must keep a saturated chestnut color along every visible edge"
     )
 }
 

@@ -1,6 +1,6 @@
 {
   "fill" : {
-    "automatic-gradient" : "extended-srgb:0.87800,0.79400,0.71800,1.00000"
+    "automatic-gradient" : "extended-srgb:0.48000,0.12000,0.02500,1.00000"
   },
   "groups" : [
     {
@@ -10,10 +10,10 @@
           "image-name" : "ApplicationArtwork.png",
           "name" : "ApplicationArtwork",
           "position" : {
-            "scale" : 1.3,
+            "scale" : 1,
             "translation-in-points" : [
               0,
-              -20
+              0
             ]
           }
         }
