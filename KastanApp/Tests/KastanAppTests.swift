@@ -4689,8 +4689,8 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(options.catalogTimetables(in: .integratedSystems).contains { $0.slug == "odis" })
     }
 
-    func testFavoriteTimetablesWindowOpensAtCompactWidth() {
-        XCTAssertEqual(FavoriteTimetablesView.minimumWindowWidth, 400)
+    func testFavoriteTimetablesWindowOpensAtNarrowWidth() {
+        XCTAssertEqual(FavoriteTimetablesView.minimumWindowWidth, 320)
         XCTAssertEqual(
             FavoriteTimetablesView.defaultWindowWidth,
             FavoriteTimetablesView.minimumWindowWidth

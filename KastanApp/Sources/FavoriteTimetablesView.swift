@@ -3,8 +3,8 @@ import SwiftUI
 
 /// Manages every timetable favorite in the secondary window opened from the main toolbar.
 struct FavoriteTimetablesView: View {
-    /// Opens the complete catalog at the same compact width as the app's other secondary windows.
-    static let minimumWindowWidth: CGFloat = 400
+    /// Keeps the complete catalog usable in a narrow dedicated manager window.
+    static let minimumWindowWidth: CGFloat = 320
     static let defaultWindowWidth = minimumWindowWidth
 
     @AppStorage(TimetableFavorites.storageKey) private var serializedTimetableFavorites = "[]"
