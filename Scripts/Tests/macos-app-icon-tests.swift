@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-/// Protects Kaštan's layered bundle icon, its bitmap renditions, and the transparent runtime artwork.
+/// Protects Kaštan's full-bleed bundle icon and the complete transparent runtime artwork.
 let repositoryRoot = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent()
     .deletingLastPathComponent()
@@ -35,16 +35,6 @@ func jsonDictionary(at url: URL) throws -> [String: Any] {
     return dictionary
 }
 
-/// Decodes Icon Composer's extended-sRGB notation so the product backdrop remains testable.
-func extendedSRGBComponents(in value: String) -> [Double]? {
-    let prefix = "extended-srgb:"
-    guard value.hasPrefix(prefix) else { return nil }
-    let components = value.dropFirst(prefix.count).split(separator: ",")
-    guard components.count == 4 else { return nil }
-    let values = components.compactMap { Double($0) }
-    return values.count == 4 ? values : nil
-}
-
 func cornerAlphas(of image: NSBitmapImageRep) -> [CGFloat] {
     let corners = [
         (0, 0),
@@ -55,45 +45,44 @@ func cornerAlphas(of image: NSBitmapImageRep) -> [CGFloat] {
     return corners.compactMap { image.colorAt(x: $0.0, y: $0.1)?.alphaComponent }
 }
 
-/// Reads the icon corners in a stable color space so the intended warm backdrop remains testable.
-func cornerColors(of image: NSBitmapImageRep) -> [NSColor] {
-    let corners = [
-        (0, 0),
-        (image.pixelsWide - 1, 0),
-        (0, image.pixelsHigh - 1),
-        (image.pixelsWide - 1, image.pixelsHigh - 1),
+/// Samples the visible edge centers where a neutral frame would otherwise surround the artwork.
+func middleEdgeColors(of image: NSBitmapImageRep) -> [NSColor] {
+    let inset = max(1, image.pixelsWide / 64)
+    let edges = [
+        (image.pixelsWide / 2, inset),
+        (image.pixelsWide / 2, image.pixelsHigh - inset - 1),
+        (inset, image.pixelsHigh / 2),
+        (image.pixelsWide - inset - 1, image.pixelsHigh / 2),
     ]
-    return corners.compactMap {
+    return edges.compactMap {
         image.colorAt(x: $0.0, y: $0.1)?.usingColorSpace(.sRGB)
     }
 }
 
 let iconDocumentURL = iconComposer.appendingPathComponent("icon.json")
 let iconDocument = try jsonDictionary(at: iconDocumentURL)
-let automaticGradient = (iconDocument["fill"] as? [String: Any])?["automatic-gradient"] as? String
-let gradientComponents = automaticGradient.flatMap(extendedSRGBComponents)
-precondition(
-    gradientComponents.map { components in
-        let red = components[0]
-        let green = components[1]
-        let blue = components[2]
-        let brightness = (red + green + blue) / 3
-        return red > green && green > blue && brightness >= 0.72 && components[3] == 1
-    } == true,
-    "The Icon Composer document must retain its opaque, gentle warm backdrop"
-)
-
 let iconComposerArtwork = iconComposer
     .appendingPathComponent("Assets", isDirectory: true)
     .appendingPathComponent("ApplicationArtwork.png")
-let referencedIconImages = (iconDocument["groups"] as? [[String: Any]] ?? []).flatMap { group in
-    (group["layers"] as? [[String: Any]] ?? []).compactMap { layer in
-        layer["image-name"] as? String
-    }
+let iconLayers = (iconDocument["groups"] as? [[String: Any]] ?? []).flatMap { group in
+    group["layers"] as? [[String: Any]] ?? []
+}
+let artworkLayer = iconLayers.first {
+    $0["image-name"] as? String == iconComposerArtwork.lastPathComponent
 }
 precondition(
-    referencedIconImages.contains(iconComposerArtwork.lastPathComponent),
+    artworkLayer != nil,
     "The Icon Composer document must render Kaštan's application artwork"
+)
+let artworkPosition = artworkLayer?["position"] as? [String: Any]
+let artworkScale = (artworkPosition?["scale"] as? NSNumber)?.doubleValue
+let artworkTranslation = artworkPosition?["translation-in-points"] as? [NSNumber]
+precondition(
+    artworkScale.map { abs($0 - 1.3) <= 0.000_1 } == true
+        && artworkTranslation?.count == 2
+        && abs(artworkTranslation?[0].doubleValue ?? .infinity) <= 0.000_1
+        && abs((artworkTranslation?[1].doubleValue ?? .infinity) + 20) <= 0.000_1,
+    "The Icon Composer artwork must retain its frame-free full-bleed crop"
 )
 
 let iconComposerImage = try bitmap(at: iconComposerArtwork)
@@ -139,15 +128,14 @@ for icon in appIcons {
         alphas.count == 4 && alphas.allSatisfy { $0 >= 0.999 },
         "\(icon.lastPathComponent) must remain opaque so macOS does not add its gray legacy frame"
     )
-    let colors = cornerColors(of: image)
+    let colors = middleEdgeColors(of: image)
     precondition(
         colors.count == 4 && colors.allSatisfy { color in
-            let brightness = (color.redComponent + color.greenComponent + color.blueComponent) / 3
             return color.redComponent > color.greenComponent
                 && color.greenComponent > color.blueComponent
-                && brightness >= 0.72
+                && color.redComponent - color.blueComponent >= 0.08
         },
-        "\(icon.lastPathComponent) must retain its gentle warm backdrop"
+        "\(icon.lastPathComponent) must keep chestnut artwork along every visible edge"
     )
 }
 

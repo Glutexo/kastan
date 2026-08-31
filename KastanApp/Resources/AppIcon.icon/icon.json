@@ -8,7 +8,14 @@
         {
           "glass" : false,
           "image-name" : "ApplicationArtwork.png",
-          "name" : "ApplicationArtwork"
+          "name" : "ApplicationArtwork",
+          "position" : {
+            "scale" : 1.3,
+            "translation-in-points" : [
+              0,
+              -20
+            ]
+          }
         }
       ],
       "shadow" : {
