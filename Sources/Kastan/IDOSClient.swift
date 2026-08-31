@@ -3933,6 +3933,7 @@ enum IDOSDepartureParser {
         let timetableIndex = attribute("data-ttindex", in: attributes)
         let trainID = attribute("data-train", in: attributes)
         let dateTime = attribute("data-datetime", in: attributes)
+            .flatMap(canonicalServiceDateTime)
 
         guard !time.isEmpty, !lineName.isEmpty, !destination.isEmpty,
               let timetableIndex, !timetableIndex.isEmpty,
@@ -4038,6 +4039,40 @@ enum IDOSDepartureParser {
 
     private static func timeFromDateTime(_ value: String) -> String? {
         RegexSupport.capture(pattern: #"([0-9]{1,2}:[0-9]{2})(?::[0-9]{2})?$"#, in: value)
+    }
+
+    /// Canonicalizes the HTML timestamp IDOS occasionally leaves unpadded so its ID can load a service detail.
+    private static func canonicalServiceDateTime(_ value: String) -> String? {
+        guard let parts = RegexSupport.captures(
+            pattern: #"^(\d{1,2})\.(\d{1,2})\.(\d{4}) (\d{1,2}):(\d{1,2}):(\d{1,2})$"#,
+            in: value
+        ).first,
+              parts.count == 6,
+              let day = Int(parts[0]),
+              let month = Int(parts[1]),
+              let year = Int(parts[2]),
+              let hour = Int(parts[3]),
+              let minute = Int(parts[4]),
+              let second = Int(parts[5]),
+              (0...23).contains(hour),
+              (0...59).contains(minute),
+              (0...59).contains(second),
+              Calendar(identifier: .gregorian).date(
+                from: DateComponents(year: year, month: month, day: day)
+              ) != nil
+        else {
+            return nil
+        }
+
+        return String(
+            format: "%02d.%02d.%04d %02d:%02d:%02d",
+            day,
+            month,
+            year,
+            hour,
+            minute,
+            second
+        )
     }
 }
 

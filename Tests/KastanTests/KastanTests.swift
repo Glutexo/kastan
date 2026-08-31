@@ -2560,6 +2560,26 @@ import Testing
     #expect(departure.serviceInformation.map(\.category) == [.bicycle])
 }
 
+@Test func departureParserPadsSingleDigitHourForServiceDetailID() throws {
+    let html = """
+    <tr class="dep-row dep-row-first" data-ttindex="0" data-train="281" data-datetime="31.08.2026 9:53:00" data-stationname="Frýdek-Místek,Místek,Ostravská">
+      <td><h3>Frýdek-Místek,Místek,Ostravská</h3></td>
+      <td><h3>Bus 302</h3></td>
+      <td><h3>9:53</h3></td>
+    </tr>
+    <tr class="dep-row dep-row-second"><td></td></tr>
+    """
+    let timetable = IDOSTimetable(slug: "frydekmistek", displayName: "Urban Public Transport Frýdek-Místek")
+
+    let departure = try #require(IDOSDepartureParser.parse(html: html, timetable: timetable).first)
+    let reference = try IDOSServiceReference(id: departure.id, fallbackTimetable: .defaultTimetable)
+
+    #expect(departure.id == "frydekmistek:0-281-31.08.2026 09:53:00")
+    #expect(reference.id == departure.id)
+    #expect(reference.hour == 9)
+    #expect(IDOSDepartureParser.scheduledDate(for: departure) != nil)
+}
+
 @Test func serviceDetailParserReadsCompleteRouteAndInformation() throws {
     let html = """
     <div id="train-detail-151" data-share-url="https://idos.cz/service">
