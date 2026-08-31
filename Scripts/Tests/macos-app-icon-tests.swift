@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-/// Protects Kaštan's color-backed bundle icon and the complete transparent runtime artwork.
+/// Protects Kaštan's full-bleed chestnut bundle icon and the complete transparent runtime artwork.
 let repositoryRoot = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent()
     .deletingLastPathComponent()
@@ -45,26 +45,36 @@ func cornerAlphas(of image: NSBitmapImageRep) -> [CGFloat] {
     return corners.compactMap { image.colorAt(x: $0.0, y: $0.1)?.alphaComponent }
 }
 
-/// Samples the visible edge centers where a neutral frame would otherwise surround the artwork.
-func middleEdgeColors(of image: NSBitmapImageRep) -> [NSColor] {
-    let inset = max(1, image.pixelsWide / 64)
-    let edges = [
-        (image.pixelsWide / 2, inset),
-        (image.pixelsWide / 2, image.pixelsHigh - inset - 1),
-        (inset, image.pixelsHigh / 2),
-        (image.pixelsWide - inset - 1, image.pixelsHigh / 2),
-    ]
-    return edges.compactMap {
-        image.colorAt(x: $0.0, y: $0.1)?.usingColorSpace(.sRGB)
+func isFullyOpaque(_ image: NSBitmapImageRep) -> Bool {
+    for y in 0..<image.pixelsHigh {
+        for x in 0..<image.pixelsWide
+        where (image.colorAt(x: x, y: y)?.alphaComponent ?? 0) < 0.999 {
+            return false
+        }
     }
+    return true
+}
+
+func color(of image: NSBitmapImageRep, x: CGFloat, y: CGFloat) -> NSColor? {
+    image.colorAt(
+        x: min(image.pixelsWide - 1, Int(CGFloat(image.pixelsWide) * x)),
+        y: min(image.pixelsHigh - 1, Int(CGFloat(image.pixelsHigh) * y))
+    )?.usingColorSpace(.sRGB)
+}
+
+/// Recognizes the dark brown shell contour that must be the icon's only outer edge.
+func isDarkChestnut(_ color: NSColor) -> Bool {
+    color.redComponent <= 0.36
+        && color.redComponent - color.greenComponent >= 0.08
+        && color.greenComponent >= color.blueComponent
 }
 
 let iconDocumentURL = iconComposer.appendingPathComponent("icon.json")
 let iconDocument = try jsonDictionary(at: iconDocumentURL)
 let automaticGradient = (iconDocument["fill"] as? [String: Any])?["automatic-gradient"] as? String
 precondition(
-    automaticGradient == "extended-srgb:0.48000,0.12000,0.02500,1.00000",
-    "The Icon Composer document must retain its saturated chestnut backdrop"
+    automaticGradient == "extended-srgb:0.00000,0.00000,0.00000,0.00000",
+    "The inactive Icon Composer fill must not add a separate backdrop behind the full-bleed chestnut"
 )
 let iconComposerArtwork = iconComposer
     .appendingPathComponent("Assets", isDirectory: true)
@@ -87,7 +97,7 @@ precondition(
         && artworkTranslation?.count == 2
         && abs(artworkTranslation?[0].doubleValue ?? .infinity) <= 0.000_1
         && abs(artworkTranslation?[1].doubleValue ?? .infinity) <= 0.000_1,
-    "The Icon Composer artwork must retain its balanced placement inside the colored edge"
+    "The Icon Composer document must preserve the precomposed chestnut silhouette"
 )
 
 let iconComposerImage = try bitmap(at: iconComposerArtwork)
@@ -95,10 +105,27 @@ precondition(
     iconComposerImage.pixelsWide == 1_024 && iconComposerImage.pixelsHigh == 1_024,
     "Icon Composer artwork must be 1024 × 1024 pixels"
 )
-let iconComposerAlphas = cornerAlphas(of: iconComposerImage)
 precondition(
-    iconComposerAlphas.count == 4 && iconComposerAlphas.allSatisfy { $0 <= 0.001 },
-    "Icon Composer artwork must stay transparent so its backdrop remains independently adaptable"
+    isFullyOpaque(iconComposerImage),
+    "Icon Composer artwork must cover the complete system mask so no system plate can appear behind it"
+)
+let iconComposerCorners = [
+    color(of: iconComposerImage, x: 0, y: 0),
+    color(of: iconComposerImage, x: 0.999, y: 0),
+    color(of: iconComposerImage, x: 0, y: 0.999),
+    color(of: iconComposerImage, x: 0.999, y: 0.999),
+].compactMap { $0 }
+precondition(
+    iconComposerCorners.count == 4 && iconComposerCorners.allSatisfy(isDarkChestnut),
+    "The shell's dark contour must form every outer corner of the Finder icon"
+)
+let centerTop = color(of: iconComposerImage, x: 0.50, y: 0.02)
+let pointTop = color(of: iconComposerImage, x: 0.845, y: 0.02)
+precondition(
+    centerTop.map { center in
+        pointTop.map { point in point.redComponent - center.redComponent >= 0.20 } ?? false
+    } == true,
+    "The shell surface must rise into a visible point near the upper-right edge"
 )
 
 let appIcons = try pngFiles(
@@ -128,18 +155,19 @@ for icon in appIcons {
         image.pixelsWide == expectedSize && image.pixelsHigh == expectedSize,
         "\(icon.lastPathComponent) must be \(expectedSize) × \(expectedSize) pixels"
     )
-    let alphas = cornerAlphas(of: image)
     precondition(
-        alphas.count == 4 && alphas.allSatisfy { $0 >= 0.999 },
-        "\(icon.lastPathComponent) must remain opaque so macOS does not add its gray legacy frame"
+        isFullyOpaque(image),
+        "\(icon.lastPathComponent) must cover its complete system mask"
     )
-    let colors = middleEdgeColors(of: image)
+    let corners = [
+        color(of: image, x: 0, y: 0),
+        color(of: image, x: 0.999, y: 0),
+        color(of: image, x: 0, y: 0.999),
+        color(of: image, x: 0.999, y: 0.999),
+    ].compactMap { $0 }
     precondition(
-        colors.count == 4 && colors.allSatisfy { color in
-            return color.redComponent - color.greenComponent >= 0.15
-                && color.greenComponent - color.blueComponent >= 0.03
-        },
-        "\(icon.lastPathComponent) must keep a saturated chestnut color along every visible edge"
+        corners.count == 4 && corners.allSatisfy(isDarkChestnut),
+        "\(icon.lastPathComponent) must use the shell's dark contour as its complete outer edge"
     )
 }
 
@@ -169,12 +197,12 @@ for artwork in runtimeArtwork {
     )
 }
 
-let retinaRuntimeArtwork = assetCatalog
-    .appendingPathComponent("ApplicationArtwork.imageset", isDirectory: true)
-    .appendingPathComponent("ApplicationArtwork@2x.png")
 let iconComposerArtworkData = try Data(contentsOf: iconComposerArtwork)
-let retinaRuntimeArtworkData = try Data(contentsOf: retinaRuntimeArtwork)
+let largestFallbackArtwork = assetCatalog
+    .appendingPathComponent("AppIcon.appiconset", isDirectory: true)
+    .appendingPathComponent("AppIcon-512@2x.png")
+let largestFallbackArtworkData = try Data(contentsOf: largestFallbackArtwork)
 precondition(
-    iconComposerArtworkData == retinaRuntimeArtworkData,
-    "Icon Composer and the running app must use the same full-resolution chestnut artwork"
+    iconComposerArtworkData == largestFallbackArtworkData,
+    "Icon Composer and the fallback asset catalog must use the same full-resolution Finder silhouette"
 )

@@ -3,7 +3,7 @@
 import AppKit
 import Foundation
 
-/// Generates Kaštan's bitmap app-icon renditions from the artwork used by the running app.
+/// Reshapes Kaštan's freeform artwork into the self-contained chestnut icon used by Finder and Spotlight.
 let repositoryRoot = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent()
     .deletingLastPathComponent()
@@ -14,6 +14,8 @@ let sourceURL = assetCatalog
     .appendingPathComponent("ApplicationArtwork@2x.png")
 let destinationDirectory = assetCatalog
     .appendingPathComponent("AppIcon.appiconset", isDirectory: true)
+let iconComposerArtworkURL = repositoryRoot
+    .appendingPathComponent("KastanApp/Resources/AppIcon.icon/Assets/ApplicationArtwork.png")
 
 let renditions = [
     "AppIcon-16.png": 16,
@@ -28,15 +30,60 @@ let renditions = [
     "AppIcon-512@2x.png": 1_024,
 ]
 
-/// Matches the balanced placement in the Icon Composer document at every legacy rendition size.
-let artworkScale: CGFloat = 1
-let artworkVerticalOffset: CGFloat = 0
-
 guard let artwork = NSImage(contentsOf: sourceURL) else {
     throw CocoaError(.fileReadCorruptFile, userInfo: [NSURLErrorKey: sourceURL])
 }
 
-/// Renders one opaque asset-catalog size with a deliberate chestnut-colored edge instead of macOS's gray frame.
+/// Uses an opaque portion of the original illustration as the full icon surface, including its cut and highlights.
+let artworkCrop = NSRect(
+    x: artwork.size.width * 0.175,
+    y: artwork.size.height * 0.15,
+    width: artwork.size.width * 0.69,
+    height: artwork.size.height * 0.645
+)
+
+/// Suggests the chestnut's point inside a rectangular silhouette that remains flush with the macOS icon mask.
+func shellSurfacePath(length: CGFloat) -> NSBezierPath {
+    func point(_ x: CGFloat, _ y: CGFloat) -> NSPoint {
+        NSPoint(x: length * x, y: length * y)
+    }
+
+    let path = NSBezierPath()
+    path.move(to: point(0.20, 0.035))
+    path.line(to: point(0.73, 0.035))
+    path.curve(
+        to: point(0.965, 0.23),
+        controlPoint1: point(0.87, 0.035),
+        controlPoint2: point(0.965, 0.11)
+    )
+    path.line(to: point(0.965, 0.69))
+    path.curve(
+        to: point(0.845, 0.985),
+        controlPoint1: point(0.965, 0.82),
+        controlPoint2: point(0.885, 0.90)
+    )
+    path.curve(
+        to: point(0.69, 0.95),
+        controlPoint1: point(0.815, 0.95),
+        controlPoint2: point(0.77, 0.95)
+    )
+    path.line(to: point(0.22, 0.95))
+    path.curve(
+        to: point(0.035, 0.75),
+        controlPoint1: point(0.105, 0.95),
+        controlPoint2: point(0.035, 0.87)
+    )
+    path.line(to: point(0.035, 0.22))
+    path.curve(
+        to: point(0.20, 0.035),
+        controlPoint1: point(0.035, 0.105),
+        controlPoint2: point(0.10, 0.035)
+    )
+    path.close()
+    return path
+}
+
+/// Renders one opaque icon made only from the chestnut surface and its natural dark contour.
 func iconData(size: Int) throws -> Data {
     guard let bitmap = NSBitmapImageRep(
         bitmapDataPlanes: nil,
@@ -55,30 +102,26 @@ func iconData(size: Int) throws -> Data {
     }
 
     let length = CGFloat(size)
-    let artworkLength = length * artworkScale
-    let artworkBounds = NSRect(
-        x: (length - artworkLength) / 2,
-        y: (length - artworkLength) / 2 + length * artworkVerticalOffset,
-        width: artworkLength,
-        height: artworkLength
-    )
-    let backdrop = NSGradient(
-        starting: NSColor(srgbRed: 0.67, green: 0.31, blue: 0.22, alpha: 1),
-        ending: NSColor(srgbRed: 0.38, green: 0.075, blue: 0.015, alpha: 1)
+    let canvas = NSRect(x: 0, y: 0, width: length, height: length)
+    let contour = NSGradient(
+        starting: NSColor(srgbRed: 0.20, green: 0.045, blue: 0.012, alpha: 1),
+        ending: NSColor(srgbRed: 0.075, green: 0.012, blue: 0.004, alpha: 1)
     )!
+    let surface = shellSurfacePath(length: length)
 
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = context
     context.imageInterpolation = NSImageInterpolation.high
-    backdrop.draw(
+    contour.draw(
         from: NSPoint(x: 0, y: length),
         to: NSPoint(x: length, y: 0),
         options: []
     )
+    surface.addClip()
     artwork.draw(
-        in: artworkBounds,
-        from: .zero,
-        operation: .sourceOver,
+        in: canvas,
+        from: artworkCrop,
+        operation: .copy,
         fraction: 1,
         respectFlipped: false,
         hints: [.interpolation: NSImageInterpolation.high]
@@ -94,6 +137,8 @@ func iconData(size: Int) throws -> Data {
     }
     return data
 }
+
+try iconData(size: 1_024).write(to: iconComposerArtworkURL, options: .atomic)
 
 for (filename, size) in renditions {
     try iconData(size: size).write(
