@@ -6336,8 +6336,7 @@ final class KastanAppTests: XCTestCase {
     func testStationTimetableMinuteResolvesAndOpensTheMatchingService() async throws {
         let client = MockIDOSClient()
         let model = StationTimetablesViewModel(client: client)
-        let calendar = StationTimetableDepartureLookup.serviceCalendar
-        model.date = try XCTUnwrap(calendar.date(from: DateComponents(
+        model.date = try XCTUnwrap(Calendar.current.date(from: DateComponents(
             year: 2026,
             month: 8,
             day: 31
@@ -6389,8 +6388,7 @@ final class KastanAppTests: XCTestCase {
     func testWholeWeekMinuteUsesTheNearestConcreteOccurrence() async throws {
         let client = MockIDOSClient()
         let model = StationTimetablesViewModel(client: client)
-        let calendar = StationTimetableDepartureLookup.serviceCalendar
-        model.date = try XCTUnwrap(calendar.date(from: DateComponents(
+        model.date = try XCTUnwrap(Calendar.current.date(from: DateComponents(
             year: 2026,
             month: 8,
             day: 31
