@@ -62,6 +62,52 @@ func color(of image: NSBitmapImageRep, x: CGFloat, y: CGFloat) -> NSColor? {
     )?.usingColorSpace(.sRGB)
 }
 
+func maximumComponentDifference(in colors: [NSColor]) -> CGFloat {
+    guard let reference = colors.first else {
+        return .infinity
+    }
+    return colors.dropFirst().reduce(0) { difference, color in
+        max(
+            difference,
+            abs(color.redComponent - reference.redComponent),
+            abs(color.greenComponent - reference.greenComponent),
+            abs(color.blueComponent - reference.blueComponent)
+        )
+    }
+}
+
+func matchingPixelBounds(
+    of image: NSBitmapImageRep,
+    xRange: Range<Int>,
+    yRange: Range<Int>,
+    matching predicate: (NSColor) -> Bool
+) -> (count: Int, minimumX: Int, maximumX: Int, minimumY: Int, maximumY: Int)? {
+    var count = 0
+    var minimumX = image.pixelsWide
+    var maximumX = 0
+    var minimumY = image.pixelsHigh
+    var maximumY = 0
+
+    for y in yRange {
+        for x in xRange {
+            guard let sample = image.colorAt(x: x, y: y)?.usingColorSpace(.sRGB),
+                  predicate(sample) else {
+                continue
+            }
+            count += 1
+            minimumX = min(minimumX, x)
+            maximumX = max(maximumX, x)
+            minimumY = min(minimumY, y)
+            maximumY = max(maximumY, y)
+        }
+    }
+
+    guard count > 0 else {
+        return nil
+    }
+    return (count, minimumX, maximumX, minimumY, maximumY)
+}
+
 /// Recognizes the dark brown shell contour that must be the icon's only outer edge.
 func isDarkChestnut(_ color: NSColor) -> Bool {
     color.redComponent <= 0.36
@@ -83,10 +129,22 @@ precondition(
     automaticGradient == "extended-srgb:0.00000,0.00000,0.00000,0.00000",
     "The inactive Icon Composer fill must not add a separate backdrop behind the full-bleed chestnut"
 )
+let iconGroups = iconDocument["groups"] as? [[String: Any]] ?? []
+precondition(iconGroups.count == 1, "The app icon must use one self-contained chestnut group")
+let iconGroup = iconGroups[0]
+let iconShadow = iconGroup["shadow"] as? [String: Any]
+let iconTranslucency = iconGroup["translucency"] as? [String: Any]
+precondition(
+    (iconShadow?["opacity"] as? NSNumber)?.doubleValue == 0
+        && iconGroup["specular"] as? Bool == false
+        && iconTranslucency?["enabled"] as? Bool == false
+        && (iconTranslucency?["value"] as? NSNumber)?.doubleValue == 0,
+    "Icon Composer must not lighten the shell frame with its own shadow, specular, or translucent material"
+)
 let iconComposerArtwork = iconComposer
     .appendingPathComponent("Assets", isDirectory: true)
     .appendingPathComponent("ApplicationArtwork.png")
-let iconLayers = (iconDocument["groups"] as? [[String: Any]] ?? []).flatMap { group in
+let iconLayers = iconGroups.flatMap { group in
     group["layers"] as? [[String: Any]] ?? []
 }
 let artworkLayer = iconLayers.first {
@@ -127,34 +185,57 @@ precondition(
     "The shell's dark contour must form every outer corner of the Finder icon"
 )
 let frameSamples = [
-    color(of: iconComposerImage, x: 0.50, y: 0.015),
-    color(of: iconComposerImage, x: 0.985, y: 0.50),
-    color(of: iconComposerImage, x: 0.50, y: 0.985),
-    color(of: iconComposerImage, x: 0.015, y: 0.50),
+    color(of: iconComposerImage, x: 0.50, y: 0.025),
+    color(of: iconComposerImage, x: 0.975, y: 0.50),
+    color(of: iconComposerImage, x: 0.50, y: 0.975),
+    color(of: iconComposerImage, x: 0.025, y: 0.50),
 ].compactMap { $0 }
 precondition(
-    frameSamples.count == 4 && frameSamples.allSatisfy(isDarkChestnut),
-    "The shell contour must form one continuous frame at every edge midpoint"
+    frameSamples.count == 4
+        && frameSamples.allSatisfy(isDarkChestnut)
+        && maximumComponentDifference(in: iconComposerCorners + frameSamples) <= 0.01,
+    "The shell contour must form one uniformly dark frame through every corner and edge"
 )
 let surfaceSamples = [
-    color(of: iconComposerImage, x: 0.50, y: 0.045),
-    color(of: iconComposerImage, x: 0.955, y: 0.50),
-    color(of: iconComposerImage, x: 0.50, y: 0.955),
-    color(of: iconComposerImage, x: 0.045, y: 0.50),
+    color(of: iconComposerImage, x: 0.50, y: 0.080),
+    color(of: iconComposerImage, x: 0.920, y: 0.50),
+    color(of: iconComposerImage, x: 0.50, y: 0.920),
+    color(of: iconComposerImage, x: 0.080, y: 0.50),
 ].compactMap { $0 }
 precondition(
     surfaceSamples.count == 4 && surfaceSamples.allSatisfy(isChestnutSurface),
-    "The shell surface must begin evenly inside every side of the dark frame"
+    "The chestnut surface must remain inset far enough for the dark frame to survive system lighting"
 )
-let topSurface = color(of: iconComposerImage, x: 0.50, y: 0.045)
-let pointHighlight = color(of: iconComposerImage, x: 0.72, y: 0.045)
+
+let ovalBounds = matchingPixelBounds(
+    of: iconComposerImage,
+    xRange: 0..<430,
+    yRange: 500..<1_024
+) { sample in
+    sample.greenComponent > 0.62 && sample.blueComponent > 0.38
+}
 precondition(
-    topSurface.map { surface in
-        pointHighlight.map { highlight in
-            highlight.greenComponent - surface.greenComponent >= 0.15
-        } ?? false
+    ovalBounds.map { bounds in
+        bounds.count >= 50_000
+            && bounds.maximumX - bounds.minimumX >= 280
+            && bounds.maximumY - bounds.minimumY >= 300
     } == true,
-    "The upper highlight must suggest the chestnut point without interrupting the frame"
+    "The lower-left cut must retain a complete, clearly visible oval instead of being cropped away"
+)
+let pointBounds = matchingPixelBounds(
+    of: iconComposerImage,
+    xRange: 600..<900,
+    yRange: 0..<260
+) { sample in
+    sample.greenComponent > 0.50 && sample.blueComponent > 0.25
+}
+precondition(
+    pointBounds.map { bounds in
+        bounds.count >= 900
+            && bounds.maximumX - bounds.minimumX >= 150
+            && bounds.maximumY - bounds.minimumY >= 100
+    } == true,
+    "The upper-right highlight must preserve the chestnut's pointed tip inside the rectangular icon"
 )
 
 let appIcons = try pngFiles(

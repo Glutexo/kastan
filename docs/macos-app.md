@@ -281,14 +281,15 @@ The command creates a fresh ad-hoc-signed Debug build in the repository's non-in
 installs `~/Applications/Kastan.app`. Finder and Spotlight display its localized product name, `Kaštan`. The ASCII
 on-disk bundle name prevents Spotlight from treating the canonically decomposed form of an accented filename as a
 second application result. The command removes the former `~/Applications/Kaštan.app` path during migration.
-The static bundle icon is formed entirely by the chestnut shell, without a separate colored or neutral plate in Finder
-and Spotlight. Its continuous dark contour forms an even frame around the rounded rectangular system mask, while the
-upper highlights taper toward a suggested point inside that uninterrupted edge. Its layered Icon Composer source adapts
-to current macOS appearances, while Xcode generates a matching flattened icon for earlier supported releases. The
-running app keeps the complete transparent, freeform artwork in the Dock and app switcher.
+The static bundle icon is formed entirely by the complete chestnut shell, without a separate colored or neutral plate in
+Finder and Spotlight. The artwork is fitted into the rounded rectangle so its pale lower-left cut and pointed upper-right
+tip remain visible. Its deliberately broad, uniformly dark contour stays recognizable as a continuous frame beneath the
+system enclosure lighting. The Icon Composer source disables additional material highlights and adapts to current macOS
+appearances, while Xcode generates a matching flattened icon for earlier supported releases. The running app keeps the
+complete transparent, freeform artwork in the Dock and app switcher.
 
 The checked-in bitmap renditions use the same source artwork and remain reproducible with
-`swift Scripts/generate-macos-app-icon.swift` after changing the artwork, surface crop, or contour geometry.
+`swift Scripts/generate-macos-app-icon.swift` after changing the artwork, radial fit, or contour geometry.
 
 Installation also unregisters every other live build product and stale Launch Services records left by products
 that were already removed from temporary or Derived Data locations. It removes the prior copy long enough for

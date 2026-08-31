@@ -30,35 +30,190 @@ let renditions = [
     "AppIcon-512@2x.png": 1_024,
 ]
 
-guard let artwork = NSImage(contentsOf: sourceURL) else {
+let sourceData = try Data(contentsOf: sourceURL)
+guard let sourceBitmap = NSBitmapImageRep(data: sourceData) else {
     throw CocoaError(.fileReadCorruptFile, userInfo: [NSURLErrorKey: sourceURL])
 }
 
-/// Uses an opaque portion of the original illustration as the full icon surface, including its cut and highlights.
-let artworkCrop = NSRect(
-    x: artwork.size.width * 0.175,
-    y: artwork.size.height * 0.15,
-    width: artwork.size.width * 0.69,
-    height: artwork.size.height * 0.645
+let masterSize = 1_024
+let angleCount = 4_096
+let fullTurn = 2 * CGFloat.pi
+let frameInset: CGFloat = 0.055
+let innerCornerRadius: CGFloat = 0.18
+let frameColor = NSColor(deviceRed: 0.085, green: 0.012, blue: 0.003, alpha: 1)
+let sourceCenter = NSPoint(
+    x: CGFloat(sourceBitmap.pixelsWide) * 0.52,
+    y: CGFloat(sourceBitmap.pixelsHigh) * 0.52
 )
 
-/// Insets the shell surface evenly so the dark outer contour reads as one continuous frame.
-func shellSurfacePath(length: CGFloat) -> NSBezierPath {
-    let inset = length * 0.03
-    return NSBezierPath(
-        roundedRect: NSRect(
-            x: inset,
-            y: inset,
-            width: length - 2 * inset,
-            height: length - 2 * inset
-        ),
-        xRadius: length * 0.18,
-        yRadius: length * 0.18
+func angleIndex(_ angle: CGFloat) -> (lower: Int, upper: Int, fraction: CGFloat) {
+    var normalized = angle / fullTurn
+    if normalized < 0 {
+        normalized += 1
+    }
+    let position = normalized * CGFloat(angleCount)
+    let lower = Int(position.rounded(.down)) % angleCount
+    return (lower, (lower + 1) % angleCount, position - CGFloat(lower))
+}
+
+func radius(at angle: CGFloat, in radii: [CGFloat]) -> CGFloat {
+    let index = angleIndex(angle)
+    return radii[index.lower] * (1 - index.fraction)
+        + radii[index.upper] * index.fraction
+}
+
+/// Finds the original outer contour in every direction so no characteristic part is cropped away.
+func sourceBoundaryRadii() -> [CGFloat] {
+    let maximumDistance = CGFloat(max(sourceBitmap.pixelsWide, sourceBitmap.pixelsHigh))
+    return (0..<angleCount).map { index in
+        let angle = fullTurn * CGFloat(index) / CGFloat(angleCount)
+        let directionX = cos(angle)
+        let directionY = sin(angle)
+        var lastOpaqueDistance: CGFloat = 0
+        var distance: CGFloat = 0
+
+        while distance <= maximumDistance {
+            let x = Int((sourceCenter.x + directionX * distance).rounded())
+            let y = Int((sourceCenter.y + directionY * distance).rounded())
+            guard x >= 0, x < sourceBitmap.pixelsWide,
+                  y >= 0, y < sourceBitmap.pixelsHigh else {
+                break
+            }
+            let alpha = sourceBitmap.colorAt(x: x, y: y)?.alphaComponent ?? 0
+            if alpha >= 0.05 {
+                lastOpaqueDistance = distance
+            } else if lastOpaqueDistance > 0 {
+                break
+            }
+            distance += 1
+        }
+        return lastOpaqueDistance
+    }
+}
+
+func isInsideShellSurface(x: CGFloat, y: CGFloat) -> Bool {
+    let minimum = frameInset
+    let maximum = 1 - frameInset
+    guard x >= minimum, x <= maximum, y >= minimum, y <= maximum else {
+        return false
+    }
+
+    let cornerMinimum = minimum + innerCornerRadius
+    let cornerMaximum = maximum - innerCornerRadius
+    if x >= cornerMinimum, x <= cornerMaximum {
+        return true
+    }
+    if y >= cornerMinimum, y <= cornerMaximum {
+        return true
+    }
+
+    let centerX = x < cornerMinimum ? cornerMinimum : cornerMaximum
+    let centerY = y < cornerMinimum ? cornerMinimum : cornerMaximum
+    let deltaX = x - centerX
+    let deltaY = y - centerY
+    return deltaX * deltaX + deltaY * deltaY <= innerCornerRadius * innerCornerRadius
+}
+
+/// Finds the matching rounded-rectangle boundary for the same set of directions.
+func targetBoundaryRadii() -> [CGFloat] {
+    (0..<angleCount).map { index in
+        let angle = fullTurn * CGFloat(index) / CGFloat(angleCount)
+        let directionX = cos(angle)
+        let directionY = sin(angle)
+        var lower: CGFloat = 0
+        var upper: CGFloat = 1
+
+        for _ in 0..<16 {
+            let candidate = (lower + upper) / 2
+            if isInsideShellSurface(
+                x: 0.5 + directionX * candidate,
+                y: 0.5 + directionY * candidate
+            ) {
+                lower = candidate
+            } else {
+                upper = candidate
+            }
+        }
+        return lower
+    }
+}
+
+let originalRadii = sourceBoundaryRadii()
+let rectangularRadii = targetBoundaryRadii()
+
+func opaqueSourceColor(x: CGFloat, y: CGFloat) -> NSColor {
+    let sourceX = min(sourceBitmap.pixelsWide - 1, max(0, Int(x.rounded())))
+    let sourceY = min(sourceBitmap.pixelsHigh - 1, max(0, Int(y.rounded())))
+    guard let source = sourceBitmap.colorAt(x: sourceX, y: sourceY)?.usingColorSpace(.deviceRGB) else {
+        return frameColor
+    }
+    let alpha = source.alphaComponent
+    return NSColor(
+        deviceRed: source.redComponent * alpha + frameColor.redComponent * (1 - alpha),
+        green: source.greenComponent * alpha + frameColor.greenComponent * (1 - alpha),
+        blue: source.blueComponent * alpha + frameColor.blueComponent * (1 - alpha),
+        alpha: 1
     )
 }
 
-/// Renders one opaque icon made only from the chestnut surface and its natural dark contour.
-func iconData(size: Int) throws -> Data {
+/// Maps the complete freeform chestnut radially into the framed rectangle without adding a backing layer.
+func masterIconData() throws -> Data {
+    guard let bitmap = NSBitmapImageRep(
+        bitmapDataPlanes: nil,
+        pixelsWide: masterSize,
+        pixelsHigh: masterSize,
+        bitsPerSample: 8,
+        samplesPerPixel: 4,
+        hasAlpha: true,
+        isPlanar: false,
+        colorSpaceName: .deviceRGB,
+        bitmapFormat: [],
+        bytesPerRow: 0,
+        bitsPerPixel: 0
+    ) else {
+        throw CocoaError(.fileWriteUnknown)
+    }
+
+    for y in 0..<masterSize {
+        for x in 0..<masterSize {
+            let normalizedX = (CGFloat(x) + 0.5) / CGFloat(masterSize)
+            let normalizedY = (CGFloat(y) + 0.5) / CGFloat(masterSize)
+            let deltaX = normalizedX - 0.5
+            let deltaY = normalizedY - 0.5
+            let angle = atan2(deltaY, deltaX)
+            let targetRadius = radius(at: angle, in: rectangularRadii)
+            let distance = sqrt(deltaX * deltaX + deltaY * deltaY)
+
+            guard distance < targetRadius else {
+                bitmap.setColor(frameColor, atX: x, y: y)
+                continue
+            }
+
+            let sourceRadius = radius(at: angle, in: originalRadii)
+            let radialFraction = min(0.998, distance / targetRadius)
+            let directionX = cos(angle)
+            let directionY = sin(angle)
+            bitmap.setColor(
+                opaqueSourceColor(
+                    x: sourceCenter.x + directionX * sourceRadius * radialFraction,
+                    y: sourceCenter.y + directionY * sourceRadius * radialFraction
+                ),
+                atX: x,
+                y: y
+            )
+        }
+    }
+
+    guard let data = bitmap.representation(
+        using: NSBitmapImageRep.FileType.png,
+        properties: [NSBitmapImageRep.PropertyKey.compressionFactor: 1]
+    ) else {
+        throw CocoaError(.fileWriteUnknown)
+    }
+    return data
+}
+
+func renditionData(size: Int, masterImage: NSImage) throws -> Data {
     guard let bitmap = NSBitmapImageRep(
         bitmapDataPlanes: nil,
         pixelsWide: size,
@@ -75,26 +230,12 @@ func iconData(size: Int) throws -> Data {
         throw CocoaError(.fileWriteUnknown)
     }
 
-    let length = CGFloat(size)
-    let canvas = NSRect(x: 0, y: 0, width: length, height: length)
-    let contour = NSGradient(
-        starting: NSColor(srgbRed: 0.20, green: 0.045, blue: 0.012, alpha: 1),
-        ending: NSColor(srgbRed: 0.075, green: 0.012, blue: 0.004, alpha: 1)
-    )!
-    let surface = shellSurfacePath(length: length)
-
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = context
-    context.imageInterpolation = NSImageInterpolation.high
-    contour.draw(
-        from: NSPoint(x: 0, y: length),
-        to: NSPoint(x: length, y: 0),
-        options: []
-    )
-    surface.addClip()
-    artwork.draw(
-        in: canvas,
-        from: artworkCrop,
+    context.imageInterpolation = .high
+    masterImage.draw(
+        in: NSRect(x: 0, y: 0, width: size, height: size),
+        from: .zero,
         operation: .copy,
         fraction: 1,
         respectFlipped: false,
@@ -104,18 +245,23 @@ func iconData(size: Int) throws -> Data {
     NSGraphicsContext.restoreGraphicsState()
 
     guard let data = bitmap.representation(
-        using: NSBitmapImageRep.FileType.png,
-        properties: [NSBitmapImageRep.PropertyKey.compressionFactor: 1]
+        using: .png,
+        properties: [.compressionFactor: 1]
     ) else {
         throw CocoaError(.fileWriteUnknown)
     }
     return data
 }
 
-try iconData(size: 1_024).write(to: iconComposerArtworkURL, options: .atomic)
+let masterData = try masterIconData()
+guard let masterImage = NSImage(data: masterData) else {
+    throw CocoaError(.fileReadCorruptFile)
+}
+try masterData.write(to: iconComposerArtworkURL, options: .atomic)
 
 for (filename, size) in renditions {
-    try iconData(size: size).write(
+    let data = size == masterSize ? masterData : try renditionData(size: size, masterImage: masterImage)
+    try data.write(
         to: destinationDirectory.appendingPathComponent(filename),
         options: .atomic
     )
