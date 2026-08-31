@@ -287,12 +287,13 @@ The command creates a fresh ad-hoc-signed Debug build in the repository's non-in
 installs `~/Applications/Kastan.app`. Finder and Spotlight display its localized product name, `Kaštan`. The ASCII
 on-disk bundle name prevents Spotlight from treating the canonically decomposed form of an accented filename as a
 second application result. The command removes the former `~/Applications/Kaštan.app` path during migration.
-The static bundle icon is formed entirely by the complete chestnut shell, without a separate colored or neutral plate in
-Finder and Spotlight. The artwork is fitted into a regular rounded rectangle so its pale lower-left cut remains visible,
-while the upper shell grain stays warm brown without forming a separate point. A slim, evenly inset brown rim follows the
-whole perimeter as natural shell shading rather than a heavy icon frame. The Icon Composer source disables additional
-material highlights and adapts to current macOS appearances, while Xcode generates a matching flattened icon for earlier
-supported releases. The running app keeps the complete transparent, freeform artwork in the Dock and app switcher.
+The bundle icon is formed entirely by the complete chestnut shell, without a separate colored or neutral plate in
+Finder, Spotlight, the Dock, or the app switcher. The artwork is fitted into a regular rounded rectangle so its pale
+lower-left cut remains visible, while the upper shell grain stays warm brown without forming a separate point. A slim,
+evenly inset brown rim follows the whole perimeter as natural shell shading rather than a heavy icon frame. The Icon
+Composer source disables additional material highlights and adapts to current macOS appearances, while Xcode generates
+a matching flattened icon for earlier supported releases. The running app leaves this bundle icon under macOS control
+so every system surface stays consistent.
 
 The checked-in bitmap renditions use the same source artwork and remain reproducible with
 `swift Scripts/generate-macos-app-icon.swift` after changing the artwork, radial fit, or contour geometry.

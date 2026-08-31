@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
 
-/// Protects Kaštan's full-bleed chestnut bundle icon and the complete transparent runtime artwork.
+/// Protects Kaštan's full-bleed bundle icon and the transparent source artwork used to generate it.
 let repositoryRoot = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent()
     .deletingLastPathComponent()
@@ -313,7 +313,7 @@ for icon in appIcons {
     )
 }
 
-let runtimeArtwork = try pngFiles(
+let sourceArtwork = try pngFiles(
     in: assetCatalog.appendingPathComponent("ApplicationArtwork.imageset", isDirectory: true)
 )
 let expectedArtworkSizes = [
@@ -321,11 +321,11 @@ let expectedArtworkSizes = [
     "ApplicationArtwork@2x.png": 1_024,
 ]
 precondition(
-    Set(runtimeArtwork.map(\.lastPathComponent)) == Set(expectedArtworkSizes.keys),
-    "Runtime artwork must provide standard and Retina renditions"
+    Set(sourceArtwork.map(\.lastPathComponent)) == Set(expectedArtworkSizes.keys),
+    "Source artwork must provide standard and Retina renditions"
 )
 
-for artwork in runtimeArtwork {
+for artwork in sourceArtwork {
     let image = try bitmap(at: artwork)
     let expectedSize = expectedArtworkSizes[artwork.lastPathComponent]!
     precondition(
@@ -335,7 +335,7 @@ for artwork in runtimeArtwork {
     let alphas = cornerAlphas(of: image)
     precondition(
         alphas.count == 4 && alphas.allSatisfy { $0 <= 0.001 },
-        "\(artwork.lastPathComponent) must remain transparent for the Dock and app switcher"
+        "\(artwork.lastPathComponent) must retain the complete freeform chestnut source"
     )
 }
 
@@ -346,5 +346,5 @@ let largestFallbackArtwork = assetCatalog
 let largestFallbackArtworkData = try Data(contentsOf: largestFallbackArtwork)
 precondition(
     iconComposerArtworkData == largestFallbackArtworkData,
-    "Icon Composer and the fallback asset catalog must use the same full-resolution Finder silhouette"
+    "Icon Composer and the fallback asset catalog must use the same full-resolution bundle silhouette"
 )

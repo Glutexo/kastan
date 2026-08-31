@@ -17,19 +17,14 @@ private final class ElasticTestClipView: NSClipView {
 
 @MainActor
 final class KastanAppTests: XCTestCase {
-    func testDockIconUsesUnframedArtwork() throws {
-        ApplicationArtwork.installAsDockIcon()
+    func testSystemSurfacesUseBundleIcon() throws {
+        let bundleIcon = try XCTUnwrap(NSApplication.shared.applicationIconImage)
 
-        let imageView = try XCTUnwrap(NSApplication.shared.dockTile.contentView as? NSImageView)
-        XCTAssertIdentical(imageView.image, ApplicationArtwork.icon)
-        XCTAssertEqual(imageView.imageFrameStyle, .none)
-        XCTAssertEqual(imageView.imageScaling, .scaleProportionallyUpOrDown)
-
-        let representation = try XCTUnwrap(
-            ApplicationArtwork.icon.tiffRepresentation.flatMap(NSBitmapImageRep.init(data:))
+        XCTAssertIdentical(ApplicationArtwork.icon, bundleIcon)
+        XCTAssertNil(
+            NSApplication.shared.dockTile.contentView,
+            "The Dock and app switcher must not override the bundle icon used by Finder"
         )
-        let cornerAlpha = try XCTUnwrap(representation.colorAt(x: 0, y: 0)?.alphaComponent)
-        XCTAssertEqual(cornerAlpha, 0, accuracy: 0.001)
     }
 
     func testProductMenuActionsAppearOnlyOnce() throws {

@@ -3,7 +3,7 @@
 import AppKit
 import Foundation
 
-/// Reshapes Kaštan's freeform artwork into the self-contained chestnut icon used by Finder and Spotlight.
+/// Reshapes Kaštan's freeform artwork into the self-contained icon used across macOS system surfaces.
 let repositoryRoot = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent()
     .deletingLastPathComponent()

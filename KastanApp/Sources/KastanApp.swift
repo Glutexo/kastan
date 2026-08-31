@@ -2,27 +2,11 @@ import AppKit
 import Kastan
 import SwiftUI
 
-/// Keeps Kaštan's transparent runtime artwork separate from the backed bundle icon used by system surfaces.
+/// Exposes the bundle icon used consistently by macOS and Kaštan's in-app identity.
 @MainActor
 enum ApplicationArtwork {
-    static let icon: NSImage = {
-        guard let image = NSImage(named: "ApplicationArtwork") else {
-            return NSApplication.shared.applicationIconImage ?? NSImage()
-        }
-        return image
-    }()
-
-    /// Bypasses macOS's legacy-icon frame while retaining the original freeform chestnut in the Dock.
-    static func installAsDockIcon() {
-        let imageView = NSImageView(
-            frame: NSRect(origin: .zero, size: NSSize(width: 128, height: 128))
-        )
-        imageView.image = icon
-        imageView.imageFrameStyle = .none
-        imageView.imageScaling = .scaleProportionallyUpOrDown
-
-        NSApplication.shared.dockTile.contentView = imageView
-        NSApplication.shared.dockTile.display()
+    static var icon: NSImage {
+        NSApplication.shared.applicationIconImage ?? NSImage()
     }
 }
 
@@ -668,7 +652,6 @@ struct KastanApp: App {
 
     init() {
         SymbolTextPreference.migrateLegacyValues()
-        ApplicationArtwork.installAsDockIcon()
         ApplicationMainMenu.shared.install()
     }
 
