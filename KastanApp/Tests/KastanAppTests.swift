@@ -1213,6 +1213,35 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(selectedIndex, 1)
     }
 
+    func testClickableStationTimetableMinuteKeepsItsPlainAppearance() throws {
+        func renderedDeparture(selectDeparture: ((Int) -> Void)?) throws -> Data {
+            let departures = StationTimetableDepartureTimes(
+                values: ["23A"],
+                explanations: ["A: runs only to stop Háje"],
+                hour: "5",
+                selectDeparture: selectDeparture
+            )
+            .frame(width: 45, height: 24, alignment: .topLeading)
+            .background(Color.white)
+            .environment(\.colorScheme, .light)
+            let hostingView = NSHostingView(rootView: departures)
+            hostingView.frame = NSRect(x: 0, y: 0, width: 45, height: 24)
+            hostingView.layoutSubtreeIfNeeded()
+
+            let bitmap = try XCTUnwrap(
+                hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds)
+            )
+            hostingView.cacheDisplay(in: hostingView.bounds, to: bitmap)
+            let bitmapData = try XCTUnwrap(bitmap.bitmapData)
+            return Data(bytes: bitmapData, count: bitmap.bytesPerRow * bitmap.pixelsHigh)
+        }
+
+        let plainDeparture = try renderedDeparture(selectDeparture: nil)
+        let clickableDeparture = try renderedDeparture(selectDeparture: { _ in })
+
+        XCTAssertEqual(clickableDeparture, plainDeparture)
+    }
+
     func testStationTimetableTimesRegisterForceClickPreviewsForResolvableServices() async throws {
         let client = MockIDOSClient()
         let departures = StationTimetableDepartureTimes(

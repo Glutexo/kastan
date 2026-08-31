@@ -793,7 +793,7 @@ private struct StationTimetableDepartureTime: View {
             action()
         } label: {
             departureLabel
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(.primary)
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
