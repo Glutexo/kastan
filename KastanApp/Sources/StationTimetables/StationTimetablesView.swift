@@ -5,6 +5,7 @@ import SwiftUI
 
 /// Searches and presents IDOS station timetables for MHD and integrated transport systems.
 struct StationTimetablesView: View {
+    @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: StationTimetablesViewModel
     let client: any IDOSClienting
     let showsItemDetails: Bool
@@ -503,8 +504,12 @@ struct StationTimetablesView: View {
 
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .top, spacing: 12) {
-                    ForEach(Array(result.schedules.enumerated()), id: \.offset) { _, schedule in
-                        scheduleTable(schedule, explanations: result.explanations)
+                    ForEach(Array(result.schedules.enumerated()), id: \.offset) { scheduleIndex, schedule in
+                        scheduleTable(
+                            schedule,
+                            scheduleIndex: scheduleIndex,
+                            explanations: result.explanations
+                        )
                             .frame(minWidth: 260, maxWidth: .infinity)
                     }
                 }
@@ -512,8 +517,12 @@ struct StationTimetablesView: View {
 
                 ScrollView(.horizontal) {
                     HStack(alignment: .top, spacing: 12) {
-                        ForEach(Array(result.schedules.enumerated()), id: \.offset) { _, schedule in
-                            scheduleTable(schedule, explanations: result.explanations)
+                        ForEach(Array(result.schedules.enumerated()), id: \.offset) { scheduleIndex, schedule in
+                            scheduleTable(
+                                schedule,
+                                scheduleIndex: scheduleIndex,
+                                explanations: result.explanations
+                            )
                                 .frame(width: 260)
                         }
                     }
@@ -536,6 +545,7 @@ struct StationTimetablesView: View {
 
     private func scheduleTable(
         _ schedule: IDOSStationTimetableSchedule,
+        scheduleIndex: Int,
         explanations: [String]
     ) -> some View {
         GroupBox(StationTimetableScheduleLabelPresentation.title(schedule.label)) {
@@ -552,7 +562,24 @@ struct StationTimetablesView: View {
                         } else {
                             StationTimetableDepartureTimes(
                                 values: hour.departures,
-                                explanations: explanations
+                                explanations: explanations,
+                                hour: hour.hour,
+                                resolvingIndex: resolvingDepartureIndex(
+                                    scheduleIndex: scheduleIndex,
+                                    hourIndex: index
+                                ),
+                                departuresAreEnabled: model.resolvingDeparture == nil,
+                                selectDeparture: { departureIndex in
+                                    guard let departure = StationTimetableDepartureReference(
+                                        scheduleIndex: scheduleIndex,
+                                        schedule: schedule,
+                                        hourIndex: index,
+                                        departureIndex: departureIndex
+                                    ) else {
+                                        return
+                                    }
+                                    openService(departure)
+                                }
                             )
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -563,6 +590,24 @@ struct StationTimetablesView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func resolvingDepartureIndex(scheduleIndex: Int, hourIndex: Int) -> Int? {
+        guard let resolvingDeparture = model.resolvingDeparture,
+              resolvingDeparture.scheduleIndex == scheduleIndex,
+              resolvingDeparture.hourIndex == hourIndex
+        else {
+            return nil
+        }
+        return resolvingDeparture.departureIndex
+    }
+
+    /// Opens the existing complete-route window after the selected timetable minute has been resolved.
+    private func openService(_ departure: StationTimetableDepartureReference) {
+        Task {
+            guard let selection = await model.serviceSelection(for: departure) else { return }
+            openWindow(id: AppWindow.serviceDetail, value: selection)
         }
     }
 
@@ -619,14 +664,42 @@ struct StationTimetableDeparturePresentation: Equatable {
 struct StationTimetableDepartureTimes: View {
     let values: [String]
     let explanations: [String]
+    let hour: String?
+    let resolvingIndex: Int?
+    let departuresAreEnabled: Bool
+    let selectDeparture: ((Int) -> Void)?
+
+    init(
+        values: [String],
+        explanations: [String],
+        hour: String? = nil,
+        resolvingIndex: Int? = nil,
+        departuresAreEnabled: Bool = true,
+        selectDeparture: ((Int) -> Void)? = nil
+    ) {
+        self.values = values
+        self.explanations = explanations
+        self.hour = hour
+        self.resolvingIndex = resolvingIndex
+        self.departuresAreEnabled = departuresAreEnabled
+        self.selectDeparture = selectDeparture
+    }
 
     var body: some View {
         StationTimetableDepartureFlowLayout(
             horizontalSpacing: StationTimetableDepartureLayout.columnSpacing,
             verticalSpacing: StationTimetableDepartureLayout.rowSpacing
         ) {
-            ForEach(Array(presentations.enumerated()), id: \.offset) { _, presentation in
-                StationTimetableDepartureTime(presentation: presentation)
+            ForEach(Array(presentations.enumerated()), id: \.offset) { index, presentation in
+                StationTimetableDepartureTime(
+                    presentation: presentation,
+                    displayedTime: hour.map { "\($0):\(presentation.minute)" },
+                    isResolving: resolvingIndex == index,
+                    isEnabled: departuresAreEnabled,
+                    action: selectDeparture.map { selectDeparture in
+                        { selectDeparture(index) }
+                    }
+                )
                     .frame(
                         width: StationTimetableDepartureLayout.columnWidth,
                         alignment: .leading
@@ -653,8 +726,37 @@ enum StationTimetableDepartureLayout {
 /// marker to pointer and accessibility users.
 private struct StationTimetableDepartureTime: View {
     let presentation: StationTimetableDeparturePresentation
+    let displayedTime: String?
+    let isResolving: Bool
+    let isEnabled: Bool
+    let action: (() -> Void)?
 
+    @ViewBuilder
     var body: some View {
+        if isResolving {
+            ProgressView()
+                .controlSize(.small)
+                .fixedSize()
+                .accessibilityLabel(Text("Finding service…"))
+        } else if let action, let displayedTime {
+            let actionLabel = AppLocalization.string("Open service at %@", displayedTime)
+            let accessibilityLabel = [actionLabel, presentation.explanation]
+                .compactMap(\.self)
+                .joined(separator: ". ")
+            Button(action: action) {
+                departureLabel
+                    .foregroundStyle(Color.accentColor)
+            }
+            .buttonStyle(.plain)
+            .disabled(!isEnabled)
+            .help(Text(verbatim: presentation.explanation ?? actionLabel))
+            .accessibilityLabel(Text(verbatim: accessibilityLabel))
+        } else {
+            departureLabel
+        }
+    }
+
+    private var departureLabel: some View {
         HStack(alignment: .firstTextBaseline, spacing: 1) {
             Text(verbatim: presentation.minute)
                 .font(.body.monospacedDigit())

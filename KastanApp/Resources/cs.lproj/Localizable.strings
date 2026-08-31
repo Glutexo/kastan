@@ -79,11 +79,13 @@
 "Favorites" = "Oblíbené";
 "Favorite timetables" = "Oblíbené jízdní řády";
 "Fill Current" = "Vyplnit aktuální";
+"Finding service…" = "Vyhledávání spoje…";
 "From" = "Odkud";
 "From Place" = "Místo odkud";
 "Here" = "Tady";
 "Information unavailable" = "Informace nejsou k dispozici";
 "IDOS could not generate a station timetable for this line, direction, and date." = "IDOS nemohl pro tuto linku, směr a datum vytvořit zastávkový jízdní řád.";
+"IDOS could not identify this station-timetable departure." = "IDOS nedokázal určit spoj pro tento odjezd v zastávkovém jízdním řádu.";
 "IDOS could not load this service detail." = "IDOS nedokázal načíst detail tohoto spoje.";
 "IDOS could not load this service detail. %@" = "IDOS nedokázal načíst detail tohoto spoje. %@";
 "IDOS could not send the connection by email." = "IDOS nedokázal odeslat spojení e-mailem.";
@@ -152,6 +154,7 @@
 "Open attachment %@" = "Otevřít přílohu %@";
 "Open connection in new window" = "Otevřít spojení v novém okně";
 "Open PDF in Preview" = "Otevřít PDF v Náhledu";
+"Open service at %@" = "Otevřít spoj v %@";
 "Open service in new window" = "Otevřít spoj v novém okně";
 "IDOS website" = "Web IDOSu";
 "Opens in the default application" = "Otevře se ve výchozí aplikaci";

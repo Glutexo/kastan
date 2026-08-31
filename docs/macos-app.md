@@ -65,9 +65,13 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   including on the selected row. Explanations such as `A: …` are separated only when their key occurs beside a
   concrete departure. Departure minutes stay in stable columns across hours and wrapped rows. Each marker appears as
   smaller secondary information attached to its minute without shifting later departures and reveals the matching
-  explanation on hover. Explanations also appear in their own collapsed disclosure immediately below the timetable,
-  while general notes remain in a separate collapsed disclosure at the very bottom of the complete result in both
-  wide and compact layouts. Both expand into selectable text while retaining their interactive links. At
+  explanation on hover. Selecting a minute resolves that dated run from IDOS on demand and opens its complete route,
+  with the selected stop highlighted through the searched direction. Times after midnight use the following calendar
+  date of the same service day. In Whole week results, grouped schedules such as Workdays or Saturday + Sunday open
+  their nearest concrete occurrence inside the selected Monday–Sunday week. Explanations also appear in their own
+  collapsed disclosure immediately below the timetable, while general notes remain in a separate collapsed disclosure
+  at the very bottom of the complete result in both wide and compact layouts. Both expand into selectable text while
+  retaining their interactive links. At
   readable widths, route stops and the selected stop's timetable each receive exactly half of the available result
   width. When two readable columns no longer fit, a Stops/Timetable switch appears between the route heading and its
   content and displays one section at a time instead of stacking the timetable below the stops.

@@ -79,11 +79,13 @@
 "Favorites" = "Favorites";
 "Favorite timetables" = "Favorite timetables";
 "Fill Current" = "Fill Current";
+"Finding service…" = "Finding service…";
 "From" = "From";
 "From Place" = "From Place";
 "Here" = "Here";
 "Information unavailable" = "Information unavailable";
 "IDOS could not generate a station timetable for this line, direction, and date." = "IDOS could not generate a station timetable for this line, direction, and date.";
+"IDOS could not identify this station-timetable departure." = "IDOS could not identify this station-timetable departure.";
 "IDOS could not load this service detail." = "IDOS could not load this service detail.";
 "IDOS could not load this service detail. %@" = "IDOS could not load this service detail. %@";
 "IDOS could not send the connection by email." = "IDOS could not send the connection by email.";
@@ -152,6 +154,7 @@
 "Open attachment %@" = "Open attachment %@";
 "Open connection in new window" = "Open connection in new window";
 "Open PDF in Preview" = "Open PDF in Preview";
+"Open service at %@" = "Open service at %@";
 "Open service in new window" = "Open service in new window";
 "IDOS website" = "IDOS website";
 "Opens in the default application" = "Opens in the default application";

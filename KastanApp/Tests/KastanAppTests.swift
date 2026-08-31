@@ -1012,6 +1012,212 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(unmarked.explanation)
     }
 
+    func testStationTimetableDepartureReferenceRetainsDuplicatesAndThePostMidnightDate() throws {
+        let schedule = IDOSStationTimetableSchedule(
+            label: "Workdays",
+            hours: [
+                IDOSStationTimetableHour(hour: "22", departures: ["05"]),
+                IDOSStationTimetableHour(hour: "23", departures: ["40"]),
+                IDOSStationTimetableHour(hour: "0", departures: ["12A", "12B"]),
+                IDOSStationTimetableHour(hour: "1", departures: []),
+            ]
+        )
+        let first = try XCTUnwrap(StationTimetableDepartureReference(
+            scheduleIndex: 0,
+            schedule: schedule,
+            hourIndex: 2,
+            departureIndex: 0
+        ))
+        let second = try XCTUnwrap(StationTimetableDepartureReference(
+            scheduleIndex: 0,
+            schedule: schedule,
+            hourIndex: 2,
+            departureIndex: 1
+        ))
+
+        XCTAssertEqual(first.displayTime, "0:12")
+        XCTAssertEqual(first.dayOffset, 1)
+        XCTAssertEqual(first.occurrence, 0)
+        XCTAssertEqual(second.occurrence, 1)
+        XCTAssertNotEqual(first, second)
+    }
+
+    func testWholeWeekDepartureLookupPrefersTheNearestMatchingServiceDay() throws {
+        let calendar = StationTimetableDepartureLookup.serviceCalendar
+        let wednesday = try XCTUnwrap(calendar.date(from: DateComponents(
+            year: 2026,
+            month: 9,
+            day: 2
+        )))
+        let saturday = try XCTUnwrap(calendar.date(from: DateComponents(
+            year: 2026,
+            month: 9,
+            day: 5
+        )))
+        let sunday = try XCTUnwrap(calendar.date(from: DateComponents(
+            year: 2026,
+            month: 9,
+            day: 6
+        )))
+
+        XCTAssertEqual(
+            StationTimetableDepartureLookup.candidateServiceDates(
+                for: "Saturday + Sunday",
+                searchDate: wednesday,
+                wholeWeek: true,
+                calendar: calendar
+            ),
+            [saturday, sunday]
+        )
+        XCTAssertEqual(
+            StationTimetableDepartureLookup.candidateServiceDates(
+                for: "Sobota + Neděle",
+                searchDate: wednesday,
+                wholeWeek: true,
+                calendar: calendar
+            ),
+            [saturday, sunday]
+        )
+        XCTAssertEqual(
+            StationTimetableDepartureLookup.candidateServiceDates(
+                for: "Pracovní den",
+                searchDate: saturday,
+                wholeWeek: true,
+                calendar: calendar
+            ).first,
+            calendar.date(byAdding: .day, value: -1, to: saturday)
+        )
+        XCTAssertEqual(
+            StationTimetableDepartureLookup.candidateServiceDates(
+                for: "Saturday + Sunday",
+                searchDate: wednesday,
+                wholeWeek: false,
+                calendar: calendar
+            ),
+            [wednesday]
+        )
+    }
+
+    func testStationTimetableDepartureLookupPreservesTheSelectedDateAcrossTimeZones() throws {
+        var tokyoCalendar = Calendar(identifier: .gregorian)
+        tokyoCalendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Tokyo"))
+        let selectedDate = try XCTUnwrap(tokyoCalendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 31
+        )))
+
+        let serviceDate = StationTimetableDepartureLookup.serviceDate(
+            for: selectedDate,
+            sourceCalendar: tokyoCalendar
+        )
+
+        XCTAssertEqual(
+            StationTimetableDepartureLookup.requestDate(from: serviceDate),
+            "31.8.2026"
+        )
+    }
+
+    func testStationTimetableDepartureLookupMatchesLineDirectionAndDuplicateOrder() throws {
+        let schedule = IDOSStationTimetableSchedule(
+            label: "31.8.2026 Monday",
+            hours: [IDOSStationTimetableHour(hour: "5", departures: ["21", "21A"])]
+        )
+        let reference = try XCTUnwrap(StationTimetableDepartureReference(
+            scheduleIndex: 0,
+            schedule: schedule,
+            hourIndex: 0,
+            departureIndex: 1
+        ))
+        let timetable = IDOSStationTimetable(
+            timetable: IDOSTimetable(slug: "pid", displayName: "Prague + PID"),
+            lineName: "Line Bus 154",
+            fromStop: "Strašnická",
+            toStop: "Sídliště Libuš",
+            stops: [IDOSStationTimetableStop(name: "Strašnická", isSelected: true)],
+            schedules: [schedule]
+        )
+        let departures = [
+            IDOSDeparture(
+                id: "wrong-line",
+                time: "5:21",
+                lineName: "Tram 7",
+                destination: "Radlická"
+            ),
+            IDOSDeparture(
+                id: "opposite-direction",
+                time: "5:21",
+                lineName: "Bus 154",
+                destination: "Strašnická"
+            ),
+            IDOSDeparture(
+                id: "first-matching-run",
+                time: "5:21",
+                lineName: "Bus 154",
+                destination: "Sídliště Libuš"
+            ),
+            IDOSDeparture(
+                id: "second-matching-run",
+                time: "05:21",
+                lineName: "Bus 154",
+                destination: "Sídliště Libuš"
+            ),
+        ]
+
+        XCTAssertEqual(
+            StationTimetableDepartureLookup.matchingDeparture(
+                in: departures,
+                reference: reference,
+                timetable: timetable
+            )?.id,
+            "second-matching-run"
+        )
+    }
+
+    func testStationTimetableTimesBecomeButtonsWhenTheyCanOpenServices() {
+        var selectedIndex: Int?
+        let departures = StationTimetableDepartureTimes(
+            values: ["13", "35A"],
+            explanations: ["A: runs only to stop Háje"],
+            hour: "5",
+            selectDeparture: { selectedIndex = $0 }
+        )
+        let hostingView = NSHostingView(
+            rootView: departures.frame(width: 90, height: 30, alignment: .topLeading)
+        )
+        hostingView.frame = NSRect(x: 0, y: 0, width: 90, height: 30)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        let secondDeparture = NSPoint(x: 60, y: hostingView.bounds.midY)
+        for eventType in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            let event = NSEvent.mouseEvent(
+                with: eventType,
+                location: secondDeparture,
+                modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                clickCount: 1,
+                pressure: eventType == .leftMouseDown ? 1 : 0
+            )
+            if let event {
+                window.sendEvent(event)
+            }
+        }
+
+        XCTAssertEqual(selectedIndex, 1)
+    }
+
     func testStationTimetableDepartureMarkersStayAttachedWhenTimesWrap() {
         let values = ["05A", "15B", "25C", "35A", "45B", "55C"]
         let explanations = ["A: první", "B: druhá", "C: třetí"]
@@ -6064,6 +6270,133 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(model.errorMessage)
     }
 
+    func testStationTimetableMinuteResolvesAndOpensTheMatchingService() async throws {
+        let client = MockIDOSClient()
+        let model = StationTimetablesViewModel(client: client)
+        let calendar = StationTimetableDepartureLookup.serviceCalendar
+        model.date = try XCTUnwrap(calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 31
+        )))
+        model.selectTimetable(slug: "pid")
+        model.selectLineSuggestion(IDOSSuggestion(
+            text: "Bus 154",
+            from: "Strašnická",
+            to: "Sídliště Libuš"
+        ))
+        await client.configureDepartureResponses([
+            "31.8.2026": [
+                IDOSDeparture(
+                    id: "pid:0-54986-31.08.2026 05:13:00",
+                    stationName: "Strašnická",
+                    time: "5:13",
+                    lineName: "Bus 154",
+                    destination: "Sídliště Libuš"
+                ),
+            ],
+        ])
+
+        await model.search()
+        let result = try XCTUnwrap(model.result)
+        let departure = try XCTUnwrap(StationTimetableDepartureReference(
+            scheduleIndex: 0,
+            schedule: result.schedules[0],
+            hourIndex: 0,
+            departureIndex: 0
+        ))
+        let selection = await model.serviceSelection(for: departure)
+        let request = await client.lastDeparturesRequest
+
+        XCTAssertEqual(selection?.id, "pid:0-54986-31.08.2026 05:13:00")
+        XCTAssertEqual(
+            selection?.highlight,
+            ServiceRouteHighlight(fromStop: "Strašnická", toStop: "Sídliště Libuš")
+        )
+        XCTAssertEqual(request?.timetable.slug, "pid")
+        XCTAssertEqual(request?.station, "Strašnická")
+        XCTAssertEqual(request?.date, "31.8.2026")
+        XCTAssertEqual(request?.time, "5:13")
+        let departureSearchLanguage = await client.lastDepartureSearchLanguage
+        XCTAssertEqual(departureSearchLanguage, AppLanguagePreference.idosLanguage)
+        XCTAssertNil(model.resolvingDeparture)
+        XCTAssertNil(model.errorMessage)
+    }
+
+    func testWholeWeekMinuteUsesTheNearestConcreteOccurrence() async throws {
+        let client = MockIDOSClient()
+        let model = StationTimetablesViewModel(client: client)
+        let calendar = StationTimetableDepartureLookup.serviceCalendar
+        model.date = try XCTUnwrap(calendar.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 31
+        )))
+        model.wholeWeek = true
+        model.selectTimetable(slug: "pid")
+        model.selectLineSuggestion(IDOSSuggestion(
+            text: "Bus 154",
+            from: "Strašnická",
+            to: "Sídliště Libuš"
+        ))
+        await client.configureDepartureResponses([
+            "4.9.2026": [
+                IDOSDeparture(
+                    id: "pid:0-54986-04.09.2026 05:13:00",
+                    time: "5:13",
+                    lineName: "Bus 154",
+                    destination: "Sídliště Libuš"
+                ),
+            ],
+        ])
+
+        await model.search()
+        let result = try XCTUnwrap(model.result)
+        let departure = try XCTUnwrap(StationTimetableDepartureReference(
+            scheduleIndex: 0,
+            schedule: result.schedules[0],
+            hourIndex: 0,
+            departureIndex: 0
+        ))
+        let selection = await model.serviceSelection(for: departure)
+        let requests = await client.departureRequests
+
+        XCTAssertEqual(selection?.id, "pid:0-54986-04.09.2026 05:13:00")
+        XCTAssertEqual(requests.map(\.date), ["4.9.2026"])
+        XCTAssertNil(model.errorMessage)
+    }
+
+    func testUnavailableStationTimetableMinuteLeavesTheResultAndShowsGuidance() async throws {
+        let client = MockIDOSClient()
+        let model = StationTimetablesViewModel(client: client)
+        model.selectTimetable(slug: "pid")
+        model.selectLineSuggestion(IDOSSuggestion(
+            text: "Bus 154",
+            from: "Strašnická",
+            to: "Sídliště Libuš"
+        ))
+        await client.configureDepartureResponses([:])
+
+        await model.search()
+        let result = try XCTUnwrap(model.result)
+        let departure = try XCTUnwrap(StationTimetableDepartureReference(
+            scheduleIndex: 0,
+            schedule: result.schedules[0],
+            hourIndex: 0,
+            departureIndex: 0
+        ))
+
+        let selection = await model.serviceSelection(for: departure)
+
+        XCTAssertNil(selection)
+        XCTAssertEqual(
+            model.errorMessage,
+            AppLocalization.string("IDOS could not identify this station-timetable departure.")
+        )
+        XCTAssertEqual(model.result, result)
+        XCTAssertNil(model.resolvingDeparture)
+    }
+
     func testStationTimetableMunicipalitySelectionClearsAndScopesTheRoute() async throws {
         let client = MockIDOSClient()
         let model = StationTimetablesViewModel(client: client)
@@ -6696,6 +7029,7 @@ private final class StubCurrentLocationProvider: CurrentLocationProviding {
 private actor MockIDOSClient: IDOSClienting {
     var lastConnectionRequest: IDOSConnectionRequest?
     var lastDeparturesRequest: IDOSDeparturesRequest?
+    var departureRequests: [IDOSDeparturesRequest] = []
     var lastSuggestionQuery: SuggestionQuery?
     var lastConnectionSearchLanguage: IDOSLanguage?
     var lastDepartureSearchLanguage: IDOSLanguage?
@@ -6726,9 +7060,14 @@ private actor MockIDOSClient: IDOSClienting {
     private var departurePages: [IDOSPageDirection: [IDOSDeparture]] = [:]
     private var connectionPagingSessionExpired = false
     private var configuredSuggestions: [IDOSSuggestion]?
+    private var departureResponsesByDate: [String: [IDOSDeparture]]?
 
     func configureSuggestions(_ suggestions: [IDOSSuggestion]) {
         configuredSuggestions = suggestions
+    }
+
+    func configureDepartureResponses(_ responses: [String: [IDOSDeparture]]) {
+        departureResponsesByDate = responses
     }
 
     func configureConnectionPages(
@@ -6980,6 +7319,10 @@ private actor MockIDOSClient: IDOSClienting {
 
     func findDepartures(request: IDOSDeparturesRequest) async throws -> [IDOSDeparture] {
         lastDeparturesRequest = request
+        departureRequests.append(request)
+        if let departureResponsesByDate {
+            return departureResponsesByDate[request.date ?? ""] ?? []
+        }
         return (1...25).map { index in
             IDOSDeparture(
                 id: "departure-\(index)",
