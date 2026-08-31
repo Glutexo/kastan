@@ -1218,6 +1218,45 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(selectedIndex, 1)
     }
 
+    func testStationTimetableTimesRegisterForceClickPreviewsForResolvableServices() async throws {
+        let client = MockIDOSClient()
+        let departures = StationTimetableDepartureTimes(
+            values: ["13", "35A"],
+            explanations: ["A: runs only to stop Háje"],
+            hour: "5",
+            selectDeparture: { _ in },
+            previewDeparture: { index in
+                StationTimetableDeparturePreviewConfiguration(
+                    client: client,
+                    showsItemDetails: true,
+                    showsStopNoteText: false,
+                    resolveSelection: { ServiceSelection(id: "service-\(index)") }
+                )
+            }
+        )
+        let hostingView = NSHostingView(
+            rootView: departures.frame(width: 90, height: 30, alignment: .topLeading)
+        )
+        hostingView.frame = NSRect(x: 0, y: 0, width: 90, height: 30)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        XCTAssertEqual(forceClickPreviewAttachmentCount(in: hostingView), 2)
+        let secondPreview = try XCTUnwrap(departures.previewDeparture?(1))
+        let selection = await secondPreview.resolveSelection()
+        XCTAssertEqual(selection?.id, "service-1")
+        XCTAssertTrue(secondPreview.showsItemDetails)
+        XCTAssertFalse(secondPreview.showsStopNoteText)
+    }
+
     func testStationTimetableDepartureMarkersStayAttachedWhenTimesWrap() {
         let values = ["05A", "15B", "25C", "35A", "45B", "55C"]
         let explanations = ["A: první", "B: druhá", "C: třetí"]

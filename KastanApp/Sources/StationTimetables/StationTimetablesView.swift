@@ -579,6 +579,24 @@ struct StationTimetablesView: View {
                                         return
                                     }
                                     openService(departure)
+                                },
+                                previewDeparture: { departureIndex in
+                                    guard let departure = StationTimetableDepartureReference(
+                                        scheduleIndex: scheduleIndex,
+                                        schedule: schedule,
+                                        hourIndex: index,
+                                        departureIndex: departureIndex
+                                    ) else {
+                                        return nil
+                                    }
+                                    return StationTimetableDeparturePreviewConfiguration(
+                                        client: client,
+                                        showsItemDetails: showsItemDetails,
+                                        showsStopNoteText: showsStopNoteText,
+                                        resolveSelection: {
+                                            await model.serviceSelection(for: departure)
+                                        }
+                                    )
                                 }
                             )
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -659,6 +677,14 @@ struct StationTimetableDeparturePresentation: Equatable {
     }
 }
 
+/// Supplies the standard complete-route preview after a timetable minute has been resolved on demand.
+struct StationTimetableDeparturePreviewConfiguration {
+    let client: any IDOSClienting
+    let showsItemDetails: Bool
+    let showsStopNoteText: Bool
+    let resolveSelection: @MainActor () async -> ServiceSelection?
+}
+
 /// Presents minute markers as secondary information attached to their departure while keeping
 /// each departure together when a busy hour wraps onto another line.
 struct StationTimetableDepartureTimes: View {
@@ -668,6 +694,7 @@ struct StationTimetableDepartureTimes: View {
     let resolvingIndex: Int?
     let departuresAreEnabled: Bool
     let selectDeparture: ((Int) -> Void)?
+    let previewDeparture: ((Int) -> StationTimetableDeparturePreviewConfiguration?)?
 
     init(
         values: [String],
@@ -675,7 +702,8 @@ struct StationTimetableDepartureTimes: View {
         hour: String? = nil,
         resolvingIndex: Int? = nil,
         departuresAreEnabled: Bool = true,
-        selectDeparture: ((Int) -> Void)? = nil
+        selectDeparture: ((Int) -> Void)? = nil,
+        previewDeparture: ((Int) -> StationTimetableDeparturePreviewConfiguration?)? = nil
     ) {
         self.values = values
         self.explanations = explanations
@@ -683,6 +711,7 @@ struct StationTimetableDepartureTimes: View {
         self.resolvingIndex = resolvingIndex
         self.departuresAreEnabled = departuresAreEnabled
         self.selectDeparture = selectDeparture
+        self.previewDeparture = previewDeparture
     }
 
     var body: some View {
@@ -698,7 +727,8 @@ struct StationTimetableDepartureTimes: View {
                     isEnabled: departuresAreEnabled,
                     action: selectDeparture.map { selectDeparture in
                         { selectDeparture(index) }
-                    }
+                    },
+                    preview: previewDeparture?(index)
                 )
                     .frame(
                         width: StationTimetableDepartureLayout.columnWidth,
@@ -730,29 +760,100 @@ private struct StationTimetableDepartureTime: View {
     let isResolving: Bool
     let isEnabled: Bool
     let action: (() -> Void)?
+    let preview: StationTimetableDeparturePreviewConfiguration?
+    @State private var previewSelection: ServiceSelection?
+    @State private var isPreviewPresented = false
+    @State private var suppressesPrimaryAction = false
+    @State private var previewResolutionID: UUID?
 
     @ViewBuilder
     var body: some View {
-        if isResolving {
+        if isResolving, !isPreviewPresented {
             ProgressView()
                 .controlSize(.small)
                 .fixedSize()
                 .accessibilityLabel(Text("Finding service…"))
         } else if let action, let displayedTime {
-            let actionLabel = AppLocalization.string("Open service at %@", displayedTime)
-            let accessibilityLabel = [actionLabel, presentation.explanation]
-                .compactMap(\.self)
-                .joined(separator: ". ")
-            Button(action: action) {
-                departureLabel
-                    .foregroundStyle(Color.accentColor)
-            }
-            .buttonStyle(.plain)
-            .disabled(!isEnabled)
-            .help(Text(verbatim: presentation.explanation ?? actionLabel))
-            .accessibilityLabel(Text(verbatim: accessibilityLabel))
+            departureButton(action: action, displayedTime: displayedTime)
         } else {
             departureLabel
+        }
+    }
+
+    private func departureButton(
+        action: @escaping () -> Void,
+        displayedTime: String
+    ) -> some View {
+        let actionLabel = AppLocalization.string("Open service at %@", displayedTime)
+        let accessibilityLabel = [actionLabel, presentation.explanation]
+            .compactMap(\.self)
+            .joined(separator: ". ")
+        return Button {
+            guard !suppressesPrimaryAction else { return }
+            action()
+        } label: {
+            departureLabel
+                .foregroundStyle(Color.accentColor)
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .help(Text(verbatim: presentation.explanation ?? actionLabel))
+        .accessibilityLabel(Text(verbatim: accessibilityLabel))
+        .forceClickPreview(
+            size: ResultPreviewLayout.serviceSize,
+            isEnabled: isEnabled && preview != nil,
+            suppressesPrimaryAction: $suppressesPrimaryAction,
+            isPresented: $isPreviewPresented
+        ) {
+            servicePreview
+        }
+        .onChange(of: isPreviewPresented) { isPresented in
+            previewPresentationChanged(isPresented)
+        }
+    }
+
+    @ViewBuilder
+    private var servicePreview: some View {
+        if let previewSelection, let preview {
+            ServiceDetailView(
+                selection: previewSelection,
+                client: preview.client,
+                showsItemDetails: preview.showsItemDetails,
+                showsStopNoteText: preview.showsStopNoteText,
+                presentation: .preview
+            )
+        } else {
+            ProgressView("Finding service…")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    /// Starts the ID lookup only for a visible Force Click popover and ignores a result after dismissal.
+    private func previewPresentationChanged(_ isPresented: Bool) {
+        guard isPresented else {
+            previewResolutionID = nil
+            previewSelection = nil
+            return
+        }
+        guard previewSelection == nil,
+              previewResolutionID == nil,
+              let preview
+        else {
+            return
+        }
+
+        let resolutionID = UUID()
+        previewResolutionID = resolutionID
+        Task { @MainActor in
+            let selection = await preview.resolveSelection()
+            guard previewResolutionID == resolutionID else { return }
+            previewResolutionID = nil
+            guard isPreviewPresented else { return }
+            guard let selection else {
+                isPreviewPresented = false
+                return
+            }
+            previewSelection = selection
         }
     }
 
