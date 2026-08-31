@@ -38,7 +38,7 @@ guard let sourceBitmap = NSBitmapImageRep(data: sourceData) else {
 let masterSize = 1_024
 let angleCount = 4_096
 let fullTurn = 2 * CGFloat.pi
-let frameInset: CGFloat = 0.055
+let frameInset: CGFloat = 0.042
 let innerCornerRadius: CGFloat = 0.18
 let frameColor = NSColor(deviceRed: 0.085, green: 0.012, blue: 0.003, alpha: 1)
 let sourceCenter = NSPoint(
@@ -141,6 +141,40 @@ func targetBoundaryRadii() -> [CGFloat] {
 let originalRadii = sourceBoundaryRadii()
 let rectangularRadii = targetBoundaryRadii()
 
+/// Redirects the artwork's natural point toward the rectangular corner without rotating the rest of the shell.
+let sourcePointAngle = (0...angleCount / 4).map { index in
+    -CGFloat.pi / 2 + CGFloat.pi / 2 * CGFloat(index) / CGFloat(angleCount / 4)
+}.min { first, second in
+    sourceCenter.y + sin(first) * radius(at: first, in: originalRadii)
+        < sourceCenter.y + sin(second) * radius(at: second, in: originalRadii)
+}!
+let targetPointAngle = -CGFloat.pi / 4
+let pointAngleOffset = sourcePointAngle - targetPointAngle
+/// Places the apex beyond the ordinary rounded surface while leaving the system-facing outer edge intact.
+let targetPointRadius: CGFloat = 0.605
+
+/// Tapers both point corrections to zero before they can move the neighboring top and right shell edges.
+func pointInfluence(at targetAngle: CGFloat) -> CGFloat {
+    guard targetAngle >= -CGFloat.pi / 2, targetAngle <= 0 else {
+        return 0
+    }
+    let quadrantPosition = (targetAngle + CGFloat.pi / 2) / (CGFloat.pi / 2)
+    return sin(CGFloat.pi * quadrantPosition)
+}
+
+/// Turns only the upper-right artwork so its natural grain converges into the icon corner.
+func sourceAngle(for targetAngle: CGFloat) -> CGFloat {
+    targetAngle + pointAngleOffset * pointInfluence(at: targetAngle)
+}
+
+/// Narrows the dark frame locally by letting the point reach outward beyond the ordinary rounded shell surface.
+func shellSurfaceRadius(at targetAngle: CGFloat) -> CGFloat {
+    let roundedRectangleRadius = radius(at: targetAngle, in: rectangularRadii)
+    let protrusion = pow(pointInfluence(at: targetAngle), 8)
+    return roundedRectangleRadius
+        + max(0, targetPointRadius - roundedRectangleRadius) * protrusion
+}
+
 func opaqueSourceColor(x: CGFloat, y: CGFloat) -> NSColor {
     let sourceX = min(sourceBitmap.pixelsWide - 1, max(0, Int(x.rounded())))
     let sourceY = min(sourceBitmap.pixelsHigh - 1, max(0, Int(y.rounded())))
@@ -180,8 +214,8 @@ func masterIconData() throws -> Data {
             let normalizedY = (CGFloat(y) + 0.5) / CGFloat(masterSize)
             let deltaX = normalizedX - 0.5
             let deltaY = normalizedY - 0.5
-            let angle = atan2(deltaY, deltaX)
-            let targetRadius = radius(at: angle, in: rectangularRadii)
+            let targetAngle = atan2(deltaY, deltaX)
+            let targetRadius = shellSurfaceRadius(at: targetAngle)
             let distance = sqrt(deltaX * deltaX + deltaY * deltaY)
 
             guard distance < targetRadius else {
@@ -189,10 +223,11 @@ func masterIconData() throws -> Data {
                 continue
             }
 
-            let sourceRadius = radius(at: angle, in: originalRadii)
+            let mappedSourceAngle = sourceAngle(for: targetAngle)
+            let sourceRadius = radius(at: mappedSourceAngle, in: originalRadii)
             let radialFraction = min(0.998, distance / targetRadius)
-            let directionX = cos(angle)
-            let directionY = sin(angle)
+            let directionX = cos(mappedSourceAngle)
+            let directionY = sin(mappedSourceAngle)
             bitmap.setColor(
                 opaqueSourceColor(
                     x: sourceCenter.x + directionX * sourceRadius * radialFraction,

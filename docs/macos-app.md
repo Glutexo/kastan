@@ -283,10 +283,10 @@ on-disk bundle name prevents Spotlight from treating the canonically decomposed 
 second application result. The command removes the former `~/Applications/Kaštan.app` path during migration.
 The static bundle icon is formed entirely by the complete chestnut shell, without a separate colored or neutral plate in
 Finder and Spotlight. The artwork is fitted into the rounded rectangle so its pale lower-left cut and pointed upper-right
-tip remain visible. Its deliberately broad, uniformly dark contour stays recognizable as a continuous frame beneath the
-system enclosure lighting. The Icon Composer source disables additional material highlights and adapts to current macOS
-appearances, while Xcode generates a matching flattened icon for earlier supported releases. The running app keeps the
-complete transparent, freeform artwork in the Dock and app switcher.
+tip remain visible. The light shell grain converges into that corner and the tip reaches outward, narrowing the otherwise
+continuous dark contour without breaking the rectangular system outline. The Icon Composer source disables additional
+material highlights and adapts to current macOS appearances, while Xcode generates a matching flattened icon for earlier
+supported releases. The running app keeps the complete transparent, freeform artwork in the Dock and app switcher.
 
 The checked-in bitmap renditions use the same source artwork and remain reproducible with
 `swift Scripts/generate-macos-app-icon.swift` after changing the artwork, radial fit, or contour geometry.

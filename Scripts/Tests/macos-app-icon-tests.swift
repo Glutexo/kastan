@@ -197,14 +197,14 @@ precondition(
     "The shell contour must form one uniformly dark frame through every corner and edge"
 )
 let surfaceSamples = [
-    color(of: iconComposerImage, x: 0.50, y: 0.080),
-    color(of: iconComposerImage, x: 0.920, y: 0.50),
-    color(of: iconComposerImage, x: 0.50, y: 0.920),
-    color(of: iconComposerImage, x: 0.080, y: 0.50),
+    color(of: iconComposerImage, x: 0.50, y: 0.065),
+    color(of: iconComposerImage, x: 0.935, y: 0.50),
+    color(of: iconComposerImage, x: 0.50, y: 0.935),
+    color(of: iconComposerImage, x: 0.065, y: 0.50),
 ].compactMap { $0 }
 precondition(
     surfaceSamples.count == 4 && surfaceSamples.allSatisfy(isChestnutSurface),
-    "The chestnut surface must remain inset far enough for the dark frame to survive system lighting"
+    "The chestnut surface must leave a slim dark frame that remains visible beneath system lighting"
 )
 
 let ovalBounds = matchingPixelBounds(
@@ -224,18 +224,19 @@ precondition(
 )
 let pointBounds = matchingPixelBounds(
     of: iconComposerImage,
-    xRange: 600..<900,
-    yRange: 0..<260
+    xRange: 500..<1_024,
+    yRange: 0..<400
 ) { sample in
     sample.greenComponent > 0.50 && sample.blueComponent > 0.25
 }
 precondition(
     pointBounds.map { bounds in
-        bounds.count >= 900
-            && bounds.maximumX - bounds.minimumX >= 150
-            && bounds.maximumY - bounds.minimumY >= 100
+        bounds.count >= 1_400
+            && bounds.maximumX >= 930
+            && bounds.minimumY <= 65
+            && bounds.maximumX - bounds.minimumX >= 350
     } == true,
-    "The upper-right highlight must preserve the chestnut's pointed tip inside the rectangular icon"
+    "The upper-right grain and pointed tip must extend outward into the rectangular icon's corner"
 )
 
 let appIcons = try pngFiles(
