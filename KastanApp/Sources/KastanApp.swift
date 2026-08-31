@@ -714,9 +714,9 @@ struct KastanApp: App {
             NavigationStack {
                 FavoriteTimetablesView()
             }
-            .frame(minWidth: 480, minHeight: 520)
+            .frame(minWidth: FavoriteTimetablesView.minimumWindowWidth, minHeight: 520)
         }
-        .defaultSize(width: 520, height: 620)
+        .defaultSize(width: FavoriteTimetablesView.defaultWindowWidth, height: 620)
         .defaultPosition(.center)
 
         Window("About Kaštan", id: AppWindow.information) {

@@ -4420,6 +4420,14 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(options.catalogTimetables(in: .integratedSystems).contains { $0.slug == "odis" })
     }
 
+    func testFavoriteTimetablesWindowOpensAtCompactWidth() {
+        XCTAssertEqual(FavoriteTimetablesView.minimumWindowWidth, 400)
+        XCTAssertEqual(
+            FavoriteTimetablesView.defaultWindowWidth,
+            FavoriteTimetablesView.minimumWindowWidth
+        )
+    }
+
     func testFavoriteManagerKeepsEveryTimetableInItsCatalogGroup() {
         let favorites = TimetableFavorites(slugs: ["vlaky", "odis"])
         let groupedTimetables = AppTimetableGroup.allCases.flatMap(\.timetables)
