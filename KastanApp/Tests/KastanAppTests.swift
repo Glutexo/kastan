@@ -5495,6 +5495,15 @@ final class KastanAppTests: XCTestCase {
             JourneyOptionEntry(viaPlace: ""),
             JourneyOptionEntry(viaPlace: "Olomouc"),
             JourneyOptionEntry(kind: .maximumTransfers, maximumTransfers: 2),
+            JourneyOptionEntry(kind: .minimumTransferTime, minimumTransferTime: 5),
+            JourneyOptionEntry(kind: .maximumTransferTime, maximumTransferTime: 360),
+            JourneyOptionEntry(kind: .maximumWalkingTime, maximumWalkingTime: 45),
+            JourneyOptionEntry(kind: .maximumCityWalkingTime, maximumCityWalkingTime: 20),
+            JourneyOptionEntry(kind: .walkToNearbyStops, walkToNearbyStops: false),
+            JourneyOptionEntry(
+                kind: .sameNameWalkingTransfersOnly,
+                sameNameWalkingTransfersOnly: true
+            ),
         ]
         model.isArrival = true
 
@@ -5512,6 +5521,12 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(request?.timetable.slug, "vlaky")
         XCTAssertEqual(request?.isArrival, true)
         XCTAssertEqual(request?.maxTransfers, 2)
+        XCTAssertEqual(request?.minimumTransferTime, 5)
+        XCTAssertEqual(request?.maximumTransferTime, 360)
+        XCTAssertEqual(request?.maximumWalkingTime, 45)
+        XCTAssertEqual(request?.maximumCityWalkingTime, 20)
+        XCTAssertEqual(request?.walkToNearbyStops, false)
+        XCTAssertEqual(request?.sameNameWalkingTransfersOnly, true)
         XCTAssertEqual(request?.resultLimit, 10)
         let searchLanguage = await client.lastConnectionSearchLanguage
         XCTAssertEqual(searchLanguage, AppLanguagePreference.idosLanguage)
@@ -5647,18 +5662,21 @@ final class KastanAppTests: XCTestCase {
         let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
         let firstID = model.journeyOptions[0].id
 
-        XCTAssertEqual(model.availableJourneyOptionKinds(for: firstID), [.via, .maximumTransfers])
+        XCTAssertEqual(model.availableJourneyOptionKinds(for: firstID), JourneyOptionKind.allCases)
 
         model.journeyOptions[0].kind = .maximumTransfers
         model.addJourneyOption(after: firstID)
         let secondID = model.journeyOptions[1].id
 
-        XCTAssertEqual(model.availableJourneyOptionKinds(for: firstID), [.via, .maximumTransfers])
-        XCTAssertEqual(model.availableJourneyOptionKinds(for: secondID), [.via])
+        XCTAssertEqual(model.availableJourneyOptionKinds(for: firstID), JourneyOptionKind.allCases)
+        XCTAssertEqual(
+            model.availableJourneyOptionKinds(for: secondID),
+            JourneyOptionKind.allCases.filter { $0 != .maximumTransfers }
+        )
 
         model.removeJourneyOption(id: firstID)
 
-        XCTAssertEqual(model.availableJourneyOptionKinds(for: secondID), [.via, .maximumTransfers])
+        XCTAssertEqual(model.availableJourneyOptionKinds(for: secondID), JourneyOptionKind.allCases)
     }
 
     func testDirectOnlyShortcutAddsAndRemovesAZeroTransferCondition() {
@@ -5718,6 +5736,39 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testAdditionalJourneyOptionsUseLocalizedIDOSDurationsAndLabels() throws {
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Maximum transfer time", value: nil, table: nil),
+            "Maximální čas na přestup"
+        )
+        XCTAssertEqual(
+            czech.localizedString(
+                forKey: "Use transfers only between stops of the same name",
+                value: nil,
+                table: nil
+            ),
+            "Používat přesuny jen mezi zastávkami stejného jména"
+        )
+        XCTAssertEqual(JourneyDurationChoice(minutes: -1).localizedTitle(bundle: czech), "Standardní")
+        XCTAssertEqual(JourneyDurationChoice(minutes: 60).localizedTitle(bundle: czech), "1 hod")
+        XCTAssertEqual(JourneyDurationChoice(minutes: 120).localizedTitle(bundle: english), "2 hr")
+        XCTAssertEqual(
+            JourneyDurationChoice.minimumTransferTimes.map(\.minutes),
+            [-1, 0, 1, 2, 3, 4, 5, 10, 20, 30, 60]
+        )
+        XCTAssertEqual(
+            JourneyDurationChoice.maximumTransferTimes.map(\.minutes),
+            [10, 20, 30, 45, 60, 120, 240, 360, 480, 720, 1_080]
+        )
+        XCTAssertEqual(
+            JourneyDurationChoice.maximumWalkingTimes.map(\.minutes),
+            [0, 5, 10, 20, 30, 45, 60]
+        )
+    }
+
     func testJourneyOptionPickerUsesCompactStableCatalogWidthWhenOnlyViaIsAvailable() throws {
         let picker = JourneyOptionKindPicker(
             selection: .constant(.via),
@@ -5739,7 +5790,15 @@ final class KastanAppTests: XCTestCase {
         nativeCatalogButton.addItems(withTitles: JourneyOptionKind.allCases.map(\.localizedTitle))
 
         XCTAssertEqual(popupButton.sizingTitles, JourneyOptionKind.allCases.map(\.localizedTitle))
-        XCTAssertEqual(catalogWidth, nativeCatalogButton.intrinsicContentSize.width, accuracy: 0.5)
+        XCTAssertEqual(
+            catalogWidth,
+            min(
+                nativeCatalogButton.intrinsicContentSize.width,
+                StableWidthPopUpButton.maximumCatalogWidth
+            ),
+            accuracy: 0.5
+        )
+        XCTAssertLessThanOrEqual(catalogWidth, StableWidthPopUpButton.maximumCatalogWidth)
         XCTAssertEqual(popupButton.frame.width, catalogWidth, accuracy: 0.5)
 
         popupButton.sizingTitles = [JourneyOptionKind.via.localizedTitle]

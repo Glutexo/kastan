@@ -52,6 +52,11 @@ let request = IDOSConnectionRequest(
     via: ["Místek,Anenská"],
     maxTransfers: 0,
     minimumTransferTime: 10,
+    maximumTransferTime: 360,
+    maximumWalkingTime: 45,
+    maximumCityWalkingTime: 20,
+    walkToNearbyStops: true,
+    sameNameWalkingTransfersOnly: false,
     resultLimit: 8
 )
 
@@ -165,6 +170,12 @@ object. This distinguishes, for example, a railway station from a municipality w
 `viaSelections` follows the order of `via`; use `nil` for any element that should retain free-text interpretation.
 Leave endpoint or station selections unset for the same free-text interpretation as typing into the IDOS form
 without choosing a suggestion.
+
+Connection requests expose the complete IDOS transfer panel. `maxTransfers` includes zero, while
+`minimumTransferTime` accepts minute values or `-1` for the timetable's standard. `maximumTransferTime`,
+`maximumWalkingTime`, and `maximumCityWalkingTime` use minutes. `walkToNearbyStops` controls whether the journey may
+start or end at a stop reached on foot, and `sameNameWalkingTransfersOnly` restricts walking transfers to stops with
+the same name. Leave any of these values as `nil` to retain the corresponding IDOS default.
 
 For a connection endpoint obtained from a device's WGS-84 coordinates, use
 `IDOSPlaceSelection.currentLocation(text:latitude:longitude:)` and pass the returned value together with its `text`

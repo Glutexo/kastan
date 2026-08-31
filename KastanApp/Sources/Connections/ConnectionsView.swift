@@ -549,7 +549,7 @@ struct ConnectionsView: View {
         .frame(height: 28)
     }
 
-    /// Keeps the visible menu as wide as the longest supported condition, including unavailable singleton types.
+    /// Sizes from every supported condition, with the native popup enforcing its compact-window cap.
     private func journeyOptionKindMenu(option: Binding<JourneyOptionEntry>) -> some View {
         JourneyOptionKindPicker(
             selection: option.kind,
@@ -588,7 +588,69 @@ struct ConnectionsView: View {
             }
             .fixedSize()
             .accessibilityLabel("Maximum number of transfers")
+        case .minimumTransferTime:
+            journeyDurationPicker(
+                selection: option.minimumTransferTime,
+                choices: JourneyDurationChoice.minimumTransferTimes,
+                label: option.wrappedValue.kind.localizedTitle
+            )
+        case .maximumTransferTime:
+            journeyDurationPicker(
+                selection: option.maximumTransferTime,
+                choices: JourneyDurationChoice.maximumTransferTimes,
+                label: option.wrappedValue.kind.localizedTitle
+            )
+        case .maximumWalkingTime:
+            journeyDurationPicker(
+                selection: option.maximumWalkingTime,
+                choices: JourneyDurationChoice.maximumWalkingTimes,
+                label: option.wrappedValue.kind.localizedTitle
+            )
+        case .maximumCityWalkingTime:
+            journeyDurationPicker(
+                selection: option.maximumCityWalkingTime,
+                choices: JourneyDurationChoice.maximumWalkingTimes,
+                label: option.wrappedValue.kind.localizedTitle
+            )
+        case .walkToNearbyStops:
+            journeyBooleanToggle(
+                isOn: option.walkToNearbyStops,
+                label: option.wrappedValue.kind.localizedTitle
+            )
+        case .sameNameWalkingTransfersOnly:
+            journeyBooleanToggle(
+                isOn: option.sameNameWalkingTransfersOnly,
+                label: option.wrappedValue.kind.localizedTitle
+            )
         }
+    }
+
+    /// Keeps the app's compact popup values aligned with the discrete durations accepted by IDOS.
+    private func journeyDurationPicker(
+        selection: Binding<Int>,
+        choices: [JourneyDurationChoice],
+        label: String
+    ) -> some View {
+        Picker(selection: selection) {
+            ForEach(choices) { choice in
+                Text(verbatim: choice.localizedTitle()).tag(choice.minutes)
+            }
+        } label: {
+            Text(verbatim: label)
+        }
+        .labelsHidden()
+        .fixedSize()
+        .accessibilityLabel(Text(verbatim: label))
+    }
+
+    /// Uses the same checkbox interaction as IDOS while the option name remains visible in the row picker.
+    private func journeyBooleanToggle(isOn: Binding<Bool>, label: String) -> some View {
+        Toggle(isOn: isOn) {
+            Text(verbatim: label)
+        }
+        .labelsHidden()
+        .fixedSize()
+        .accessibilityLabel(Text(verbatim: label))
     }
 
     /// Preserves the former stepper's accepted range while presenting the requested number field.
@@ -782,8 +844,10 @@ struct JourneyOptionKindPicker: NSViewRepresentable {
     }
 }
 
-/// Uses a native popup containing the full catalog as the compact, selection-independent sizing reference.
+/// Uses the full catalog as a stable sizing reference without letting long localized titles overflow compact windows.
 final class StableWidthPopUpButton: NSPopUpButton {
+    static let maximumCatalogWidth: CGFloat = 200
+
     var sizingTitles: [String] = [] {
         didSet {
             guard sizingTitles != oldValue else { return }
@@ -805,7 +869,10 @@ final class StableWidthPopUpButton: NSPopUpButton {
         }
         sizingButton.addItems(withTitles: sizingTitles)
 
-        return NSSize(width: sizingButton.intrinsicContentSize.width, height: nativeSize.height)
+        return NSSize(
+            width: min(sizingButton.intrinsicContentSize.width, Self.maximumCatalogWidth),
+            height: nativeSize.height
+        )
     }
 }
 

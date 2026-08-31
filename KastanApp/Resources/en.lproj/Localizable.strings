@@ -101,11 +101,18 @@
 "Invalid timetable: %@." = "Invalid timetable: %@.";
 "Invalid municipality: %@. Available for %@: %@." = "Invalid municipality: %@. Available for %@: %@.";
 "Timetable %@ does not offer a municipality choice." = "Timetable %@ does not offer a municipality choice.";
+"Use transfers only between stops of the same name" = "Use transfers only between stops of the same name";
 "Journey options" = "Journey options";
 "Journey option" = "Journey option";
 "Line" = "Line";
 "Line number or name" = "Line number or name";
+"%lld hr" = "%lld hr";
+"%lld min" = "%lld min";
+"Maximum distance to walk" = "Maximum distance to walk";
+"Maximum distance to walk, if there is Urban Public Transport available" = "Maximum distance to walk, if there is Urban Public Transport available";
 "Maximum number of transfers" = "Maximum number of transfers";
+"Maximum transfer time" = "Maximum transfer time";
+"Minimum transfer time" = "Minimum transfer time";
 "Matched rule: contains “%@”." = "Matched rule: contains “%@”.";
 "Matched rule: %@." = "Matched rule: %@.";
 "No specific service-information rule matched; the supplied fallback was used." = "No specific service-information rule matched; the supplied fallback was used.";
@@ -218,6 +225,7 @@
 "Station timetables" = "Station timetables";
 "Station timetable platform %@" = "Platform %@";
 "Station or stop" = "Station or stop";
+"Standard" = "Standard";
 "station" = "station";
 "stop" = "stop";
 "Stops" = "Stops";
@@ -228,6 +236,7 @@
 "The calendar data could not be saved." = "The calendar data could not be saved.";
 "The connection was sent to %@." = "The connection was sent to %@.";
 "The email could not be prepared in Mail." = "The email could not be prepared in Mail.";
+"Walk to a nearby stop at the beginning/end of journey" = "Walk to a nearby stop at the beginning/end of journey";
 "Time" = "Time";
 "Time means" = "Time means";
 "Timetable" = "Timetable";

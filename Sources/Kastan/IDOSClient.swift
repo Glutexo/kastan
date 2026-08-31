@@ -1706,8 +1706,20 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
     public var via: [String]
     /// Exact autocomplete choices aligned with `via`, with `nil` entries retaining free-text interpretation.
     public var viaSelections: [IDOSPlaceSelection?]?
+    /// The maximum number of transfers permitted, including zero, or `nil` for the IDOS default.
     public var maxTransfers: Int?
+    /// The minimum transfer time in minutes, with `-1` selecting the timetable's standard transfer time.
     public var minimumTransferTime: Int?
+    /// The maximum transfer time in minutes, or `nil` for the IDOS default.
+    public var maximumTransferTime: Int?
+    /// The maximum walking-transfer duration in minutes, or `nil` for the IDOS default.
+    public var maximumWalkingTime: Int?
+    /// The maximum walking-transfer duration when Urban Public Transport is available, in minutes.
+    public var maximumCityWalkingTime: Int?
+    /// Whether a journey may begin or end at a nearby stop reached on foot.
+    public var walkToNearbyStops: Bool?
+    /// Whether walking transfers are limited to stops with the same name.
+    public var sameNameWalkingTransfersOnly: Bool?
     public var resultLimit: Int?
 
     public init(
@@ -1724,6 +1736,11 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
         viaSelections: [IDOSPlaceSelection?]? = nil,
         maxTransfers: Int? = nil,
         minimumTransferTime: Int? = nil,
+        maximumTransferTime: Int? = nil,
+        maximumWalkingTime: Int? = nil,
+        maximumCityWalkingTime: Int? = nil,
+        walkToNearbyStops: Bool? = nil,
+        sameNameWalkingTransfersOnly: Bool? = nil,
         resultLimit: Int? = nil
     ) {
         self.timetable = timetable
@@ -1739,6 +1756,11 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
         self.viaSelections = viaSelections
         self.maxTransfers = maxTransfers
         self.minimumTransferTime = minimumTransferTime
+        self.maximumTransferTime = maximumTransferTime
+        self.maximumWalkingTime = maximumWalkingTime
+        self.maximumCityWalkingTime = maximumCityWalkingTime
+        self.walkToNearbyStops = walkToNearbyStops
+        self.sameNameWalkingTransfersOnly = sameNameWalkingTransfersOnly
         self.resultLimit = resultLimit
     }
 
@@ -1785,12 +1807,32 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
                 name: "AdvancedForm.MinTime",
                 value: String(minimumTransferTime ?? Self.defaultMinimumTransferTime)
             ))
-            items.append(URLQueryItem(name: "AdvancedForm.MaxTime", value: String(Self.defaultMaximumTransferTime)))
-            items.append(URLQueryItem(name: "AdvancedForm.MaxArcLength", value: String(Self.defaultMaximumWalkingTime)))
+            items.append(URLQueryItem(
+                name: "AdvancedForm.MaxTime",
+                value: String(maximumTransferTime ?? Self.defaultMaximumTransferTime)
+            ))
+            items.append(URLQueryItem(
+                name: "AdvancedForm.MaxArcLength",
+                value: String(maximumWalkingTime ?? Self.defaultMaximumWalkingTime)
+            ))
             items.append(URLQueryItem(
                 name: "AdvancedForm.MaxArcLengthCity",
-                value: String(Self.defaultMaximumCityWalkingTime)
+                value: String(maximumCityWalkingTime ?? Self.defaultMaximumCityWalkingTime)
             ))
+
+            if let walkToNearbyStops {
+                items.append(URLQueryItem(
+                    name: "AdvancedForm.MaxArcLengthFrom",
+                    value: String(walkToNearbyStops)
+                ))
+            }
+
+            if let sameNameWalkingTransfersOnly {
+                items.append(URLQueryItem(
+                    name: "AdvancedForm.LimitWalkArcs",
+                    value: String(sameNameWalkingTransfersOnly)
+                ))
+            }
 
             for transportTypeID in Self.defaultTransportTypeIDs {
                 let value = String(transportTypeID)
@@ -1803,7 +1845,10 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
     }
 
     private var hasAdvancedOptions: Bool {
-        !via.isEmpty || maxTransfers != nil || minimumTransferTime != nil
+        !via.isEmpty || maxTransfers != nil || minimumTransferTime != nil ||
+            maximumTransferTime != nil || maximumWalkingTime != nil ||
+            maximumCityWalkingTime != nil || walkToNearbyStops != nil ||
+            sameNameWalkingTransfersOnly != nil
     }
 }
 

@@ -1656,6 +1656,31 @@ import Testing
     #expect(!normalRequest.formItems.contains { $0.name == "AdvancedForm.MinTime" })
 }
 
+@Test func connectionRequestUsesIDOSWalkingAndTransferParameters() {
+    let customizedRequest = IDOSConnectionRequest(
+        from: "Praha",
+        to: "Brno",
+        maximumTransferTime: 360,
+        maximumWalkingTime: 45,
+        maximumCityWalkingTime: 20,
+        walkToNearbyStops: false,
+        sameNameWalkingTransfersOnly: true
+    )
+
+    #expect(customizedRequest.formItems.contains(
+        URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "True")
+    ))
+    #expect(customizedRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.MaxTime", value: "360")))
+    #expect(customizedRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.MaxArcLength", value: "45")))
+    #expect(customizedRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.MaxArcLengthCity", value: "20")))
+    #expect(customizedRequest.formItems.contains(
+        URLQueryItem(name: "AdvancedForm.MaxArcLengthFrom", value: "false")
+    ))
+    #expect(customizedRequest.formItems.contains(
+        URLQueryItem(name: "AdvancedForm.LimitWalkArcs", value: "true")
+    ))
+}
+
 @Test func connectionRequestUsesIDOSViaParameters() throws {
     let selectedVia = try #require(IDOSPlaceSelection(suggestion: IDOSSuggestion(
         selectedText: "Pardubice hl.n.",

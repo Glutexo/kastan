@@ -5,6 +5,12 @@ import Kastan
 enum JourneyOptionKind: String, CaseIterable, Identifiable {
     case via
     case maximumTransfers
+    case minimumTransferTime
+    case maximumTransferTime
+    case maximumWalkingTime
+    case maximumCityWalkingTime
+    case walkToNearbyStops
+    case sameNameWalkingTransfersOnly
 
     var id: Self { self }
 
@@ -15,13 +21,53 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
             AppLocalization.string("Via")
         case .maximumTransfers:
             AppLocalization.string("Maximum number of transfers")
+        case .minimumTransferTime:
+            AppLocalization.string("Minimum transfer time")
+        case .maximumTransferTime:
+            AppLocalization.string("Maximum transfer time")
+        case .maximumWalkingTime:
+            AppLocalization.string("Maximum distance to walk")
+        case .maximumCityWalkingTime:
+            AppLocalization.string("Maximum distance to walk, if there is Urban Public Transport available")
+        case .walkToNearbyStops:
+            AppLocalization.string("Walk to a nearby stop at the beginning/end of journey")
+        case .sameNameWalkingTransfersOnly:
+            AppLocalization.string("Use transfers only between stops of the same name")
         }
     }
 
-    /// Intermediate places can form an ordered route, while a transfer ceiling is unique.
+    /// Intermediate places can form an ordered route, while every IDOS transfer control is unique.
     var allowsMultiple: Bool {
         self == .via
     }
+}
+
+/// Presents each minute value supported by the corresponding IDOS transfer control.
+struct JourneyDurationChoice: Identifiable, Equatable {
+    let minutes: Int
+
+    var id: Int { minutes }
+
+    func localizedTitle(bundle: Bundle = .main) -> String {
+        guard minutes >= 0 else {
+            return bundle.localizedString(forKey: "Standard", value: "Standard", table: nil)
+        }
+
+        let displaysHours = minutes >= 60 && minutes.isMultiple(of: 60)
+        let value = displaysHours ? minutes / 60 : minutes
+        let key = displaysHours ? "%lld hr" : "%lld min"
+        let format = bundle.localizedString(forKey: key, value: key, table: nil)
+        return String(
+            format: format,
+            locale: AppLocalization.locale(for: bundle),
+            arguments: [Int64(value)]
+        )
+    }
+
+    /// Mirrors the discrete values offered by IDOS, including its timetable-specific standard.
+    static let minimumTransferTimes = [-1, 0, 1, 2, 3, 4, 5, 10, 20, 30, 60].map(Self.init)
+    static let maximumTransferTimes = [10, 20, 30, 45, 60, 120, 240, 360, 480, 720, 1_080].map(Self.init)
+    static let maximumWalkingTimes = [0, 5, 10, 20, 30, 45, 60].map(Self.init)
 }
 
 /// Stores one independently editable condition in the journey-options builder.
@@ -38,19 +84,37 @@ struct JourneyOptionEntry: Identifiable, Equatable {
     /// Retains an exact IDOS place only while its visible via-place text remains unchanged.
     var viaSelection: PlaceFieldSelection?
     var maximumTransfers: Int
+    var minimumTransferTime: Int
+    var maximumTransferTime: Int
+    var maximumWalkingTime: Int
+    var maximumCityWalkingTime: Int
+    var walkToNearbyStops: Bool
+    var sameNameWalkingTransfersOnly: Bool
 
     init(
         id: UUID = UUID(),
         kind: JourneyOptionKind = .via,
         viaPlace: String = "",
         viaSelection: PlaceFieldSelection? = nil,
-        maximumTransfers: Int = 4
+        maximumTransfers: Int = 4,
+        minimumTransferTime: Int = -1,
+        maximumTransferTime: Int = 240,
+        maximumWalkingTime: Int = 60,
+        maximumCityWalkingTime: Int = 10,
+        walkToNearbyStops: Bool = true,
+        sameNameWalkingTransfersOnly: Bool = false
     ) {
         self.id = id
         self.kind = kind
         self.viaPlace = viaPlace
         self.viaSelection = viaSelection
         self.maximumTransfers = maximumTransfers
+        self.minimumTransferTime = minimumTransferTime
+        self.maximumTransferTime = maximumTransferTime
+        self.maximumWalkingTime = maximumWalkingTime
+        self.maximumCityWalkingTime = maximumCityWalkingTime
+        self.walkToNearbyStops = walkToNearbyStops
+        self.sameNameWalkingTransfersOnly = sameNameWalkingTransfersOnly
     }
 }
 
@@ -220,6 +284,31 @@ final class ConnectionsViewModel: ObservableObject {
         journeyOptions.first { $0.kind == .maximumTransfers }?.maximumTransfers
     }
 
+    /// Returns each optional IDOS transfer control only while its row remains visible.
+    var minimumTransferTime: Int? {
+        journeyOptions.first { $0.kind == .minimumTransferTime }?.minimumTransferTime
+    }
+
+    var maximumTransferTime: Int? {
+        journeyOptions.first { $0.kind == .maximumTransferTime }?.maximumTransferTime
+    }
+
+    var maximumWalkingTime: Int? {
+        journeyOptions.first { $0.kind == .maximumWalkingTime }?.maximumWalkingTime
+    }
+
+    var maximumCityWalkingTime: Int? {
+        journeyOptions.first { $0.kind == .maximumCityWalkingTime }?.maximumCityWalkingTime
+    }
+
+    var walkToNearbyStops: Bool? {
+        journeyOptions.first { $0.kind == .walkToNearbyStops }?.walkToNearbyStops
+    }
+
+    var sameNameWalkingTransfersOnly: Bool? {
+        journeyOptions.first { $0.kind == .sameNameWalkingTransfersOnly }?.sameNameWalkingTransfersOnly
+    }
+
     /// Mirrors the direct-connection shortcut with the equivalent zero-transfer journey condition.
     var onlyDirect: Bool {
         maximumTransfers == 0
@@ -349,6 +438,12 @@ final class ConnectionsViewModel: ObservableObject {
             via: requestedViaEntries.map(\.place),
             viaSelections: requestedViaSelections,
             maxTransfers: requestedMaximumTransfers,
+            minimumTransferTime: minimumTransferTime,
+            maximumTransferTime: maximumTransferTime,
+            maximumWalkingTime: maximumWalkingTime,
+            maximumCityWalkingTime: maximumCityWalkingTime,
+            walkToNearbyStops: walkToNearbyStops,
+            sameNameWalkingTransfersOnly: sameNameWalkingTransfersOnly,
             resultLimit: 10
         )
 
