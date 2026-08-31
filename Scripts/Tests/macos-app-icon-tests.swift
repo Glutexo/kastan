@@ -62,18 +62,37 @@ func color(of image: NSBitmapImageRep, x: CGFloat, y: CGFloat) -> NSColor? {
     )?.usingColorSpace(.sRGB)
 }
 
+func componentDifference(_ first: NSColor, _ second: NSColor) -> CGFloat {
+    max(
+        abs(first.redComponent - second.redComponent),
+        abs(first.greenComponent - second.greenComponent),
+        abs(first.blueComponent - second.blueComponent)
+    )
+}
+
 func maximumComponentDifference(in colors: [NSColor]) -> CGFloat {
     guard let reference = colors.first else {
         return .infinity
     }
     return colors.dropFirst().reduce(0) { difference, color in
-        max(
-            difference,
-            abs(color.redComponent - reference.redComponent),
-            abs(color.greenComponent - reference.greenComponent),
-            abs(color.blueComponent - reference.blueComponent)
-        )
+        max(difference, componentDifference(color, reference))
     }
+}
+
+/// Measures the solid rim from one side midpoint so all four sides can be compared independently of the artwork.
+func frameDepth(
+    of image: NSBitmapImageRep,
+    matching frameColor: NSColor,
+    sampleAt: (Int) -> (x: Int, y: Int)
+) -> Int {
+    for offset in 0..<min(image.pixelsWide, image.pixelsHigh) / 2 {
+        let point = sampleAt(offset)
+        guard let sample = image.colorAt(x: point.x, y: point.y)?.usingColorSpace(.sRGB),
+              componentDifference(sample, frameColor) <= 0.01 else {
+            return offset
+        }
+    }
+    return 0
 }
 
 func matchingPixelBounds(
@@ -108,10 +127,11 @@ func matchingPixelBounds(
     return (count, minimumX, maximumX, minimumY, maximumY)
 }
 
-/// Recognizes the dark brown shell contour that must be the icon's only outer edge.
-func isDarkChestnut(_ color: NSColor) -> Bool {
-    color.redComponent <= 0.36
-        && color.redComponent - color.greenComponent >= 0.08
+/// Recognizes the warm shaded rim that gives the shell depth without reading as a black frame.
+func isWarmShellRim(_ color: NSColor) -> Bool {
+    color.redComponent >= 0.14
+        && color.redComponent <= 0.30
+        && color.redComponent - color.greenComponent >= 0.10
         && color.greenComponent >= color.blueComponent
 }
 
@@ -181,8 +201,8 @@ let iconComposerCorners = [
     color(of: iconComposerImage, x: 0.999, y: 0.999),
 ].compactMap { $0 }
 precondition(
-    iconComposerCorners.count == 4 && iconComposerCorners.allSatisfy(isDarkChestnut),
-    "The shell's dark contour must form every outer corner of the Finder icon"
+    iconComposerCorners.count == 4 && iconComposerCorners.allSatisfy(isWarmShellRim),
+    "The shell's warm shaded rim must form every outer corner of the Finder icon"
 )
 let frameSamples = [
     color(of: iconComposerImage, x: 0.50, y: 0.025),
@@ -192,19 +212,35 @@ let frameSamples = [
 ].compactMap { $0 }
 precondition(
     frameSamples.count == 4
-        && frameSamples.allSatisfy(isDarkChestnut)
+        && frameSamples.allSatisfy(isWarmShellRim)
         && maximumComponentDifference(in: iconComposerCorners + frameSamples) <= 0.01,
-    "The shell contour must form one uniformly dark frame through every corner and edge"
+    "The shell rim must use one consistent warm shade through every corner and edge"
+)
+let frameColor = iconComposerCorners[0]
+let frameDepths = [
+    frameDepth(of: iconComposerImage, matching: frameColor) { (iconComposerImage.pixelsWide / 2, $0) },
+    frameDepth(of: iconComposerImage, matching: frameColor) {
+        (iconComposerImage.pixelsWide - 1 - $0, iconComposerImage.pixelsHigh / 2)
+    },
+    frameDepth(of: iconComposerImage, matching: frameColor) {
+        (iconComposerImage.pixelsWide / 2, iconComposerImage.pixelsHigh - 1 - $0)
+    },
+    frameDepth(of: iconComposerImage, matching: frameColor) { ($0, iconComposerImage.pixelsHigh / 2) },
+]
+precondition(
+    frameDepths.allSatisfy { (28...31).contains($0) }
+        && (frameDepths.max() ?? .max) - (frameDepths.min() ?? .min) <= 1,
+    "The shell rim must have the same slim width along all four sides"
 )
 let surfaceSamples = [
-    color(of: iconComposerImage, x: 0.50, y: 0.065),
-    color(of: iconComposerImage, x: 0.935, y: 0.50),
-    color(of: iconComposerImage, x: 0.50, y: 0.935),
-    color(of: iconComposerImage, x: 0.065, y: 0.50),
+    color(of: iconComposerImage, x: 0.50, y: 0.050),
+    color(of: iconComposerImage, x: 0.950, y: 0.50),
+    color(of: iconComposerImage, x: 0.50, y: 0.950),
+    color(of: iconComposerImage, x: 0.050, y: 0.50),
 ].compactMap { $0 }
 precondition(
     surfaceSamples.count == 4 && surfaceSamples.allSatisfy(isChestnutSurface),
-    "The chestnut surface must leave a slim dark frame that remains visible beneath system lighting"
+    "The chestnut surface must begin evenly behind the shell's slim shaded rim"
 )
 
 let ovalBounds = matchingPixelBounds(
@@ -222,21 +258,16 @@ precondition(
     } == true,
     "The lower-left cut must retain a complete, clearly visible oval instead of being cropped away"
 )
-let pointBounds = matchingPixelBounds(
+let palePointBounds = matchingPixelBounds(
     of: iconComposerImage,
-    xRange: 500..<1_024,
-    yRange: 0..<400
+    xRange: 650..<1_024,
+    yRange: 0..<300
 ) { sample in
     sample.greenComponent > 0.50 && sample.blueComponent > 0.25
 }
 precondition(
-    pointBounds.map { bounds in
-        bounds.count >= 1_400
-            && bounds.maximumX >= 930
-            && bounds.minimumY <= 65
-            && bounds.maximumX - bounds.minimumX >= 350
-    } == true,
-    "The upper-right grain and pointed tip must extend outward into the rectangular icon's corner"
+    palePointBounds == nil,
+    "The upper-right shell grain must remain warm brown without recreating a separate pale point"
 )
 
 let appIcons = try pngFiles(
@@ -277,8 +308,8 @@ for icon in appIcons {
         color(of: image, x: 0.999, y: 0.999),
     ].compactMap { $0 }
     precondition(
-        corners.count == 4 && corners.allSatisfy(isDarkChestnut),
-        "\(icon.lastPathComponent) must use the shell's dark contour as its complete outer edge"
+        corners.count == 4 && corners.allSatisfy(isWarmShellRim),
+        "\(icon.lastPathComponent) must use the shell's warm shaded rim as its complete outer edge"
     )
 }
 
