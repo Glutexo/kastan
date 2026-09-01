@@ -5769,6 +5769,11 @@ final class KastanAppTests: XCTestCase {
             "Používat přesuny jen mezi zastávkami stejného jména"
         )
         XCTAssertEqual(JourneyDurationChoice(minutes: -1).localizedTitle(bundle: czech), "Standardní")
+        XCTAssertEqual(JourneyDurationChoice(minutes: 0).localizedTitle(bundle: czech), "0 minut")
+        XCTAssertEqual(JourneyDurationChoice(minutes: 1).localizedTitle(bundle: czech), "1 minuta")
+        XCTAssertEqual(JourneyDurationChoice(minutes: 2).localizedTitle(bundle: czech), "2 minuty")
+        XCTAssertEqual(JourneyDurationChoice(minutes: 5).localizedTitle(bundle: czech), "5 minut")
+        XCTAssertEqual(JourneyDurationChoice(minutes: 5).localizedTitle(bundle: english), "5 min")
         XCTAssertEqual(JourneyDurationChoice(minutes: 60).localizedTitle(bundle: czech), "1 hod")
         XCTAssertEqual(JourneyDurationChoice(minutes: 120).localizedTitle(bundle: english), "2 hr")
         XCTAssertEqual(

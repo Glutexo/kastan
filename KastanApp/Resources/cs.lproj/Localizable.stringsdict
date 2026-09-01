@@ -2,6 +2,24 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>%lld min</key>
+	<dict>
+		<key>NSStringLocalizedFormatKey</key>
+		<string>%#@minutes@</string>
+		<key>minutes</key>
+		<dict>
+			<key>NSStringFormatSpecTypeKey</key>
+			<string>NSStringPluralRuleType</string>
+			<key>NSStringFormatValueTypeKey</key>
+			<string>lld</string>
+			<key>one</key>
+			<string>%lld minuta</string>
+			<key>few</key>
+			<string>%lld minuty</string>
+			<key>other</key>
+			<string>%lld minut</string>
+		</dict>
+	</dict>
 	<key>Current delay of %lld minutes</key>
 	<dict>
 		<key>NSStringLocalizedFormatKey</key>

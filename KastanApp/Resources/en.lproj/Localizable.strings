@@ -107,7 +107,6 @@
 "Line" = "Line";
 "Line number or name" = "Line number or name";
 "%lld hr" = "%lld hr";
-"%lld min" = "%lld min";
 "Maximum distance to walk" = "Maximum distance to walk";
 "Maximum distance to walk, if there is Urban Public Transport available" = "Maximum distance to walk, if there is Urban Public Transport available";
 "Maximum number of transfers" = "Maximum number of transfers";

@@ -41,7 +41,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   The transfer ceiling presents a compact, left-aligned number field with native stepper arrows. Time-based conditions
   use compact popups containing the values accepted by IDOS: the minimum offers Standard or 0, 1, 2, 3, 4, 5, 10, 20,
   30, or 60 minutes; the maximum offers 10, 20, 30, 45, 60, 120, 240, 360, 480, 720, or 1,080 minutes; and both walking
-  limits offer 0, 5, 10, 20, 30, 45, or 60 minutes. Whole-hour values are labeled in hours. The two on/off conditions
+  limits offer 0, 5, 10, 20, 30, 45, or 60 minutes. Whole-hour values are labeled in hours, while Czech minute values
+  use their complete grammatically inflected unit names. The two on/off conditions
   use native checkboxes and start with IDOS's defaults: nearby stops enabled and same-name transfers disabled. Every
   editor shares one row height and follows a selection-independent condition menu whose compact capped width keeps
   long localized names inside the minimum window; opening the menu still shows their complete wording. Fixed-size

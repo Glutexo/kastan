@@ -107,7 +107,6 @@
 "Line" = "Linka";
 "Line number or name" = "Číslo nebo název linky";
 "%lld hr" = "%lld hod";
-"%lld min" = "%lld min";
 "Maximum distance to walk" = "Nejvyšší délka přesunu";
 "Maximum distance to walk, if there is Urban Public Transport available" = "Nejvyšší délka přesunu, je-li MHD";
 "Maximum number of transfers" = "Nejvyšší počet přestupů";
