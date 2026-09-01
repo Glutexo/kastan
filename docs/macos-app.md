@@ -199,7 +199,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   printed beside a service by IDOS. They show semantic emoji by default, expose the complete wording to VoiceOver and
   on hover, and Option-clicking an emoji opens a selectable popover with the exact phrase, regular-expression, or
   structural classifier rule that matched the IDOS wording. The concise popover neither repeats that wording nor
-  substitutes the resulting category name or emoji for the rule. The global, persistent Replace symbols with text
+  substitutes the resulting category name or emoji for the rule. Low-floor vehicle notices use ♿, the same marker as
+  other accessibility wording, instead of the generic ℹ️ marker. The global, persistent Replace symbols with text
   setting replaces those service symbols and recognized
   stop-note emoji with the complete wording supplied by IDOS; the setting is off initially. It applies equally to
   connection results, station boards, station timetables, complete result windows, and Force Click previews. Station

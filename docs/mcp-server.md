@@ -178,7 +178,8 @@ final Station Timetable request when searching ODIS, IREDO, or IDOL.
 
 Kaštan asks IDOS for later connections until it reaches the requested limit or no more results are available.
 Returned legs include the opaque service IDs accepted by `get_service_detail` and any ordered service-information
-items printed in the result, each with its complete IDOS text and classified category.
+items printed in the result, each with its complete IDOS text and classified category. Low-floor vehicle wording is
+classified as `wheelchair` accessibility instead of general information.
 
 ### Departures and Arrivals
 

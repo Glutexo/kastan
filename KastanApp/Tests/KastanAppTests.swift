@@ -4169,7 +4169,7 @@ final class KastanAppTests: XCTestCase {
             IDOSServiceInformation(text: "Train also consists of 1st class coaches"),
             IDOSServiceInformation(text: "Carriage with a wireless internet connection"),
             IDOSServiceInformation(text: "Carriage of registered luggage (until full capacity)"),
-            IDOSServiceInformation(text: "Carriage suitable for transport of passengers using wheelchairs"),
+            IDOSServiceInformation(text: "spoj je obsluhován nízkopodlažním vozidlem"),
         ]
         let presentation = ServiceInformationPresentation(values: information)
 

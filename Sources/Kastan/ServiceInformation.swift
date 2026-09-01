@@ -442,10 +442,17 @@ private struct Classifier {
             return classified(.bicycle, by: bicycleRule)
         }
 
-        // Bus timetables describe an accessible vehicle without necessarily mentioning a wheelchair.
-        if let rule = containsRule(
-            anyOf: "cestujicich na voziku", "bezbarierovy spoj",
-            "spoj s bezbarierove pristupnym vozidlem", "wheelchair"
+        // Bus timetables describe accessible and low-floor vehicles without necessarily mentioning a wheelchair.
+        if let rule = first(
+            containsRule(
+                anyOf: "cestujicich na voziku", "bezbarierovy spoj",
+                "spoj s bezbarierove pristupnym vozidlem", "wheelchair"
+            ),
+            all(containsRule("nizkopodlazn"), containsRule("vozidl")),
+            all(
+                containsRule(anyOf: "low-floor", "low floor"),
+                containsRule("vehicle")
+            )
         ) {
             return classified(.wheelchair, by: rule)
         }

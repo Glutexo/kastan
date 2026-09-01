@@ -44,6 +44,8 @@ import Testing
         ("Vůz vhodný pro přepravu cestujících na vozíku.", .wheelchair),
         ("Bezbariérový spoj", .wheelchair),
         ("Spoj s bezbariérově přístupným vozidlem.", .wheelchair),
+        ("Spoj je obsluhován nízkopodlažním vozidlem.", .wheelchair),
+        ("The service is operated by a low-floor vehicle.", .wheelchair),
         ("Seat reservation available.", .seatReservation),
         ("Reservations possible in indicated coaches", .seatReservation),
         ("Compulsory reservation", .seatReservation),
@@ -96,6 +98,14 @@ import Testing
     #expect(
         IDOSServiceInformation(text: "Bezbariérový spoj").classificationRule ==
             .contains("bezbarierovy spoj")
+    )
+    #expect(
+        IDOSServiceInformation(
+            text: "Spoj je obsluhován nízkopodlažním vozidlem."
+        ).classificationRule == .all([
+            .contains("nizkopodlazn"),
+            .contains("vozidl"),
+        ])
     )
     #expect(
         IDOSServiceInformation(
