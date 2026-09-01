@@ -5679,13 +5679,40 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(model.availableJourneyOptionKinds(for: secondID), JourneyOptionKind.allCases)
     }
 
-    func testDirectOnlyShortcutRemovesOnlyIncompatibleTransferConditions() {
+    func testDirectOnlyShortcutAddsVisibleZeroTransferCondition() {
+        let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
+        let placeholder = model.journeyOptions[0]
+
+        model.setOnlyDirect(true)
+
+        XCTAssertTrue(model.onlyDirect)
+        XCTAssertEqual(model.journeyOptions.count, 2)
+        XCTAssertEqual(model.journeyOptions[0], placeholder)
+        XCTAssertEqual(model.journeyOptions[1].kind, .maximumTransfers)
+        XCTAssertEqual(model.journeyOptions[1].maximumTransfers, 0)
+
+        model.setOnlyDirect(false)
+
+        XCTAssertFalse(model.onlyDirect)
+        XCTAssertEqual(model.journeyOptions, [placeholder])
+
+        model.setOnlyDirect(true)
+        let directOptionID = model.journeyOptions[1].id
+        model.setMaximumTransfers(1, for: directOptionID)
+
+        XCTAssertFalse(model.onlyDirect)
+        XCTAssertEqual(model.journeyOptions[1].kind, .maximumTransfers)
+        XCTAssertEqual(model.journeyOptions[1].maximumTransfers, 1)
+    }
+
+    func testDirectOnlyShortcutRemovesOnlyTransferTimeConditions() {
         let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
         let viaOption = JourneyOptionEntry(viaPlace: "Pardubice")
+        let transferOption = JourneyOptionEntry(kind: .maximumTransfers, maximumTransfers: 3)
         let walkingOption = JourneyOptionEntry(kind: .maximumWalkingTime, maximumWalkingTime: 45)
         model.journeyOptions = [
             viaOption,
-            JourneyOptionEntry(kind: .maximumTransfers, maximumTransfers: 3),
+            transferOption,
             JourneyOptionEntry(kind: .minimumTransferTime, minimumTransferTime: 5),
             JourneyOptionEntry(kind: .maximumTransferTime, maximumTransferTime: 360),
             walkingOption,
@@ -5697,15 +5724,16 @@ final class KastanAppTests: XCTestCase {
         model.setOnlyDirect(true)
 
         XCTAssertTrue(model.onlyDirect)
-        XCTAssertEqual(model.journeyOptions.count, 2)
-        XCTAssertEqual(model.journeyOptions.map(\.id), [viaOption.id, walkingOption.id])
+        XCTAssertEqual(model.journeyOptions.count, 3)
+        XCTAssertEqual(model.journeyOptions.map(\.id), [viaOption.id, transferOption.id, walkingOption.id])
         XCTAssertEqual(model.maximumTransfers, 0)
         XCTAssertNil(model.minimumTransferTime)
         XCTAssertNil(model.maximumTransferTime)
         XCTAssertEqual(model.maximumWalkingTime, 45)
         XCTAssertFalse(
-            model.availableJourneyOptionKinds(for: viaOption.id).contains { $0.isIncompatibleWithOnlyDirect }
+            model.availableJourneyOptionKinds(for: transferOption.id).contains { $0.isTransferTimeCondition }
         )
+        XCTAssertTrue(model.availableJourneyOptionKinds(for: transferOption.id).contains(.maximumTransfers))
 
         model.setOnlyDirect(false)
 
@@ -5714,6 +5742,8 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(
             model.availableJourneyOptionKinds(for: viaOption.id).contains(.maximumTransfers)
         )
+        model.setJourneyOptionKind(.maximumTransfers, for: viaOption.id)
+        XCTAssertEqual(model.journeyOptions[0].maximumTransfers, 3)
         model.setJourneyOptionKind(.minimumTransferTime, for: viaOption.id)
         XCTAssertEqual(model.journeyOptions[0].minimumTransferTime, 5)
     }
@@ -5732,9 +5762,11 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(model.onlyDirect)
         XCTAssertEqual(model.journeyOptions.count, 1)
         XCTAssertEqual(model.journeyOptions[0].id, transferOption.id)
-        XCTAssertEqual(model.journeyOptions[0].kind, .via)
+        XCTAssertEqual(model.journeyOptions[0].kind, .maximumTransfers)
+        XCTAssertEqual(model.journeyOptions[0].maximumTransfers, 0)
 
         model.setOnlyDirect(false)
+        XCTAssertEqual(model.journeyOptions[0].kind, .via)
         model.setJourneyOptionKind(.maximumTransfers, for: transferOption.id)
         XCTAssertEqual(model.journeyOptions[0].maximumTransfers, 3)
 

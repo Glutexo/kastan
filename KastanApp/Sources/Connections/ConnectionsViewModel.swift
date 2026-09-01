@@ -41,8 +41,8 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
         self == .via
     }
 
-    /// Direct journeys have no transfer whose count or waiting time could be constrained.
-    var isIncompatibleWithOnlyDirect: Bool {
+    /// Identifies conditions whose previous value should survive a temporary direct-only search.
+    var usesRememberedTransferValue: Bool {
         switch self {
         case .maximumTransfers, .minimumTransferTime, .maximumTransferTime:
             true
@@ -50,6 +50,11 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
              .walkToNearbyStops, .sameNameWalkingTransfersOnly:
             false
         }
+    }
+
+    /// Direct journeys have no transfer whose waiting time could be constrained.
+    var isTransferTimeCondition: Bool {
+        self == .minimumTransferTime || self == .maximumTransferTime
     }
 }
 
@@ -299,12 +304,8 @@ final class ConnectionsViewModel: ObservableObject {
         }
     }
 
-    /// Returns zero in direct-only mode, otherwise the single visible transfer ceiling when selected.
+    /// Returns the single visible transfer ceiling, including the zero that represents direct-only mode.
     var maximumTransfers: Int? {
-        if onlyDirect {
-            return 0
-        }
-
         return journeyOptions.first { $0.kind == .maximumTransfers }?.maximumTransfers
     }
 
@@ -360,7 +361,7 @@ final class ConnectionsViewModel: ObservableObject {
     /// Keeps each picker limited to repeatable conditions and currently unused singleton conditions.
     func availableJourneyOptionKinds(for id: JourneyOptionEntry.ID) -> [JourneyOptionKind] {
         JourneyOptionKind.allCases.filter { kind in
-            (!onlyDirect || !kind.isIncompatibleWithOnlyDirect) &&
+            (!onlyDirect || !kind.isTransferTimeCondition) &&
                 (kind.allowsMultiple || !journeyOptions.contains { option in
                     option.id != id && option.kind == kind
                 })
@@ -369,13 +370,22 @@ final class ConnectionsViewModel: ObservableObject {
 
     /// Applies a selected condition kind and restores the last value removed for transfer-related conditions.
     func setJourneyOptionKind(_ kind: JourneyOptionKind, for id: JourneyOptionEntry.ID) {
-        guard let index = journeyOptions.firstIndex(where: { $0.id == id }) else { return }
-        guard journeyOptions[index].kind != kind else { return }
+        guard let currentOption = journeyOptions.first(where: { $0.id == id }) else { return }
+        guard currentOption.kind != kind else { return }
 
-        rememberTransferValue(from: journeyOptions[index])
-        journeyOptions[index].kind = kind
-        if kind.isIncompatibleWithOnlyDirect {
+        if onlyDirect,
+           currentOption.kind == .maximumTransfers,
+           currentOption.maximumTransfers == 0 {
             onlyDirect = false
+        } else if onlyDirect, kind.isTransferTimeCondition {
+            setOnlyDirect(false)
+        }
+
+        guard let index = journeyOptions.firstIndex(where: { $0.id == id }) else { return }
+
+        rememberTransferValue(from: currentOption)
+        journeyOptions[index].kind = kind
+        if kind.usesRememberedTransferValue {
             restoreRememberedTransferValues(at: index)
         }
     }
@@ -389,7 +399,13 @@ final class ConnectionsViewModel: ObservableObject {
     /// Removes the selected condition while retaining its transfer value and one empty row for future input.
     func removeJourneyOption(id: JourneyOptionEntry.ID) {
         guard let index = journeyOptions.firstIndex(where: { $0.id == id }) else { return }
-        rememberTransferValue(from: journeyOptions[index])
+        let removedOption = journeyOptions[index]
+        rememberTransferValue(from: removedOption)
+        if onlyDirect,
+           removedOption.kind == .maximumTransfers,
+           removedOption.maximumTransfers == 0 {
+            onlyDirect = false
+        }
         if journeyOptions.count == 1 {
             journeyOptions[0] = makeJourneyOptionEntry(id: id)
         } else {
@@ -397,11 +413,23 @@ final class ConnectionsViewModel: ObservableObject {
         }
     }
 
-    /// Activates direct-only mode and removes all transfer-count and transfer-time conditions without forgetting them.
+    /// Synchronizes direct-only mode with a visible zero-transfer row and removes transfer-time conditions.
     func setOnlyDirect(_ onlyDirect: Bool) {
         self.onlyDirect = onlyDirect
         if onlyDirect {
-            removeConditionsIncompatibleWithOnlyDirect()
+            removeTransferTimeConditions()
+            if let index = journeyOptions.firstIndex(where: { $0.kind == .maximumTransfers }) {
+                rememberTransferValue(from: journeyOptions[index])
+                journeyOptions[index].maximumTransfers = 0
+            } else {
+                var directOption = makeJourneyOptionEntry(kind: .maximumTransfers)
+                directOption.maximumTransfers = 0
+                journeyOptions.append(directOption)
+            }
+        } else if let directOption = journeyOptions.first(where: {
+            $0.kind == .maximumTransfers && $0.maximumTransfers == 0
+        }) {
+            removeJourneyOption(id: directOption.id)
         }
     }
 
@@ -417,7 +445,9 @@ final class ConnectionsViewModel: ObservableObject {
             max(value, Self.maximumTransferRange.lowerBound),
             Self.maximumTransferRange.upperBound
         )
-        guard clampedValue > 0 else {
+        if clampedValue == 0 {
+            rememberTransferValue(from: journeyOptions[index])
+            journeyOptions[index].maximumTransfers = 0
             setOnlyDirect(true)
             return
         }
@@ -509,9 +539,13 @@ final class ConnectionsViewModel: ObservableObject {
     }
 
     /// Builds a fresh row with the most recently chosen transfer values ready for a later kind selection.
-    private func makeJourneyOptionEntry(id: JourneyOptionEntry.ID = UUID()) -> JourneyOptionEntry {
+    private func makeJourneyOptionEntry(
+        id: JourneyOptionEntry.ID = UUID(),
+        kind: JourneyOptionKind = .via
+    ) -> JourneyOptionEntry {
         JourneyOptionEntry(
             id: id,
+            kind: kind,
             maximumTransfers: rememberedTransferValues.maximumTransfers,
             minimumTransferTime: rememberedTransferValues.minimumTransferTime,
             maximumTransferTime: rememberedTransferValues.maximumTransferTime
@@ -542,15 +576,11 @@ final class ConnectionsViewModel: ObservableObject {
         journeyOptions[index].maximumTransferTime = rememberedTransferValues.maximumTransferTime
     }
 
-    /// Removes every condition made meaningless by direct-only mode while preserving a reusable editor row.
-    private func removeConditionsIncompatibleWithOnlyDirect() {
-        let removedOptions = journeyOptions.filter { $0.kind.isIncompatibleWithOnlyDirect }
+    /// Removes both transfer-time conditions made meaningless by direct-only mode without forgetting their values.
+    private func removeTransferTimeConditions() {
+        let removedOptions = journeyOptions.filter { $0.kind.isTransferTimeCondition }
         removedOptions.forEach(rememberTransferValue)
-        journeyOptions.removeAll { $0.kind.isIncompatibleWithOnlyDirect }
-
-        if journeyOptions.isEmpty {
-            journeyOptions = [makeJourneyOptionEntry(id: removedOptions.first?.id ?? UUID())]
-        }
+        journeyOptions.removeAll { $0.kind.isTransferTimeCondition }
     }
 
     /// Treats either date or time editing as one deliberate journey-time choice that must remain stable.
