@@ -10,10 +10,25 @@ struct StationTimetablesView: View {
     let client: any IDOSClienting
     let showsItemDetails: Bool
     let showsStopNoteText: Bool
+    let showInDepartures: (ResolvedDepartureSearch) -> Void
     @State private var isSearchFormCollapsed = false
     @State private var isNotesExpanded = false
     @State private var isExplanationsExpanded = false
     @State private var selectedResultSection = StationTimetableResultSection.stops
+
+    init(
+        model: StationTimetablesViewModel,
+        client: any IDOSClienting,
+        showsItemDetails: Bool,
+        showsStopNoteText: Bool,
+        showInDepartures: @escaping (ResolvedDepartureSearch) -> Void = { _ in }
+    ) {
+        self.model = model
+        self.client = client
+        self.showsItemDetails = showsItemDetails
+        self.showsStopNoteText = showsStopNoteText
+        self.showInDepartures = showInDepartures
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -580,6 +595,17 @@ struct StationTimetablesView: View {
                                     }
                                     openService(departure)
                                 },
+                                searchDeparture: { departureIndex in
+                                    guard let departure = StationTimetableDepartureReference(
+                                        scheduleIndex: scheduleIndex,
+                                        schedule: schedule,
+                                        hourIndex: index,
+                                        departureIndex: departureIndex
+                                    ) else {
+                                        return
+                                    }
+                                    searchInDepartures(departure)
+                                },
                                 previewDeparture: { departureIndex in
                                     guard let departure = StationTimetableDepartureReference(
                                         scheduleIndex: scheduleIndex,
@@ -626,6 +652,14 @@ struct StationTimetablesView: View {
         Task {
             guard let selection = await model.serviceSelection(for: departure) else { return }
             openWindow(id: AppWindow.serviceDetail, value: selection)
+        }
+    }
+
+    /// Switches search modes only after IDOS has identified the concrete dated run.
+    private func searchInDepartures(_ departure: StationTimetableDepartureReference) {
+        Task {
+            guard let search = await model.departureSearch(for: departure) else { return }
+            showInDepartures(search)
         }
     }
 
@@ -694,6 +728,7 @@ struct StationTimetableDepartureTimes: View {
     let resolvingIndex: Int?
     let departuresAreEnabled: Bool
     let selectDeparture: ((Int) -> Void)?
+    let searchDeparture: ((Int) -> Void)?
     let previewDeparture: ((Int) -> StationTimetableDeparturePreviewConfiguration?)?
 
     init(
@@ -703,6 +738,7 @@ struct StationTimetableDepartureTimes: View {
         resolvingIndex: Int? = nil,
         departuresAreEnabled: Bool = true,
         selectDeparture: ((Int) -> Void)? = nil,
+        searchDeparture: ((Int) -> Void)? = nil,
         previewDeparture: ((Int) -> StationTimetableDeparturePreviewConfiguration?)? = nil
     ) {
         self.values = values
@@ -711,6 +747,7 @@ struct StationTimetableDepartureTimes: View {
         self.resolvingIndex = resolvingIndex
         self.departuresAreEnabled = departuresAreEnabled
         self.selectDeparture = selectDeparture
+        self.searchDeparture = searchDeparture
         self.previewDeparture = previewDeparture
     }
 
@@ -727,6 +764,9 @@ struct StationTimetableDepartureTimes: View {
                     isEnabled: departuresAreEnabled,
                     action: selectDeparture.map { selectDeparture in
                         { selectDeparture(index) }
+                    },
+                    searchInDepartures: searchDeparture.map { searchDeparture in
+                        { searchDeparture(index) }
                     },
                     preview: previewDeparture?(index)
                 )
@@ -760,6 +800,7 @@ private struct StationTimetableDepartureTime: View {
     let isResolving: Bool
     let isEnabled: Bool
     let action: (() -> Void)?
+    let searchInDepartures: (() -> Void)?
     let preview: StationTimetableDeparturePreviewConfiguration?
     @State private var previewSelection: ServiceSelection?
     @State private var isPreviewPresented = false
@@ -785,9 +826,15 @@ private struct StationTimetableDepartureTime: View {
         displayedTime: String
     ) -> some View {
         let actionLabel = AppLocalization.string("Open service at %@", displayedTime)
+        let searchHint = searchInDepartures.map { _ in
+            AppLocalization.string("Hold Option and click to find this service in Departures.")
+        }
         let accessibilityLabel = [actionLabel, presentation.explanation]
             .compactMap(\.self)
             .joined(separator: ". ")
+        let helpText = [presentation.explanation ?? actionLabel, searchHint]
+            .compactMap(\.self)
+            .joined(separator: "\n")
         return Button {
             guard !suppressesPrimaryAction else { return }
             action()
@@ -797,8 +844,13 @@ private struct StationTimetableDepartureTime: View {
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
-        .help(Text(verbatim: presentation.explanation ?? actionLabel))
+        .help(Text(verbatim: helpText))
         .accessibilityLabel(Text(verbatim: accessibilityLabel))
+        .overlay {
+            if let searchInDepartures {
+                OptionClickOverlay(action: searchInDepartures)
+            }
+        }
         .forceClickPreview(
             size: ResultPreviewLayout.serviceSize,
             isEnabled: isEnabled && preview != nil,

@@ -20,6 +20,11 @@ final class StationTimetablesViewModel: ObservableObject {
     private var resultSearchDate: Date?
     private var resultUsesWholeWeek = false
 
+    private struct DepartureResolution {
+        let selection: ServiceSelection
+        let search: ResolvedDepartureSearch
+    }
+
     init(client: any IDOSClienting) {
         self.client = client
         timetable = AppTimetableDefaults.search
@@ -130,6 +135,19 @@ final class StationTimetablesViewModel: ObservableObject {
     func serviceSelection(
         for departure: StationTimetableDepartureReference
     ) async -> ServiceSelection? {
+        await resolveDeparture(departure)?.selection
+    }
+
+    /// Resolves one timetable minute into the complete Departures result that contains that run.
+    func departureSearch(
+        for departure: StationTimetableDepartureReference
+    ) async -> ResolvedDepartureSearch? {
+        await resolveDeparture(departure)?.search
+    }
+
+    private func resolveDeparture(
+        _ departure: StationTimetableDepartureReference
+    ) async -> DepartureResolution? {
         guard resolvingDeparture == nil,
               let result,
               let selectedStop = result.selectedStop,
@@ -188,11 +206,23 @@ final class StationTimetablesViewModel: ObservableObject {
                     timetable: sourceResult
                 ) {
                     guard result == sourceResult else { return nil }
-                    return ServiceSelection(
-                        id: matchedDeparture.id,
-                        highlight: ServiceRouteHighlight(
-                            fromStop: selectedStop.name,
-                            toStop: sourceResult.toStop
+                    return DepartureResolution(
+                        selection: ServiceSelection(
+                            id: matchedDeparture.id,
+                            highlight: ServiceRouteHighlight(
+                                fromStop: selectedStop.name,
+                                toStop: sourceResult.toStop
+                            )
+                        ),
+                        search: ResolvedDepartureSearch(
+                            request: request,
+                            page: page,
+                            dateAndTime: StationTimetableDepartureLookup.displayDateAndTime(
+                                for: datedDeparture,
+                                hour: departure.hour,
+                                minute: departure.minute,
+                                sourceCalendar: calendar
+                            )
                         )
                     )
                 }
@@ -353,6 +383,29 @@ enum StationTimetableDepartureLookup {
             return IDOSRequestFormatting.date(from: date)
         }
         return "\(day).\(month).\(year)"
+    }
+
+    /// Rebuilds the resolved Prague service instant in the Mac's calendar for Departures controls.
+    static func displayDateAndTime(
+        for serviceDate: Date,
+        hour: Int,
+        minute: Int,
+        sourceCalendar: Calendar = serviceCalendar,
+        displayCalendar: Calendar = .current
+    ) -> Date {
+        let date = sourceCalendar.dateComponents([.era, .year, .month, .day], from: serviceDate)
+        var components = DateComponents()
+        components.era = date.era
+        components.year = date.year
+        components.month = date.month
+        components.day = date.day
+        components.hour = hour
+        components.minute = minute
+        components.second = 0
+
+        return displayCalendar.date(from: components)
+            ?? sourceCalendar.date(bySettingHour: hour, minute: minute, second: 0, of: serviceDate)
+            ?? serviceDate
     }
 
     /// Chooses the searched day directly, or the nearest matching weekday inside its Monday–Sunday week.

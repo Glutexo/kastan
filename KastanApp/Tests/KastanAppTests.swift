@@ -1111,6 +1111,22 @@ final class KastanAppTests: XCTestCase {
             StationTimetableDepartureLookup.requestDate(from: serviceDate),
             "31.8.2026"
         )
+
+        let displayedDateAndTime = StationTimetableDepartureLookup.displayDateAndTime(
+            for: serviceDate,
+            hour: 5,
+            minute: 13,
+            displayCalendar: tokyoCalendar
+        )
+        let displayedComponents = tokyoCalendar.dateComponents(
+            [.year, .month, .day, .hour, .minute],
+            from: displayedDateAndTime
+        )
+        XCTAssertEqual(displayedComponents.year, 2026)
+        XCTAssertEqual(displayedComponents.month, 8)
+        XCTAssertEqual(displayedComponents.day, 31)
+        XCTAssertEqual(displayedComponents.hour, 5)
+        XCTAssertEqual(displayedComponents.minute, 13)
     }
 
     func testStationTimetableDepartureLookupMatchesLineDirectionAndDuplicateOrder() throws {
@@ -1211,6 +1227,67 @@ final class KastanAppTests: XCTestCase {
         }
 
         XCTAssertEqual(selectedIndex, 1)
+    }
+
+    func testOptionClickingStationTimetableTimeRequestsItsDepartureSearch() throws {
+        var searchedIndex: Int?
+        let departures = StationTimetableDepartureTimes(
+            values: ["13", "35A"],
+            explanations: ["A: runs only to stop Háje"],
+            hour: "5",
+            selectDeparture: { _ in XCTFail("Option-click must not perform the ordinary action.") },
+            searchDeparture: { searchedIndex = $0 }
+        )
+        let hostingView = NSHostingView(
+            rootView: departures.frame(width: 90, height: 30, alignment: .topLeading)
+        )
+        hostingView.frame = NSRect(x: 0, y: 0, width: 90, height: 30)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        let clickViews = hostingView.allDescendantViews.compactMap {
+            $0 as? OptionClickCaptureView
+        }
+        XCTAssertEqual(clickViews.count, 2)
+        let firstClickView = try XCTUnwrap(clickViews.min { lhs, rhs in
+            hostingView.convert(lhs.bounds, from: lhs).midX <
+                hostingView.convert(rhs.bounds, from: rhs).midX
+        })
+        let optionClick = try XCTUnwrap(NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: firstClickView.convert(
+                NSPoint(x: firstClickView.bounds.midX, y: firstClickView.bounds.midY),
+                to: nil
+            ),
+            modifierFlags: [.option],
+            timestamp: 0,
+            windowNumber: window.windowNumber,
+            context: nil,
+            eventNumber: 1,
+            clickCount: 1,
+            pressure: 1
+        ))
+
+        XCTAssertNil(firstClickView.process(optionClick))
+        XCTAssertEqual(searchedIndex, 0)
+
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        XCTAssertEqual(
+            czech.localizedString(
+                forKey: "Hold Option and click to find this service in Departures.",
+                value: nil,
+                table: nil
+            ),
+            "Podržte Option a kliknutím vyhledejte tento spoj v Odjezdech."
+        )
     }
 
     func testClickableStationTimetableMinuteKeepsItsPlainAppearance() throws {
@@ -6687,6 +6764,59 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(departureSearchLanguage, AppLanguagePreference.idosLanguage)
         XCTAssertNil(model.resolvingDeparture)
         XCTAssertNil(model.errorMessage)
+    }
+
+    func testStationTimetableMinuteTransfersItsResolvedPageIntoDepartures() async throws {
+        let client = MockIDOSClient()
+        let stationTimetableModel = StationTimetablesViewModel(client: client)
+        stationTimetableModel.date = try XCTUnwrap(Calendar.current.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 31
+        )))
+        stationTimetableModel.selectTimetable(slug: "pid")
+        stationTimetableModel.selectLineSuggestion(IDOSSuggestion(
+            text: "Bus 154",
+            from: "Strašnická",
+            to: "Sídliště Libuš"
+        ))
+        let matchingDeparture = IDOSDeparture(
+            id: "pid:0-54986-31.08.2026 05:13:00",
+            stationName: "Strašnická",
+            time: "5:13",
+            lineName: "Bus 154",
+            destination: "Sídliště Libuš"
+        )
+        await client.configureDepartureResponses([
+            "31.8.2026": [matchingDeparture],
+        ])
+
+        await stationTimetableModel.search()
+        let result = try XCTUnwrap(stationTimetableModel.result)
+        let departure = try XCTUnwrap(StationTimetableDepartureReference(
+            scheduleIndex: 0,
+            schedule: result.schedules[0],
+            hourIndex: 0,
+            departureIndex: 0
+        ))
+        let resolvedSearch = await stationTimetableModel.departureSearch(for: departure)
+        let search = try XCTUnwrap(resolvedSearch)
+        let departuresModel = DeparturesViewModel(client: client)
+        departuresModel.isArrival = true
+        departuresModel.present(search)
+
+        XCTAssertEqual(departuresModel.timetable.slug, "pid")
+        XCTAssertEqual(departuresModel.station, "Strašnická")
+        XCTAssertNil(departuresModel.stationSelection)
+        XCTAssertEqual(IDOSRequestFormatting.date(from: departuresModel.date), "31.8.2026")
+        XCTAssertEqual(IDOSRequestFormatting.time(from: departuresModel.time), "5:13")
+        XCTAssertFalse(departuresModel.isArrival)
+        XCTAssertFalse(departuresModel.usesCurrentDateAndTime)
+        XCTAssertEqual(departuresModel.departures, [matchingDeparture])
+        XCTAssertNil(departuresModel.errorMessage)
+        let requests = await client.departureRequests
+        XCTAssertEqual(requests.count, 1)
+        XCTAssertEqual(requests.first, search.request)
     }
 
     func testWholeWeekMinuteUsesTheNearestConcreteOccurrence() async throws {

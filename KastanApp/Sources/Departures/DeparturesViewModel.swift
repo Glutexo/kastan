@@ -1,6 +1,13 @@
 import Foundation
 import Kastan
 
+/// Transfers one already resolved station-board result into Departures without repeating its IDOS request.
+struct ResolvedDepartureSearch {
+    let request: IDOSDeparturesRequest
+    let page: IDOSDeparturePage
+    let dateAndTime: Date
+}
+
 /// Owns a station-board query for either departures or arrivals.
 @MainActor
 final class DeparturesViewModel: ObservableObject {
@@ -82,6 +89,23 @@ final class DeparturesViewModel: ObservableObject {
     func selectCurrentTime(now: Date = .now) {
         usesCurrentDateAndTime = false
         time = now
+    }
+
+    /// Presents a concrete departure lookup handed off by another search mode.
+    func present(_ search: ResolvedDepartureSearch) {
+        timetable = search.request.timetable
+        station = search.request.station
+        stationSelection = nil
+        usesCurrentDateAndTime = false
+        date = search.dateAndTime
+        time = search.dateAndTime
+        isArrival = false
+        departures = search.page.departures
+        resultPage = search.page
+        isSearching = false
+        isLoadingEarlier = false
+        isLoadingLater = false
+        errorMessage = nil
     }
 
     func search() async {

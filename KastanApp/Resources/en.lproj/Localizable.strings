@@ -85,6 +85,7 @@
 "From" = "From";
 "From Place" = "From Place";
 "Here" = "Here";
+"Hold Option and click to find this service in Departures." = "Hold Option and click to find this service in Departures.";
 "Information unavailable" = "Information unavailable";
 "IDOS could not generate a station timetable for this line, direction, and date." = "IDOS could not generate a station timetable for this line, direction, and date.";
 "IDOS could not identify this station-timetable departure." = "IDOS could not identify this station-timetable departure.";

@@ -273,7 +273,11 @@ struct ContentView: View {
                 model: stationTimetablesModel,
                 client: client,
                 showsItemDetails: showsItemDetails,
-                showsStopNoteText: showsStopNoteText
+                showsStopNoteText: showsStopNoteText,
+                showInDepartures: { search in
+                    departuresModel.present(search)
+                    selection = .departures
+                }
             )
         }
     }

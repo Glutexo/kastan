@@ -81,8 +81,10 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   concrete departure. Departure minutes stay in stable columns across hours and wrapped rows. Each marker appears as
   smaller secondary information attached to its minute without shifting later departures and reveals the matching
   explanation on hover. Selecting a minute resolves that dated run from IDOS on demand and opens its complete route,
-  with the selected stop highlighted through the searched direction. Force Clicking a minute performs the same
-  on-demand lookup and presents the standard complete-route preview without also opening a window. Times after
+  with the selected stop highlighted through the searched direction. Option-clicking it instead switches to
+  Departures and presents the already resolved station board for the same stop, date, time, and timetable without
+  repeating the IDOS request. Force Clicking a minute performs the same on-demand lookup and presents the standard
+  complete-route preview without also opening a window. Times after
   midnight use the following calendar date of the same service day. In Whole week results, grouped schedules such as
   Workdays or Saturday + Sunday open their nearest concrete occurrence inside the selected Monday–Sunday week.
   Explanations also appear in their own

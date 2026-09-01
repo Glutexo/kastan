@@ -85,6 +85,7 @@
 "From" = "Odkud";
 "From Place" = "Místo odkud";
 "Here" = "Tady";
+"Hold Option and click to find this service in Departures." = "Podržte Option a kliknutím vyhledejte tento spoj v Odjezdech.";
 "Information unavailable" = "Informace nejsou k dispozici";
 "IDOS could not generate a station timetable for this line, direction, and date." = "IDOS nemohl pro tuto linku, směr a datum vytvořit zastávkový jízdní řád.";
 "IDOS could not identify this station-timetable departure." = "IDOS nedokázal určit spoj pro tento odjezd v zastávkovém jízdním řádu.";
