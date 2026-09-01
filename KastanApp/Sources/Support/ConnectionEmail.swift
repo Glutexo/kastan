@@ -35,15 +35,18 @@ enum ConnectionEmailAction: Equatable {
 /// Presents Kaštan's email sheet normally and the complete Mail draft while Option is held.
 struct ConnectionEmailButton<Label: View>: View {
     let placement: OptionAlternateButtonPlacement
+    let canComposeInMail: Bool
     let perform: (ConnectionEmailAction) -> Void
     let label: (ConnectionEmailAction) -> Label
 
     init(
         placement: OptionAlternateButtonPlacement,
+        canComposeInMail: Bool = true,
         perform: @escaping (ConnectionEmailAction) -> Void,
         @ViewBuilder label: @escaping (ConnectionEmailAction) -> Label
     ) {
         self.placement = placement
+        self.canComposeInMail = canComposeInMail
         self.perform = perform
         self.label = label
     }
@@ -54,6 +57,9 @@ struct ConnectionEmailButton<Label: View>: View {
             primaryAction: ConnectionEmailAction.sendViaIDOS,
             alternateAction: .composeInMail,
             title: \.title,
+            isEnabled: { action in
+                action == .sendViaIDOS || canComposeInMail
+            },
             perform: perform,
             label: label
         )
@@ -164,12 +170,21 @@ private enum ConnectionEmailAttachmentKind {
         }
     }
 
+    var requiredCapability: TransitDataSourceCapability {
+        switch self {
+        case .pdf:
+            .connectionPDFExport
+        case .calendar:
+            .connectionCalendarExport
+        }
+    }
+
     /// Loads the localized IDOS representation belonging to one advertised attachment name.
     func data(
-        for connection: IDOSConnection,
-        timetable: IDOSTimetable,
-        language: IDOSLanguage,
-        client: any IDOSClienting
+        for connection: TransitConnection,
+        timetable: TransitTimetable,
+        language: TransitLanguage,
+        client: any TransitDataSource
     ) async throws -> Data {
         switch self {
         case .pdf:
@@ -271,10 +286,10 @@ struct ConnectionEmailMailDraft: Equatable, Sendable {
 
     /// Loads the localized IDOS labels and every generated attachment before Mail is opened.
     static func prepare(
-        connection: IDOSConnection,
-        timetable: IDOSTimetable,
-        language: IDOSLanguage,
-        client: any IDOSClienting
+        connection: TransitConnection,
+        timetable: TransitTimetable,
+        language: TransitLanguage,
+        client: any TransitDataSource
     ) async throws -> Self {
         let source = try await client.connectionEmailDraft(
             for: connection,
@@ -286,6 +301,12 @@ struct ConnectionEmailMailDraft: Equatable, Sendable {
         for fileName in source.attachmentFileNames {
             guard let kind = ConnectionEmailAttachmentKind(fileName: fileName) else {
                 throw ConnectionEmailMailComposeError.cannotCompose
+            }
+            guard client.descriptor.supports(kind.requiredCapability) else {
+                throw TransitDataSourceError.unsupported(
+                    kind.requiredCapability,
+                    source: client.descriptor
+                )
             }
             let data = try await kind.data(
                 for: connection,
@@ -424,23 +445,23 @@ final class ConnectionEmailViewModel: ObservableObject {
 
     @Published var recipient = ""
     @Published var message = ""
-    @Published private(set) var draft: IDOSConnectionEmailDraft?
+    @Published private(set) var draft: TransitConnectionEmailDraft?
     @Published private(set) var isLoading = false
     @Published private(set) var isSending = false
     @Published private(set) var processingAttachmentFileName: String?
     @Published private(set) var sentRecipient: String?
     @Published private(set) var errorMessage: String?
 
-    let connection: IDOSConnection
-    let timetable: IDOSTimetable
-    private let client: any IDOSClienting
+    let connection: TransitConnection
+    let timetable: TransitTimetable
+    private let client: any TransitDataSource
     private let attachmentOpener: any ConnectionEmailAttachmentOpening
     private let attachmentSaver: any ConnectionEmailAttachmentSaving
 
     init(
-        connection: IDOSConnection,
-        timetable: IDOSTimetable,
-        client: any IDOSClienting,
+        connection: TransitConnection,
+        timetable: TransitTimetable,
+        client: any TransitDataSource,
         attachmentOpener: any ConnectionEmailAttachmentOpening = WorkspaceConnectionEmailAttachmentOpener(),
         attachmentSaver: any ConnectionEmailAttachmentSaving = WorkspaceConnectionEmailAttachmentSaver()
     ) {
@@ -499,7 +520,7 @@ final class ConnectionEmailViewModel: ObservableObject {
             let draft = try await client.connectionEmailDraft(
                 for: connection,
                 timetable: timetable,
-                language: AppLanguagePreference.idosLanguage
+                language: AppLanguagePreference.transitLanguage
             )
             guard !Task.isCancelled else { return }
             self.draft = draft
@@ -523,7 +544,7 @@ final class ConnectionEmailViewModel: ObservableObject {
                 to: recipient,
                 message: message,
                 timetable: timetable,
-                language: AppLanguagePreference.idosLanguage
+                language: AppLanguagePreference.transitLanguage
             )
             guard !Task.isCancelled else { return }
             sentRecipient = recipient
@@ -540,6 +561,7 @@ final class ConnectionEmailViewModel: ObservableObject {
     ) async {
         guard draft?.attachmentFileNames.contains(fileName) == true,
               let kind = ConnectionEmailAttachmentKind(fileName: fileName),
+              client.descriptor.supports(kind.requiredCapability),
               processingAttachmentFileName == nil,
               !isLoading,
               !isSending
@@ -555,7 +577,7 @@ final class ConnectionEmailViewModel: ObservableObject {
             let data = try await kind.data(
                 for: connection,
                 timetable: timetable,
-                language: AppLanguagePreference.idosLanguage,
+                language: AppLanguagePreference.transitLanguage,
                 client: client
             )
 
@@ -573,7 +595,8 @@ final class ConnectionEmailViewModel: ObservableObject {
     }
 
     func canPerformAttachmentAction(named fileName: String) -> Bool {
-        ConnectionEmailAttachmentKind(fileName: fileName) != nil
+        guard let kind = ConnectionEmailAttachmentKind(fileName: fileName) else { return false }
+        return client.descriptor.supports(kind.requiredCapability)
     }
 }
 
@@ -585,9 +608,9 @@ struct ConnectionEmailView: View {
     @FocusState private var recipientIsFocused: Bool
 
     init(
-        connection: IDOSConnection,
-        timetable: IDOSTimetable,
-        client: any IDOSClienting
+        connection: TransitConnection,
+        timetable: TransitTimetable,
+        client: any TransitDataSource
     ) {
         _model = StateObject(wrappedValue: ConnectionEmailViewModel(
             connection: connection,

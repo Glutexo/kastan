@@ -41,31 +41,42 @@ struct PlaceInputSwapButton: View {
     }
 }
 
-/// Routes each autocomplete field to the IDOS catalog matching its product input.
+/// Routes each autocomplete field to the active data-source operation matching its product input.
 enum PlaceSuggestionScope {
     case places
     case stations
     case stationTimetableLines
     case stationTimetableStops
+
+    var requiredCapability: TransitDataSourceCapability {
+        switch self {
+        case .places:
+            .placeSuggestions
+        case .stations:
+            .stationSearch
+        case .stationTimetableLines, .stationTimetableStops:
+            .stationTimetables
+        }
+    }
 }
 
-/// Debounces IDOS suggestions so typing does not issue a request for every keystroke.
+/// Debounces provider suggestions so typing does not issue a request for every keystroke.
 @MainActor
 final class PlaceSuggestionsModel: ObservableObject {
     private static let visibleSuggestionLimit = 6
     private static let placeSuggestionRequestLimit = 30
 
-    @Published private(set) var suggestions: [IDOSSuggestion] = []
+    @Published private(set) var suggestions: [TransitSuggestion] = []
     @Published private(set) var isLoading = false
 
-    private let client: any IDOSClienting
+    private let client: any TransitDataSource
     private let scope: PlaceSuggestionScope
     private var task: Task<Void, Never>?
     private var latestQuery = ""
-    private var fetchedSuggestions: [IDOSSuggestion] = []
+    private var fetchedSuggestions: [TransitSuggestion] = []
     private var visibility = PlaceSuggestionVisibility.defaultValue
 
-    init(client: any IDOSClienting, scope: PlaceSuggestionScope) {
+    init(client: any TransitDataSource, scope: PlaceSuggestionScope) {
         self.client = client
         self.scope = scope
     }
@@ -76,15 +87,22 @@ final class PlaceSuggestionsModel: ObservableObject {
 
     func update(
         query: String,
-        timetable: IDOSTimetable,
+        timetable: TransitTimetable,
         line: String? = nil,
-        municipality: IDOSStationTimetableMunicipality? = nil,
+        municipality: TransitStationTimetableMunicipality? = nil,
         visibility: PlaceSuggestionVisibility = .defaultValue
     ) {
         task?.cancel()
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         latestQuery = query
         self.visibility = visibility
+
+        guard client.descriptor.supports(scope.requiredCapability) else {
+            fetchedSuggestions = []
+            suggestions = []
+            isLoading = false
+            return
+        }
 
         let minimumLength = scope == .stationTimetableLines ? 1 : 2
         guard query.count >= minimumLength else {
@@ -101,7 +119,7 @@ final class PlaceSuggestionsModel: ObservableObject {
                 guard !Task.isCancelled, let self else {
                     return
                 }
-                let suggestions: [IDOSSuggestion] = switch self.scope {
+                let suggestions: [TransitSuggestion] = switch self.scope {
                 case .places:
                     try await self.client.suggest(
                         prefix: query,
@@ -131,7 +149,7 @@ final class PlaceSuggestionsModel: ObservableObject {
                             municipality: municipality
                         )
                     } else {
-                        [IDOSSuggestion]()
+                        [TransitSuggestion]()
                     }
                 }
                 guard !Task.isCancelled, self.latestQuery == query else {
@@ -194,7 +212,7 @@ struct PlaceSuggestionVisibility: Equatable {
         showsMunicipalities: PlaceSuggestionVisibilityPreference.defaultValue
     )
 
-    func includes(_ suggestion: IDOSSuggestion) -> Bool {
+    func includes(_ suggestion: TransitSuggestion) -> Bool {
         switch PlaceSuggestionKind(description: suggestion.description) {
         case .address:
             showsAddresses
@@ -312,32 +330,41 @@ enum PlaceSuggestionKind: Equatable {
     }
 }
 
-/// Keeps the exact IDOS object and any applicable user-facing type while the field remains unchanged.
+/// Keeps the exact provider-owned object and any applicable user-facing type while the field remains unchanged.
 struct PlaceFieldSelection: Equatable {
-    let idosSelection: IDOSPlaceSelection
+    let placeSelection: TransitPlaceSelection
     let kind: PlaceSuggestionKind?
 
-    init(idosSelection: IDOSPlaceSelection, kind: PlaceSuggestionKind?) {
-        self.idosSelection = idosSelection
+    init(placeSelection: TransitPlaceSelection, kind: PlaceSuggestionKind?) {
+        self.placeSelection = placeSelection
         self.kind = kind
     }
 
-    init?(suggestion: IDOSSuggestion) {
-        guard let idosSelection = IDOSPlaceSelection(suggestion: suggestion) else {
+    init(idosSelection: TransitPlaceSelection, kind: PlaceSuggestionKind?) {
+        self.init(placeSelection: idosSelection, kind: kind)
+    }
+
+    init?(suggestion: TransitSuggestion) {
+        guard let placeSelection = TransitPlaceSelection(suggestion: suggestion) else {
             return nil
         }
         self.init(
-            idosSelection: idosSelection,
+            placeSelection: placeSelection,
             kind: PlaceSuggestionKind(description: suggestion.description)
         )
     }
 
     var text: String {
-        idosSelection.text
+        placeSelection.text
     }
 
     var isCurrentLocation: Bool {
-        kind == nil && idosSelection.itemID == "myPosition=true"
+        placeSelection.isCurrentLocation
+    }
+
+    /// Historical spelling retained while persisted app state migrates to provider-neutral terminology.
+    var idosSelection: TransitPlaceSelection {
+        placeSelection
     }
 }
 
@@ -348,9 +375,9 @@ struct PlaceSuggestionPresentation: Equatable {
     let detail: String?
 
     init(
-        suggestion: IDOSSuggestion,
+        suggestion: TransitSuggestion,
         scope: PlaceSuggestionScope = .places,
-        countryLanguage: IDOSLanguage = AppLanguagePreference.idosLanguage
+        countryLanguage: TransitLanguage = AppLanguagePreference.transitLanguage
     ) {
         let rawDescription = suggestion.description ?? ""
         if case .stationTimetableLines = scope {
@@ -381,7 +408,7 @@ struct PlaceSuggestionPresentation: Equatable {
 
     /// Uses IDOS's transport metadata for a line instead of presenting its terminal-pair description as a place.
     private static func stationTimetableLineIdentity(
-        for suggestion: IDOSSuggestion
+        for suggestion: TransitSuggestion
     ) -> (kind: PlaceSuggestionKind, emoji: String) {
         let lineName = suggestion.text
             .folding(
@@ -422,7 +449,7 @@ struct PlaceSuggestionPresentation: Equatable {
 
     private static func localizedComponent(
         _ component: String,
-        countryLanguage: IDOSLanguage
+        countryLanguage: TransitLanguage
     ) -> String {
         let trimmed = component.trimmingCharacters(in: .whitespacesAndNewlines)
         let value = trimmed.lowercased()
@@ -467,12 +494,12 @@ struct PlaceSuggestionPresentation: Equatable {
 
 /// Makes the complete visual suggestion row select the represented IDOS object.
 struct PlaceSuggestionButton: View {
-    let suggestion: IDOSSuggestion
+    let suggestion: TransitSuggestion
     let scope: PlaceSuggestionScope
     let action: () -> Void
 
     init(
-        suggestion: IDOSSuggestion,
+        suggestion: TransitSuggestion,
         scope: PlaceSuggestionScope = .places,
         action: @escaping () -> Void
     ) {
@@ -521,11 +548,11 @@ struct PlaceAutocompleteField: View {
     let prompt: LocalizedStringKey
     @Binding var text: String
     let selection: Binding<PlaceFieldSelection?>?
-    let timetable: IDOSTimetable
+    let timetable: TransitTimetable
     let suggestionScope: PlaceSuggestionScope
     let stationTimetableLine: String?
-    let stationTimetableMunicipality: IDOSStationTimetableMunicipality?
-    let onSelection: ((IDOSSuggestion) -> Void)?
+    let stationTimetableMunicipality: TransitStationTimetableMunicipality?
+    let onSelection: ((TransitSuggestion) -> Void)?
     let headerShortcutTitle: LocalizedStringKey?
     let showsHeaderShortcut: Bool
     let isPerformingHeaderShortcut: Bool
@@ -541,12 +568,12 @@ struct PlaceAutocompleteField: View {
         prompt: LocalizedStringKey,
         text: Binding<String>,
         selection: Binding<PlaceFieldSelection?>? = nil,
-        timetable: IDOSTimetable,
+        timetable: TransitTimetable,
         scope: PlaceSuggestionScope,
         stationTimetableLine: String? = nil,
-        stationTimetableMunicipality: IDOSStationTimetableMunicipality? = nil,
-        client: any IDOSClienting,
-        onSelection: ((IDOSSuggestion) -> Void)? = nil,
+        stationTimetableMunicipality: TransitStationTimetableMunicipality? = nil,
+        client: any TransitDataSource,
+        onSelection: ((TransitSuggestion) -> Void)? = nil,
         headerShortcutTitle: LocalizedStringKey? = nil,
         showsHeaderShortcut: Bool = false,
         isPerformingHeaderShortcut: Bool = false,
@@ -590,7 +617,7 @@ struct PlaceAutocompleteField: View {
                         visibility: placeSuggestionVisibility
                     )
                 }
-                .onChange(of: timetable.slug) { _ in
+                .onChange(of: timetable) { _ in
                     if selection?.wrappedValue?.isCurrentLocation != true {
                         selection?.wrappedValue = nil
                     }

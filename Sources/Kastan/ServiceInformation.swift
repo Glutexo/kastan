@@ -1,14 +1,14 @@
 import Foundation
 
-/// Preserves one IDOS service-information line together with the product meaning recognized in its text.
-public struct IDOSServiceInformation: Codable, Equatable, Sendable {
-    /// Complete text supplied by IDOS.
+/// Preserves one provider service-information line together with its passenger-facing product meaning.
+public struct TransitServiceInformation: Codable, Equatable, Sendable {
+    /// Complete text supplied by the data source.
     public let text: String
 
     /// Passenger-facing meaning recognized without altering the original text.
     public let category: Category
 
-    /// Classifies the original IDOS text without replacing or translating it.
+    /// Classifies unstructured IDOS text without replacing or translating it.
     ///
     /// `fallbackCategory` is used only when no more specific meaning is recognized. A caller that has parsed
     /// an otherwise implicit operating rule can therefore supply `.operatingCalendar` while retaining the
@@ -16,6 +16,12 @@ public struct IDOSServiceInformation: Codable, Equatable, Sendable {
     public init(text: String, fallbackCategory: Category = .general) {
         self.text = text
         category = Classifier(text).classification(fallback: fallbackCategory).category
+    }
+
+    /// Retains the exact category supplied by a structured provider without applying IDOS text rules.
+    public init(text: String, category: Category) {
+        self.text = text
+        self.category = category
     }
 
     /// Provides the visual marker shared by Kaštan's human-readable interfaces.
@@ -33,7 +39,8 @@ public struct IDOSServiceInformation: Codable, Equatable, Sendable {
     /// The rule is computed from the retained source text, so encoded results remain compatible while diagnostic
     /// interfaces can explain compound phrase, pattern, and structural matches without exposing only their outcome.
     public var classificationRule: ClassificationRule {
-        Classifier(text).classification(fallback: category).rule
+        let classification = Classifier(text).classification(fallback: category)
+        return classification.category == category ? classification.rule : .fallback
     }
 
     /// Describes the successful classifier predicates without replacing the original IDOS wording.
@@ -190,17 +197,10 @@ public struct IDOSServiceInformation: Codable, Equatable, Sendable {
     }
 }
 
-public extension IDOSServiceDetail {
-    /// Exposes every raw information line as a classified product model in the original IDOS order.
-    var serviceInformation: [IDOSServiceInformation] {
-        information.map { IDOSServiceInformation(text: $0) }
-    }
-}
-
 /// Contains the ordered language rules that turn unstructured IDOS text into one product category.
 private struct Classifier {
-    typealias Category = IDOSServiceInformation.Category
-    typealias Rule = IDOSServiceInformation.ClassificationRule
+    typealias Category = TransitServiceInformation.Category
+    typealias Rule = TransitServiceInformation.ClassificationRule
 
     struct Classification {
         let category: Category

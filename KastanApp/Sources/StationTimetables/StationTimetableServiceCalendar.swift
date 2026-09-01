@@ -2,7 +2,7 @@ import AppKit
 import Kastan
 import SwiftUI
 
-/// Presents one dated or recurring IDOS condition within the validity of its current timetable.
+/// Presents one dated or recurring provider condition within the validity of its current timetable.
 struct StationTimetableServiceCalendar: Equatable {
     struct Rule: Equatable {
         enum Subject: Equatable {
@@ -62,18 +62,26 @@ struct StationTimetableServiceCalendar: Equatable {
     }
 
     let note: String
+    /// Calendar used for every civil-day comparison and rendered month in this provider result.
+    let calendar: Calendar
     let validityStart: Date
     let validityEnd: Date
     let listedDates: [Date]
     let recognizedDateRanges: [ClosedRange<Date>]
     let rule: Rule
-    /// Uses IDOS's native states only for service operation; note applicability remains tied to its own wording.
-    let dateLimits: IDOSServiceDateLimits?
+    /// Uses exact provider states only for service operation; note applicability remains tied to its own wording.
+    let dateLimits: TransitServiceDateLimits?
 
     /// Builds a calendar when IDOS supplied a complete validity interval and a dated or recurring condition.
-    init?(note: String, allNotes: [String]) {
-        guard let validity = Self.validity(in: allNotes) else { return nil }
-        self.init(note: note, validityStart: validity.start, validityEnd: validity.end)
+    init?(note: String, allNotes: [String], timeZone: TimeZone = .current) {
+        let calendar = Self.serviceCalendar(timeZone: timeZone)
+        guard let validity = Self.validity(in: allNotes, calendar: calendar) else { return nil }
+        self.init(
+            note: note,
+            validityStart: validity.start,
+            validityEnd: validity.end,
+            timeZone: timeZone
+        )
     }
 
     /// Builds a calendar from validity loaded separately from an IDOS connection timetable.
@@ -81,20 +89,23 @@ struct StationTimetableServiceCalendar: Equatable {
         note: String,
         validityStart: Date,
         validityEnd: Date,
-        dateLimits: IDOSServiceDateLimits? = nil
+        dateLimits: TransitServiceDateLimits? = nil,
+        timeZone: TimeZone = .current
     ) {
-        let calendar = Self.serviceCalendar
+        let calendar = Self.serviceCalendar(timeZone: dateLimits?.timeZone ?? timeZone)
         let validityStart = calendar.startOfDay(for: validityStart)
         let validityEnd = calendar.startOfDay(for: validityEnd)
         guard validityStart <= validityEnd,
               let parsedRule = Self.parsedRule(
                   in: note,
                   validityStart: validityStart,
-                  validityEnd: validityEnd
+                  validityEnd: validityEnd,
+                  calendar: calendar
               )
         else { return nil }
 
         self.note = note
+        self.calendar = calendar
         self.validityStart = validityStart
         self.validityEnd = validityEnd
         listedDates = parsedRule.listedDates
@@ -103,9 +114,42 @@ struct StationTimetableServiceCalendar: Equatable {
         self.dateLimits = parsedRule.rule.subject == .serviceOperation ? dateLimits : nil
     }
 
+    /// Builds an exact service-operation calendar from structured provider metadata without parsing its prose.
+    init?(
+        exactServiceOperationNote note: String,
+        validityStart: Date? = nil,
+        validityEnd: Date? = nil,
+        dateLimits: TransitServiceDateLimits,
+        timeZone: TimeZone = .current
+    ) {
+        let calendar = Self.serviceCalendar(timeZone: dateLimits.timeZone ?? timeZone)
+        guard let validityStart = validityStart ?? dateLimits.firstDate,
+              let validityEnd = validityEnd ?? dateLimits.lastDate
+        else { return nil }
+        let normalizedStart = calendar.startOfDay(for: validityStart)
+        let normalizedEnd = calendar.startOfDay(for: validityEnd)
+        guard normalizedStart <= normalizedEnd else { return nil }
+
+        self.note = note
+        self.calendar = calendar
+        self.validityStart = normalizedStart
+        self.validityEnd = normalizedEnd
+        listedDates = []
+        recognizedDateRanges = []
+        rule = Rule(
+            subject: .serviceOperation,
+            recurrence: .everyDay,
+            operatingRange: normalizedStart...normalizedEnd,
+            hasExplicitOperatingRange: false,
+            additionalRunningRanges: [],
+            nonRunningConditions: [],
+            noteApplicabilityRange: nil
+        )
+        self.dateLimits = dateLimits
+    }
+
     /// Distinguishes running, non-running, unavailable, and out-of-validity service dates.
     func status(on date: Date) -> DayStatus {
-        let calendar = Self.serviceCalendar
         let day = calendar.startOfDay(for: date)
         if let dateLimits {
             switch dateLimits.status(on: day) {
@@ -169,7 +213,6 @@ struct StationTimetableServiceCalendar: Equatable {
 
     /// Selects the current civil month when it is visible, or the nearest validity boundary otherwise.
     func initialVisibleMonth(on date: Date) -> Date {
-        let calendar = Self.serviceCalendar
         guard let requestedMonth = calendar.date(
             from: calendar.dateComponents([.year, .month], from: date)
         ), let firstMonth = calendar.date(
@@ -196,12 +239,17 @@ struct StationTimetableServiceCalendar: Equatable {
         dateLimits != nil
     }
 
-    /// Uses the transport network's civil timezone so service dates do not move when the Mac is elsewhere.
-    static var serviceCalendar: Calendar {
+    /// Builds a Gregorian calendar in the provider's explicit civil service-day zone.
+    static func serviceCalendar(timeZone: TimeZone) -> Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.locale = Locale(identifier: "en_US_POSIX")
-        calendar.timeZone = TimeZone(identifier: "Europe/Prague")!
+        calendar.timeZone = timeZone
         return calendar
+    }
+
+    /// Retains the original call shape for callers that intentionally use the device's civil calendar.
+    static var serviceCalendar: Calendar {
+        serviceCalendar(timeZone: .current)
     }
 
     private struct ServiceDateToken {
@@ -258,9 +306,10 @@ struct StationTimetableServiceCalendar: Equatable {
         1224, 1225, 1226,
     ]
 
-    private static func validity(in notes: [String]) -> (start: Date, end: Date)? {
-        let calendar = serviceCalendar
-
+    private static func validity(
+        in notes: [String],
+        calendar: Calendar
+    ) -> (start: Date, end: Date)? {
         for note in notes {
             let normalized = note
                 .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "cs_CZ"))
@@ -290,7 +339,8 @@ struct StationTimetableServiceCalendar: Equatable {
     private static func parsedRule(
         in note: String,
         validityStart: Date,
-        validityEnd: Date
+        validityEnd: Date,
+        calendar: Calendar
     ) -> ParsedRule? {
         let normalized = note
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "cs_CZ"))
@@ -345,14 +395,16 @@ struct StationTimetableServiceCalendar: Equatable {
         let positiveInterpretation = dateInterpretation(
             in: positiveNote,
             validityStart: validityStart,
-            validityEnd: validityEnd
+            validityEnd: validityEnd,
+            calendar: calendar
         )
         let nonRunningConditions = negativeNote.map { note in
             makeNonRunningConditions(
                 from: dateInterpretation(
                     in: note,
                     validityStart: validityStart,
-                    validityEnd: validityEnd
+                    validityEnd: validityEnd,
+                    calendar: calendar
                 ),
                 dayConditions: operatingDayConditions(in: note)
             )
@@ -367,7 +419,7 @@ struct StationTimetableServiceCalendar: Equatable {
                for: boundaryToken,
                validityStart: validityStart,
                validityEnd: validityEnd,
-               calendar: serviceCalendar
+               calendar: calendar
            ).first
         {
             operatingRange = validityStart...boundaryDate
@@ -408,7 +460,7 @@ struct StationTimetableServiceCalendar: Equatable {
             recognizedDateRanges.insert(operatingRange, at: 0)
         }
         let listedDates = Set(recognizedDateRanges.flatMap {
-            dates(from: $0.lowerBound, through: $0.upperBound, calendar: serviceCalendar)
+            dates(from: $0.lowerBound, through: $0.upperBound, calendar: calendar)
         }).sorted()
         return ParsedRule(
             rule: rule,
@@ -571,9 +623,9 @@ struct StationTimetableServiceCalendar: Equatable {
     private static func dateInterpretation(
         in note: String,
         validityStart: Date,
-        validityEnd: Date
+        validityEnd: Date,
+        calendar: Calendar
     ) -> DateInterpretation {
-        let calendar = serviceCalendar
         let tokens = serviceDateTokens(in: note)
         guard !tokens.isEmpty else { return DateInterpretation(dates: [], datedRanges: []) }
 
@@ -821,9 +873,12 @@ struct StationTimetableServiceCalendar: Equatable {
 /// Keeps all notes in one selectable text flow while making dated and weekday-scoped conditions interactive.
 struct ServiceNotesView: View {
     let notes: [String]
-    let timetableValidity: IDOSTimetableValidity?
-    let serviceDateLimits: IDOSServiceDateLimits?
-    /// Prevents dated service details from falling back to a prose interpretation when exact IDOS data is absent.
+    /// Exact meanings are present only for structured service details; raw timetable and stop notes stay classified.
+    let serviceInformation: [TransitServiceInformation]?
+    let timetableValidity: TransitTimetableValidity?
+    let serviceDateLimits: TransitServiceDateLimits?
+    let serviceTimeZone: TimeZone?
+    /// Prevents dated service details from falling back to prose when exact provider data is absent.
     let requiresExactServiceOperatingDays: Bool
     /// Retains validity information from sibling remark sections when their visible text is split.
     let calendarContext: [String]
@@ -837,14 +892,18 @@ struct ServiceNotesView: View {
 
     init(
         notes: [String],
-        timetableValidity: IDOSTimetableValidity? = nil,
-        serviceDateLimits: IDOSServiceDateLimits? = nil,
+        serviceInformation: [TransitServiceInformation]? = nil,
+        timetableValidity: TransitTimetableValidity? = nil,
+        serviceDateLimits: TransitServiceDateLimits? = nil,
+        serviceTimeZone: TimeZone? = nil,
         requiresExactServiceOperatingDays: Bool = false,
         calendarContext: [String]? = nil
     ) {
         self.notes = notes
+        self.serviceInformation = serviceInformation
         self.timetableValidity = timetableValidity
         self.serviceDateLimits = serviceDateLimits
+        self.serviceTimeZone = serviceTimeZone
         self.requiresExactServiceOperatingDays = requiresExactServiceOperatingDays
         self.calendarContext = calendarContext ?? notes
     }
@@ -887,10 +946,11 @@ struct ServiceNotesView: View {
     var linkedContent: AttributedString {
         notes.enumerated().reduce(into: AttributedString()) { content, item in
             let (index, note) = item
-            let serviceCalendar = serviceCalendar(for: note)
-            let information = IDOSServiceInformation(
-                text: note,
-                fallbackCategory: serviceCalendar == nil ? .general : .operatingCalendar
+            let serviceCalendar = serviceCalendar(for: note, at: index)
+            let information = information(
+                for: note,
+                at: index,
+                serviceCalendar: serviceCalendar
             )
             var linkedSymbol = AttributedString(information.symbol)
             linkedSymbol.link = ServiceInformationRuleLink.destination(for: index)
@@ -910,17 +970,48 @@ struct ServiceNotesView: View {
         }
     }
 
-    private func serviceCalendar(for note: String) -> StationTimetableServiceCalendar? {
+    /// Prefers an exact provider meaning while preserving historical fallback classification for raw notes.
+    private func information(
+        for note: String,
+        at index: Int,
+        serviceCalendar: StationTimetableServiceCalendar?
+    ) -> TransitServiceInformation {
+        if let serviceInformation, serviceInformation.indices.contains(index) {
+            return serviceInformation[index]
+        }
+        return TransitServiceInformation(
+            text: note,
+            fallbackCategory: serviceCalendar == nil ? .general : .operatingCalendar
+        )
+    }
+
+    private func serviceCalendar(for note: String, at index: Int) -> StationTimetableServiceCalendar? {
+        let timeZone = serviceDateLimits?.timeZone ?? timetableValidity?.timeZone ?? serviceTimeZone ?? .current
         let serviceCalendar: StationTimetableServiceCalendar?
-        if let timetableValidity {
+        if serviceInformation?.indices.contains(index) == true,
+           serviceInformation?[index].category == .operatingCalendar,
+           let serviceDateLimits {
+            serviceCalendar = StationTimetableServiceCalendar(
+                exactServiceOperationNote: note,
+                validityStart: timetableValidity?.validFrom,
+                validityEnd: timetableValidity?.validThrough,
+                dateLimits: serviceDateLimits,
+                timeZone: timeZone
+            )
+        } else if let timetableValidity {
             serviceCalendar = StationTimetableServiceCalendar(
                 note: note,
                 validityStart: timetableValidity.validFrom,
                 validityEnd: timetableValidity.validThrough,
-                dateLimits: serviceDateLimits
+                dateLimits: serviceDateLimits,
+                timeZone: timeZone
             )
         } else {
-            serviceCalendar = StationTimetableServiceCalendar(note: note, allNotes: calendarContext)
+            serviceCalendar = StationTimetableServiceCalendar(
+                note: note,
+                allNotes: calendarContext,
+                timeZone: timeZone
+            )
         }
 
         guard let serviceCalendar else { return nil }
@@ -949,12 +1040,11 @@ struct ServiceNotesView: View {
         }
 
         let note = notes[noteIndex]
-        presentedInformationRule = ServiceInformationRulePresentation(
-            information: IDOSServiceInformation(
-                text: note,
-                fallbackCategory: serviceCalendar(for: note) == nil ? .general : .operatingCalendar
-            )
-        )
+        presentedInformationRule = ServiceInformationRulePresentation(information: information(
+            for: note,
+            at: noteIndex,
+            serviceCalendar: serviceCalendar(for: note, at: noteIndex)
+        ))
         return .handled
     }
 
@@ -963,7 +1053,7 @@ struct ServiceNotesView: View {
               url.host == "note",
               let noteIndex = Int(url.lastPathComponent),
               notes.indices.contains(noteIndex),
-              let serviceCalendar = serviceCalendar(for: notes[noteIndex])
+              let serviceCalendar = serviceCalendar(for: notes[noteIndex], at: noteIndex)
         else { return .systemAction }
 
         showsRecognizedConditions = ServiceCalendarOpeningOptions.showsRecognizedConditions(
@@ -1110,7 +1200,7 @@ private struct StationTimetableServiceCalendarView: View {
         return GroupBox {
             VStack(alignment: .leading, spacing: 7) {
                 if serviceCalendar.usesExactOperatingDays {
-                    Label("Exact operating days supplied by IDOS", systemImage: "checkmark.seal")
+                    Label("Exact operating days supplied by the data source", systemImage: "checkmark.seal")
                 } else {
                     Label(recognizedRuleDescription, systemImage: "checkmark.circle")
                     if serviceCalendar.rule.hasExplicitOperatingRange {
@@ -1373,14 +1463,14 @@ private struct StationTimetableServiceCalendarView: View {
     }
 
     private var calendar: Calendar {
-        var calendar = StationTimetableServiceCalendar.serviceCalendar
+        var calendar = serviceCalendar.calendar
         calendar.locale = presentationLocale
         calendar.firstWeekday = 2
         return calendar
     }
 
     private var presentationLocale: Locale {
-        AppLanguagePreference.idosLanguage == .czech
+        AppLanguagePreference.transitLanguage == .czech
             ? Locale(identifier: "cs_CZ")
             : Locale(identifier: "en_GB")
     }

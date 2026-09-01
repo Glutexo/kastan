@@ -27,7 +27,11 @@ enum ResultContextAction: Hashable, Identifiable {
     /// Services retain a compact preview and expose every detail action once their complete route has loaded.
     static func availableActions(
         for target: ResultContextTarget,
-        hasPermanentLink: Bool = false
+        availability: ResultDetailActionAvailability = .init(
+            canSendByEmail: true,
+            canAddToCalendar: true,
+            canOpenPDF: true
+        )
     ) -> [Self] {
         let navigation: [Self]
         let details: [ResultDetailAction]
@@ -36,14 +40,16 @@ enum ResultContextAction: Hashable, Identifiable {
         case .connection:
             navigation = [.openInNewWindow]
             details = ResultDetailAction.availableActions(
-                hasPermanentLink: hasPermanentLink,
-                canSendByEmail: true
+                canSendByEmail: availability.canSendByEmail,
+                canAddToCalendar: availability.canAddToCalendar,
+                canOpenPDF: availability.canOpenPDF
             )
         case .service:
             navigation = [.preview, .openInNewWindow]
             details = ResultDetailAction.availableActions(
-                hasPermanentLink: true,
-                canSendByEmail: false
+                canSendByEmail: false,
+                canAddToCalendar: availability.canAddToCalendar,
+                canOpenPDF: availability.canOpenPDF
             )
         }
 
@@ -106,6 +112,7 @@ private struct ResultContextActionLabel: View {
 
 /// Renders the complete connection action set in both its ellipsis and whole-card context menus.
 struct ConnectionContextMenuContent: View {
+    let availability: ResultDetailActionAvailability
     let permanentLink: URL?
     let shareText: String
     let isPerformingAction: Bool
@@ -118,7 +125,7 @@ struct ConnectionContextMenuContent: View {
         ForEach(
             ResultContextAction.availableActions(
                 for: .connection,
-                hasPermanentLink: permanentLink != nil
+                availability: availability
             )
         ) { action in
             control(action)
@@ -139,6 +146,7 @@ struct ConnectionContextMenuContent: View {
         case .detail(.sendByEmail):
             ConnectionEmailButton(
                 placement: .menu,
+                canComposeInMail: availability.canComposeConnectionEmailInMail,
                 perform: performEmailAction
             ) { emailAction in
                 ResultContextActionLabel(
@@ -196,7 +204,12 @@ struct ServiceContextMenuContent: View {
     let openInNewWindow: () -> Void
 
     var body: some View {
-        ForEach(ResultContextAction.availableActions(for: .service)) { action in
+        ForEach(
+            ResultContextAction.availableActions(
+                for: .service,
+                availability: .service(model.dataSourceDescriptor)
+            )
+        ) { action in
             control(action)
         }
     }

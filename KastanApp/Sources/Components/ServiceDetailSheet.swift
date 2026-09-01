@@ -5,9 +5,9 @@ import SwiftUI
 /// Loads a service lazily when its complete route or contextual detail actions need data.
 @MainActor
 final class ServiceDetailViewModel: ObservableObject {
-    @Published private(set) var service: IDOSServiceDetail?
-    @Published private(set) var timetableValidity: IDOSTimetableValidity?
-    @Published private(set) var serviceDateLimits: IDOSServiceDateLimits?
+    @Published private(set) var service: TransitServiceDetail?
+    @Published private(set) var timetableValidity: TransitTimetableValidity?
+    @Published private(set) var serviceDateLimits: TransitServiceDateLimits?
     @Published private(set) var isLoading = false
     @Published private(set) var isProcessingCalendar = false
     @Published private(set) var isProcessingPDF = false
@@ -15,23 +15,26 @@ final class ServiceDetailViewModel: ObservableObject {
     @Published private(set) var actionErrorMessage: String?
 
     private let id: String
-    private let client: any IDOSClienting
+    private let timetable: TransitTimetable
+    private let client: any TransitDataSource
     private let calendarImporter: any CalendarImporting
     private let calendarSaver: any CalendarSaving
     private let pdfOpener: any PDFOpening
     private let pdfExporter: any PDFExporting
-    private var activeLoadTask: Task<IDOSServiceDetail, Error>?
+    private var activeLoadTask: Task<TransitServiceDetail, Error>?
     private var activeLoadIdentifier: UUID?
 
     init(
         id: String,
-        client: any IDOSClienting,
+        timetable: TransitTimetable = .defaultTimetable,
+        client: any TransitDataSource,
         calendarImporter: any CalendarImporting = WorkspaceCalendarImporter(),
         calendarSaver: any CalendarSaving = WorkspaceCalendarSaver(),
         pdfOpener: any PDFOpening = WorkspacePDFOpener(),
         pdfExporter: any PDFExporting = WorkspacePDFExporter()
     ) {
         self.id = id
+        self.timetable = timetable
         self.client = client
         self.calendarImporter = calendarImporter
         self.calendarSaver = calendarSaver
@@ -43,10 +46,15 @@ final class ServiceDetailViewModel: ObservableObject {
         isProcessingCalendar || isProcessingPDF
     }
 
+    /// Exposes only stable provider metadata needed to decide which service actions the UI can offer.
+    var dataSourceDescriptor: TransitDataSourceDescriptor {
+        client.descriptor
+    }
+
     func load() async {
         guard service == nil else { return }
 
-        let loadTask: Task<IDOSServiceDetail, Error>
+        let loadTask: Task<TransitServiceDetail, Error>
         let loadIdentifier: UUID
         if let activeLoadTask, let activeLoadIdentifier {
             loadTask = activeLoadTask
@@ -56,10 +64,15 @@ final class ServiceDetailViewModel: ObservableObject {
             errorMessage = nil
 
             let id = self.id
+            let timetable = self.timetable
             let client = self.client
-            let language = AppLanguagePreference.idosLanguage
+            let language = AppLanguagePreference.transitLanguage
             loadTask = Task {
-                try await client.serviceDetail(id: id, language: language)
+                try await client.serviceDetail(
+                    id: id,
+                    timetable: timetable,
+                    language: language
+                )
             }
             loadIdentifier = UUID()
             activeLoadTask = loadTask
@@ -74,12 +87,12 @@ final class ServiceDetailViewModel: ObservableObject {
             activeLoadIdentifier = nil
             self.service = service
             isLoading = false
-            let language = AppLanguagePreference.idosLanguage
-            async let loadedTimetableValidity = try? client.timetableValidity(
-                for: service.timetable,
+            let language = AppLanguagePreference.transitLanguage
+            async let loadedTimetableValidity = loadTimetableValidity(
+                for: service,
                 language: language
             )
-            async let loadedServiceDateLimits = try? client.serviceDateLimits(
+            async let loadedServiceDateLimits = loadServiceDateLimits(
                 for: service,
                 language: language
             )
@@ -96,15 +109,31 @@ final class ServiceDetailViewModel: ObservableObject {
         }
     }
 
+    private func loadTimetableValidity(
+        for service: TransitServiceDetail,
+        language: TransitLanguage
+    ) async -> TransitTimetableValidity? {
+        guard client.descriptor.supports(.timetableValidity) else { return nil }
+        return try? await client.timetableValidity(for: service.timetable, language: language)
+    }
+
+    private func loadServiceDateLimits(
+        for service: TransitServiceDetail,
+        language: TransitLanguage
+    ) async -> TransitServiceDateLimits? {
+        guard client.descriptor.supports(.serviceDateLimits) else { return nil }
+        return try? await client.serviceDateLimits(for: service, language: language)
+    }
+
     /// Supplies a complete service to an action, joining an existing request instead of requiring a second menu opening.
-    func loadedService() async -> IDOSServiceDetail? {
+    func loadedService() async -> TransitServiceDetail? {
         await load()
         return service
     }
 
     /// Resolves the permanent IDOS result link only when an action actually needs it.
     func localizedPermanentLink() async -> URL? {
-        (await loadedService())?.shareURL.flatMap(AppLanguagePreference.localizedIDOSURL)
+        (await loadedService())?.shareURL.flatMap(AppLanguagePreference.localizedResultURL)
     }
 
     /// Formats the same complete localized service detail that Kaštan exposes from loaded result windows.
@@ -125,7 +154,7 @@ final class ServiceDetailViewModel: ObservableObject {
         do {
             let calendar = try await client.serviceCalendar(
                 for: service,
-                language: AppLanguagePreference.idosLanguage
+                language: AppLanguagePreference.transitLanguage
             )
             switch action {
             case .addToCalendar:
@@ -157,7 +186,7 @@ final class ServiceDetailViewModel: ObservableObject {
         do {
             let data = try await client.servicePDF(
                 for: service,
-                language: AppLanguagePreference.idosLanguage
+                language: AppLanguagePreference.transitLanguage
             )
             let fileName = PDFExportFileName.connection(
                 from: service.stops.first?.name ?? service.name,
@@ -186,12 +215,12 @@ struct ServiceRouteHighlight: Codable, Hashable {
     }
 
     /// Finds the stop where the searched journey boards this service.
-    func departureIndex(in stops: [IDOSServiceStop]) -> Int? {
+    func departureIndex(in stops: [TransitServiceStop]) -> Int? {
         guard let fromStop, !stops.isEmpty else { return nil }
         return stopIndex(matching: fromStop, in: stops.indices, stops: stops)
     }
 
-    func range(in stops: [IDOSServiceStop]) -> ClosedRange<Int>? {
+    func range(in stops: [TransitServiceStop]) -> ClosedRange<Int>? {
         guard !stops.isEmpty else { return nil }
 
         let startIndex = departureIndex(in: stops)
@@ -213,7 +242,7 @@ struct ServiceRouteHighlight: Codable, Hashable {
     private func stopIndex(
         matching name: String,
         in indices: Range<Int>,
-        stops: [IDOSServiceStop]
+        stops: [TransitServiceStop]
     ) -> Int? {
         let query = Self.normalizedStopName(name)
         guard query.count >= 3 else { return nil }
@@ -237,19 +266,101 @@ struct ServiceRouteHighlight: Codable, Hashable {
 
 /// Identifies a selected service and preserves the route context that supplied it.
 struct ServiceSelection: Codable, Hashable, Identifiable {
-    let id: String
+    let serviceID: String
+    /// Preserves the exact provider-owned timetable needed to resolve an otherwise opaque service identifier.
+    let timetable: TransitTimetable
     let highlight: ServiceRouteHighlight?
 
-    init(id: String, highlight: ServiceRouteHighlight? = nil) {
-        self.id = id
+    var dataSourceID: TransitDataSourceID { timetable.dataSourceID }
+
+    /// Qualifies provider-owned service identifiers for scene and SwiftUI identity.
+    var id: AppTransitValueIdentity {
+        AppTransitValueIdentity(
+            dataSourceID: timetable.dataSourceID,
+            timetableIdentifier: timetable.identifier,
+            valueIdentifier: serviceID
+        )
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.serviceID == rhs.serviceID &&
+            lhs.timetable == rhs.timetable &&
+            lhs.highlight == rhs.highlight
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(highlight)
+    }
+
+    init(
+        id: String,
+        timetable: TransitTimetable = .defaultTimetable,
+        highlight: ServiceRouteHighlight? = nil
+    ) {
+        serviceID = id
+        self.timetable = timetable
         self.highlight = highlight
+    }
+
+    /// Reads the short-lived source-only representation without guessing an IDOS timetable for another provider.
+    init(
+        id: String,
+        dataSourceID: TransitDataSourceID,
+        highlight: ServiceRouteHighlight? = nil
+    ) {
+        self.init(
+            id: id,
+            timetable: Self.defaultTimetable(for: dataSourceID),
+            highlight: highlight
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case timetable
+        case dataSourceID
+        case highlight
+    }
+
+    /// Restores selections saved before source identity was introduced as IDOS-backed services.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        serviceID = try container.decode(String.self, forKey: .id)
+        if let timetable = try container.decodeIfPresent(TransitTimetable.self, forKey: .timetable) {
+            self.timetable = timetable
+        } else {
+            let dataSourceID = try container.decodeIfPresent(
+                TransitDataSourceID.self,
+                forKey: .dataSourceID
+            ) ?? .idos
+            self.timetable = Self.defaultTimetable(for: dataSourceID)
+        }
+        highlight = try container.decodeIfPresent(ServiceRouteHighlight.self, forKey: .highlight)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(serviceID, forKey: .id)
+        try container.encode(timetable, forKey: .timetable)
+        try container.encode(timetable.dataSourceID, forKey: .dataSourceID)
+        try container.encodeIfPresent(highlight, forKey: .highlight)
+    }
+
+    private static func defaultTimetable(for dataSourceID: TransitDataSourceID) -> TransitTimetable {
+        guard dataSourceID != .idos else { return .defaultTimetable }
+        return TransitTimetable(
+            dataSourceID: dataSourceID,
+            identifier: "default",
+            displayName: dataSourceID.rawValue
+        )
     }
 }
 
 /// Recreates lazy route state whenever an existing detail scene is retargeted to another selected service.
 struct ServiceDetailWindowContent: View {
     let selection: ServiceSelection
-    let client: any IDOSClienting
+    let client: any TransitDataSource
     let showsItemDetails: Bool
     let showsStopNoteText: Bool
 
@@ -266,7 +377,7 @@ struct ServiceDetailWindowContent: View {
 
 /// Moves a service date into the window title exactly when its content label has scrolled away.
 enum ServiceWindowTitlePresentation {
-    static func title(for service: IDOSServiceDetail?, dateIsUnderTitle: Bool) -> String {
+    static func title(for service: TransitServiceDetail?, dateIsUnderTitle: Bool) -> String {
         guard let service else {
             return AppLocalization.string("Service route")
         }
@@ -351,7 +462,7 @@ enum ServiceRouteInitialScroll {
     }
 }
 
-/// Shows every stop and piece of service information supplied by IDOS in its own window.
+/// Shows every stop and piece of service information supplied by the selected data source in its own window.
 struct ServiceDetailView: View {
     /// Opens new service routes at the compact width already supported by the adaptive route layout.
     static let minimumWindowWidth: CGFloat = 400
@@ -368,10 +479,11 @@ struct ServiceDetailView: View {
     private let presentation: ResultDetailPresentation
     private let showsItemDetails: Bool
     private let showsStopNoteText: Bool
+    private let serviceTimeZone: TimeZone?
 
     init(
         selection: ServiceSelection,
-        client: any IDOSClienting,
+        client: any TransitDataSource,
         showsItemDetails: Bool,
         showsStopNoteText: Bool,
         presentation: ResultDetailPresentation = .window
@@ -380,7 +492,12 @@ struct ServiceDetailView: View {
         self.presentation = presentation
         self.showsItemDetails = showsItemDetails
         self.showsStopNoteText = showsStopNoteText
-        _model = StateObject(wrappedValue: ServiceDetailViewModel(id: selection.id, client: client))
+        serviceTimeZone = client.serviceTimeZone
+        _model = StateObject(wrappedValue: ServiceDetailViewModel(
+            id: selection.serviceID,
+            timetable: selection.timetable,
+            client: client
+        ))
     }
 
     var body: some View {
@@ -413,8 +530,9 @@ struct ServiceDetailView: View {
                 ToolbarItemGroup(placement: .primaryAction) {
                     ForEach(
                         ResultDetailAction.availableActions(
-                            hasPermanentLink: serviceActionURL != nil,
-                            canSendByEmail: false
+                            canSendByEmail: actionAvailability.canSendByEmail,
+                            canAddToCalendar: actionAvailability.canAddToCalendar,
+                            canOpenPDF: actionAvailability.canOpenPDF
                         )
                     ) { action in
                         serviceActionControl(action, url: serviceActionURL)
@@ -436,11 +554,15 @@ struct ServiceDetailView: View {
     }
 
     private var serviceActionURL: URL? {
-        model.service?.shareURL.flatMap(AppLanguagePreference.localizedIDOSURL)
+        model.service?.shareURL.flatMap(AppLanguagePreference.localizedResultURL)
     }
 
     private var serviceShareText: String? {
         model.service.map(CLIPlainTextPresentation().service)
+    }
+
+    private var actionAvailability: ResultDetailActionAvailability {
+        .service(model.dataSourceDescriptor)
     }
 
     private var resultDetailCommandContext: ResultDetailCommandContext {
@@ -449,6 +571,7 @@ struct ServiceDetailView: View {
             isPerformingAction: model.isPerformingExport,
             permanentLink: serviceActionURL,
             shareText: serviceShareText,
+            availability: actionAvailability,
             performCalendarAction: { calendarExportAction in
                 Task { await model.performCalendarAction(calendarExportAction) }
             },
@@ -538,7 +661,7 @@ struct ServiceDetailView: View {
             .labelStyle(.iconOnly)
     }
 
-    private func serviceContent(_ service: IDOSServiceDetail) -> some View {
+    private func serviceContent(_ service: TransitServiceDetail) -> some View {
         let highlightedRange = routeHighlight?.range(in: service.stops)
         let departureIndex = routeHighlight?.departureIndex(in: service.stops)
         let highlightedColor = Color(idosHTMLColor: service.color) ?? .accentColor
@@ -624,11 +747,12 @@ struct ServiceDetailView: View {
                             }
                         }
 
-                        if !service.information.isEmpty {
+                        if !service.serviceInformation.isEmpty {
                             ServiceInformationDisclosure(
-                                notes: service.information,
+                                serviceInformation: service.serviceInformation,
                                 timetableValidity: model.timetableValidity,
                                 serviceDateLimits: model.serviceDateLimits,
+                                serviceTimeZone: serviceTimeZone,
                                 isExpanded: $isServiceInformationExpanded
                             )
                         }
@@ -700,19 +824,40 @@ struct ServiceDetailView: View {
 /// Keeps supporting service notes out of the route overview until the passenger asks to see them.
 struct ServiceInformationDisclosure: View {
     let notes: [String]
-    let timetableValidity: IDOSTimetableValidity?
-    let serviceDateLimits: IDOSServiceDateLimits?
+    let serviceInformation: [TransitServiceInformation]?
+    let timetableValidity: TransitTimetableValidity?
+    let serviceDateLimits: TransitServiceDateLimits?
+    let serviceTimeZone: TimeZone?
     @Binding var isExpanded: Bool
 
     init(
         notes: [String],
-        timetableValidity: IDOSTimetableValidity? = nil,
-        serviceDateLimits: IDOSServiceDateLimits? = nil,
+        timetableValidity: TransitTimetableValidity? = nil,
+        serviceDateLimits: TransitServiceDateLimits? = nil,
+        serviceTimeZone: TimeZone? = nil,
         isExpanded: Binding<Bool>
     ) {
         self.notes = notes
+        serviceInformation = nil
         self.timetableValidity = timetableValidity
         self.serviceDateLimits = serviceDateLimits
+        self.serviceTimeZone = serviceTimeZone
+        _isExpanded = isExpanded
+    }
+
+    /// Retains semantic categories supplied by a structured provider instead of reclassifying its text as IDOS.
+    init(
+        serviceInformation: [TransitServiceInformation],
+        timetableValidity: TransitTimetableValidity? = nil,
+        serviceDateLimits: TransitServiceDateLimits? = nil,
+        serviceTimeZone: TimeZone? = nil,
+        isExpanded: Binding<Bool>
+    ) {
+        notes = serviceInformation.map(\.text)
+        self.serviceInformation = serviceInformation
+        self.timetableValidity = timetableValidity
+        self.serviceDateLimits = serviceDateLimits
+        self.serviceTimeZone = serviceTimeZone
         _isExpanded = isExpanded
     }
 
@@ -720,8 +865,10 @@ struct ServiceInformationDisclosure: View {
         DisclosureGroup(isExpanded: $isExpanded) {
             ServiceNotesView(
                 notes: notes,
+                serviceInformation: serviceInformation,
                 timetableValidity: timetableValidity,
                 serviceDateLimits: serviceDateLimits,
+                serviceTimeZone: serviceTimeZone,
                 requiresExactServiceOperatingDays: true
             )
             .textSelection(.enabled)
@@ -791,7 +938,7 @@ private extension VerticalAlignment {
 }
 
 struct ServiceStopRow: View {
-    let stop: IDOSServiceStop
+    let stop: TransitServiceStop
     let isFirst: Bool
     let isLast: Bool
     let hasHighlight: Bool

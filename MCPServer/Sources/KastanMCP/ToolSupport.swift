@@ -98,11 +98,11 @@ struct ToolArguments {
     }
 
     /// Resolves the public language codes accepted by IDOS-backed product text.
-    func idosLanguage(_ name: String, default defaultValue: IDOSLanguage) throws -> IDOSLanguage {
+    func idosLanguage(_ name: String, default defaultValue: TransitLanguage) throws -> TransitLanguage {
         guard let value = try optionalString(name) else {
             return defaultValue
         }
-        guard let language = IDOSLanguage(rawValue: value) else {
+        guard let language = TransitLanguage(rawValue: value) else {
             throw MCPToolError.invalidValue(name: name, value: value, allowed: ["en", "cs"])
         }
         return language
@@ -158,58 +158,220 @@ struct AnyEncodable: Encodable {
     }
 }
 
-/// Structured outputs keep MCP results self-describing while matching the Kaštan library model.
+/// Keeps provider-owned suggestion metadata internal while preserving the original IDOS MCP schema.
+private struct MCPSuggestion: Encodable {
+    let selectedText: String?
+    let text: String
+    let description: String?
+    let region: String?
+    let value: String?
+    let value2: String?
+    let iconId: Int?
+    let coorX: Double?
+    let coorY: Double?
+    let from: String?
+    let to: String?
+
+    init(_ suggestion: TransitSuggestion) {
+        selectedText = suggestion.selectedText
+        text = suggestion.text
+        description = suggestion.description
+        region = suggestion.region
+        value = suggestion.value
+        value2 = suggestion.value2
+        iconId = suggestion.iconId
+        coorX = suggestion.coorX
+        coorY = suggestion.coorY
+        from = suggestion.from
+        to = suggestion.to
+    }
+}
+
+/// Keeps provider and timetable routing metadata out of the stable IDOS connection result contract.
+private struct MCPConnection: Encodable {
+    let id: String
+    let departureTime: String
+    let departureStation: String
+    let arrivalTime: String
+    let arrivalStation: String
+    let duration: String
+    let legs: [TransitConnectionLeg]
+    let shareURL: String?
+
+    init(_ connection: TransitConnection) {
+        id = connection.id
+        departureTime = connection.departureTime
+        departureStation = connection.departureStation
+        arrivalTime = connection.arrivalTime
+        arrivalStation = connection.arrivalStation
+        duration = connection.duration
+        legs = connection.legs
+        shareURL = connection.shareURL
+    }
+}
+
+/// Keeps provider and timetable routing metadata out of the stable IDOS station-board contract.
+private struct MCPDeparture: Encodable {
+    let id: String
+    let stationName: String?
+    let time: String
+    let lineName: String
+    let lineColor: String?
+    let transportMode: TransitTransportMode?
+    let destination: String
+    let tariffZone: String?
+    let platform: String?
+    let via: String?
+    let carrier: String?
+    let delay: String?
+    let serviceInformation: [TransitServiceInformation]
+
+    init(_ departure: TransitDeparture) {
+        id = departure.id
+        stationName = departure.stationName
+        time = departure.time
+        lineName = departure.lineName
+        lineColor = departure.lineColor
+        transportMode = departure.transportMode
+        destination = departure.destination
+        tariffZone = departure.tariffZone
+        platform = departure.platform
+        via = departure.via
+        carrier = departure.carrier
+        delay = departure.delay
+        serviceInformation = departure.serviceInformation
+    }
+}
+
+/// Keeps canonical provider categories internal while preserving the original IDOS service-detail schema.
+private struct MCPServiceDetail: Encodable {
+    let id: String
+    let timetable: TransitTimetable
+    let name: String
+    let color: String?
+    let transportMode: TransitTransportMode?
+    let date: String?
+    let stops: [TransitServiceStop]
+    let information: [String]
+    let shareURL: String?
+
+    init(_ service: TransitServiceDetail) {
+        id = service.id
+        timetable = service.timetable
+        name = service.name
+        color = service.color
+        transportMode = service.transportMode
+        date = service.date
+        stops = service.stops
+        information = service.information
+        shareURL = service.shareURL
+    }
+}
+
+/// Structured outputs keep MCP results self-describing without coupling their schema to library persistence.
 struct SuggestedPlacesOutput: Encodable {
     let query: String
-    let timetable: IDOSTimetable
-    let suggestions: [IDOSSuggestion]
+    let timetable: TransitTimetable
+    private let suggestions: [MCPSuggestion]
+
+    init(query: String, timetable: TransitTimetable, suggestions: [TransitSuggestion]) {
+        self.query = query
+        self.timetable = timetable
+        self.suggestions = suggestions.map(MCPSuggestion.init)
+    }
 }
 
 struct StationsOutput: Encodable {
     let query: String
-    let timetable: IDOSTimetable
-    let stations: [IDOSSuggestion]
+    let timetable: TransitTimetable
+    private let stations: [MCPSuggestion]
+
+    init(query: String, timetable: TransitTimetable, stations: [TransitSuggestion]) {
+        self.query = query
+        self.timetable = timetable
+        self.stations = stations.map(MCPSuggestion.init)
+    }
 }
 
 /// Returns Station Timetable line directions together with their search catalog and query.
 struct StationTimetableLinesOutput: Encodable {
     let query: String
-    let timetable: IDOSTimetable
-    let municipality: IDOSStationTimetableMunicipality?
-    let lines: [IDOSSuggestion]
+    let timetable: TransitTimetable
+    let municipality: TransitStationTimetableMunicipality?
+    private let lines: [MCPSuggestion]
+
+    init(
+        query: String,
+        timetable: TransitTimetable,
+        municipality: TransitStationTimetableMunicipality?,
+        lines: [TransitSuggestion]
+    ) {
+        self.query = query
+        self.timetable = timetable
+        self.municipality = municipality
+        self.lines = lines.map(MCPSuggestion.init)
+    }
 }
 
 /// Returns the stops available to one Station Timetable line search.
 struct StationTimetableStopsOutput: Encodable {
     let query: String
     let line: String
-    let timetable: IDOSTimetable
-    let municipality: IDOSStationTimetableMunicipality?
-    let stops: [IDOSSuggestion]
+    let timetable: TransitTimetable
+    let municipality: TransitStationTimetableMunicipality?
+    private let stops: [MCPSuggestion]
+
+    init(
+        query: String,
+        line: String,
+        timetable: TransitTimetable,
+        municipality: TransitStationTimetableMunicipality?,
+        stops: [TransitSuggestion]
+    ) {
+        self.query = query
+        self.line = line
+        self.timetable = timetable
+        self.municipality = municipality
+        self.stops = stops.map(MCPSuggestion.init)
+    }
 }
 
 struct ConnectionsOutput: Encodable {
-    let request: IDOSConnectionRequest
-    let connections: [IDOSConnection]
+    let request: TransitConnectionRequest
+    private let connections: [MCPConnection]
+
+    init(request: TransitConnectionRequest, connections: [TransitConnection]) {
+        self.request = request
+        self.connections = connections.map(MCPConnection.init)
+    }
 }
 
 struct DeparturesOutput: Encodable {
-    let request: IDOSDeparturesRequest
-    let departures: [IDOSDeparture]
+    let request: TransitDeparturesRequest
+    private let departures: [MCPDeparture]
+
+    init(request: TransitDeparturesRequest, departures: [TransitDeparture]) {
+        self.request = request
+        self.departures = departures.map(MCPDeparture.init)
+    }
 }
 
 /// Keeps the validated Station Timetable request beside the IDOS result for MCP clients.
 struct StationTimetableOutput: Encodable {
-    let request: IDOSStationTimetableRequest
-    let stationTimetable: IDOSStationTimetable
+    let request: TransitStationTimetableRequest
+    let stationTimetable: TransitStationTimetable
 }
 
 struct ServiceDetailOutput: Encodable {
-    let service: IDOSServiceDetail
+    private let service: MCPServiceDetail
+
+    init(service: TransitServiceDetail) {
+        self.service = MCPServiceDetail(service)
+    }
 }
 
 struct TimetablesOutput: Encodable {
-    let timetables: [IDOSTimetable]
+    let timetables: [TransitTimetable]
 }
 
 /// Describes every structured tool result with the same field names and optionality as the public Kaštan models.

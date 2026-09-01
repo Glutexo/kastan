@@ -51,14 +51,14 @@ struct SearchTimetablePicker: View {
 
     @Environment(\.openWindow) private var openWindow
     @AppStorage(TimetableFavorites.storageKey) private var serializedTimetableFavorites = "[]"
-    @Binding private var timetable: IDOSTimetable
+    @Binding private var timetable: TransitTimetable
 
-    private let allowedTimetables: [IDOSTimetable]
+    private let allowedTimetables: [TransitTimetable]
     private let usesCompactLayout: Bool
 
     init(
-        timetable: Binding<IDOSTimetable>,
-        allowedTimetables: [IDOSTimetable] = IDOSTimetable.known,
+        timetable: Binding<TransitTimetable>,
+        allowedTimetables: [TransitTimetable] = TransitTimetable.known,
         usesCompactLayout: Bool
     ) {
         _timetable = timetable
@@ -72,9 +72,9 @@ struct SearchTimetablePicker: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             HStack(spacing: Self.favoriteSpacing(usesCompactLayout: usesCompactLayout)) {
-                Picker("Timetable", selection: timetableSlug) {
+                Picker("Timetable", selection: timetableIdentity) {
                     AppTimetablePickerOptions(
-                        favoriteSlugs: timetableFavorites.slugs,
+                        favoriteTimetables: timetableFavorites.timetables,
                         allowedTimetables: allowedTimetables
                     )
                 }
@@ -104,7 +104,10 @@ struct SearchTimetablePicker: View {
     }
 
     private var timetableFavorites: TimetableFavorites {
-        TimetableFavorites(serialized: serializedTimetableFavorites)
+        TimetableFavorites(
+            serialized: serializedTimetableFavorites,
+            catalog: allowedTimetables
+        )
     }
 
     private var isTimetableFavorite: Bool {
@@ -121,11 +124,11 @@ struct SearchTimetablePicker: View {
         serializedTimetableFavorites = favorites.serialized
     }
 
-    private var timetableSlug: Binding<String> {
+    private var timetableIdentity: Binding<AppTimetableIdentity> {
         Binding(
-            get: { timetable.slug },
-            set: { slug in
-                if let selected = allowedTimetables.first(where: { $0.slug == slug }) {
+            get: { timetable.appIdentity },
+            set: { identity in
+                if let selected = allowedTimetables.first(where: { $0.appIdentity == identity }) {
                     timetable = selected
                 }
             }
@@ -171,7 +174,7 @@ enum TimetableFavoriteContextAction: String, CaseIterable, Hashable, Identifiabl
 
 /// Keeps the timetable context and journey instant on one stable row across journey searches.
 struct JourneySearchHeader: View {
-    @Binding private var timetable: IDOSTimetable
+    @Binding private var timetable: TransitTimetable
     @Binding private var date: Date
     @Binding private var time: Date
     @Binding private var isArrival: Bool
@@ -179,19 +182,21 @@ struct JourneySearchHeader: View {
     private let modeLabel: String
     private let departureLabel: String
     private let arrivalLabel: String
+    private let allowedTimetables: [TransitTimetable]
     private let usesCurrentDateAndTime: Bool
     private let selectCurrentDateAndTime: () -> Void
     private let showsCurrentDateAndTimeShortcut: Bool
     private let usesCompactLayout: Bool
 
     init(
-        timetable: Binding<IDOSTimetable>,
+        timetable: Binding<TransitTimetable>,
         date: Binding<Date>,
         time: Binding<Date>,
         isArrival: Binding<Bool>,
         modeLabel: String,
         departureLabel: String,
         arrivalLabel: String,
+        allowedTimetables: [TransitTimetable] = TransitTimetable.known,
         usesCurrentDateAndTime: Bool,
         selectCurrentDateAndTime: @escaping () -> Void,
         showsCurrentDateAndTimeShortcut: Bool,
@@ -204,6 +209,7 @@ struct JourneySearchHeader: View {
         self.modeLabel = modeLabel
         self.departureLabel = departureLabel
         self.arrivalLabel = arrivalLabel
+        self.allowedTimetables = allowedTimetables
         self.usesCurrentDateAndTime = usesCurrentDateAndTime
         self.selectCurrentDateAndTime = selectCurrentDateAndTime
         self.showsCurrentDateAndTimeShortcut = showsCurrentDateAndTimeShortcut
@@ -214,6 +220,7 @@ struct JourneySearchHeader: View {
         HStack(alignment: .bottom, spacing: 0) {
             SearchTimetablePicker(
                 timetable: $timetable,
+                allowedTimetables: allowedTimetables,
                 usesCompactLayout: usesCompactLayout
             )
 

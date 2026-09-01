@@ -38,7 +38,7 @@ import Testing
     #expect(output.contains("-o, --format"))
     #expect(output.contains("-v, --verbose"))
     #expect(output.contains("Show result and service IDs"))
-    #expect(output.contains("kastan service <service-id> [-o text|markdown|html|json]"))
+    #expect(output.contains("kastan service <service-id> [-T alias] [-o text|markdown|html|json]"))
     #expect(output.contains("Output format: text, markdown, html, json"))
     #expect(output.contains("Direct connections only"))
     #expect(!output.contains("--jr"))
@@ -1155,6 +1155,18 @@ import Testing
     #expect(output.contains("🚉 zastávka s možností přestupu na železniční dopravu"))
     #expect(output.contains("🚧 Plánované omezení provozu"))
     #expect(output.contains("🏢 České dráhy, a.s."))
+}
+
+@Test func serviceCommandPassesAnExplicitTimetableContext() async {
+    let output = await englishCommandRunner(
+        client: MockIDOSClient(expectedServiceTimetable: "odis")
+    ).output(
+        for: [
+            "service", "vlaky:0-74552-18.06.2026 12:04:00", "--timetable", "odis",
+        ]
+    )
+
+    #expect(output.contains("RJ 1051 RegioJet"))
 }
 
 @Test func serviceCommandRequiresIdentifier() async {
@@ -2898,6 +2910,7 @@ private func englishCommandRunner(
 }
 
 private struct MockIDOSClient: IDOSClienting {
+    let descriptor = TransitDataSourceDescriptor.idos
     var expectedConnectionTimetable = "vlaky"
     var expectedFrom = "Praha"
     var expectedTo = "Brno"
@@ -2917,6 +2930,7 @@ private struct MockIDOSClient: IDOSClienting {
     var departureResults: [IDOSDeparture]? = nil
     var suggestionResultsByPrefix: [String: [IDOSSuggestion]] = [:]
     var stationResultsByPrefix: [String: [IDOSSuggestion]] = [:]
+    var expectedServiceTimetable = IDOSTimetable.defaultTimetable.slug
     var expectedServiceLanguage: IDOSLanguage = .english
     var expectedStationTimetable = "pid"
     var expectedStationTimetableMunicipality: IDOSStationTimetableMunicipality? = nil
@@ -3125,7 +3139,7 @@ private struct MockIDOSClient: IDOSClienting {
 
     func serviceDetail(id: String, timetable: IDOSTimetable) async throws -> IDOSServiceDetail {
         #expect(id == "vlaky:0-74552-18.06.2026 12:04:00")
-        #expect(timetable.slug == IDOSTimetable.defaultTimetable.slug)
+        #expect(timetable.slug == expectedServiceTimetable)
         return mockServiceDetail(id: id)
     }
 
@@ -3135,7 +3149,7 @@ private struct MockIDOSClient: IDOSClienting {
         language: IDOSLanguage
     ) async throws -> IDOSServiceDetail {
         #expect(id == "vlaky:0-74552-18.06.2026 12:04:00")
-        #expect(timetable.slug == IDOSTimetable.defaultTimetable.slug)
+        #expect(timetable.slug == expectedServiceTimetable)
         #expect(language == expectedServiceLanguage)
         return mockServiceDetail(id: id, language: language)
     }

@@ -22,7 +22,7 @@ enum ConnectionResultsPresentation: Equatable {
     }
 
     /// Mirrors the CLI by marking every displayed connection tied for the shortest parsed duration.
-    static func shortestConnectionIDs(in connections: [IDOSConnection]) -> Set<String> {
+    static func shortestConnectionIDs(in connections: [TransitConnection]) -> Set<String> {
         let comparableConnections = connections.compactMap { connection -> (id: String, minutes: Int)? in
             guard let minutes = durationInMinutes(connection.duration) else { return nil }
             return (connection.id, minutes)
@@ -240,7 +240,7 @@ enum JourneyOptionRowLayout {
 struct ConnectionsView: View {
     @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: ConnectionsViewModel
-    let client: any IDOSClienting
+    let client: any TransitDataSource
     let showsConnectionBadges: Bool
     let showsItemDetails: Bool
     let showsServiceInformationText: Bool
@@ -347,6 +347,7 @@ struct ConnectionsView: View {
                 modeLabel: "Time means",
                 departureLabel: "Departure",
                 arrivalLabel: "Arrival",
+                allowedTimetables: model.timetables,
                 usesCurrentDateAndTime: model.usesCurrentDateAndTime,
                 selectCurrentDateAndTime: {
                     model.selectCurrentDateAndTime()
@@ -397,9 +398,9 @@ struct ConnectionsView: View {
             scope: .places,
             client: client,
             headerShortcutTitle: "Here",
-            showsHeaderShortcut: optionIsPressed,
+            showsHeaderShortcut: optionIsPressed && model.canFillCurrentLocation,
             isPerformingHeaderShortcut: model.locatingEndpoint == .from,
-            isHeaderShortcutDisabled: model.locatingEndpoint != nil
+            isHeaderShortcutDisabled: !model.canFillCurrentLocation || model.locatingEndpoint != nil
         ) {
             Task { await model.fillCurrentLocation(in: .from) }
         }
@@ -415,9 +416,9 @@ struct ConnectionsView: View {
             scope: .places,
             client: client,
             headerShortcutTitle: "Here",
-            showsHeaderShortcut: optionIsPressed,
+            showsHeaderShortcut: optionIsPressed && model.canFillCurrentLocation,
             isPerformingHeaderShortcut: model.locatingEndpoint == .to,
-            isHeaderShortcutDisabled: model.locatingEndpoint != nil
+            isHeaderShortcutDisabled: !model.canFillCurrentLocation || model.locatingEndpoint != nil
         ) {
             Task { await model.fillCurrentLocation(in: .to) }
         }
@@ -473,8 +474,8 @@ struct ConnectionsView: View {
             from: model.from,
             to: model.to,
             timetable: model.timetable.appDisplayName,
-            date: IDOSRequestFormatting.date(from: model.date),
-            time: IDOSRequestFormatting.time(from: model.time),
+            date: TransitRequestFormatting.displayDate(from: model.date),
+            time: TransitRequestFormatting.displayTime(from: model.time),
             mode: AppLocalization.string(model.isArrival ? "Arrival" : "Departure"),
             via: model.viaPlaceNames,
             transferLimit: model.transferLimitLabel
@@ -483,7 +484,7 @@ struct ConnectionsView: View {
 
     private var searchEditCommandContext: SearchEditCommandContext {
         var enabledActions = FillCurrentAction.supportedActions(for: .connections)
-        if model.locatingEndpoint != nil {
+        if !model.canFillCurrentLocation || model.locatingEndpoint != nil {
             enabledActions.subtract([.fromPlace, .toPlace])
         }
         return SearchEditCommandContext(
@@ -500,10 +501,10 @@ struct ConnectionsView: View {
 
         switch action {
         case .fromPlace:
-            guard model.locatingEndpoint == nil else { return }
+            guard model.canFillCurrentLocation, model.locatingEndpoint == nil else { return }
             Task { await model.fillCurrentLocation(in: .from) }
         case .toPlace:
-            guard model.locatingEndpoint == nil else { return }
+            guard model.canFillCurrentLocation, model.locatingEndpoint == nil else { return }
             Task { await model.fillCurrentLocation(in: .to) }
         case .dateAndTime:
             model.selectCurrentDateAndTime()
@@ -768,24 +769,25 @@ struct ConnectionsView: View {
                 in: model.connections
             )
             LazyVStack(alignment: .leading, spacing: 12) {
-                ForEach(Array(model.connections.enumerated()), id: \.element.id) { index, connection in
+                ForEach(Array(model.connections.enumerated()), id: \.element.appIdentity) { index, connection in
+                    let resultTimetable = connection.appTimetable(in: client.timetables)
                     let selection = ConnectionSelection(
                         connection: connection,
-                        timetable: model.timetable
+                        timetable: resultTimetable
                     )
                     ConnectionCard(
                         number: index + 1,
                         connection: connection,
-                        timetable: model.timetable,
+                        timetable: resultTimetable,
                         client: client,
                         isShortest: shortestConnectionIDs.contains(connection.id),
                         showsConnectionBadges: showsConnectionBadges,
                         showsItemDetails: showsItemDetails,
                         showsServiceInformationText: showsServiceInformationText,
                         showsStopNoteText: showsStopNoteText,
-                        isPerformingAction: model.processingEmailConnectionID == connection.id ||
-                            model.processingCalendarConnectionID == connection.id ||
-                            model.processingPDFConnectionID == connection.id,
+                        isPerformingAction: model.processingEmailConnectionID == connection.appIdentity ||
+                            model.processingCalendarConnectionID == connection.appIdentity ||
+                            model.processingPDFConnectionID == connection.appIdentity,
                         showsActionMenu: true,
                         showsOpenConnectionButton: optionIsPressed,
                         timeFrameCoordinateSpace: nil,
@@ -965,11 +967,17 @@ final class StableWidthPopUpButton: NSPopUpButton {
 
 /// Carries a complete connection and its timetable into an independent restorable window.
 struct ConnectionSelection: Codable, Hashable, Identifiable {
-    let connection: IDOSConnection
-    let timetable: IDOSTimetable
+    let connection: TransitConnection
+    let timetable: TransitTimetable
 
-    var id: String {
-        "\(timetable.slug):\(connection.id)"
+    /// Routes restored windows through the immutable owner of the selected result.
+    var dataSourceID: TransitDataSourceID {
+        connection.dataSourceID
+    }
+
+    /// Qualifies the provider-owned result identifier so different sources can safely reuse the same value.
+    var id: AppTransitValueIdentity {
+        connection.appIdentity
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
@@ -979,11 +987,51 @@ struct ConnectionSelection: Codable, Hashable, Identifiable {
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }
+
+    init(connection: TransitConnection, timetable: TransitTimetable) {
+        self.connection = connection
+        self.timetable = connection.appTimetable(in: [timetable])
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case connection
+        case timetable
+    }
+
+    private enum ConnectionCodingKeys: String, CodingKey {
+        case timetableIdentifier
+    }
+
+    /// Restores the legacy IDOS representation that scoped the connection only through its sibling timetable.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        var connection = try container.decode(TransitConnection.self, forKey: .connection)
+        let timetable = try container.decode(TransitTimetable.self, forKey: .timetable)
+        let encodedConnection = try container.nestedContainer(
+            keyedBy: ConnectionCodingKeys.self,
+            forKey: .connection
+        )
+
+        if connection.dataSourceID == .idos,
+           timetable.dataSourceID == .idos,
+           !encodedConnection.contains(.timetableIdentifier),
+           timetable.identifier != TransitTimetable.defaultTimetable.identifier {
+            connection.timetableIdentifier = timetable.identifier
+        }
+
+        self.init(connection: connection, timetable: timetable)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(connection, forKey: .connection)
+        try container.encode(timetable, forKey: .timetable)
+    }
 }
 
 /// Moves a connection's time range into its window title exactly when the content label has scrolled away.
 enum ConnectionWindowTitlePresentation {
-    static func title(for connection: IDOSConnection, timeIsUnderTitle: Bool) -> String {
+    static func title(for connection: TransitConnection, timeIsUnderTitle: Bool) -> String {
         let route = "\(connection.departureStation) → \(connection.arrivalStation)"
         guard timeIsUnderTitle else { return route }
 
@@ -1006,9 +1054,9 @@ private struct ConnectionTimeFramePreferenceKey: PreferenceKey {
 /// Contains one complete journey and reveals its new-window header shortcut while Option is held.
 struct ConnectionCard: View {
     let number: Int?
-    let connection: IDOSConnection
-    let timetable: IDOSTimetable
-    let client: any IDOSClienting
+    let connection: TransitConnection
+    let timetable: TransitTimetable
+    let client: any TransitDataSource
     let isShortest: Bool
     let showsConnectionBadges: Bool
     let showsItemDetails: Bool
@@ -1140,6 +1188,7 @@ struct ConnectionCard: View {
                         ForEach(Array(connection.legs.enumerated()), id: \.offset) { index, leg in
                             ConnectionLegRow(
                                 leg: leg,
+                                timetable: timetable,
                                 client: client,
                                 showsItemDetails: showsItemDetails,
                                 showsServiceInformationText: showsServiceInformationText,
@@ -1162,7 +1211,7 @@ struct ConnectionCard: View {
     }
 
     private var connectionActionURL: URL? {
-        connection.shareURL.flatMap(AppLanguagePreference.localizedIDOSURL)
+        connection.shareURL.flatMap(AppLanguagePreference.localizedResultURL)
     }
 
     private var connectionShareText: String {
@@ -1171,6 +1220,7 @@ struct ConnectionCard: View {
 
     private func actionMenuContent(openInNewWindow: @escaping () -> Void) -> some View {
         ConnectionContextMenuContent(
+            availability: .connection(client.descriptor),
             permanentLink: connectionActionURL,
             shareText: connectionShareText,
             isPerformingAction: isPerformingAction,
@@ -1179,6 +1229,28 @@ struct ConnectionCard: View {
             performCalendarAction: performCalendarAction,
             performPDFAction: performPDFAction
         )
+    }
+}
+
+/// Recreates action state whenever an existing detail scene is retargeted to another connection.
+struct ConnectionDetailWindowContent: View {
+    let selection: ConnectionSelection
+    let client: any TransitDataSource
+    let showsConnectionBadges: Bool
+    let showsItemDetails: Bool
+    let showsServiceInformationText: Bool
+    let showsStopNoteText: Bool
+
+    var body: some View {
+        ConnectionDetailView(
+            selection: selection,
+            client: client,
+            showsConnectionBadges: showsConnectionBadges,
+            showsItemDetails: showsItemDetails,
+            showsServiceInformationText: showsServiceInformationText,
+            showsStopNoteText: showsStopNoteText
+        )
+        .id(selection)
     }
 }
 
@@ -1196,7 +1268,7 @@ struct ConnectionDetailView: View {
     @State private var timeIsUnderTitle = false
     @State private var isEmailPresented = false
     private let selection: ConnectionSelection
-    private let client: any IDOSClienting
+    private let client: any TransitDataSource
     private let showsConnectionBadges: Bool
     private let showsItemDetails: Bool
     private let showsServiceInformationText: Bool
@@ -1204,7 +1276,7 @@ struct ConnectionDetailView: View {
 
     init(
         selection: ConnectionSelection,
-        client: any IDOSClienting,
+        client: any TransitDataSource,
         showsConnectionBadges: Bool,
         showsItemDetails: Bool,
         showsServiceInformationText: Bool,
@@ -1288,8 +1360,9 @@ struct ConnectionDetailView: View {
             ToolbarItemGroup(placement: .primaryAction) {
                 ForEach(
                     ResultDetailAction.availableActions(
-                        hasPermanentLink: connectionActionURL != nil,
-                        canSendByEmail: true
+                        canSendByEmail: actionAvailability.canSendByEmail,
+                        canAddToCalendar: actionAvailability.canAddToCalendar,
+                        canOpenPDF: actionAvailability.canOpenPDF
                     )
                 ) { action in
                     connectionActionControl(action, url: connectionActionURL)
@@ -1314,7 +1387,7 @@ struct ConnectionDetailView: View {
     }
 
     private var connectionActionURL: URL? {
-        selection.connection.shareURL.flatMap(AppLanguagePreference.localizedIDOSURL)
+        selection.connection.shareURL.flatMap(AppLanguagePreference.localizedResultURL)
     }
 
     private var connectionShareText: String {
@@ -1324,10 +1397,14 @@ struct ConnectionDetailView: View {
         )
     }
 
+    private var actionAvailability: ResultDetailActionAvailability {
+        .connection(client.descriptor)
+    }
+
     private var isPerformingAction: Bool {
-        actionsModel.processingEmailConnectionID == selection.connection.id ||
-            actionsModel.processingCalendarConnectionID == selection.connection.id ||
-            actionsModel.processingPDFConnectionID == selection.connection.id
+        actionsModel.processingEmailConnectionID == selection.connection.appIdentity ||
+            actionsModel.processingCalendarConnectionID == selection.connection.appIdentity ||
+            actionsModel.processingPDFConnectionID == selection.connection.appIdentity
     }
 
     private func performEmailAction(_ action: ConnectionEmailAction) {
@@ -1345,6 +1422,7 @@ struct ConnectionDetailView: View {
             isPerformingAction: isPerformingAction,
             permanentLink: connectionActionURL,
             shareText: connectionShareText,
+            availability: actionAvailability,
             performEmailAction: performEmailAction,
             performCalendarAction: { calendarExportAction in
                 Task {
@@ -1375,15 +1453,16 @@ struct ConnectionDetailView: View {
         case .sendByEmail:
             ConnectionEmailButton(
                 placement: .toolbar,
+                canComposeInMail: actionAvailability.canComposeConnectionEmailInMail,
                 perform: performEmailAction
             ) { emailAction in
                 emailActionLabel(
                     action,
                     emailAction: emailAction,
-                    isPerforming: actionsModel.processingEmailConnectionID == selection.connection.id
+                    isPerforming: actionsModel.processingEmailConnectionID == selection.connection.appIdentity
                 )
             }
-            .disabled(isPerformingAction || url == nil)
+            .disabled(isPerformingAction)
         case .addToCalendar:
             CalendarExportButton(placement: .toolbar) { calendarExportAction in
                 Task {
@@ -1396,7 +1475,7 @@ struct ConnectionDetailView: View {
                 exportActionLabel(
                     action,
                     calendarExportAction: calendarExportAction,
-                    isPerforming: actionsModel.processingCalendarConnectionID == selection.connection.id
+                    isPerforming: actionsModel.processingCalendarConnectionID == selection.connection.appIdentity
                 )
             }
             .disabled(isPerformingAction)
@@ -1412,7 +1491,7 @@ struct ConnectionDetailView: View {
                 exportActionLabel(
                     action,
                     pdfExportAction: pdfExportAction,
-                    isPerforming: actionsModel.processingPDFConnectionID == selection.connection.id
+                    isPerforming: actionsModel.processingPDFConnectionID == selection.connection.appIdentity
                 )
             }
             .disabled(isPerformingAction)
@@ -1487,8 +1566,9 @@ struct ConnectionDetailView: View {
 }
 
 private struct ConnectionLegRow: View {
-    let leg: IDOSConnectionLeg
-    let client: any IDOSClienting
+    let leg: TransitConnectionLeg
+    let timetable: TransitTimetable
+    let client: any TransitDataSource
     let showsItemDetails: Bool
     let showsServiceInformationText: Bool
     let showsStopNoteText: Bool
@@ -1498,21 +1578,27 @@ private struct ConnectionLegRow: View {
     @State private var isPreviewPresented = false
 
     init(
-        leg: IDOSConnectionLeg,
-        client: any IDOSClienting,
+        leg: TransitConnectionLeg,
+        timetable: TransitTimetable,
+        client: any TransitDataSource,
         showsItemDetails: Bool,
         showsServiceInformationText: Bool,
         showsStopNoteText: Bool,
         openService: @escaping (ServiceSelection) -> Void
     ) {
         self.leg = leg
+        self.timetable = timetable
         self.client = client
         self.showsItemDetails = showsItemDetails
         self.showsServiceInformationText = showsServiceInformationText
         self.showsStopNoteText = showsStopNoteText
         self.openService = openService
         _contextMenuModel = StateObject(
-            wrappedValue: ServiceDetailViewModel(id: leg.id ?? "", client: client)
+            wrappedValue: ServiceDetailViewModel(
+                id: leg.id ?? "",
+                timetable: timetable,
+                client: client
+            )
         )
     }
 
@@ -1534,9 +1620,11 @@ private struct ConnectionLegRow: View {
     }
 
     private var selection: ServiceSelection? {
-        leg.id.map {
+        guard client.descriptor.supports(.serviceDetails) else { return nil }
+        return leg.id.map {
             ServiceSelection(
                 id: $0,
+                timetable: timetable,
                 highlight: ServiceRouteHighlight(
                     fromStop: leg.fromStation,
                     toStop: leg.toStation
@@ -1582,7 +1670,7 @@ private struct ConnectionLegRow: View {
                             AdaptiveConnectionPlatform(value: platform)
                         }
                         Spacer()
-                        if leg.id != nil {
+                        if selection != nil {
                             Image(systemName: "chevron.right")
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)

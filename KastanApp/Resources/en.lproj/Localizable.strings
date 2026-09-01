@@ -72,7 +72,7 @@
 "Enter a valid email address." = "Enter a valid email address.";
 "Enter a line and both direction stops." = "Enter a line and both direction stops.";
 "Explanations" = "Explanations";
-"Exact operating days supplied by IDOS" = "Exact operating days supplied by IDOS";
+"Exact operating days supplied by the data source" = "Exact operating days supplied by the data source";
 "Edit search" = "Edit search";
 "Email address can contain at most 320 characters." = "Email address can contain at most 320 characters.";
 "Email Sent" = "Email Sent";
@@ -88,7 +88,7 @@
 "Hold Option and click to find this service in Departures." = "Hold Option and click to find this service in Departures.";
 "Information unavailable" = "Information unavailable";
 "IDOS could not generate a station timetable for this line, direction, and date." = "IDOS could not generate a station timetable for this line, direction, and date.";
-"IDOS could not identify this station-timetable departure." = "IDOS could not identify this station-timetable departure.";
+"%@ could not identify this station-timetable departure." = "%@ could not identify this station-timetable departure.";
 "IDOS could not load this service detail." = "IDOS could not load this service detail.";
 "IDOS could not load this service detail. %@" = "IDOS could not load this service detail. %@";
 "IDOS could not send the connection by email." = "IDOS could not send the connection by email.";
@@ -161,7 +161,7 @@
 "Notes" = "Notes";
 "Network request failed. Check your internet connection." = "Network request failed. Check your internet connection.";
 "Network request failed. Check your internet connection. %@" = "Network request failed. Check your internet connection. %@";
-"Open in IDOS" = "Open in IDOS";
+"Open Link" = "Open Link";
 "Open attachment %@" = "Open attachment %@";
 "Open connection in new window" = "Open connection in new window";
 "Open PDF in Preview" = "Open PDF in Preview";
@@ -199,6 +199,7 @@
 "Route" = "Route";
 "Search" = "Search";
 "Search mode" = "Search mode";
+"Search unavailable" = "Search unavailable";
 "Searches" = "Search";
 "Searching connections…" = "Searching connections…";
 "Send" = "Send";
@@ -240,6 +241,7 @@
 "The calendar data could not be saved." = "The calendar data could not be saved.";
 "The connection was sent to %@." = "The connection was sent to %@.";
 "The email could not be prepared in Mail." = "The email could not be prepared in Mail.";
+"The selected data source does not provide a search mode supported by this app." = "The selected data source does not provide a search mode supported by this app.";
 "Walk to a nearby stop at the beginning/end of journey" = "Walk to a nearby stop at the beginning/end of journey";
 "Time" = "Time";
 "Time means" = "Time means";

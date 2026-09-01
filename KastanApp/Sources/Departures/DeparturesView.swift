@@ -6,7 +6,7 @@ import SwiftUI
 struct DeparturesView: View {
     @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: DeparturesViewModel
-    let client: any IDOSClienting
+    let client: any TransitDataSource
     let showsItemDetails: Bool
     let showsServiceInformationText: Bool
     let showsStopNoteText: Bool
@@ -87,6 +87,7 @@ struct DeparturesView: View {
                 modeLabel: "Board type",
                 departureLabel: "Departures",
                 arrivalLabel: "Arrivals",
+                allowedTimetables: model.timetables,
                 usesCurrentDateAndTime: model.usesCurrentDateAndTime,
                 selectCurrentDateAndTime: {
                     model.selectCurrentDateAndTime()
@@ -124,8 +125,8 @@ struct DeparturesView: View {
         .station(
             name: model.station,
             timetable: model.timetable.appDisplayName,
-            date: IDOSRequestFormatting.date(from: model.date),
-            time: IDOSRequestFormatting.time(from: model.time),
+            date: TransitRequestFormatting.displayDate(from: model.date),
+            time: TransitRequestFormatting.displayTime(from: model.time),
             mode: AppLocalization.string(model.isArrival ? "Arrivals" : "Departures")
         )
     }
@@ -183,10 +184,12 @@ struct DeparturesView: View {
             )
         } else {
             LazyVStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(model.departures.enumerated()), id: \.element.id) { index, departure in
+                ForEach(Array(model.departures.enumerated()), id: \.element.appIdentity) { index, departure in
                     let station = departure.stationName ?? model.station
+                    let resultTimetable = departure.appTimetable(in: client.timetables)
                     let selection = ServiceSelection(
                         id: departure.id,
+                        timetable: resultTimetable,
                         highlight: model.isArrival
                             ? ServiceRouteHighlight(toStop: station)
                             : ServiceRouteHighlight(fromStop: station)
@@ -216,9 +219,9 @@ struct DeparturesView: View {
 }
 
 private struct DepartureRow: View {
-    let departure: IDOSDeparture
+    let departure: TransitDeparture
     let selection: ServiceSelection
-    let client: any IDOSClienting
+    let client: any TransitDataSource
     let showsItemDetails: Bool
     let showsServiceInformationText: Bool
     let showsStopNoteText: Bool
@@ -228,9 +231,9 @@ private struct DepartureRow: View {
     @State private var isPreviewPresented = false
 
     init(
-        departure: IDOSDeparture,
+        departure: TransitDeparture,
         selection: ServiceSelection,
-        client: any IDOSClienting,
+        client: any TransitDataSource,
         showsItemDetails: Bool,
         showsServiceInformationText: Bool,
         showsStopNoteText: Bool,
@@ -244,7 +247,11 @@ private struct DepartureRow: View {
         self.showsStopNoteText = showsStopNoteText
         self.openService = openService
         _contextMenuModel = StateObject(
-            wrappedValue: ServiceDetailViewModel(id: selection.id, client: client)
+            wrappedValue: ServiceDetailViewModel(
+                id: selection.serviceID,
+                timetable: selection.timetable,
+                client: client
+            )
         )
     }
 
@@ -254,6 +261,7 @@ private struct DepartureRow: View {
                 suppressesPrimaryAction = false
                 return
             }
+            guard supportsServiceDetails else { return }
             openService()
         } label: {
             HStack(spacing: 14) {
@@ -299,23 +307,29 @@ private struct DepartureRow: View {
                 }
 
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(.tertiary)
+                if supportsServiceDetails {
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.tertiary)
+                }
             }
             .padding(.horizontal, 4)
             .padding(.vertical, 12)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(!supportsServiceDetails)
         .contextMenu {
-            ServiceContextMenuContent(
-                model: contextMenuModel,
-                showPreview: { isPreviewPresented = true },
-                openInNewWindow: openService
-            )
+            if supportsServiceDetails {
+                ServiceContextMenuContent(
+                    model: contextMenuModel,
+                    showPreview: { isPreviewPresented = true },
+                    openInNewWindow: openService
+                )
+            }
         }
         .forceClickPreview(
             size: ResultPreviewLayout.serviceSize,
+            isEnabled: supportsServiceDetails,
             suppressesPrimaryAction: $suppressesPrimaryAction,
             isPresented: $isPreviewPresented
         ) {
@@ -327,5 +341,9 @@ private struct DepartureRow: View {
                 presentation: .preview
             )
         }
+    }
+
+    private var supportsServiceDetails: Bool {
+        client.descriptor.supports(.serviceDetails)
     }
 }

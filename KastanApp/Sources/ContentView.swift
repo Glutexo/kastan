@@ -1,7 +1,7 @@
 import Kastan
 import SwiftUI
 
-/// The three equivalent IDOS search modes available from the main window toolbar.
+/// The three provider-backed search modes available from the main window toolbar.
 enum AppSection: String, CaseIterable, Hashable, Identifiable {
     case connections
     case departures
@@ -34,6 +34,22 @@ enum AppSection: String, CaseIterable, Hashable, Identifiable {
             "calendar"
         }
     }
+
+    /// Associates each search surface with the capability explicitly advertised by the active provider.
+    var capability: TransitDataSourceCapability {
+        switch self {
+        case .connections:
+            .connections
+        case .departures:
+            .departures
+        case .stationTimetables:
+            .stationTimetables
+        }
+    }
+
+    static func available(for descriptor: TransitDataSourceDescriptor) -> [Self] {
+        allCases.filter { descriptor.supports($0.capability) }
+    }
 }
 
 /// Exposes the active window's search mode to app-level menu commands.
@@ -41,10 +57,20 @@ struct AppSectionSelectionKey: FocusedValueKey {
     typealias Value = Binding<AppSection>
 }
 
+struct AvailableAppSectionsKey: FocusedValueKey {
+    typealias Value = Set<AppSection>
+}
+
 extension FocusedValues {
     var appSectionSelection: Binding<AppSection>? {
         get { self[AppSectionSelectionKey.self] }
         set { self[AppSectionSelectionKey.self] = newValue }
+    }
+
+
+    var availableAppSections: Set<AppSection>? {
+        get { self[AvailableAppSectionsKey.self] }
+        set { self[AvailableAppSectionsKey.self] = newValue }
     }
 }
 
@@ -206,21 +232,22 @@ struct SearchWorkspace<SearchContent: View, ResultsContent: View>: View {
     }
 }
 
-/// Retains independent search state while the native toolbar switches among all three IDOS search modes.
+/// Retains independent search state while the native toolbar switches among all three transit search modes.
 struct ContentView: View {
     @Environment(\.openWindow) private var openWindow
-    private let client: any IDOSClienting
+    private let client: any TransitDataSource
     private let showsConnectionBadges: Bool
     private let showsItemDetails: Bool
     private let showsServiceInformationText: Bool
     private let showsStopNoteText: Bool
+    private let availableSections: [AppSection]
     @StateObject private var connectionsModel: ConnectionsViewModel
     @StateObject private var departuresModel: DeparturesViewModel
     @StateObject private var stationTimetablesModel: StationTimetablesViewModel
-    @State private var selection = AppSection.connections
+    @State private var selection: AppSection
 
     init(
-        client: any IDOSClienting,
+        client: any TransitDataSource,
         showsConnectionBadges: Bool,
         showsItemDetails: Bool,
         showsServiceInformationText: Bool,
@@ -231,6 +258,9 @@ struct ContentView: View {
         self.showsItemDetails = showsItemDetails
         self.showsServiceInformationText = showsServiceInformationText
         self.showsStopNoteText = showsStopNoteText
+        let availableSections = AppSection.available(for: client.descriptor)
+        self.availableSections = availableSections
+        _selection = State(initialValue: availableSections.first ?? .connections)
         _connectionsModel = StateObject(wrappedValue: ConnectionsViewModel(client: client))
         _departuresModel = StateObject(wrappedValue: DeparturesViewModel(client: client))
         _stationTimetablesModel = StateObject(wrappedValue: StationTimetablesViewModel(client: client))
@@ -241,44 +271,54 @@ struct ContentView: View {
             .background {
                 MainWindowToolbarInstaller(
                     selection: $selection,
+                    sections: availableSections,
                     openFavoriteTimetables: { openWindow(id: AppWindow.favoriteTimetables) },
                     openAppInformation: { openWindow(id: AppWindow.information) }
                 )
             }
             .focusedSceneValue(\.appSectionSelection, $selection)
+            .focusedSceneValue(\.availableAppSections, Set(availableSections))
     }
 
     @ViewBuilder
     private var selectedContent: some View {
-        switch selection {
-        case .connections:
-            ConnectionsView(
-                model: connectionsModel,
-                client: client,
-                showsConnectionBadges: showsConnectionBadges,
-                showsItemDetails: showsItemDetails,
-                showsServiceInformationText: showsServiceInformationText,
-                showsStopNoteText: showsStopNoteText
+        if !availableSections.contains(selection) {
+            EmptyStateView(
+                title: "Search unavailable",
+                systemImage: "exclamationmark.magnifyingglass",
+                description: "The selected data source does not provide a search mode supported by this app."
             )
-        case .departures:
-            DeparturesView(
-                model: departuresModel,
-                client: client,
-                showsItemDetails: showsItemDetails,
-                showsServiceInformationText: showsServiceInformationText,
-                showsStopNoteText: showsStopNoteText
-            )
-        case .stationTimetables:
-            StationTimetablesView(
-                model: stationTimetablesModel,
-                client: client,
-                showsItemDetails: showsItemDetails,
-                showsStopNoteText: showsStopNoteText,
-                showInDepartures: { search in
-                    departuresModel.present(search)
-                    selection = .departures
-                }
-            )
+        } else {
+            switch selection {
+            case .connections:
+                ConnectionsView(
+                    model: connectionsModel,
+                    client: client,
+                    showsConnectionBadges: showsConnectionBadges,
+                    showsItemDetails: showsItemDetails,
+                    showsServiceInformationText: showsServiceInformationText,
+                    showsStopNoteText: showsStopNoteText
+                )
+            case .departures:
+                DeparturesView(
+                    model: departuresModel,
+                    client: client,
+                    showsItemDetails: showsItemDetails,
+                    showsServiceInformationText: showsServiceInformationText,
+                    showsStopNoteText: showsStopNoteText
+                )
+            case .stationTimetables:
+                StationTimetablesView(
+                    model: stationTimetablesModel,
+                    client: client,
+                    showsItemDetails: showsItemDetails,
+                    showsStopNoteText: showsStopNoteText,
+                    showInDepartures: { search in
+                        departuresModel.present(search)
+                        selection = .departures
+                    }
+                )
+            }
         }
     }
 }

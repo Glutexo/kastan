@@ -14,7 +14,7 @@ struct CLIPlainTextPresentation {
     }
 
     /// Formats one complete connection as a one-result CLI connection search.
-    func connection(_ connection: IDOSConnection, timetable: IDOSTimetable) -> String {
+    func connection(_ connection: TransitConnection, timetable: TransitTimetable) -> String {
         let labels = [
             connection.legs.count == 1 ? "➡️  \(text("Direct connection"))" : nil,
             "⚡ \(text("Shortest"))",
@@ -46,8 +46,8 @@ struct CLIPlainTextPresentation {
     ///
     /// Mail drafts keep IDOS's editable introductory message above the result instead of replacing it.
     func connectionHTML(
-        _ connection: IDOSConnection,
-        timetable: IDOSTimetable,
+        _ connection: TransitConnection,
+        timetable: TransitTimetable,
         introductoryText: String? = nil
     ) -> String {
         let labels = [
@@ -76,7 +76,7 @@ struct CLIPlainTextPresentation {
 
         return PortableHTML.document(
             title: text("Connections"),
-            language: AppLanguagePreference.idosLanguage.rawValue,
+            language: AppLanguagePreference.transitLanguage.rawValue,
             body: """
             \(introduction)
             <h1>🧭 \(PortableHTML.escape(text("Connections")))</h1>
@@ -96,7 +96,7 @@ struct CLIPlainTextPresentation {
     }
 
     /// Formats a dated service with its complete route and information, matching the CLI service command.
-    func service(_ service: IDOSServiceDetail) -> String {
+    func service(_ service: TransitServiceDetail) -> String {
         let displayName = [service.transportMode?.emoji, service.name]
             .compactMap(\.self)
             .filter { !$0.isEmpty }
@@ -169,7 +169,8 @@ struct CLIPlainTextPresentation {
         "\(text("platform %@", platform)) \(text("track %@", track))"
     }
 
-    private func timetableName(_ timetable: IDOSTimetable) -> String {
+    private func timetableName(_ timetable: TransitTimetable) -> String {
+        guard timetable.dataSourceID == .idos else { return timetable.displayName }
         switch timetable.slug {
         case "vlakyautobusymhdvse":
             return text("All timetables")
@@ -319,7 +320,7 @@ private enum PortableHTML {
         """
     }
 
-    static func lineName(_ leg: IDOSConnectionLeg) -> String {
+    static func lineName(_ leg: TransitConnectionLeg) -> String {
         let prefix = leg.transportMode.map { "\($0.emoji) " } ?? "🛣️ "
         let name = escape(leg.name)
         guard let color = leg.color,

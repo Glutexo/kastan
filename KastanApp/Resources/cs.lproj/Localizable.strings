@@ -72,7 +72,7 @@
 "Enter a valid email address." = "Zadejte platnou e-mailovou adresu.";
 "Enter a line and both direction stops." = "Zadejte linku a obě zastávky určující směr.";
 "Explanations" = "Vysvětlivky";
-"Exact operating days supplied by IDOS" = "Přesné dny provozu poskytl IDOS";
+"Exact operating days supplied by the data source" = "Přesné dny provozu poskytl zdroj dat";
 "Edit search" = "Upravit vyhledávání";
 "Email address can contain at most 320 characters." = "E-mailová adresa může obsahovat nejvýše 320 znaků.";
 "Email Sent" = "E-mail odeslán";
@@ -88,7 +88,7 @@
 "Hold Option and click to find this service in Departures." = "Podržte Option a kliknutím vyhledejte tento spoj v Odjezdech.";
 "Information unavailable" = "Informace nejsou k dispozici";
 "IDOS could not generate a station timetable for this line, direction, and date." = "IDOS nemohl pro tuto linku, směr a datum vytvořit zastávkový jízdní řád.";
-"IDOS could not identify this station-timetable departure." = "IDOS nedokázal určit spoj pro tento odjezd v zastávkovém jízdním řádu.";
+"%@ could not identify this station-timetable departure." = "%@ nedokázal určit spoj pro tento odjezd v zastávkovém jízdním řádu.";
 "IDOS could not load this service detail." = "IDOS nedokázal načíst detail tohoto spoje.";
 "IDOS could not load this service detail. %@" = "IDOS nedokázal načíst detail tohoto spoje. %@";
 "IDOS could not send the connection by email." = "IDOS nedokázal odeslat spojení e-mailem.";
@@ -161,7 +161,7 @@
 "Notes" = "Poznámky";
 "Network request failed. Check your internet connection." = "Síťový požadavek selhal. Zkontrolujte připojení k internetu.";
 "Network request failed. Check your internet connection. %@" = "Síťový požadavek selhal. Zkontrolujte připojení k internetu. %@";
-"Open in IDOS" = "Otevřít v IDOSu";
+"Open Link" = "Otevřít odkaz";
 "Open attachment %@" = "Otevřít přílohu %@";
 "Open connection in new window" = "Otevřít spojení v novém okně";
 "Open PDF in Preview" = "Otevřít PDF v Náhledu";
@@ -199,6 +199,7 @@
 "Route" = "Trasa";
 "Search" = "Hledat";
 "Search mode" = "Režim vyhledávání";
+"Search unavailable" = "Vyhledávání není dostupné";
 "Searches" = "Vyhledávání";
 "Searching connections…" = "Vyhledávání spojení…";
 "Send" = "Poslat";
@@ -240,6 +241,7 @@
 "The calendar data could not be saved." = "Data kalendáře se nepodařilo uložit.";
 "The connection was sent to %@." = "Spojení bylo odesláno na %@.";
 "The email could not be prepared in Mail." = "E-mail se nepodařilo připravit v Mailu.";
+"The selected data source does not provide a search mode supported by this app." = "Vybraný zdroj dat neposkytuje žádný režim vyhledávání podporovaný touto aplikací.";
 "Walk to a nearby stop at the beginning/end of journey" = "Pěší přesun mezi zastávkami";
 "Time" = "Čas";
 "Time means" = "Význam času";

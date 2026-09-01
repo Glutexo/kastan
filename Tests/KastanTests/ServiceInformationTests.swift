@@ -142,9 +142,26 @@ import Testing
     )
 }
 
+/// Lets a structured provider preserve its own category even when IDOS's text classifier would choose another.
+@Test func serviceInformationAcceptsAnExactProviderCategory() throws {
+    let information = TransitServiceInformation(
+        text: "Provider accessibility code W",
+        category: .wheelchair
+    )
+
+    #expect(information.category == .wheelchair)
+    #expect(information.classificationRule == .fallback)
+    #expect(
+        try JSONDecoder().decode(
+            TransitServiceInformation.self,
+            from: JSONEncoder().encode(information)
+        ) == information
+    )
+}
+
 /// Makes classified information discoverable directly from the service model without changing its raw payload.
 @Test func serviceDetailExposesClassifiedInformationInIDOSOrder() {
-    let service = IDOSServiceDetail(
+    var service = IDOSServiceDetail(
         id: "vlaky:service",
         name: "R 1",
         stops: [],
@@ -154,6 +171,52 @@ import Testing
     #expect(service.information == ["Bistro car", "Doplňující informace"])
     #expect(service.serviceInformation.map(\.text) == service.information)
     #expect(service.serviceInformation.map(\.category) == [.diningCar, .general])
+
+    service.information = ["Carriage with a wireless internet connection"]
+    #expect(service.serviceInformation.map(\.category) == [.wiFi])
+}
+
+/// Lets a structured provider attach semantic service-detail categories without imitating IDOS wording.
+@Test func serviceDetailPreservesStructuredProviderInformationAndLegacyJSON() throws {
+    let structured = TransitServiceDetail(
+        id: "municipal:accessible",
+        timetable: TransitTimetable(
+            dataSourceID: "municipal",
+            identifier: "metro",
+            displayName: "Metro"
+        ),
+        name: "M1",
+        stops: [],
+        serviceInformation: [
+            TransitServiceInformation(
+                text: "Provider accessibility code W",
+                category: .wheelchair
+            ),
+        ]
+    )
+    let encoder = JSONEncoder()
+    let decoder = JSONDecoder()
+    let structuredData = try encoder.encode(structured)
+    let structuredObject = try #require(
+        JSONSerialization.jsonObject(with: structuredData) as? [String: Any]
+    )
+
+    #expect(structured.information == ["Provider accessibility code W"])
+    #expect(structured.serviceInformation.map(\.category) == [.wheelchair])
+    #expect(structuredObject["information"] != nil)
+    #expect(structuredObject["serviceInformation"] != nil)
+    #expect(try decoder.decode(TransitServiceDetail.self, from: structuredData) == structured)
+
+    let legacy = TransitServiceDetail(
+        id: "vlaky:legacy",
+        name: "R 1",
+        stops: [],
+        information: ["Bistro car"]
+    )
+    let legacyData = try encoder.encode(legacy)
+    let legacyObject = try #require(JSONSerialization.jsonObject(with: legacyData) as? [String: Any])
+    #expect(legacyObject["serviceInformation"] == nil)
+    #expect(try decoder.decode(TransitServiceDetail.self, from: legacyData) == legacy)
 }
 
 /// Retains source compatibility for stored result JSON while preserving newly parsed information.

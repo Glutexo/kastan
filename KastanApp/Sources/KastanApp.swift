@@ -431,17 +431,50 @@ enum ResultDetailAction: CaseIterable, Hashable, Identifiable {
 
     /// Keeps email connection-specific while every loaded result retains portable text sharing.
     static func availableActions(
-        hasPermanentLink: Bool,
-        canSendByEmail: Bool
+        canSendByEmail: Bool,
+        canAddToCalendar: Bool = true,
+        canOpenPDF: Bool = true
     ) -> [Self] {
         allCases.filter { action in
             switch action {
-            case .addToCalendar, .openPDF, .share:
-                true
             case .sendByEmail:
-                hasPermanentLink && canSendByEmail
+                canSendByEmail
+            case .addToCalendar:
+                canAddToCalendar
+            case .openPDF:
+                canOpenPDF
+            case .share:
+                true
             }
         }
+    }
+}
+
+/// Maps a provider's advertised export contract to result controls that can safely be presented.
+struct ResultDetailActionAvailability: Equatable {
+    let canSendByEmail: Bool
+    let canAddToCalendar: Bool
+    let canOpenPDF: Bool
+
+    /// Mail composition needs an email draft and at least one attachment format advertised by the provider.
+    var canComposeConnectionEmailInMail: Bool {
+        canSendByEmail && (canAddToCalendar || canOpenPDF)
+    }
+
+    static func connection(_ descriptor: TransitDataSourceDescriptor) -> Self {
+        Self(
+            canSendByEmail: descriptor.supports(.connectionEmail),
+            canAddToCalendar: descriptor.supports(.connectionCalendarExport),
+            canOpenPDF: descriptor.supports(.connectionPDFExport)
+        )
+    }
+
+    static func service(_ descriptor: TransitDataSourceDescriptor) -> Self {
+        Self(
+            canSendByEmail: false,
+            canAddToCalendar: descriptor.supports(.serviceCalendarExport),
+            canOpenPDF: descriptor.supports(.servicePDFExport)
+        )
     }
 }
 
@@ -451,6 +484,7 @@ struct ResultDetailCommandContext {
     let isPerformingAction: Bool
     let permanentLink: URL?
     let shareText: String?
+    let availability: ResultDetailActionAvailability
     let performEmailAction: ((ConnectionEmailAction) -> Void)?
     let performCalendarAction: (CalendarExportAction) -> Void
     let performPDFAction: (PDFExportAction) -> Void
@@ -460,6 +494,11 @@ struct ResultDetailCommandContext {
         isPerformingAction: Bool,
         permanentLink: URL?,
         shareText: String?,
+        availability: ResultDetailActionAvailability = .init(
+            canSendByEmail: true,
+            canAddToCalendar: true,
+            canOpenPDF: true
+        ),
         performEmailAction: ((ConnectionEmailAction) -> Void)? = nil,
         performCalendarAction: @escaping (CalendarExportAction) -> Void,
         performPDFAction: @escaping (PDFExportAction) -> Void
@@ -468,6 +507,7 @@ struct ResultDetailCommandContext {
         self.isPerformingAction = isPerformingAction
         self.permanentLink = permanentLink
         self.shareText = shareText
+        self.availability = availability
         self.performEmailAction = performEmailAction
         self.performCalendarAction = performCalendarAction
         self.performPDFAction = performPDFAction
@@ -477,10 +517,12 @@ struct ResultDetailCommandContext {
         guard !isPerformingAction else { return false }
 
         switch action {
-        case .addToCalendar, .openPDF:
-            return hasLoadedResult
         case .sendByEmail:
-            return hasLoadedResult && permanentLink != nil && performEmailAction != nil
+            return availability.canSendByEmail && hasLoadedResult && performEmailAction != nil
+        case .addToCalendar:
+            return availability.canAddToCalendar && hasLoadedResult
+        case .openPDF:
+            return availability.canOpenPDF && hasLoadedResult
         case .share:
             return hasLoadedResult && (permanentLink != nil || shareText?.isEmpty == false)
         }
@@ -504,24 +546,33 @@ struct ResultDetailCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .importExport) {
-            ConnectionEmailButton(placement: .menu) { emailAction in
-                context?.performEmailAction?(emailAction)
-            } label: { emailAction in
-                actionLabel(.sendByEmail, emailAction: emailAction)
+            if context?.availability.canSendByEmail != false {
+                ConnectionEmailButton(
+                    placement: .menu,
+                    canComposeInMail: context?.availability.canComposeConnectionEmailInMail != false
+                ) { emailAction in
+                    context?.performEmailAction?(emailAction)
+                } label: { emailAction in
+                    actionLabel(.sendByEmail, emailAction: emailAction)
+                }
+                .disabled(context?.isEnabled(.sendByEmail) != true)
             }
-            .disabled(context?.isEnabled(.sendByEmail) != true)
-            CalendarExportButton(placement: .menu) { calendarExportAction in
-                context?.performCalendarAction(calendarExportAction)
-            } label: { calendarExportAction in
-                actionLabel(.addToCalendar, calendarExportAction: calendarExportAction)
+            if context?.availability.canAddToCalendar != false {
+                CalendarExportButton(placement: .menu) { calendarExportAction in
+                    context?.performCalendarAction(calendarExportAction)
+                } label: { calendarExportAction in
+                    actionLabel(.addToCalendar, calendarExportAction: calendarExportAction)
+                }
+                .disabled(context?.isEnabled(.addToCalendar) != true)
             }
-            .disabled(context?.isEnabled(.addToCalendar) != true)
-            PDFExportButton(placement: .menu) { pdfExportAction in
-                context?.performPDFAction(pdfExportAction)
-            } label: { pdfExportAction in
-                actionLabel(.openPDF, pdfExportAction: pdfExportAction)
+            if context?.availability.canOpenPDF != false {
+                PDFExportButton(placement: .menu) { pdfExportAction in
+                    context?.performPDFAction(pdfExportAction)
+                } label: { pdfExportAction in
+                    actionLabel(.openPDF, pdfExportAction: pdfExportAction)
+                }
+                .disabled(context?.isEnabled(.openPDF) != true)
             }
-            .disabled(context?.isEnabled(.openPDF) != true)
 
             ResultShareButton(
                 link: context?.permanentLink,
@@ -561,6 +612,7 @@ struct ResultDetailCommands: Commands {
 /// Keeps search navigation and application-wide result presentation in the standard View menu.
 struct AppSectionCommands: Commands {
     @FocusedValue(\.appSectionSelection) private var selection: Binding<AppSection>?
+    @FocusedValue(\.availableAppSections) private var availableSections: Set<AppSection>?
     @Binding var showsConnectionBadges: Bool
     @Binding var showsItemDetails: Bool
     @Binding var showsAlternatingRowBackgrounds: Bool
@@ -568,6 +620,7 @@ struct AppSectionCommands: Commands {
     @Binding var showsAddressSuggestions: Bool
     @Binding var showsBoroughSuggestions: Bool
     @Binding var showsMunicipalitySuggestions: Bool
+    let supportsPlaceSuggestions: Bool
 
     var body: some Commands {
         CommandGroup(after: .toolbar) {
@@ -595,15 +648,17 @@ struct AppSectionCommands: Commands {
 
             Divider()
 
-            Menu {
-                Toggle("Addresses", isOn: $showsAddressSuggestions)
-                Toggle("Boroughs", isOn: $showsBoroughSuggestions)
-                Toggle("Municipalities", isOn: $showsMunicipalitySuggestions)
-            } label: {
-                Label("Place suggestions", systemImage: "text.magnifyingglass")
-            }
+            if supportsPlaceSuggestions {
+                Menu {
+                    Toggle("Addresses", isOn: $showsAddressSuggestions)
+                    Toggle("Boroughs", isOn: $showsBoroughSuggestions)
+                    Toggle("Municipalities", isOn: $showsMunicipalitySuggestions)
+                } label: {
+                    Label("Place suggestions", systemImage: "text.magnifyingglass")
+                }
 
-            Divider()
+                Divider()
+            }
         }
     }
 
@@ -611,7 +666,7 @@ struct AppSectionCommands: Commands {
         Toggle(isOn: binding(for: section)) {
             Label(section.title, systemImage: section.systemImage)
         }
-        .disabled(selection == nil)
+        .disabled(selection == nil || availableSections?.contains(section) != true)
     }
 
     private func binding(for section: AppSection) -> Binding<Bool> {
@@ -654,7 +709,12 @@ struct KastanApp: App {
     private var showsBoroughSuggestions = PlaceSuggestionVisibilityPreference.defaultValue
     @AppStorage(PlaceSuggestionVisibilityPreference.municipalitiesStorageKey)
     private var showsMunicipalitySuggestions = PlaceSuggestionVisibilityPreference.defaultValue
-    private let client = IDOSClient()
+    /// Registers concrete providers once and routes restorable results back to the source that issued them.
+    private let dataSources = TransitDataSourceRegistry.builtIn
+
+    private var client: any TransitDataSource {
+        dataSources.defaultDataSource
+    }
 
     init() {
         SymbolTextPreference.migrateLegacyValues()
@@ -692,7 +752,8 @@ struct KastanApp: App {
                 showsSymbolsAsText: $showsSymbolsAsText,
                 showsAddressSuggestions: $showsAddressSuggestions,
                 showsBoroughSuggestions: $showsBoroughSuggestions,
-                showsMunicipalitySuggestions: $showsMunicipalitySuggestions
+                showsMunicipalitySuggestions: $showsMunicipalitySuggestions,
+                supportsPlaceSuggestions: client.descriptor.supports(.placeSuggestions)
             )
             SearchEditCommands()
             AppInformationCommands()
@@ -701,7 +762,7 @@ struct KastanApp: App {
 
         Window("Favorite timetables", id: AppWindow.favoriteTimetables) {
             NavigationStack {
-                FavoriteTimetablesView()
+                FavoriteTimetablesView(timetables: client.timetables)
             }
             .frame(minWidth: FavoriteTimetablesView.minimumWindowWidth, minHeight: 520)
         }
@@ -715,10 +776,11 @@ struct KastanApp: App {
         .defaultPosition(.center)
 
         WindowGroup("Service route", id: AppWindow.serviceDetail, for: ServiceSelection.self) { selection in
-            if let selection = selection.wrappedValue {
+            if let selection = selection.wrappedValue,
+               let dataSource = dataSources.dataSource(for: selection.timetable.dataSourceID) {
                 ServiceDetailWindowContent(
                     selection: selection,
-                    client: client,
+                    client: dataSource,
                     showsItemDetails: showsItemDetails,
                     showsStopNoteText: showsSymbolsAsText
                 )
@@ -728,10 +790,11 @@ struct KastanApp: App {
         .defaultSize(width: ServiceDetailView.defaultWindowWidth, height: 640)
 
         WindowGroup("Connection detail", id: AppWindow.connectionDetail, for: ConnectionSelection.self) { selection in
-            if let selection = selection.wrappedValue {
-                ConnectionDetailView(
+            if let selection = selection.wrappedValue,
+               let dataSource = dataSources.dataSource(for: selection.dataSourceID) {
+                ConnectionDetailWindowContent(
                     selection: selection,
-                    client: client,
+                    client: dataSource,
                     showsConnectionBadges: showsConnectionBadges,
                     showsItemDetails: showsItemDetails,
                     showsServiceInformationText: showsSymbolsAsText,

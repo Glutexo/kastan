@@ -2,8 +2,9 @@
 
 <img src="KastanApp/Resources/Assets.xcassets/ApplicationArtwork.imageset/ApplicationArtwork.png" alt="Kaštan app icon" width="128">
 
-Kaštan is an open-source companion for occasional personal [IDOS](https://idos.cz/en/) searches. Use it as a
-native macOS app or from a terminal, or integrate its search engine as a Swift library or local or remote MCP
+Kaštan is an open-source companion for occasional personal public-transport searches. Its provider-neutral core
+can support multiple data sources; [IDOS](https://idos.cz/en/) is currently the only built-in source. Use Kaštan as
+a native macOS app or from a terminal, or integrate its search engine as a Swift library or local or remote MCP
 server.
 
 ![Kaštan for macOS showing direct train connections from Frýdek-Místek to Frenštát pod Radhoštěm with service-information symbols](docs/images/kastan-macos-connections.png)

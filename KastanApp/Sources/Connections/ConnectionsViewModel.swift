@@ -167,19 +167,17 @@ final class ConnectionsViewModel: ObservableObject {
             }
         }
     }
-    /// Exact IDOS choices retained only while their corresponding visible text is unchanged.
+    /// Exact provider-owned choices retained only while their corresponding visible text is unchanged.
     @Published var fromSelection: PlaceFieldSelection?
     @Published var toSelection: PlaceFieldSelection?
     @Published var journeyOptions = [JourneyOptionEntry()]
-    @Published var timetable = AppTimetableDefaults.search {
+    @Published var timetable: TransitTimetable {
         didSet {
-            guard timetable.slug != oldValue.slug else { return }
-            if fromSelection?.isCurrentLocation != true {
-                fromSelection = nil
-            }
-            if toSelection?.isCurrentLocation != true {
-                toSelection = nil
-            }
+            guard timetable != oldValue else { return }
+            // Even a current-location value is encoded by its provider for one timetable. Keep its visible
+            // text so the next search can resolve the coordinate again for the newly selected catalog.
+            fromSelection = nil
+            toSelection = nil
             for index in journeyOptions.indices {
                 journeyOptions[index].viaSelection = nil
             }
@@ -195,30 +193,30 @@ final class ConnectionsViewModel: ObservableObject {
     @Published private(set) var usesCurrentDateAndTime = true
     @Published var isArrival = false
     @Published private(set) var onlyDirect = false
-    @Published private(set) var connections: [IDOSConnection] = []
+    @Published private(set) var connections: [TransitConnection] = []
     @Published private(set) var hasCompletedSearch = false
     @Published private(set) var isSearching = false
     @Published private(set) var isLoadingEarlier = false
     @Published private(set) var isLoadingLater = false
-    @Published private(set) var processingEmailConnectionID: String?
-    @Published private(set) var processingCalendarConnectionID: String?
-    @Published private(set) var processingPDFConnectionID: String?
+    @Published private(set) var processingEmailConnectionID: AppTransitValueIdentity?
+    @Published private(set) var processingCalendarConnectionID: AppTransitValueIdentity?
+    @Published private(set) var processingPDFConnectionID: AppTransitValueIdentity?
     @Published private(set) var locatingEndpoint: ConnectionEndpoint?
     @Published var errorMessage: String?
 
-    let client: any IDOSClienting
+    let client: any TransitDataSource
     private let calendarImporter: any CalendarImporting
     private let calendarSaver: any CalendarSaving
     private let pdfOpener: any PDFOpening
     private let pdfExporter: any PDFExporting
     private let emailMailComposer: any ConnectionEmailMailComposing
     private let currentLocationProvider: any CurrentLocationProviding
-    private var resultPage: IDOSConnectionPage?
+    private var resultPage: TransitConnectionPage?
     private var isRefreshingCurrentDateAndTime = false
     private var rememberedTransferValues = RememberedTransferValues()
 
     init(
-        client: any IDOSClienting,
+        client: any TransitDataSource,
         calendarImporter: any CalendarImporting = WorkspaceCalendarImporter(),
         calendarSaver: any CalendarSaving = WorkspaceCalendarSaver(),
         pdfOpener: any PDFOpening = WorkspacePDFOpener(),
@@ -227,12 +225,25 @@ final class ConnectionsViewModel: ObservableObject {
         currentLocationProvider: any CurrentLocationProviding = SystemCurrentLocationProvider()
     ) {
         self.client = client
+        timetable = AppTimetableDefaults.search(
+            in: client.timetables,
+            defaultTimetable: client.defaultTimetable
+        )
         self.calendarImporter = calendarImporter
         self.calendarSaver = calendarSaver
         self.pdfOpener = pdfOpener
         self.pdfExporter = pdfExporter
         self.emailMailComposer = emailMailComposer
         self.currentLocationProvider = currentLocationProvider
+    }
+
+    var timetables: [TransitTimetable] {
+        client.timetables
+    }
+
+    /// Exposes the location shortcut only when the selected source can turn coordinates into an exact place.
+    var canFillCurrentLocation: Bool {
+        client.descriptor.supports(.coordinatePlaceSelection)
     }
 
     var canSearch: Bool {
@@ -243,11 +254,13 @@ final class ConnectionsViewModel: ObservableObject {
     }
 
     var canLoadEarlier: Bool {
-        !connections.isEmpty && resultPage?.canLoadEarlier == true && !isSearching && !isLoadingLater
+        client.descriptor.supports(.connectionPaging) &&
+            !connections.isEmpty && resultPage?.canLoadEarlier == true && !isSearching && !isLoadingLater
     }
 
     var canLoadLater: Bool {
-        !connections.isEmpty && resultPage?.canLoadLater == true && !isSearching && !isLoadingEarlier
+        client.descriptor.supports(.connectionPaging) &&
+            !connections.isEmpty && resultPage?.canLoadLater == true && !isSearching && !isLoadingEarlier
     }
 
     /// Keeps untouched launch defaults current until the first search, while preserving every explicit choice.
@@ -353,7 +366,7 @@ final class ConnectionsViewModel: ObservableObject {
         toSelection = previousFromSelection
     }
 
-    /// Fills one endpoint with the localized IDOS `My location` object after an explicit shortcut action.
+    /// Fills one endpoint with the selected provider's coordinate-owned place after an explicit shortcut action.
     func fillCurrentLocation(in endpoint: ConnectionEndpoint) async {
         _ = await resolveCurrentLocation(for: [endpoint])
     }
@@ -490,12 +503,12 @@ final class ConnectionsViewModel: ObservableObject {
         let departure = from.trimmingCharacters(in: .whitespacesAndNewlines)
         let arrival = to.trimmingCharacters(in: .whitespacesAndNewlines)
         let requestedViaEntries = journeyOptions.compactMap {
-            option -> (place: String, selection: IDOSPlaceSelection?)? in
+            option -> (place: String, selection: TransitPlaceSelection?)? in
             guard option.kind == .via else { return nil }
             let place = option.viaPlace.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !place.isEmpty else { return nil }
             let selection = option.viaSelection?.text == place
-                ? option.viaSelection?.idosSelection
+                ? option.viaSelection?.placeSelection
                 : nil
             return (place, selection)
         }
@@ -503,14 +516,14 @@ final class ConnectionsViewModel: ObservableObject {
             ? nil
             : requestedViaEntries.map(\.selection)
         let requestedMaximumTransfers = maximumTransfers
-        let request = IDOSConnectionRequest(
+        let request = TransitConnectionRequest(
             timetable: timetable,
             from: departure,
             to: arrival,
-            fromSelection: fromSelection?.text == departure ? fromSelection?.idosSelection : nil,
-            toSelection: toSelection?.text == arrival ? toSelection?.idosSelection : nil,
-            date: IDOSRequestFormatting.date(from: date),
-            time: IDOSRequestFormatting.time(from: time),
+            fromSelection: fromSelection?.text == departure ? fromSelection?.placeSelection : nil,
+            toSelection: toSelection?.text == arrival ? toSelection?.placeSelection : nil,
+            serviceDate: TransitRequestFormatting.serviceDate(from: date),
+            serviceTime: TransitRequestFormatting.serviceTime(from: time),
             isArrival: isArrival,
             onlyDirect: onlyDirect,
             via: requestedViaEntries.map(\.place),
@@ -528,7 +541,7 @@ final class ConnectionsViewModel: ObservableObject {
         do {
             let page = try await client.findConnectionsPage(
                 request: request,
-                language: AppLanguagePreference.idosLanguage
+                language: AppLanguagePreference.transitLanguage
             )
             connections = page.connections
             resultPage = page
@@ -595,14 +608,15 @@ final class ConnectionsViewModel: ObservableObject {
             if fromSelection.isCurrentLocation, toSelection.isCurrentLocation {
                 return true
             }
-            return fromSelection.idosSelection.listID == toSelection.idosSelection.listID &&
-                fromSelection.idosSelection.itemID == toSelection.idosSelection.itemID
+            return fromSelection.placeSelection.dataSourceID == toSelection.placeSelection.dataSourceID &&
+                fromSelection.placeSelection.identifier == toSelection.placeSelection.identifier
         }
         return departure.localizedCaseInsensitiveCompare(arrival) == .orderedSame
     }
 
     /// Treats the exact localized `My location` phrase as an explicit location request when searching.
     private var manuallyEnteredCurrentLocationEndpoints: [ConnectionEndpoint] {
+        guard canFillCurrentLocation else { return [] }
         let locationText = AppLocalization.string("My location")
         var endpoints: [ConnectionEndpoint] = []
 
@@ -622,7 +636,12 @@ final class ConnectionsViewModel: ObservableObject {
 
     /// Resolves one coordinate once and applies it to every endpoint requested by the same user action.
     private func resolveCurrentLocation(for endpoints: [ConnectionEndpoint]) async -> Bool {
-        guard let firstEndpoint = endpoints.first, locatingEndpoint == nil else { return false }
+        guard canFillCurrentLocation,
+              let firstEndpoint = endpoints.first,
+              locatingEndpoint == nil
+        else {
+            return false
+        }
 
         locatingEndpoint = firstEndpoint
         errorMessage = nil
@@ -632,10 +651,11 @@ final class ConnectionsViewModel: ObservableObject {
             let coordinate = try await currentLocationProvider.currentLocation()
             let text = AppLocalization.string("My location")
             let selection = PlaceFieldSelection(
-                idosSelection: IDOSPlaceSelection.currentLocation(
+                placeSelection: try client.coordinatePlaceSelection(
                     text: text,
                     latitude: coordinate.latitude,
-                    longitude: coordinate.longitude
+                    longitude: coordinate.longitude,
+                    timetable: timetable
                 ),
                 kind: nil
             )
@@ -663,7 +683,7 @@ final class ConnectionsViewModel: ObservableObject {
     }
 
     /// Extends the submitted connection search at the selected chronological edge without replacing results.
-    func loadMore(_ direction: IDOSPageDirection) async {
+    func loadMore(_ direction: TransitPageDirection) async {
         guard let resultPage,
               (direction == .earlier ? canLoadEarlier : canLoadLater)
         else {
@@ -690,9 +710,9 @@ final class ConnectionsViewModel: ObservableObject {
         }
     }
 
-    private func merge(_ additionalConnections: [IDOSConnection], direction: IDOSPageDirection) {
-        let knownIDs = Set(connections.map(\.id))
-        let uniqueConnections = additionalConnections.filter { !knownIDs.contains($0.id) }
+    private func merge(_ additionalConnections: [TransitConnection], direction: TransitPageDirection) {
+        let knownIDs = Set(connections.map(\.appIdentity))
+        let uniqueConnections = additionalConnections.filter { !knownIDs.contains($0.appIdentity) }
         if direction == .earlier {
             connections.insert(contentsOf: uniqueConnections, at: 0)
         } else {
@@ -701,18 +721,18 @@ final class ConnectionsViewModel: ObservableObject {
     }
 
     /// Downloads the localized IDOS message and attachments before opening an unsent draft in Mail.
-    func composeEmailInMail(for connection: IDOSConnection) async {
+    func composeEmailInMail(for connection: TransitConnection) async {
         guard processingEmailConnectionID == nil else { return }
 
-        processingEmailConnectionID = connection.id
+        processingEmailConnectionID = connection.appIdentity
         errorMessage = nil
         defer { processingEmailConnectionID = nil }
 
         do {
             let draft = try await ConnectionEmailMailDraft.prepare(
                 connection: connection,
-                timetable: timetable,
-                language: AppLanguagePreference.idosLanguage,
+                timetable: connection.appTimetable(in: client.timetables),
+                language: AppLanguagePreference.transitLanguage,
                 client: client
             )
             guard !Task.isCancelled else { return }
@@ -726,17 +746,17 @@ final class ConnectionsViewModel: ObservableObject {
     /// Fetches one native IDOS calendar and either opens it or lets the user retain its ICS file.
     func performCalendarAction(
         _ action: CalendarExportAction,
-        for connection: IDOSConnection
+        for connection: TransitConnection
     ) async {
-        processingCalendarConnectionID = connection.id
+        processingCalendarConnectionID = connection.appIdentity
         errorMessage = nil
         defer { processingCalendarConnectionID = nil }
 
         do {
             let calendar = try await client.connectionCalendar(
                 for: connection,
-                timetable: timetable,
-                language: AppLanguagePreference.idosLanguage
+                timetable: connection.appTimetable(in: client.timetables),
+                language: AppLanguagePreference.transitLanguage
             )
             switch action {
             case .addToCalendar:
@@ -758,17 +778,17 @@ final class ConnectionsViewModel: ObservableObject {
     /// Fetches one native IDOS PDF and either opens it in Preview or lets the user retain its file.
     func performPDFAction(
         _ action: PDFExportAction,
-        for connection: IDOSConnection
+        for connection: TransitConnection
     ) async {
-        processingPDFConnectionID = connection.id
+        processingPDFConnectionID = connection.appIdentity
         errorMessage = nil
         defer { processingPDFConnectionID = nil }
 
         do {
             let data = try await client.connectionPDF(
                 for: connection,
-                timetable: timetable,
-                language: AppLanguagePreference.idosLanguage
+                timetable: connection.appTimetable(in: client.timetables),
+                language: AppLanguagePreference.transitLanguage
             )
             let fileName = PDFExportFileName.connection(
                 from: connection.departureStation,

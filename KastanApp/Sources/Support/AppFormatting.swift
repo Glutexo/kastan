@@ -3,13 +3,64 @@ import Foundation
 import Kastan
 import SwiftUI
 
-/// Converts app controls into the date and time values expected by IDOS.
-enum IDOSRequestFormatting {
-    static func date(from value: Date) -> String {
+/// Converts native date controls into provider-neutral requests and localized search summaries.
+enum TransitRequestFormatting {
+    /// Bridges Gregorian provider values into the device zone used by the native date controls.
+    static func displayDateAndTime(
+        serviceDate: TransitDate,
+        serviceTime: TransitTime,
+        timeZone: TimeZone = .current
+    ) -> Date? {
+        serviceDate.date(in: gregorianCalendar(timeZone: timeZone), at: serviceTime)
+    }
+
+    static func serviceDate(
+        from value: Date,
+        timeZone: TimeZone = .current
+    ) -> TransitDate {
+        let calendar = gregorianCalendar(timeZone: timeZone)
+        let components = calendar.dateComponents([.year, .month, .day], from: value)
+        return TransitDate(
+            year: components.year ?? 1,
+            month: components.month ?? 1,
+            day: components.day ?? 1
+        )
+    }
+
+    static func serviceTime(
+        from value: Date,
+        timeZone: TimeZone = .current
+    ) -> TransitTime {
+        let calendar = gregorianCalendar(timeZone: timeZone)
+        let components = calendar.dateComponents([.hour, .minute], from: value)
+        return TransitTime(hour: components.hour ?? 0, minute: components.minute ?? 0)
+    }
+
+    private static func gregorianCalendar(timeZone: TimeZone) -> Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "en_US_POSIX")
+        calendar.timeZone = timeZone
+        return calendar
+    }
+
+    static func serviceTime(from value: String) -> TransitTime? {
+        let components = value.split(separator: ":", omittingEmptySubsequences: false)
+        guard components.count == 2,
+              let hour = Int(components[0]),
+              let minute = Int(components[1]),
+              (0...23).contains(hour),
+              (0...59).contains(minute)
+        else {
+            return nil
+        }
+        return TransitTime(hour: hour, minute: minute)
+    }
+
+    static func displayDate(from value: Date) -> String {
         formatter(format: "d.M.yyyy").string(from: value)
     }
 
-    static func time(from value: Date) -> String {
+    static func displayTime(from value: Date) -> String {
         formatter(format: "H:mm").string(from: value)
     }
 
@@ -88,7 +139,7 @@ struct SearchSummaryPresentation: Equatable {
     }
 }
 
-/// Selects the IDOS text variant that matches the app's current system language.
+/// Selects the provider text variant that matches the app's current system language.
 enum AppLanguagePreference {
     private static let countryCodeByEnglishName: [String: String] = {
         let english = Locale(identifier: "en_US")
@@ -101,12 +152,15 @@ enum AppLanguagePreference {
         return result
     }()
 
-    static var idosLanguage: IDOSLanguage {
+    static var transitLanguage: TransitLanguage {
         Bundle.main.preferredLocalizations.first == "cs" ? .czech : .english
     }
 
+    /// Retains the earlier app-internal name used by deterministic compatibility tests.
+    static var idosLanguage: TransitLanguage { transitLanguage }
+
     /// Localizes an English country name returned in IDOS metadata through its ISO region code.
-    static func localizedCountryName(fromEnglishName name: String, language: IDOSLanguage) -> String? {
+    static func localizedCountryName(fromEnglishName name: String, language: TransitLanguage) -> String? {
         guard let regionCode = countryCodeByEnglishName[normalizedCountryName(name)] else {
             return nil
         }
@@ -119,13 +173,13 @@ enum AppLanguagePreference {
         return locale.localizedString(forRegionCode: regionCode)
     }
 
-    /// Converts a permanent IDOS result link to the website variant matching the app language.
-    static func localizedIDOSURL(from value: String) -> URL? {
-        localizedIDOSURL(from: value, language: idosLanguage)
+    /// Localizes known provider result links and preserves URLs from providers without a URL language convention.
+    static func localizedResultURL(from value: String) -> URL? {
+        localizedResultURL(from: value, language: transitLanguage)
     }
 
     /// Provides an explicit language variant for deterministic presentation tests.
-    static func localizedIDOSURL(from value: String, language: IDOSLanguage) -> URL? {
+    static func localizedResultURL(from value: String, language: TransitLanguage) -> URL? {
         guard let url = URL(string: value),
               var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         else {
@@ -151,6 +205,15 @@ enum AppLanguagePreference {
         }
         components.percentEncodedPath = path
         return components.url
+    }
+
+    /// Retains the earlier app-internal IDOS spelling while callers migrate to provider-neutral result links.
+    static func localizedIDOSURL(from value: String) -> URL? {
+        localizedResultURL(from: value)
+    }
+
+    static func localizedIDOSURL(from value: String, language: TransitLanguage) -> URL? {
+        localizedResultURL(from: value, language: language)
     }
 
     private static func normalizedCountryName(_ value: String) -> String {
@@ -218,7 +281,7 @@ enum AppErrorPresentation {
         case .invalidTimetable(let value):
             return AppLocalization.string("Invalid timetable: %@.", value)
         case .invalidStationTimetableMunicipality(let value, let timetable):
-            let available = IDOSStationTimetableMunicipality.available(for: timetable)
+            let available = TransitStationTimetableMunicipality.available(for: timetable)
                 .map(\.name)
                 .joined(separator: ", ")
             if available.isEmpty {
@@ -270,28 +333,52 @@ enum AppErrorPresentation {
 struct TimetableFavorites: Equatable {
     static let storageKey = "favoriteTimetableSlugs"
 
-    private(set) var slugs: [String]
+    private var references: [TimetableFavoriteReference]
+    private let catalog: [TransitTimetable]
 
-    init(slugs: [String] = []) {
-        let knownSlugs = Set(IDOSTimetable.known.map(\.slug))
-        var uniqueSlugs = Set<String>()
-        self.slugs = slugs.filter { slug in
-            knownSlugs.contains(slug) && uniqueSlugs.insert(slug).inserted
+    /// Retains the historical view used by the IDOS-only UI and its tests.
+    var slugs: [String] {
+        references.map(\.identifier)
+    }
+
+    init(
+        slugs: [String] = [],
+        catalog: [TransitTimetable] = TransitTimetable.known
+    ) {
+        self.catalog = catalog
+        var uniqueReferences = Set<TimetableFavoriteReference>()
+        references = slugs.compactMap { identifier in
+            guard let timetable = catalog.first(where: { $0.identifier == identifier }) else {
+                return nil
+            }
+            let reference = TimetableFavoriteReference(timetable)
+            return uniqueReferences.insert(reference).inserted ? reference : nil
         }
     }
 
-    init(serialized: String) {
+    init(
+        serialized: String,
+        catalog: [TransitTimetable] = TransitTimetable.known
+    ) {
+        self.catalog = catalog
         guard let data = serialized.data(using: .utf8),
-              let slugs = try? JSONDecoder().decode([String].self, from: data)
+              let decoded = try? JSONDecoder().decode(
+                  [TimetableFavoriteReference].self,
+                  from: data
+              )
         else {
-            self.init()
+            references = []
             return
         }
-        self.init(slugs: slugs)
+
+        var uniqueReferences = Set<TimetableFavoriteReference>()
+        references = decoded.filter {
+            uniqueReferences.insert($0).inserted
+        }
     }
 
     var serialized: String {
-        guard let data = try? JSONEncoder().encode(slugs),
+        guard let data = try? JSONEncoder().encode(references),
               let value = String(data: data, encoding: .utf8)
         else {
             return "[]"
@@ -299,29 +386,81 @@ struct TimetableFavorites: Equatable {
         return value
     }
 
-    var timetables: [IDOSTimetable] {
-        slugs.compactMap { slug in
-            IDOSTimetable.known.first { $0.slug == slug }
+    var timetables: [TransitTimetable] {
+        references.compactMap { reference in
+            catalog.first { reference == TimetableFavoriteReference($0) }
         }
     }
 
-    func contains(_ timetable: IDOSTimetable) -> Bool {
-        slugs.contains(timetable.slug)
+    func contains(_ timetable: TransitTimetable) -> Bool {
+        references.contains(TimetableFavoriteReference(timetable))
     }
 
-    mutating func toggle(_ timetable: IDOSTimetable) {
-        if let index = slugs.firstIndex(of: timetable.slug) {
-            slugs.remove(at: index)
-        } else if IDOSTimetable.known.contains(where: { $0.slug == timetable.slug }) {
-            slugs.append(timetable.slug)
+    mutating func toggle(_ timetable: TransitTimetable) {
+        let reference = TimetableFavoriteReference(timetable)
+        if let index = references.firstIndex(of: reference) {
+            references.remove(at: index)
+        } else if catalog.contains(where: { TimetableFavoriteReference($0) == reference }) {
+            references.append(reference)
         }
+    }
+}
+
+/// Persists provider-owned timetable identity while decoding the original array of IDOS slugs unchanged.
+private struct TimetableFavoriteReference: Codable, Equatable, Hashable {
+    let dataSourceID: TransitDataSourceID
+    let identifier: String
+
+    init(_ timetable: TransitTimetable) {
+        dataSourceID = timetable.dataSourceID
+        identifier = timetable.identifier
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case dataSourceID
+        case identifier
+    }
+
+    init(from decoder: Decoder) throws {
+        if let legacyIdentifier = try? decoder.singleValueContainer().decode(String.self) {
+            dataSourceID = .idos
+            identifier = legacyIdentifier
+            return
+        }
+
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        dataSourceID = try container.decode(TransitDataSourceID.self, forKey: .dataSourceID)
+        identifier = try container.decode(String.self, forKey: .identifier)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        if dataSourceID == .idos {
+            var container = encoder.singleValueContainer()
+            try container.encode(identifier)
+            return
+        }
+
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(dataSourceID, forKey: .dataSourceID)
+        try container.encode(identifier, forKey: .identifier)
     }
 }
 
 /// Keeps every macOS search mode aligned on the narrowest useful timetable available to all of them.
 enum AppTimetableDefaults {
-    static let search = IDOSTimetable.known.first { $0.slug == "vlaky" }
-        ?? IDOSTimetable(slug: "vlaky", displayName: "Trains")
+    static let search = TransitTimetable.known.first { $0.slug == "vlaky" }
+        ?? TransitTimetable(slug: "vlaky", displayName: "Trains")
+
+    /// Prefers the established train catalog when a provider offers it, then falls back to its declared default.
+    static func search(
+        in timetables: [TransitTimetable],
+        defaultTimetable: TransitTimetable
+    ) -> TransitTimetable {
+        guard defaultTimetable.dataSourceID == .idos else { return defaultTimetable }
+        return timetables.first {
+            $0.dataSourceID == .idos && $0.identifier == "vlaky"
+        } ?? defaultTimetable
+    }
 }
 
 /// Product-facing sections that keep the long IDOS timetable catalog scannable.
@@ -329,6 +468,7 @@ enum AppTimetableGroup: CaseIterable, Identifiable {
     case general
     case integratedSystems
     case cityTransport
+    case providerCatalog
 
     private static let generalSlugs: Set<String> = [
         "vlakyautobusymhdvse",
@@ -349,11 +489,18 @@ enum AppTimetableGroup: CaseIterable, Identifiable {
             "Integrated transport systems"
         case .cityTransport:
             "Urban public transport by city"
+        case .providerCatalog:
+            "Timetables"
         }
     }
 
-    var timetables: [IDOSTimetable] {
-        let matches = IDOSTimetable.known.filter(contains)
+    var timetables: [TransitTimetable] {
+        timetables(in: TransitTimetable.known)
+    }
+
+    /// Applies the existing product grouping to the active provider's catalog.
+    func timetables(in catalog: [TransitTimetable]) -> [TransitTimetable] {
+        let matches = catalog.filter(contains)
         guard self == .cityTransport else { return matches }
         return matches.sorted {
             $0.appDisplayName.localizedStandardCompare($1.appDisplayName) == .orderedAscending
@@ -361,13 +508,22 @@ enum AppTimetableGroup: CaseIterable, Identifiable {
     }
 
     /// Limits station timetables to trains, integrated systems, and individual MHD catalogs supported by IDOS.
-    static var stationTimetables: [IDOSTimetable] {
-        let trains = general.timetables.filter { $0.slug == "vlaky" }
-        return trains + integratedSystems.timetables + cityTransport.timetables
+    static var stationTimetables: [TransitTimetable] {
+        stationTimetables(in: TransitTimetable.known)
     }
 
-    private func contains(_ timetable: IDOSTimetable) -> Bool {
-        let isGeneral = Self.generalSlugs.contains(timetable.slug)
+    static func stationTimetables(in catalog: [TransitTimetable]) -> [TransitTimetable] {
+        let trains = general.timetables(in: catalog).filter { $0.identifier == "vlaky" }
+        return trains + integratedSystems.timetables(in: catalog) + cityTransport.timetables(in: catalog) +
+            providerCatalog.timetables(in: catalog)
+    }
+
+    private func contains(_ timetable: TransitTimetable) -> Bool {
+        guard timetable.dataSourceID == .idos else {
+            return self == .providerCatalog
+        }
+
+        let isGeneral = Self.generalSlugs.contains(timetable.identifier)
         let isCityTransport = timetable.displayName.hasPrefix(Self.cityTransportPrefix)
 
         switch self {
@@ -377,28 +533,44 @@ enum AppTimetableGroup: CaseIterable, Identifiable {
             return !isGeneral && !isCityTransport
         case .cityTransport:
             return isCityTransport
+        case .providerCatalog:
+            return false
         }
     }
 }
 
 /// Supplies one sectioned timetable menu to search pickers, optionally limited to a supported subset.
 struct AppTimetablePickerOptions: View {
-    let favoriteSlugs: [String]
-    let allowedTimetables: [IDOSTimetable]
+    let favoriteTimetables: [TransitTimetable]
+    let allowedTimetables: [TransitTimetable]
 
     init(
-        favoriteSlugs: [String] = [],
-        allowedTimetables: [IDOSTimetable] = IDOSTimetable.known
+        favoriteTimetables: [TransitTimetable] = [],
+        allowedTimetables: [TransitTimetable] = TransitTimetable.known
     ) {
-        self.favoriteSlugs = favoriteSlugs
+        self.favoriteTimetables = favoriteTimetables
         self.allowedTimetables = allowedTimetables
+    }
+
+    /// Retains the source-compatible IDOS-slug initializer for existing app tests and callers.
+    init(
+        favoriteSlugs: [String],
+        allowedTimetables: [TransitTimetable] = TransitTimetable.known
+    ) {
+        self.init(
+            favoriteTimetables: TimetableFavorites(
+                slugs: favoriteSlugs,
+                catalog: allowedTimetables
+            ).timetables,
+            allowedTimetables: allowedTimetables
+        )
     }
 
     var body: some View {
         if !favoriteTimetables.isEmpty {
             Section {
-                ForEach(favoriteTimetables, id: \.slug) { timetable in
-                    Text(timetable.appDisplayName).tag(timetable.slug)
+                ForEach(favoriteTimetables, id: \.appIdentity) { timetable in
+                    Text(timetable.appDisplayName).tag(timetable.appIdentity)
                 }
             } header: {
                 Text("Favorites")
@@ -409,8 +581,8 @@ struct AppTimetablePickerOptions: View {
             let timetables = catalogTimetables(in: group)
             if !timetables.isEmpty {
                 Section {
-                    ForEach(timetables, id: \.slug) { timetable in
-                        Text(timetable.appDisplayName).tag(timetable.slug)
+                    ForEach(timetables, id: \.appIdentity) { timetable in
+                        Text(timetable.appDisplayName).tag(timetable.appIdentity)
                     }
                 } header: {
                     Text(group.title)
@@ -419,28 +591,39 @@ struct AppTimetablePickerOptions: View {
         }
     }
 
-    private var favorites: TimetableFavorites {
-        TimetableFavorites(slugs: favoriteSlugs)
-    }
-
-    private var favoriteTimetables: [IDOSTimetable] {
-        favorites.timetables.filter(isAllowed)
-    }
-
     /// Keeps every allowed timetable in its catalog section, even when favorites also expose it
     /// for quick access.
-    func catalogTimetables(in group: AppTimetableGroup) -> [IDOSTimetable] {
-        group.timetables.filter(isAllowed)
+    func catalogTimetables(in group: AppTimetableGroup) -> [TransitTimetable] {
+        group.timetables(in: allowedTimetables)
     }
 
-    private func isAllowed(_ timetable: IDOSTimetable) -> Bool {
-        allowedTimetables.contains(where: { $0.slug == timetable.slug })
+    private func isAllowed(_ timetable: TransitTimetable) -> Bool {
+        allowedTimetables.contains(timetable)
     }
 }
 
-extension IDOSTimetable {
+/// A collision-free key for one provider-owned timetable, regardless of characters used in either identifier.
+struct AppTimetableIdentity: Hashable {
+    let dataSourceID: TransitDataSourceID
+    let timetableIdentifier: String
+}
+
+/// A collision-free key for one opaque provider value scoped to its owning timetable.
+struct AppTransitValueIdentity: Hashable {
+    let dataSourceID: TransitDataSourceID
+    let timetableIdentifier: String
+    let valueIdentifier: String
+}
+
+extension TransitTimetable {
+    /// Keeps SwiftUI identity stable even when two providers reuse the same timetable identifier.
+    var appIdentity: AppTimetableIdentity {
+        AppTimetableIdentity(dataSourceID: dataSourceID, timetableIdentifier: identifier)
+    }
+
     /// Localizes catalog labels while preserving city and integrated-system proper names.
     var appDisplayName: String {
+        guard dataSourceID == .idos else { return displayName }
         switch slug {
         case "vlakyautobusymhdvse":
             return AppLocalization.string("All timetables")
@@ -461,6 +644,62 @@ extension IDOSTimetable {
             }
             return displayName
         }
+    }
+}
+
+extension TransitConnection {
+    /// Resolves the immutable timetable that owns this result instead of consulting mutable search controls.
+    func appTimetable(in catalog: [TransitTimetable]) -> TransitTimetable {
+        TransitTimetable.appOwned(
+            dataSourceID: dataSourceID,
+            identifier: timetableIdentifier,
+            in: catalog
+        )
+    }
+
+    /// Keeps list and action state distinct when providers reuse opaque result identifiers.
+    var appIdentity: AppTransitValueIdentity {
+        AppTransitValueIdentity(
+            dataSourceID: dataSourceID,
+            timetableIdentifier: timetableIdentifier,
+            valueIdentifier: id
+        )
+    }
+}
+
+extension TransitDeparture {
+    /// Resolves the immutable timetable that owns this row instead of consulting mutable search controls.
+    func appTimetable(in catalog: [TransitTimetable]) -> TransitTimetable {
+        TransitTimetable.appOwned(
+            dataSourceID: dataSourceID,
+            identifier: timetableIdentifier,
+            in: catalog
+        )
+    }
+
+    /// Keeps station-board identity stable across providers and timetable catalogs.
+    var appIdentity: AppTransitValueIdentity {
+        AppTransitValueIdentity(
+            dataSourceID: dataSourceID,
+            timetableIdentifier: timetableIdentifier,
+            valueIdentifier: id
+        )
+    }
+}
+
+private extension TransitTimetable {
+    static func appOwned(
+        dataSourceID: TransitDataSourceID,
+        identifier: String,
+        in catalog: [TransitTimetable]
+    ) -> TransitTimetable {
+        catalog.first {
+            $0.dataSourceID == dataSourceID && $0.identifier == identifier
+        } ?? TransitTimetable(
+            dataSourceID: dataSourceID,
+            identifier: identifier,
+            displayName: identifier
+        )
     }
 }
 
@@ -552,7 +791,7 @@ enum SymbolTextPreference {
 
 /// Preserves the order and complete meaning of the facilities and restrictions printed by IDOS.
 struct ServiceInformationPresentation: Equatable {
-    let values: [IDOSServiceInformation]
+    let values: [TransitServiceInformation]
 
     var symbols: String {
         values.map(\.symbol).joined(separator: " ")
@@ -577,7 +816,7 @@ struct ServiceInformationPresentation: Equatable {
 
 /// Describes the concrete classifier predicates that selected one service-information meaning.
 struct ServiceInformationRulePresentation: Equatable {
-    let information: IDOSServiceInformation
+    let information: TransitServiceInformation
 
     /// Returns only the exact phrase, pattern, or structural rule without repeating the IDOS wording.
     func explanation(bundle: Bundle = .main) -> String {
@@ -602,7 +841,7 @@ struct ServiceInformationRulePresentation: Equatable {
     }
 
     private func ruleDescription(
-        _ rule: IDOSServiceInformation.ClassificationRule,
+        _ rule: TransitServiceInformation.ClassificationRule,
         bundle: Bundle
     ) -> String {
         switch rule {
@@ -672,7 +911,7 @@ struct ServiceInformationRulePresentation: Equatable {
 
 /// Shows compact semantic emoji by default and the unabridged IDOS wording on request.
 struct ServiceInformationSummary: View {
-    let values: [IDOSServiceInformation]
+    let values: [TransitServiceInformation]
     let showsText: Bool
 
     var body: some View {
@@ -1109,7 +1348,7 @@ enum ResultMetadata {
 
     /// Keeps the departure platform beside a connection service while its localized meaning remains available.
     static func compactConnectionPlatform(
-        _ leg: IDOSConnectionLeg,
+        _ leg: TransitConnectionLeg,
         bundle: Bundle = .main
     ) -> CompactItem? {
         guard let platform = cleaned(leg.fromPlatform) else { return nil }
@@ -1133,7 +1372,7 @@ enum ResultMetadata {
     }
 
     /// Matches IDOS connection results by keeping optional carrier and punctuality details together.
-    static func connectionLeg(_ leg: IDOSConnectionLeg, showsDetails: Bool) -> String? {
+    static func connectionLeg(_ leg: TransitConnectionLeg, showsDetails: Bool) -> String? {
         visible(
             showsDetails: showsDetails,
             leg.carrier,

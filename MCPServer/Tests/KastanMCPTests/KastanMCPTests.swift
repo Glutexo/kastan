@@ -5,7 +5,7 @@ import MCP
 import Testing
 
 @Test func serverAdvertisesReadOnlyKastanTools() async throws {
-    let server = await KastanMCPServer.makeServer(client: MockIDOSClient())
+    let server = await KastanMCPServer.makeServer(dataSource: MockIDOSClient())
     let (clientTransport, serverTransport) = await InMemoryTransport.createConnectedPair()
     let client = Client(name: "kastan-mcp-tests", version: "1.0.0", configuration: .strict)
 
@@ -27,6 +27,10 @@ import Testing
     ])
     #expect(tools.allSatisfy { $0.annotations.readOnlyHint == true })
     #expect(tools.allSatisfy { $0.outputSchema?.objectValue?["type"] == "object" })
+    #expect(tools.allSatisfy {
+        let properties = $0.inputSchema.objectValue?["properties"]?.objectValue
+        return properties?["dataSource"] == nil && properties?["source"] == nil
+    })
     #expect(tools.first { $0.name == "find_connections" }?.inputSchema.objectValue?["required"] == ["from", "to"])
     #expect(tools.first { $0.name == "find_connections" }?.outputSchema?.objectValue?["required"] == ["request", "connections"])
     #expect(
@@ -68,7 +72,7 @@ import Testing
 
 @Test func connectionToolPassesValidatedRequestToKastan() async throws {
     let mock = MockIDOSClient()
-    let tools = KastanMCPTools(client: mock)
+    let tools = KastanMCPTools(dataSource: mock)
     let result = await tools.call(
         name: "find_connections",
         arguments: [
@@ -110,9 +114,42 @@ import Testing
     #expect(request?.resultLimit == 7)
 }
 
+/// Keeps the public IDOS MCP schema stable when library models retain internal timetable routing metadata.
+@Test func nonDefaultTimetableOutputsOmitInternalRoutingMetadataAndMatchTheirSchemas() async throws {
+    let tools = KastanMCPTools(dataSource: MockIDOSClient())
+    let calls: [(name: String, arguments: [String: Value])] = [
+        ("suggest_places", ["prefix": "Svinov", "timetable": "odis"]),
+        ("search_stations", ["prefix": "Svinov", "timetable": "odis"]),
+        (
+            "search_station_timetable_lines",
+            ["prefix": "301", "timetable": "odis", "municipality": "FM"]
+        ),
+        (
+            "search_station_timetable_stops",
+            ["prefix": "Stra", "line": "Bus 154", "timetable": "odis", "municipality": "FM"]
+        ),
+        ("find_connections", ["from": "Praha", "to": "Brno", "timetable": "odis"]),
+        ("find_departures", ["station": "Ostrava-Svinov", "timetable": "odis"]),
+    ]
+
+    for call in calls {
+        let result = await tools.call(name: call.name, arguments: call.arguments)
+        let structuredContent = try #require(result.structuredContent)
+        let schema = try #require(
+            KastanMCPTools.definitions.first { $0.name == call.name }?.outputSchema
+        )
+
+        #expect(result.isError == false)
+        #expect(!containsInternalRoutingMetadata(structuredContent))
+        #expect(text(from: result.content)?.contains("\"timetableIdentifier\"") == false)
+        #expect(text(from: result.content)?.contains("\"dataSourceID\"") == false)
+        #expect(schemaValidationErrors(for: structuredContent, schema: schema).isEmpty)
+    }
+}
+
 @Test func suggestionAndStationToolsUseTheirDistinctLibraryOperations() async {
     let mock = MockIDOSClient()
-    let tools = KastanMCPTools(client: mock)
+    let tools = KastanMCPTools(dataSource: mock)
 
     let suggestions = await tools.call(
         name: "suggest_places",
@@ -131,7 +168,7 @@ import Testing
 
 @Test func stationTimetableSuggestionToolsKeepLineDirectionContext() async {
     let mock = MockIDOSClient()
-    let tools = KastanMCPTools(client: mock)
+    let tools = KastanMCPTools(dataSource: mock)
     let lines = await tools.call(
         name: "search_station_timetable_lines",
         arguments: [
@@ -166,7 +203,7 @@ import Testing
 
 @Test func stationTimetableSuggestionToolsUseIREDODefaultMunicipality() async {
     let mock = MockIDOSClient()
-    let tools = KastanMCPTools(client: mock)
+    let tools = KastanMCPTools(dataSource: mock)
     let lines = await tools.call(
         name: "search_station_timetable_lines",
         arguments: ["prefix": "481", "timetable": "iredo"]
@@ -187,7 +224,7 @@ import Testing
 
 @Test func stationTimetableSuggestionToolsUseIDOLDefaultMunicipality() async {
     let mock = MockIDOSClient()
-    let tools = KastanMCPTools(client: mock)
+    let tools = KastanMCPTools(dataSource: mock)
     let lines = await tools.call(
         name: "search_station_timetable_lines",
         arguments: ["prefix": "202", "timetable": "idol"]
@@ -208,7 +245,7 @@ import Testing
 
 @Test func departureToolLimitsReturnedRowsWithoutChangingIDOSRequest() async {
     let mock = MockIDOSClient()
-    let tools = KastanMCPTools(client: mock)
+    let tools = KastanMCPTools(dataSource: mock)
     let result = await tools.call(
         name: "find_departures",
         arguments: [
@@ -233,7 +270,7 @@ import Testing
 
 @Test func stationTimetableToolPassesCompleteRequestAndLanguageToKastan() async {
     let mock = MockIDOSClient()
-    let tools = KastanMCPTools(client: mock)
+    let tools = KastanMCPTools(dataSource: mock)
     let result = await tools.call(
         name: "find_station_timetable",
         arguments: [
@@ -268,9 +305,9 @@ import Testing
     #expect(await mock.lastStationTimetableLanguage == .czech)
 }
 
-@Test func serviceDetailToolLoadsCompleteRouteByOpaqueID() async {
+@Test func serviceDetailToolLoadsCompleteRouteByOpaqueID() async throws {
     let mock = MockIDOSClient()
-    let tools = KastanMCPTools(client: mock)
+    let tools = KastanMCPTools(dataSource: mock)
     let result = await tools.call(
         name: "get_service_detail",
         arguments: [
@@ -279,8 +316,15 @@ import Testing
     )
 
     #expect(result.isError == false)
-    #expect(result.structuredContent?.objectValue?["service"]?.objectValue?["stops"]?.arrayValue?.count == 2)
-    #expect(result.structuredContent?.objectValue?["service"]?.objectValue?["timetable"]?.objectValue?["slug"]?.stringValue == "vlaky")
+    let service = try #require(result.structuredContent?.objectValue?["service"]?.objectValue)
+    #expect(service["stops"]?.arrayValue?.count == 2)
+    #expect(service["timetable"]?.objectValue?["slug"]?.stringValue == "vlaky")
+    #expect(service["information"]?.arrayValue?.first == "Operating dates")
+    #expect(service["serviceInformation"] == nil)
+    let schema = try #require(
+        KastanMCPTools.definitions.first { $0.name == "get_service_detail" }?.outputSchema
+    )
+    #expect(schemaValidationErrors(for: try #require(result.structuredContent), schema: schema).isEmpty)
     #expect(text(from: result.content)?.contains("\"name\" : \"RJ 1051 RegioJet\"") == true)
     #expect(await mock.lastServiceID == "vlaky:0-74552-18.06.2026 12:04:00")
     #expect(await mock.lastServiceTimetable == IDOSTimetable.defaultTimetable.slug)
@@ -289,7 +333,7 @@ import Testing
 
 @Test func serviceDetailToolPassesSelectedLanguageAndLegacyTimetable() async {
     let mock = MockIDOSClient()
-    let tools = KastanMCPTools(client: mock)
+    let tools = KastanMCPTools(dataSource: mock)
     let result = await tools.call(
         name: "get_service_detail",
         arguments: [
@@ -307,7 +351,7 @@ import Testing
 
 @Test func invalidToolArgumentsReturnMCPToolErrorsWithoutCallingIDOS() async {
     let mock = MockIDOSClient()
-    let tools = KastanMCPTools(client: mock)
+    let tools = KastanMCPTools(dataSource: mock)
 
     let missing = await tools.call(name: "find_connections", arguments: ["from": "Praha"])
     let wrongType = await tools.call(name: "find_departures", arguments: ["station": "Praha", "limit": "many"])
@@ -348,6 +392,97 @@ private func text(from content: [Tool.Content]) -> String? {
     return text
 }
 
+/// Detects implementation-only identity keys at any depth of a public MCP result.
+private func containsInternalRoutingMetadata(_ value: Value) -> Bool {
+    switch value {
+    case .array(let values):
+        return values.contains(where: containsInternalRoutingMetadata)
+    case .object(let object):
+        let internalKeys: Set<String> = ["dataSourceID", "timetableIdentifier", "identifier"]
+        return !internalKeys.isDisjoint(with: object.keys) ||
+            object.values.contains(where: containsInternalRoutingMetadata)
+    default:
+        return false
+    }
+}
+
+/// Validates the JSON Schema subset used by every MCP output, including closed nested objects.
+private func schemaValidationErrors(
+    for value: Value,
+    schema: Value,
+    path: String = "$"
+) -> [String] {
+    guard let definition = schema.objectValue else {
+        return ["\(path): schema is not an object"]
+    }
+
+    var errors: [String] = []
+    if let allowedValues = definition["enum"]?.arrayValue, !allowedValues.contains(value) {
+        errors.append("\(path): value is outside the advertised enum")
+    }
+
+    switch definition["type"]?.stringValue {
+    case "object":
+        guard let object = value.objectValue else {
+            return errors + ["\(path): expected an object"]
+        }
+        let properties = definition["properties"]?.objectValue ?? [:]
+        let required = Set(definition["required"]?.arrayValue?.compactMap(\.stringValue) ?? [])
+        for key in required.subtracting(object.keys).sorted() {
+            errors.append("\(path): missing required property \(key)")
+        }
+        if definition["additionalProperties"]?.boolValue == false {
+            for key in Set(object.keys).subtracting(properties.keys).sorted() {
+                errors.append("\(path): unexpected property \(key)")
+            }
+        }
+        for key in object.keys.sorted() {
+            guard let propertySchema = properties[key], let property = object[key] else { continue }
+            errors += schemaValidationErrors(
+                for: property,
+                schema: propertySchema,
+                path: "\(path).\(key)"
+            )
+        }
+    case "array":
+        guard let values = value.arrayValue else {
+            return errors + ["\(path): expected an array"]
+        }
+        guard let itemSchema = definition["items"] else {
+            return errors + ["\(path): array schema has no item definition"]
+        }
+        for (index, item) in values.enumerated() {
+            errors += schemaValidationErrors(
+                for: item,
+                schema: itemSchema,
+                path: "\(path)[\(index)]"
+            )
+        }
+    case "string":
+        if value.stringValue == nil {
+            errors.append("\(path): expected a string")
+        }
+    case "integer":
+        if value.intValue == nil {
+            errors.append("\(path): expected an integer")
+        }
+    case "number":
+        if value.intValue == nil && value.doubleValue == nil {
+            errors.append("\(path): expected a number")
+        }
+    case "boolean":
+        if value.boolValue == nil {
+            errors.append("\(path): expected a boolean")
+        }
+    case .none:
+        errors.append("\(path): schema has no type")
+    case .some(let type):
+        errors.append("\(path): unsupported schema type \(type)")
+    }
+
+    return errors
+}
+
 private struct QueryCall: Equatable, Sendable {
     let prefix: String
     let limit: Int
@@ -362,6 +497,7 @@ private struct StationTimetableStopQuery: Equatable, Sendable {
 }
 
 private actor MockIDOSClient: IDOSClienting {
+    nonisolated let descriptor = TransitDataSourceDescriptor.idos
     var lastSuggestionQuery: QueryCall?
     var lastStationQuery: QueryCall?
     var lastStationTimetableLineQuery: QueryCall?
@@ -378,12 +514,12 @@ private actor MockIDOSClient: IDOSClienting {
 
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
         lastSuggestionQuery = QueryCall(prefix: prefix, limit: limit, timetableSlug: timetable.slug)
-        return [IDOSSuggestion(text: "Ostrava-Svinov")]
+        return [IDOSSuggestion(timetableIdentifier: timetable.identifier, text: "Ostrava-Svinov")]
     }
 
     func searchStations(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
         lastStationQuery = QueryCall(prefix: prefix, limit: limit, timetableSlug: timetable.slug)
-        return [IDOSSuggestion(text: "Praha hl.n.")]
+        return [IDOSSuggestion(timetableIdentifier: timetable.identifier, text: "Praha hl.n.")]
     }
 
     func searchStationTimetableLines(
@@ -393,6 +529,7 @@ private actor MockIDOSClient: IDOSClienting {
     ) async throws -> [IDOSSuggestion] {
         lastStationTimetableLineQuery = QueryCall(prefix: prefix, limit: limit, timetableSlug: timetable.slug)
         return [IDOSSuggestion(
+            timetableIdentifier: timetable.identifier,
             text: "Bus 154",
             description: "Strašnická-Sídliště Libuš",
             from: "Strašnická",
@@ -426,7 +563,11 @@ private actor MockIDOSClient: IDOSClienting {
             limit: limit,
             timetableSlug: timetable.slug
         )
-        return [IDOSSuggestion(text: "Strašnická", description: "Station")]
+        return [IDOSSuggestion(
+            timetableIdentifier: timetable.identifier,
+            text: "Strašnická",
+            description: "Station"
+        )]
     }
 
     func searchStationTimetableStops(
@@ -449,6 +590,7 @@ private actor MockIDOSClient: IDOSClienting {
         lastConnectionRequest = request
         return [
             IDOSConnection(
+                timetableIdentifier: request.timetable.identifier,
                 id: "connection-1",
                 departureTime: "12:00",
                 departureStation: "Praha hl.n.",
@@ -479,6 +621,7 @@ private actor MockIDOSClient: IDOSClienting {
         lastDeparturesRequest = request
         return [
             IDOSDeparture(
+                timetableIdentifier: request.timetable.identifier,
                 id: "departure-1",
                 time: "16:01",
                 lineName: "S2",
@@ -487,7 +630,13 @@ private actor MockIDOSClient: IDOSClienting {
                     IDOSServiceInformation(text: "Wheelchair accessible carriage"),
                 ]
             ),
-            IDOSDeparture(id: "departure-2", time: "16:05", lineName: "S4", destination: "Bohumín"),
+            IDOSDeparture(
+                timetableIdentifier: request.timetable.identifier,
+                id: "departure-2",
+                time: "16:05",
+                lineName: "S4",
+                destination: "Bohumín"
+            ),
         ]
     }
 
@@ -548,6 +697,9 @@ private actor MockIDOSClient: IDOSClienting {
             stops: [
                 IDOSServiceStop(name: "Praha hl.n.", departureTime: "12:04"),
                 IDOSServiceStop(name: "Brno hl.n.", arrivalTime: "15:44"),
+            ],
+            serviceInformation: [
+                IDOSServiceInformation(text: "Operating dates", category: .wheelchair),
             ]
         )
     }

@@ -2,8 +2,11 @@
 
 [← Documentation](README.md)
 
-Kaštan includes a native SwiftUI application for macOS 13 or newer. It imports the `Kastan` library directly,
-so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
+Kaštan includes a native SwiftUI application for macOS 13 or newer. It imports the `Kastan` library directly and
+is composed against `TransitDataSource`; IDOS is currently its only built-in source. The toolbar and View menu show
+only search modes advertised by the active source, while result menus and toolbars omit unsupported email, calendar,
+PDF, and service-detail actions. Provider-owned timetable and result identities remain qualified during window
+restoration, favorites, paging, and export.
 
 ## Features
 
@@ -14,9 +17,11 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   Choosing a suggestion also preserves its exact IDOS identity, so a station is not broadened to a same-named
   municipality. The selected field marks that identity with a subdued localized type such as municipality,
   train, or bus, clipped to the input when space is limited; editing the field removes the marker and returns it
-  to a free-text search. Holding Option reveals compact field shortcuts: Here beside From and To requests the Mac's
-  current location only when clicked and fills that endpoint with IDOS's exact My location object. Typing the exact
-  localized My location phrase into either field does the same when the search starts. A single compact journey-time
+  to a free-text search. When the active source advertises coordinate place selection, holding Option reveals compact
+  field shortcuts: Here beside From and To requests the Mac's current location only when clicked and asks that source
+  for its exact place object. IDOS maps it to My location. Typing the exact localized My location phrase into either
+  field does the same when the search starts. Sources without that capability keep the location actions disabled and
+  interpret the same words as ordinary free text. A single compact journey-time
   control replaces the separate date, time, and Departure/Arrival controls. It sits beneath a Date and time heading at
   the trailing edge of the timetable row and shows the selected mode followed by one space and either lowercase now or
   the localized date and time. Holding Option reveals a compact Now action beside that heading. The content-sized
@@ -80,13 +85,14 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   including on the selected row. Explanations such as `A: …` are separated only when their key occurs beside a
   concrete departure. Departure minutes stay in stable columns across hours and wrapped rows. Each marker appears as
   smaller secondary information attached to its minute without shifting later departures and reveals the matching
-  explanation on hover. Selecting a minute resolves that dated run from IDOS on demand and opens its complete route,
+  explanation on hover. When the active data source advertises Station Timetable departure resolution, selecting a
+  rendered departure asks that provider to resolve its dated run on demand and opens the complete route,
   with the selected stop highlighted through the searched direction. Option-clicking it instead switches to
   Departures and presents the already resolved station board for the same stop, date, time, and timetable without
-  repeating the IDOS request. Force Clicking a minute performs the same on-demand lookup and presents the standard
+  repeating the provider request. Force Clicking it performs the same on-demand lookup and presents the standard
   complete-route preview without also opening a window. Times after
-  midnight use the following calendar date of the same service day. In Whole week results, grouped schedules such as
-  Workdays or Saturday + Sunday open their nearest concrete occurrence inside the selected Monday–Sunday week.
+  midnight and Whole week grouping follow the selected provider's own resolution semantics; IDOS keeps its following-
+  day and nearest Monday–Sunday occurrence rules inside the IDOS adapter.
   Explanations also appear in their own
   collapsed disclosure immediately below the timetable, while general notes remain in a separate collapsed disclosure
   at the very bottom of the complete result in both wide and compact layouts. Both expand into selectable text while
@@ -157,8 +163,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   service-route windows. A connection opened in its own window presents its email, export, and sharing actions as
   individually visible controls in the native toolbar instead of repeating the result-card action menu, and
   each of its services can still open a separate complete route. The active connection or service detail repeats
-  every toolbar action in the File menu, with all commands disabled while an export or Mail draft is being prepared
-  and email disabled until IDOS supplies a permanent link. The favorite-timetable manager opens at its narrow
+  every toolbar action in the File menu, with all commands disabled while an export or Mail draft is being prepared.
+  The File menu omits actions that the active data source does not advertise. The favorite-timetable manager opens at its narrow
   320-point minimum, while complete connections and service routes open at their compact 400-point minimum. When
   scrolling hides the connection's main time range, that range moves into the window title until its content label
   is visible again.
@@ -223,8 +229,8 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   route-level disclosure heading.
   Cards always retain line colors and transport symbols. Right-clicking anywhere on a connection card
   opens the same complete action menu as its ellipsis button, with Open connection in new window ahead of email,
-  calendar, PDF, sharing, and IDOS actions. Right-clicking a particular service row stays scoped to that service and
-  offers its own preview and new-window actions followed by calendar, PDF, sharing, and IDOS actions rather
+  calendar, PDF, and sharing actions. Right-clicking a particular service row stays scoped to that service and
+  offers its own preview and new-window actions followed by calendar, PDF, and sharing actions rather
   than falling through to the enclosing connection. All available detail actions are selectable on the first menu opening;
   the chosen action loads the complete service data only when needed and then continues automatically. The same
   service-specific menu is available on station-board rows. A trackpad Force Click on either kind of service row
@@ -246,25 +252,28 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   family and bicycle services,
   tickets, baggage, passenger and reservation restrictions, cancellation policies, routes including skipped-stop
   instructions, carriers, and calendar-backed operating rules.
+  When a structured data source supplies those categories directly, the app retains them unchanged instead of
+  applying IDOS text rules; unstructured service and stop notes continue to use the shared text classifier.
   Carrier contact rows use their `name; address[; phone]`
   structure instead of an operator-name list. Dining and bistro cars are visually distinct from lighter
   refreshment trolley or vending-machine service, while tickets accepted from integrated transport systems
   are distinct from carrier fares and broader fare conditions. A single selection can span multiple rows while
   retaining clickable web-address and phone-number links and the standard macOS copy command. Each leading semantic
-  emoji is an Option-click target for the same classifier popover used by compact service summaries. The popover opens
+  emoji is an Option-click target for the same rule popover used by compact service summaries. The popover opens
   beside the selected emoji instead of attaching to the edge of the complete text flow. Dated operating exceptions
-  open a service calendar backed by the exact running, non-running, and unavailable day states returned by IDOS's
-  native date-restriction interface; their colors are not inferred from the note text. The calendar presents only
-  the months supplied by IDOS and initially scrolls to the current or nearest available month. Option-clicking it
-  confirms IDOS as the exact data source. If IDOS does not supply exact states, the detail keeps the original note
+  open a service calendar backed by the exact running, non-running, and unavailable day states returned by the active
+  data source's date-limit facet; their colors are not inferred from the note text. The calendar presents only
+  the months supplied by that source and initially scrolls to the current or nearest available month. Option-clicking it
+  identifies the active data source as the supplier of those exact days. Calendar dates use the civil service-day
+  zone carried by the provider result, so traveling Macs do not shift a day at zone boundaries. If the source does not
+  supply exact states, the detail keeps the original note
   readable without substituting a prose-derived operating calendar. Separate note-applicability calendars continue
   to explain the weekday condition recognized in that note. Station Timetables have no concrete dated service ID,
   so their operating calendars continue to interpret printed rules, including abbreviated ranges such as
   `17. to 20.VIII.` and same-month lists such as `18.,19.IX.`, inside the validity interval printed by IDOS.
-- Permanent connection and service-detail links using the IDOS language that matches the app, shared through
-  the standard macOS picker. Alongside the system sharing services, that picker offers Open in IDOS without a
-  redundant standalone result action. Every service-detail action is an individually visible control in that
-  window's native toolbar.
+- Permanent connection and service-detail links localized by their data source, shared through the standard macOS
+  picker. Alongside the system sharing services, that picker offers Open Link without a redundant standalone result
+  action. Every service-detail action is an individually visible control in that window's native toolbar.
 - Localized IDOS calendar and PDF exports matching the app language for connection results and dated service
   details. Add to Calendar opens the generated event in the user's calendar application from result menus, service
   menus, detail toolbars, and the File menu. Holding Option changes that action everywhere to Download ICS File and

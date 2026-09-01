@@ -94,25 +94,25 @@ struct KastanFixedWindowRateLimiter: Sendable {
 
 /// Routes health checks and authenticated MCP requests independently of the concrete HTTP framework.
 actor KastanMCPHTTPApplication {
-    typealias ClientFactory = @Sendable () -> any IDOSClienting
+    typealias DataSourceFactory = @Sendable () -> any IDOSClienting
 
     private let configuration: KastanMCPHTTPConfiguration
     private let originValidation: StandardValidationPipeline
     private let authorization: KastanMCPHTTPAuthorization
     private let protocolValidation: StandardValidationPipeline
-    private let clientFactory: ClientFactory
+    private let dataSourceFactory: DataSourceFactory
     private var rateLimiter: KastanFixedWindowRateLimiter
 
     init(
         configuration: KastanMCPHTTPConfiguration,
-        clientFactory: @escaping ClientFactory = { IDOSClient() },
+        dataSourceFactory: @escaping DataSourceFactory = { IDOSDataSource() },
         oauthFetcher: @escaping KastanOAuthJWTVerifier.Fetcher = {
             try await KastanOAuthHTTPClient.fetch($0)
         },
         clock: @escaping KastanOAuthJWTVerifier.Clock = { Date() }
     ) {
         self.configuration = configuration
-        self.clientFactory = clientFactory
+        self.dataSourceFactory = dataSourceFactory
         self.rateLimiter = KastanFixedWindowRateLimiter(limit: configuration.requestsPerMinute)
         self.originValidation = StandardValidationPipeline(validators: [
             KastanAllowedOriginValidator(allowedOrigins: configuration.allowedOrigins),
@@ -164,7 +164,7 @@ actor KastanMCPHTTPApplication {
         // Each HTTP POST is independent, so it receives a fresh lenient server instead of
         // carrying initialization state that could be lost when Cloud Run scales to zero.
         let server = await KastanMCPServer.makeServer(
-            client: clientFactory(),
+            dataSource: dataSourceFactory(),
             configuration: .default
         )
 

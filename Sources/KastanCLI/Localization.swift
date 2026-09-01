@@ -7,7 +7,7 @@ enum AppLanguage: String, CaseIterable {
     case czech = "cs"
 
     /// Selects the matching IDOS language for platform-supplied detail text.
-    var idosLanguage: IDOSLanguage {
+    var idosLanguage: TransitLanguage {
         switch self {
         case .english:
             return .english
@@ -246,8 +246,12 @@ struct Localization {
         return result
     }
 
-    /// Localizes known timetable names for human-readable formats while leaving encoded data unchanged.
-    func timetableName(_ timetable: IDOSTimetable) -> String {
+    /// Localizes stable IDOS catalog names without interpreting another provider's opaque identifier.
+    func timetableName(_ timetable: TransitTimetable) -> String {
+        guard timetable.dataSourceID == .idos else {
+            return timetable.displayName
+        }
+
         switch timetable.slug {
         case "vlakyautobusymhdvse":
             return text(.timetableAll)
@@ -295,7 +299,7 @@ struct Localization {
 
     /// Expands the compact platform/track notation used by railway results while leaving ordinary
     /// platform or stand identifiers unchanged for other transport modes.
-    func connectionPlatform(_ value: String, transportMode: IDOSTransportMode?) -> String {
+    func connectionPlatform(_ value: String, transportMode: TransitTransportMode?) -> String {
         guard transportMode == .train, platformTrackComponents(value) != nil else {
             return text(.platformInline, value)
         }

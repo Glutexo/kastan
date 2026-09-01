@@ -15,24 +15,41 @@ struct KastanApp {
 /// Executes one Kaštan CLI invocation and renders its human-readable output in the selected language.
 struct CommandRunner {
     let version = "0.6.0"
-    let client: IDOSClienting
+    let dataSource: any TransitDataSource
     let aliasFile: StopAliasFile
     let calendarImporter: CalendarImporting
     let preferredLanguageIdentifiers: [String]
     let environment: [String: String]
 
     init(
-        client: IDOSClienting = IDOSClient(),
+        dataSource: any TransitDataSource = IDOSDataSource(),
         aliasFile: StopAliasFile = StopAliasFile(),
         calendarImporter: CalendarImporting = SystemCalendarImporter(),
         preferredLanguageIdentifiers: [String] = Locale.preferredLanguages,
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) {
-        self.client = client
+        self.dataSource = dataSource
         self.aliasFile = aliasFile
         self.calendarImporter = calendarImporter
         self.preferredLanguageIdentifiers = preferredLanguageIdentifiers
         self.environment = environment
+    }
+
+    /// Preserves source compatibility for test harnesses and integrations that used the original client label.
+    init(
+        client: any TransitDataSource,
+        aliasFile: StopAliasFile = StopAliasFile(),
+        calendarImporter: CalendarImporting = SystemCalendarImporter(),
+        preferredLanguageIdentifiers: [String] = Locale.preferredLanguages,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) {
+        self.init(
+            dataSource: client,
+            aliasFile: aliasFile,
+            calendarImporter: calendarImporter,
+            preferredLanguageIdentifiers: preferredLanguageIdentifiers,
+            environment: environment
+        )
     }
 
     func output<S: Sequence<String>>(for arguments: S) async -> String {
@@ -166,7 +183,7 @@ struct CommandRunner {
                 return localization.text(.idosInvalidTimetable, value)
             case .invalidStationTimetableMunicipality(let value, let timetable):
                 let timetableName = localization.timetableName(timetable)
-                let available = IDOSStationTimetableMunicipality.available(for: timetable)
+                let available = TransitStationTimetableMunicipality.available(for: timetable)
                     .map(\.name)
                     .joined(separator: ", ")
                 return available.isEmpty
@@ -227,18 +244,19 @@ struct CommandRunner {
     }
 
     private func suggestOutput(for arguments: [String], localization: Localization) async throws -> String {
+        try requireCapability(.placeSuggestions)
         let options = CommandOptions(arguments)
         try options.rejectUnknownOptions(allowedValueOptions: ["--timetable", "-T", "--format", "-o", "--limit", "-l"])
         let format = try options.outputFormat()
         let limit = options.integerValue(for: "--limit", short: "-l") ?? 8
-        let timetable = try options.timetable()
+        let timetable = try options.timetable(dataSource: dataSource)
         let prefix = options.positional.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !prefix.isEmpty else {
             throw CommandError.usage(.usageSuggest)
         }
 
-        let suggestions = try await client.suggest(prefix: prefix, limit: limit, timetable: timetable)
+        let suggestions = try await dataSource.suggest(prefix: prefix, limit: limit, timetable: timetable)
         return try format.renderSuggestions(
             SuggestedPlacesOutput(query: prefix, timetable: timetable, suggestions: suggestions),
             localization: localization
@@ -246,18 +264,19 @@ struct CommandRunner {
     }
 
     private func stationsOutput(for arguments: [String], localization: Localization) async throws -> String {
+        try requireCapability(.stationSearch)
         let options = CommandOptions(arguments)
         try options.rejectUnknownOptions(allowedValueOptions: ["--timetable", "-T", "--format", "-o", "--limit", "-l"])
         let format = try options.outputFormat()
         let limit = options.integerValue(for: "--limit", short: "-l") ?? 8
-        let timetable = try options.timetable()
+        let timetable = try options.timetable(dataSource: dataSource)
         let prefix = options.positional.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !prefix.isEmpty else {
             throw CommandError.usage(.usageStations)
         }
 
-        let stations = try await client.searchStations(prefix: prefix, limit: limit, timetable: timetable)
+        let stations = try await dataSource.searchStations(prefix: prefix, limit: limit, timetable: timetable)
         return try format.renderStations(
             StationsOutput(query: prefix, timetable: timetable, stations: stations),
             localization: localization
@@ -265,6 +284,7 @@ struct CommandRunner {
     }
 
     private func connectionsOutput(for arguments: [String], localization: Localization) async throws -> String {
+        try requireCapability(.connections)
         let options = CommandOptions(arguments)
         try options.rejectUnknownOptions(
             allowedFlags: ["--arrival", "-a", "--departure", "-p", "--direct", "--only-direct", "-x", "--add-to-calendar", "-c", "--verbose", "-v"],
@@ -277,6 +297,9 @@ struct CommandRunner {
         let addToCalendar = options.contains("--add-to-calendar", short: "-c")
         if addToCalendar && format == .ics {
             throw CommandError.conflictingOptions("--add-to-calendar", "--format ics")
+        }
+        if addToCalendar || format == .ics {
+            try requireCapability(.connectionCalendarExport)
         }
         let limit = options.integerValue(for: "--limit", short: "-l") ?? 5
         let requestedLimit = max(1, limit)
@@ -302,12 +325,16 @@ struct CommandRunner {
             stationOnly: false
         )
 
-        let request = IDOSConnectionRequest(
+        let date = options.value(for: "--date", short: "-d")
+        let time = options.value(for: "--time", short: "-m")
+        let request = TransitConnectionRequest(
             timetable: timetable,
             from: fromPlace.station,
             to: toPlace.station,
-            date: options.value(for: "--date", short: "-d"),
-            time: options.value(for: "--time", short: "-m"),
+            date: date,
+            time: time,
+            serviceDate: CLITransitRequestFormatting.serviceDate(from: date),
+            serviceTime: CLITransitRequestFormatting.serviceTime(from: time),
             isArrival: try options.isArrivalTimeMode(),
             onlyDirect: options.contains("--direct", short: "-x") || options.contains("--only-direct"),
             via: viaPlaces.map(\.station),
@@ -315,13 +342,13 @@ struct CommandRunner {
             minimumTransferTime: try options.nonNegativeIntegerValue(for: "--min-transfer-time", short: "-M"),
             resultLimit: format == .ics || addToCalendar ? 1 : requestedLimit
         )
-        let connections = try await client.findConnections(request: request)
+        let connections = try await dataSource.findConnections(request: request)
         if format == .ics || addToCalendar {
             guard let connection = connections.first else {
                 throw CommandError.usage(.idosNoConnections)
             }
 
-            let calendar = try await client.connectionCalendar(
+            let calendar = try await dataSource.connectionCalendar(
                 for: connection,
                 timetable: request.timetable,
                 language: localization.language.idosLanguage
@@ -349,6 +376,7 @@ struct CommandRunner {
     }
 
     private func departuresOutput(for arguments: [String], localization: Localization) async throws -> String {
+        try requireCapability(.departures)
         let options = CommandOptions(arguments)
         try options.rejectUnknownOptions(
             allowedFlags: ["--arrival", "-a", "--departure", "-p", "--verbose", "-v"],
@@ -368,15 +396,19 @@ struct CommandRunner {
         )
         try await rejectAmbiguousPlaces([stationPlace], timetable: timetable, stationOnly: true)
 
-        let request = IDOSDeparturesRequest(
+        let date = options.value(for: "--date", short: "-d")
+        let time = options.value(for: "--time", short: "-m")
+        let request = TransitDeparturesRequest(
             timetable: timetable,
             station: stationPlace.station,
-            date: options.value(for: "--date", short: "-d"),
-            time: options.value(for: "--time", short: "-m"),
+            date: date,
+            time: time,
+            serviceDate: CLITransitRequestFormatting.serviceDate(from: date),
+            serviceTime: CLITransitRequestFormatting.serviceTime(from: time),
             isArrival: try options.isArrivalTimeMode()
         )
         let limit = options.integerValue(for: "--limit", short: "-l") ?? 10
-        let departures = try await client.findDepartures(request: request)
+        let departures = try await dataSource.findDepartures(request: request)
         return try format.renderDepartures(
             DeparturesOutput(
                 request: request,
@@ -387,11 +419,12 @@ struct CommandRunner {
         )
     }
 
-    /// Searches the third IDOS mode using the selected MHD line, route direction, and service date.
+    /// Searches station timetables using the selected urban-transit line, direction, and service date.
     private func stationTimetablesOutput(
         for arguments: [String],
         localization: Localization
     ) async throws -> String {
+        try requireCapability(.stationTimetables)
         let options = CommandOptions(arguments)
         try options.rejectUnknownOptions(
             allowedFlags: ["--whole-week", "-w"],
@@ -421,20 +454,22 @@ struct CommandRunner {
             explicitValue: options.value(for: "--timetable", short: "-T"),
             aliases: [fromPlace.alias, toPlace.alias].compactMap(\.self)
         )
-        let municipality = try IDOSStationTimetableMunicipality.resolve(
+        let municipality = try dataSource.resolveStationTimetableMunicipality(
             options.value(for: "--municipality", short: "-u"),
             timetable: timetable
         )
-        let request = IDOSStationTimetableRequest(
+        let date = options.value(for: "--date", short: "-d")
+        let request = TransitStationTimetableRequest(
             timetable: timetable,
             municipality: municipality,
             line: line,
             from: fromPlace.station,
             to: toPlace.station,
-            date: options.value(for: "--date", short: "-d"),
+            date: date,
+            serviceDate: CLITransitRequestFormatting.serviceDate(from: date),
             wholeWeek: options.contains("--whole-week", short: "-w")
         )
-        let stationTimetable = try await client.findStationTimetable(
+        let stationTimetable = try await dataSource.findStationTimetable(
             request: request,
             language: localization.language.idosLanguage
         )
@@ -445,6 +480,7 @@ struct CommandRunner {
     }
 
     private func serviceOutput(for arguments: [String], localization: Localization) async throws -> String {
+        try requireCapability(.serviceDetails)
         let options = CommandOptions(arguments)
         try options.rejectUnknownOptions(allowedValueOptions: ["--timetable", "-T", "--format", "-o"])
         let format = try options.outputFormat()
@@ -453,13 +489,13 @@ struct CommandRunner {
             throw CommandError.usage(.usageService)
         }
 
-        let timetable: IDOSTimetable
+        let timetable: TransitTimetable
         if let timetableValue = options.value(for: "--timetable", short: "-T") {
-            timetable = try IDOSTimetable.resolve(timetableValue)
+            timetable = try dataSource.resolveTimetable(timetableValue)
         } else {
-            timetable = .defaultTimetable
+            timetable = dataSource.defaultTimetable
         }
-        let service = try await client.serviceDetail(
+        let service = try await dataSource.serviceDetail(
             id: positional[0],
             timetable: timetable,
             language: localization.language.idosLanguage
@@ -471,11 +507,12 @@ struct CommandRunner {
     }
 
     private func timetablesOutput(for arguments: [String], localization: Localization) throws -> String {
+        try requireCapability(.timetables)
         let options = CommandOptions(arguments)
         try options.rejectUnknownOptions(allowedValueOptions: ["--format", "-o"])
         let format = try options.outputFormat()
         return try format.renderTimetables(
-            TimetablesOutput(timetables: IDOSTimetable.known),
+            TimetablesOutput(timetables: dataSource.timetables),
             localization: localization
         )
     }
@@ -528,7 +565,7 @@ struct CommandRunner {
                 throw CommandError.usage(.usageAliasesAdd)
             }
 
-            let timetable = try IDOSTimetable.resolve(timetableValue)
+            let timetable = try dataSource.resolveTimetable(timetableValue)
             try await rejectAmbiguousPlace(station, timetable: timetable, stationOnly: true)
             var database = try aliasFile.load()
             let action = database.alias(named: name) == nil ? "added" : "updated"
@@ -589,7 +626,7 @@ struct CommandRunner {
 
     private func rejectAmbiguousPlaces(
         _ places: [ResolvedPlace],
-        timetable: IDOSTimetable,
+        timetable: TransitTimetable,
         stationOnly: Bool
     ) async throws {
         for place in places where place.alias == nil {
@@ -599,12 +636,15 @@ struct CommandRunner {
 
     private func rejectAmbiguousPlace(
         _ value: String,
-        timetable: IDOSTimetable,
+        timetable: TransitTimetable,
         stationOnly: Bool
     ) async throws {
+        let capability: TransitDataSourceCapability = stationOnly ? .stationSearch : .placeSuggestions
+        guard dataSource.descriptor.supports(capability) else { return }
+
         let suggestions = stationOnly
-            ? try await client.searchStations(prefix: value, limit: 8, timetable: timetable)
-            : try await client.suggest(prefix: value, limit: 8, timetable: timetable)
+            ? try await dataSource.searchStations(prefix: value, limit: 8, timetable: timetable)
+            : try await dataSource.suggest(prefix: value, limit: 8, timetable: timetable)
         let candidates = uniqueSuggestions(suggestions)
         let exactMatches = candidates.filter { suggestion($0, matches: value) }
         if exactMatches.count == 1 || candidates.count <= 1 {
@@ -621,14 +661,34 @@ struct CommandRunner {
         )
     }
 
-    private func resolveTimetable(explicitValue: String?, aliases: [StopAlias]) throws -> IDOSTimetable {
-        let explicitTimetable = try explicitValue.map(IDOSTimetable.resolve)
-        let aliasTimetables = aliases.map(\.timetable)
+    /// Enforces the provider's advertised product contract before a command starts provider-specific work.
+    private func requireCapability(_ capability: TransitDataSourceCapability) throws {
+        guard dataSource.descriptor.supports(capability) else {
+            throw TransitDataSourceError.unsupported(capability, source: dataSource.descriptor)
+        }
+    }
+
+    private func resolveTimetable(explicitValue: String?, aliases: [StopAlias]) throws -> TransitTimetable {
+        let explicitTimetable = try explicitValue.map(dataSource.resolveTimetable)
+        let resolvedAliases = try aliases.map { alias in
+            guard alias.timetable.dataSourceID == dataSource.descriptor.id else {
+                throw TransitDataSourceError.valueBelongsToDifferentSource(
+                    expected: dataSource.descriptor.id,
+                    actual: alias.timetable.dataSourceID
+                )
+            }
+            // Resolve persisted stable identity through the active catalog so a renamed display label does not
+            // create a false conflict or leak a stale timetable value into the provider.
+            return (alias: alias, timetable: try dataSource.resolveTimetable(alias.timetable.identifier))
+        }
 
         if let explicitTimetable {
-            if let conflictingAlias = aliases.first(where: { $0.timetable.slug != explicitTimetable.slug }) {
+            if let conflictingAlias = resolvedAliases.first(where: {
+                $0.timetable.dataSourceID != explicitTimetable.dataSourceID ||
+                    $0.timetable.identifier != explicitTimetable.identifier
+            }) {
                 throw CommandError.aliasTimetableMismatch(
-                    alias: conflictingAlias.name,
+                    alias: conflictingAlias.alias.name,
                     aliasTimetable: conflictingAlias.timetable,
                     requestedTimetable: explicitTimetable
                 )
@@ -637,11 +697,14 @@ struct CommandRunner {
             return explicitTimetable
         }
 
-        guard let first = aliasTimetables.first else {
-            return try IDOSTimetable.resolve(nil)
+        guard let first = resolvedAliases.first?.timetable else {
+            return try dataSource.resolveTimetable(nil)
         }
 
-        if let conflicting = aliases.first(where: { $0.timetable.slug != first.slug }) {
+        if let conflicting = resolvedAliases.first(where: {
+            $0.timetable.dataSourceID != first.dataSourceID ||
+                $0.timetable.identifier != first.identifier
+        }) {
             throw CommandError.conflictingAliasTimetables(first, conflicting.timetable)
         }
 
@@ -754,8 +817,8 @@ private enum CommandError: Error {
     case invalidOutputFormat(String)
     case invalidNonNegativeInteger(name: String, value: String)
     case conflictingOptions(String, String)
-    case aliasTimetableMismatch(alias: String, aliasTimetable: IDOSTimetable, requestedTimetable: IDOSTimetable)
-    case conflictingAliasTimetables(IDOSTimetable, IDOSTimetable)
+    case aliasTimetableMismatch(alias: String, aliasTimetable: TransitTimetable, requestedTimetable: TransitTimetable)
+    case conflictingAliasTimetables(TransitTimetable, TransitTimetable)
     case calendarImportUnavailable
     case unknownOption(String)
     case unsupportedOutputFormat(format: String, command: String)
@@ -1856,14 +1919,14 @@ private enum OutputFormat: String {
         }
     }
 
-    private func routeDescription(_ request: IDOSConnectionRequest, localization: Localization) -> String {
+    private func routeDescription(_ request: TransitConnectionRequest, localization: Localization) -> String {
         let via = request.via.isEmpty
             ? ""
             : " \(localization.text(.viaInline, request.via.joined(separator: ", ")))"
         return "\(request.from) → \(request.to)\(via)"
     }
 
-    private func markdownViaLine(_ request: IDOSConnectionRequest, localization: Localization) -> String {
+    private func markdownViaLine(_ request: TransitConnectionRequest, localization: Localization) -> String {
         guard !request.via.isEmpty else {
             return ""
         }
@@ -1886,7 +1949,7 @@ private enum OutputFormat: String {
 
     /// Builds one localized departure row while retaining names and status details supplied by IDOS.
     private func departureSummaryLine(
-        _ departure: IDOSDeparture,
+        _ departure: TransitDeparture,
         number: Int,
         includeDetails: Bool,
         localization: Localization
@@ -1966,19 +2029,19 @@ private enum ServiceStopNote {
 
 private struct SuggestedPlacesOutput: Codable {
     var query: String
-    var timetable: IDOSTimetable
-    var suggestions: [IDOSSuggestion]
+    var timetable: TransitTimetable
+    var suggestions: [TransitSuggestion]
 }
 
 private struct StationsOutput: Codable {
     var query: String
-    var timetable: IDOSTimetable
-    var stations: [IDOSSuggestion]
+    var timetable: TransitTimetable
+    var stations: [TransitSuggestion]
 }
 
 private struct ConnectionsOutput: Encodable {
-    var request: IDOSConnectionRequest
-    var connections: [IDOSConnection]
+    var request: TransitConnectionRequest
+    var connections: [TransitConnection]
     var verbose = false
 
     var items: [ConnectionOutput] {
@@ -2005,7 +2068,7 @@ private struct ConnectionsOutput: Encodable {
 }
 
 private struct ConnectionOutput: Encodable {
-    var connection: IDOSConnection
+    var connection: TransitConnection
     var isDirect: Bool
     var isShortest: Bool
 
@@ -2099,7 +2162,7 @@ private struct ConnectionOutput: Encodable {
         name: String,
         tariffZone: String?,
         platform: String?,
-        transportMode: IDOSTransportMode?,
+        transportMode: TransitTransportMode?,
         localization: Localization
     ) -> String {
         var parts = [name]
@@ -2140,7 +2203,7 @@ private struct ConnectionOutput: Encodable {
     }
 }
 
-private extension IDOSConnection {
+private extension TransitConnection {
     /// Converts the IDOS overall-time label into a value that can be compared within one result list.
     var durationInMinutes: Int? {
         guard let expression = try? NSRegularExpression(pattern: #"(\d+)\s*([[:alpha:]]+)"#) else {
@@ -2180,8 +2243,8 @@ private extension IDOSConnection {
 }
 
 private struct DeparturesOutput: Codable {
-    var request: IDOSDeparturesRequest
-    var departures: [IDOSDeparture]
+    var request: TransitDeparturesRequest
+    var departures: [TransitDeparture]
     var verbose = false
 
     enum CodingKeys: String, CodingKey {
@@ -2192,22 +2255,22 @@ private struct DeparturesOutput: Codable {
 
 /// Keeps the user's query beside the complete Station Timetable in encoded CLI output.
 private struct StationTimetableOutput: Codable {
-    var request: IDOSStationTimetableRequest
-    var stationTimetable: IDOSStationTimetable
+    var request: TransitStationTimetableRequest
+    var stationTimetable: TransitStationTimetable
 }
 
 private struct ServiceDetailOutput: Codable {
-    var service: IDOSServiceDetail
+    var service: TransitServiceDetail
 }
 
 private struct CalendarImportOutput: Codable {
-    var request: IDOSConnectionRequest
-    var connection: IDOSConnection
+    var request: TransitConnectionRequest
+    var connection: TransitConnection
     var path: String
 }
 
 private struct TimetablesOutput: Codable {
-    var timetables: [IDOSTimetable]
+    var timetables: [TransitTimetable]
 }
 
 private struct StopAliasesOutput: Codable {
@@ -2237,9 +2300,9 @@ private enum AmbiguousPlaceKind {
 
 private struct PlaceAmbiguity {
     var input: String
-    var timetable: IDOSTimetable
+    var timetable: TransitTimetable
     var kind: AmbiguousPlaceKind
-    var candidates: [IDOSSuggestion]
+    var candidates: [TransitSuggestion]
 
     func message(localization: Localization) -> String {
         let header = localization.text(
@@ -2265,29 +2328,91 @@ private struct ErrorOutput: Codable {
     var error: String
 }
 
-private func uniqueSuggestions(_ suggestions: [IDOSSuggestion]) -> [IDOSSuggestion] {
-    var seen: Set<String> = []
+/// Adds semantic request values when CLI input uses a complete documented date or time spelling.
+enum CLITransitRequestFormatting {
+    static func serviceDate(from value: String?) -> TransitDate? {
+        guard let value else { return nil }
+        let separator: Character = value.contains(".") ? "." : "-"
+        let components = value.split(separator: separator, omittingEmptySubsequences: false)
+        guard components.count == 3 else { return nil }
+
+        let values = components.compactMap { Int($0) }
+        guard values.count == 3 else { return nil }
+        let date: TransitDate
+        if separator == "." {
+            date = TransitDate(year: values[2], month: values[1], day: values[0])
+        } else {
+            date = TransitDate(year: values[0], month: values[1], day: values[2])
+        }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        guard let parsed = calendar.date(from: DateComponents(
+            year: date.year,
+            month: date.month,
+            day: date.day
+        )) else {
+            return nil
+        }
+        let verified = calendar.dateComponents([.year, .month, .day], from: parsed)
+        guard verified.year == date.year,
+              verified.month == date.month,
+              verified.day == date.day
+        else {
+            return nil
+        }
+        return date
+    }
+
+    static func serviceTime(from value: String?) -> TransitTime? {
+        guard let value else { return nil }
+        let components = value.split(separator: ":", omittingEmptySubsequences: false)
+        guard components.count == 2,
+              let hour = Int(components[0]),
+              let minute = Int(components[1]),
+              (0...23).contains(hour),
+              (0...59).contains(minute)
+        else {
+            return nil
+        }
+        return TransitTime(hour: hour, minute: minute)
+    }
+}
+
+private func uniqueSuggestions(_ suggestions: [TransitSuggestion]) -> [TransitSuggestion] {
+    struct Identity: Hashable {
+        let dataSourceID: TransitDataSourceID
+        let timetableIdentifier: String
+        let identifier: String?
+        let text: String
+        let selectedText: String
+        let description: String
+        let region: String
+    }
+
+    var seen: Set<Identity> = []
     return suggestions.filter { suggestion in
-        let key = [
-            normalizedSuggestionText(suggestion.text),
-            suggestion.description ?? "",
-            suggestion.region ?? "",
-            suggestion.value ?? "",
-            suggestion.value2 ?? "",
-        ].joined(separator: "|")
+        let key = Identity(
+            dataSourceID: suggestion.dataSourceID,
+            timetableIdentifier: suggestion.timetableIdentifier,
+            identifier: suggestion.identifier,
+            text: normalizedSuggestionText(suggestion.text),
+            selectedText: normalizedSuggestionText(suggestion.selectedText ?? ""),
+            description: suggestion.description ?? "",
+            region: suggestion.region ?? ""
+        )
 
         return seen.insert(key).inserted
     }
 }
 
-private func suggestion(_ suggestion: IDOSSuggestion, matches value: String) -> Bool {
+private func suggestion(_ suggestion: TransitSuggestion, matches value: String) -> Bool {
     let expected = normalizedSuggestionText(value)
     return [suggestion.selectedText, suggestion.text]
         .compactMap(\.self)
         .contains { normalizedSuggestionText($0) == expected }
 }
 
-private func suggestionDetails(_ suggestion: IDOSSuggestion) -> [String] {
+private func suggestionDetails(_ suggestion: TransitSuggestion) -> [String] {
     var details: [String] = []
     for value in [suggestion.description, suggestion.region].compactMap(\.self) where !value.isEmpty {
         if !details.contains(where: { $0.localizedCaseInsensitiveContains(value) }) {
@@ -2375,7 +2500,7 @@ private enum Markdown {
         return "**\(escape(value))**"
     }
 
-    static func lineName(_ leg: IDOSConnectionLeg) -> String {
+    static func lineName(_ leg: TransitConnectionLeg) -> String {
         let name = htmlEscape(leg.name)
         let prefix = leg.transportMode.map { "\($0.emoji) " } ?? "🛣️ "
         guard let color = leg.color, !color.isEmpty else {
@@ -2384,7 +2509,7 @@ private enum Markdown {
         return "\(prefix)<span style=\"color: \(htmlEscape(color))\">\(name)</span>"
     }
 
-    static func departureLineName(_ departure: IDOSDeparture) -> String {
+    static func departureLineName(_ departure: TransitDeparture) -> String {
         let prefix = departure.transportMode.map { "\($0.emoji) " } ?? ""
         let name = htmlEscape(departure.lineName)
         guard let color = departure.lineColor, !color.isEmpty else {
@@ -2393,7 +2518,7 @@ private enum Markdown {
         return "\(prefix)<span style=\"color: \(htmlEscape(color))\">\(name)</span>"
     }
 
-    static func serviceName(_ service: IDOSServiceDetail) -> String {
+    static func serviceName(_ service: TransitServiceDetail) -> String {
         let prefix = service.transportMode.map { "\($0.emoji) " } ?? ""
         let name = htmlEscape(service.name)
         guard let color = service.color, !color.isEmpty else {
@@ -2498,7 +2623,7 @@ private enum HTML {
         return "<dl>\n\(rows)\n</dl>"
     }
 
-    static func lineName(_ leg: IDOSConnectionLeg) -> String {
+    static func lineName(_ leg: TransitConnectionLeg) -> String {
         styledName(
             leg.name,
             prefix: leg.transportMode.map { "\($0.emoji) " } ?? "🛣️ ",
@@ -2506,7 +2631,7 @@ private enum HTML {
         )
     }
 
-    static func departureLineName(_ departure: IDOSDeparture) -> String {
+    static func departureLineName(_ departure: TransitDeparture) -> String {
         styledName(
             departure.lineName,
             prefix: departure.transportMode.map { "\($0.emoji) " } ?? "",
@@ -2514,7 +2639,7 @@ private enum HTML {
         )
     }
 
-    static func serviceName(_ service: IDOSServiceDetail) -> String {
+    static func serviceName(_ service: TransitServiceDetail) -> String {
         styledName(
             service.name,
             prefix: service.transportMode.map { "\($0.emoji) " } ?? "",
@@ -2718,8 +2843,8 @@ private struct CommandOptions {
         try OutputFormat.resolve(value(for: "--format", short: "-o"))
     }
 
-    func timetable() throws -> IDOSTimetable {
-        try IDOSTimetable.resolve(value(for: "--timetable", short: "-T"))
+    func timetable(dataSource: any TransitDataSource) throws -> TransitTimetable {
+        try dataSource.resolveTimetable(value(for: "--timetable", short: "-T"))
     }
 
     private func optionValue(for longName: String, short shortName: String? = nil) -> (name: String, value: String)? {

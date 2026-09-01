@@ -8,13 +8,19 @@ struct FavoriteTimetablesView: View {
     static let defaultWindowWidth = minimumWindowWidth
 
     @AppStorage(TimetableFavorites.storageKey) private var serializedTimetableFavorites = "[]"
+    let timetables: [TransitTimetable]
+
+    init(timetables: [TransitTimetable] = TransitTimetable.known) {
+        self.timetables = timetables
+    }
 
     var body: some View {
         List {
             ForEach(AppTimetableGroup.allCases) { group in
-                if !group.timetables.isEmpty {
+                let groupedTimetables = group.timetables(in: timetables)
+                if !groupedTimetables.isEmpty {
                     Section {
-                        ForEach(group.timetables, id: \.slug) { timetable in
+                        ForEach(groupedTimetables, id: \.appIdentity) { timetable in
                             timetableRow(timetable, isFavorite: favorites.contains(timetable))
                         }
                     } header: {
@@ -28,10 +34,10 @@ struct FavoriteTimetablesView: View {
     }
 
     private var favorites: TimetableFavorites {
-        TimetableFavorites(serialized: serializedTimetableFavorites)
+        TimetableFavorites(serialized: serializedTimetableFavorites, catalog: timetables)
     }
 
-    private func timetableRow(_ timetable: IDOSTimetable, isFavorite: Bool) -> some View {
+    private func timetableRow(_ timetable: TransitTimetable, isFavorite: Bool) -> some View {
         let actionLabel: LocalizedStringKey = isFavorite
             ? "Remove timetable from favorites"
             : "Add timetable to favorites"
@@ -53,7 +59,7 @@ struct FavoriteTimetablesView: View {
         .help(Text(actionLabel))
     }
 
-    private func toggle(_ timetable: IDOSTimetable) {
+    private func toggle(_ timetable: TransitTimetable) {
         var updatedFavorites = favorites
         updatedFavorites.toggle(timetable)
         serializedTimetableFavorites = updatedFavorites.serialized

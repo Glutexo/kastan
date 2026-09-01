@@ -308,8 +308,9 @@ swift run kastan departures --station work --time 16:00
 ```
 
 When all aliases use the same timetable, Kaštan selects it automatically. An explicit `--timetable` must match
-every used alias. The default database is `~/.config/kastan/aliases.json`; set `KASTAN_ALIAS_DATABASE` to use a
-different JSON file.
+every used alias. Each persisted alias remains bound to its data source and stable timetable identifier; Kaštan
+refreshes its display name from the active catalog and refuses to send an alias to another source. The default
+database is `~/.config/kastan/aliases.json`; set `KASTAN_ALIAS_DATABASE` to use a different JSON file.
 
 ## Timetables
 
@@ -325,6 +326,19 @@ swift run kastan timetables
 The built-in catalog mirrors all 106 standalone Urban Public Transport city catalogs currently published by IDOS,
 in addition to the general and integrated-system choices. Prague is represented by `pid` instead of a duplicate
 standalone city catalog. Run `timetables` to list every built-in slug and display name.
+
+## Data Source
+
+The shipped executable selects `IDOSDataSource`, currently Kaštan's only built-in provider, and exposes no
+data-source selector. Its `CommandRunner` depends on the provider-neutral `TransitDataSource` contract, resolves
+timetables from the selected provider's catalog, and checks the capability required by a command or native export.
+This internal composition boundary lets a future built-in provider reuse the CLI parsing and presentation without
+imitating IDOS identifiers. `CommandRunner` itself remains an implementation detail of the executable rather than a
+public library API.
+
+For compatibility with the existing CLI and its structured output, timetable catalog and alias fields continue to
+call the provider-owned timetable identifier a `slug`. A non-IDOS provider can use any value in that field; Kaštan
+preserves its display name instead of applying IDOS catalog localization to a coincidentally matching identifier.
 
 Kaštan is intended for low-frequency personal use. Changes to IDOS HTML or its internal JSONP suggestion
 endpoint can require parser updates.

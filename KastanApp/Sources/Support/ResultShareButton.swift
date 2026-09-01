@@ -30,7 +30,7 @@ enum ResultSharingAction: CaseIterable, Hashable {
     }
 }
 
-/// Shares either a permanent IDOS link or its complete localized plain-text result from one stable control.
+/// Shares either a provider-supplied result link or its complete localized plain-text representation.
 struct ResultShareButton<Label: View>: View {
     let placement: OptionAlternateButtonPlacement
     private let link: URL?
@@ -97,7 +97,7 @@ struct ResultShareButton<Label: View>: View {
         }
     }
 
-    /// Keeps a text alternate usable even when IDOS omitted the result's permanent link.
+    /// Keeps a text alternate usable even when the data source omitted a permanent link.
     private func isAvailable(_ action: ResultSharingAction) -> Bool {
         switch action {
         case .link:
@@ -133,7 +133,7 @@ struct ResultShareButton<Label: View>: View {
     }
 }
 
-/// Presents result content through macOS and adds direct IDOS opening only when the shared item is a URL.
+/// Presents result content through macOS and adds direct link opening only when the shared item is a URL.
 @MainActor
 final class ResultSharingServicePickerPresenter: NSObject, @preconcurrency NSSharingServicePickerDelegate {
     static let shared = ResultSharingServicePickerPresenter()
@@ -183,7 +183,7 @@ final class ResultSharingServicePickerPresenter: NSObject, @preconcurrency NSSha
             return proposedServices
         }
 
-        return proposedServices + [openInIDOSService(for: url)]
+        return proposedServices + [openLinkService(for: url)]
     }
 
     func sharingServicePicker(
@@ -195,8 +195,8 @@ final class ResultSharingServicePickerPresenter: NSObject, @preconcurrency NSSha
     }
 
     /// Creates a regular sharing-service row so direct opening remains visually consistent with macOS services.
-    private func openInIDOSService(for url: URL) -> NSSharingService {
-        let title = AppLocalization.string("Open in IDOS")
+    private func openLinkService(for url: URL) -> NSSharingService {
+        let title = AppLocalization.string("Open Link")
         let image = NSImage(
             systemSymbolName: "arrow.up.right.square",
             accessibilityDescription: title

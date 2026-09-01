@@ -3,11 +3,11 @@ import Foundation
 import Kastan
 import SwiftUI
 
-/// Searches and presents IDOS station timetables for MHD and integrated transport systems.
+/// Searches and presents station timetables supplied by the selected transit data source.
 struct StationTimetablesView: View {
     @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: StationTimetablesViewModel
-    let client: any IDOSClienting
+    let client: any TransitDataSource
     let showsItemDetails: Bool
     let showsStopNoteText: Bool
     let showInDepartures: (ResolvedDepartureSearch) -> Void
@@ -18,7 +18,7 @@ struct StationTimetablesView: View {
 
     init(
         model: StationTimetablesViewModel,
-        client: any IDOSClienting,
+        client: any TransitDataSource,
         showsItemDetails: Bool,
         showsStopNoteText: Bool,
         showInDepartures: @escaping (ResolvedDepartureSearch) -> Void = { _ in }
@@ -82,6 +82,7 @@ struct StationTimetablesView: View {
                     timetable: timetableBinding,
                     date: $model.date,
                     wholeWeek: $model.wholeWeek,
+                    allowedTimetables: model.timetables,
                     usesCompactLayout: usesCompactLayout
                 )
 
@@ -116,7 +117,7 @@ struct StationTimetablesView: View {
             GridRow(alignment: .bottom) {
                 SearchTimetablePicker(
                     timetable: timetableBinding,
-                    allowedTimetables: AppTimetableGroup.stationTimetables,
+                    allowedTimetables: model.timetables,
                     usesCompactLayout: usesCompactLayout
                 )
                 Spacer(minLength: horizontalSpacing)
@@ -222,7 +223,7 @@ struct StationTimetablesView: View {
         if let municipality = model.municipality {
             details.append(municipality.name)
         }
-        details.append(IDOSRequestFormatting.date(from: model.date))
+        details.append(TransitRequestFormatting.displayDate(from: model.date))
         if model.wholeWeek {
             details.append(AppLocalization.string("Whole week"))
         }
@@ -232,14 +233,14 @@ struct StationTimetablesView: View {
         )
     }
 
-    private var timetableBinding: Binding<IDOSTimetable> {
+    private var timetableBinding: Binding<TransitTimetable> {
         Binding(
             get: { model.timetable },
             set: { timetable in model.selectTimetable(slug: timetable.slug) }
         )
     }
 
-    private var municipalityBinding: Binding<IDOSStationTimetableMunicipality?> {
+    private var municipalityBinding: Binding<TransitStationTimetableMunicipality?> {
         Binding(
             get: { model.municipality },
             set: { municipality in
@@ -308,7 +309,7 @@ struct StationTimetablesView: View {
     }
 
     private func stationTimetable(
-        _ result: IDOSStationTimetable,
+        _ result: TransitStationTimetable,
         availableWidth: CGFloat
     ) -> some View {
         let layout = StationTimetableResultLayout(availableWidth: availableWidth)
@@ -333,6 +334,7 @@ struct StationTimetablesView: View {
                     systemImage: "info.circle",
                     values: result.notes,
                     calendarContext: result.notes + result.explanations,
+                    serviceTimeZone: client.serviceTimeZone,
                     isExpanded: $isNotesExpanded
                 )
             }
@@ -340,7 +342,7 @@ struct StationTimetablesView: View {
     }
 
     @ViewBuilder
-    private func compactResultSection(_ result: IDOSStationTimetable) -> some View {
+    private func compactResultSection(_ result: TransitStationTimetable) -> some View {
         switch selectedResultSection {
         case .stops:
             stops(result)
@@ -350,7 +352,7 @@ struct StationTimetablesView: View {
     }
 
     private func resultHeader(
-        _ result: IDOSStationTimetable,
+        _ result: TransitStationTimetable,
         showsSectionPicker: Bool
     ) -> some View {
         let title: String
@@ -377,7 +379,7 @@ struct StationTimetablesView: View {
                 .disabled(model.isSearching)
 
                 if let value = result.shareURL,
-                   let url = AppLanguagePreference.localizedIDOSURL(from: value)
+                   let url = AppLanguagePreference.localizedResultURL(from: value)
                 {
                     ResultShareButton(
                         link: url,
@@ -399,7 +401,7 @@ struct StationTimetablesView: View {
         }
     }
 
-    private func stops(_ result: IDOSStationTimetable) -> some View {
+    private func stops(_ result: TransitStationTimetable) -> some View {
         let selectedStopIndex = result.stops.firstIndex(where: \.isSelected)
 
         return VStack(alignment: .leading, spacing: 8) {
@@ -510,7 +512,7 @@ struct StationTimetablesView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func schedules(_ result: IDOSStationTimetable) -> some View {
+    private func schedules(_ result: TransitStationTimetable) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             if let selectedStop = result.selectedStop {
                 Label(selectedStop.name, systemImage: "clock")
@@ -550,6 +552,7 @@ struct StationTimetablesView: View {
                     systemImage: "questionmark.circle",
                     values: result.explanations,
                     calendarContext: result.notes + result.explanations,
+                    serviceTimeZone: client.serviceTimeZone,
                     isExpanded: $isExplanationsExpanded
                 )
                 .padding(.top, 8)
@@ -559,7 +562,7 @@ struct StationTimetablesView: View {
     }
 
     private func scheduleTable(
-        _ schedule: IDOSStationTimetableSchedule,
+        _ schedule: TransitStationTimetableSchedule,
         scheduleIndex: Int,
         explanations: [String]
     ) -> some View {
@@ -583,47 +586,23 @@ struct StationTimetablesView: View {
                                     scheduleIndex: scheduleIndex,
                                     hourIndex: index
                                 ),
-                                departuresAreEnabled: model.resolvingDeparture == nil,
-                                selectDeparture: { departureIndex in
-                                    guard let departure = StationTimetableDepartureReference(
-                                        scheduleIndex: scheduleIndex,
-                                        schedule: schedule,
-                                        hourIndex: index,
-                                        departureIndex: departureIndex
-                                    ) else {
-                                        return
-                                    }
-                                    openService(departure)
-                                },
-                                searchDeparture: { departureIndex in
-                                    guard let departure = StationTimetableDepartureReference(
-                                        scheduleIndex: scheduleIndex,
-                                        schedule: schedule,
-                                        hourIndex: index,
-                                        departureIndex: departureIndex
-                                    ) else {
-                                        return
-                                    }
-                                    searchInDepartures(departure)
-                                },
-                                previewDeparture: { departureIndex in
-                                    guard let departure = StationTimetableDepartureReference(
-                                        scheduleIndex: scheduleIndex,
-                                        schedule: schedule,
-                                        hourIndex: index,
-                                        departureIndex: departureIndex
-                                    ) else {
-                                        return nil
-                                    }
-                                    return StationTimetableDeparturePreviewConfiguration(
-                                        client: client,
-                                        showsItemDetails: showsItemDetails,
-                                        showsStopNoteText: showsStopNoteText,
-                                        resolveSelection: {
-                                            await model.serviceSelection(for: departure)
-                                        }
-                                    )
-                                }
+                                departuresAreEnabled: model.canFindDepartureResults &&
+                                    model.resolvingDeparture == nil,
+                                selectDeparture: departureSelectionAction(
+                                    scheduleIndex: scheduleIndex,
+                                    schedule: schedule,
+                                    hourIndex: index
+                                ),
+                                searchDeparture: departureSearchAction(
+                                    scheduleIndex: scheduleIndex,
+                                    schedule: schedule,
+                                    hourIndex: index
+                                ),
+                                previewDeparture: departurePreview(
+                                    scheduleIndex: scheduleIndex,
+                                    schedule: schedule,
+                                    hourIndex: index
+                                )
                             )
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
@@ -634,6 +613,75 @@ struct StationTimetablesView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// Uses the service route when available and otherwise lets a departures-only source open its station board.
+    private func departureSelectionAction(
+        scheduleIndex: Int,
+        schedule: TransitStationTimetableSchedule,
+        hourIndex: Int
+    ) -> ((Int) -> Void)? {
+        guard model.canFindDepartureResults else { return nil }
+        return { departureIndex in
+            guard let departure = StationTimetableDepartureReference(
+                scheduleIndex: scheduleIndex,
+                schedule: schedule,
+                hourIndex: hourIndex,
+                departureIndex: departureIndex
+            ) else {
+                return
+            }
+            if model.canOpenDepartureServices {
+                openService(departure)
+            } else {
+                searchInDepartures(departure)
+            }
+        }
+    }
+
+    private func departureSearchAction(
+        scheduleIndex: Int,
+        schedule: TransitStationTimetableSchedule,
+        hourIndex: Int
+    ) -> ((Int) -> Void)? {
+        guard model.canFindDepartureResults else { return nil }
+        return { departureIndex in
+            guard let departure = StationTimetableDepartureReference(
+                scheduleIndex: scheduleIndex,
+                schedule: schedule,
+                hourIndex: hourIndex,
+                departureIndex: departureIndex
+            ) else {
+                return
+            }
+            searchInDepartures(departure)
+        }
+    }
+
+    private func departurePreview(
+        scheduleIndex: Int,
+        schedule: TransitStationTimetableSchedule,
+        hourIndex: Int
+    ) -> ((Int) -> StationTimetableDeparturePreviewConfiguration?)? {
+        guard model.canOpenDepartureServices else { return nil }
+        return { departureIndex in
+            guard let departure = StationTimetableDepartureReference(
+                scheduleIndex: scheduleIndex,
+                schedule: schedule,
+                hourIndex: hourIndex,
+                departureIndex: departureIndex
+            ) else {
+                return nil
+            }
+            return StationTimetableDeparturePreviewConfiguration(
+                client: client,
+                showsItemDetails: showsItemDetails,
+                showsStopNoteText: showsStopNoteText,
+                resolveSelection: {
+                    await model.serviceSelection(for: departure)
+                }
+            )
         }
     }
 
@@ -655,7 +703,7 @@ struct StationTimetablesView: View {
         }
     }
 
-    /// Switches search modes only after IDOS has identified the concrete dated run.
+    /// Switches search modes only after the data source has identified the concrete dated run.
     private func searchInDepartures(_ departure: StationTimetableDepartureReference) {
         Task {
             guard let search = await model.departureSearch(for: departure) else { return }
@@ -669,7 +717,7 @@ struct StationTimetablesView: View {
     }
 
     /// Keeps fare zones and the IDOS platform or stand number together with their route stop.
-    private func stopMetadata(_ stop: IDOSStationTimetableStop) -> String? {
+    private func stopMetadata(_ stop: TransitStationTimetableStop) -> String? {
         let values = [
             stop.tariffZone.map { AppLocalization.string("Zone %@", $0) },
             stop.platform.map { AppLocalization.string("Station timetable platform %@", $0) },
@@ -713,7 +761,7 @@ struct StationTimetableDeparturePresentation: Equatable {
 
 /// Supplies the standard complete-route preview after a timetable minute has been resolved on demand.
 struct StationTimetableDeparturePreviewConfiguration {
-    let client: any IDOSClienting
+    let client: any TransitDataSource
     let showsItemDetails: Bool
     let showsStopNoteText: Bool
     let resolveSelection: @MainActor () async -> ServiceSelection?
@@ -1247,11 +1295,33 @@ struct StationTimetableRemarksDisclosure: View {
     let systemImage: String
     let values: [String]
     let calendarContext: [String]
+    let serviceTimeZone: TimeZone?
     @Binding var isExpanded: Bool
+
+    /// Creates a disclosure whose service calendar follows the source civil time zone when known.
+    init(
+        title: LocalizedStringKey,
+        systemImage: String,
+        values: [String],
+        calendarContext: [String],
+        serviceTimeZone: TimeZone? = nil,
+        isExpanded: Binding<Bool>
+    ) {
+        self.title = title
+        self.systemImage = systemImage
+        self.values = values
+        self.calendarContext = calendarContext
+        self.serviceTimeZone = serviceTimeZone
+        _isExpanded = isExpanded
+    }
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
-            ServiceNotesView(notes: values, calendarContext: calendarContext)
+            ServiceNotesView(
+                notes: values,
+                serviceTimeZone: serviceTimeZone,
+                calendarContext: calendarContext
+            )
                 .textSelection(.enabled)
                 .padding(.top, 8)
         } label: {
@@ -1272,21 +1342,24 @@ struct StationTimetableRemarksDisclosure: View {
 
 /// Aligns the station-timetable service date with the shared timetable-first search header.
 struct StationTimetableSearchHeader: View {
-    @Binding private var timetable: IDOSTimetable
+    @Binding private var timetable: TransitTimetable
     @Binding private var date: Date
     @Binding private var wholeWeek: Bool
 
+    private let allowedTimetables: [TransitTimetable]
     private let usesCompactLayout: Bool
 
     init(
-        timetable: Binding<IDOSTimetable>,
+        timetable: Binding<TransitTimetable>,
         date: Binding<Date>,
         wholeWeek: Binding<Bool>,
+        allowedTimetables: [TransitTimetable] = AppTimetableGroup.stationTimetables,
         usesCompactLayout: Bool
     ) {
         _timetable = timetable
         _date = date
         _wholeWeek = wholeWeek
+        self.allowedTimetables = allowedTimetables
         self.usesCompactLayout = usesCompactLayout
     }
 
@@ -1302,7 +1375,7 @@ struct StationTimetableSearchHeader: View {
     private var timetablePicker: some View {
         SearchTimetablePicker(
             timetable: $timetable,
-            allowedTimetables: AppTimetableGroup.stationTimetables,
+            allowedTimetables: allowedTimetables,
             usesCompactLayout: usesCompactLayout
         )
     }
@@ -1332,8 +1405,8 @@ struct StationTimetableDateSearchControl: View {
 
 /// Keeps a multi-municipality catalog's local network beside the line whose suggestions it scopes.
 struct StationTimetableMunicipalityPicker: View {
-    @Binding var municipality: IDOSStationTimetableMunicipality?
-    let municipalities: [IDOSStationTimetableMunicipality]
+    @Binding var municipality: TransitStationTimetableMunicipality?
+    let municipalities: [TransitStationTimetableMunicipality]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -1352,8 +1425,8 @@ struct StationTimetableMunicipalityPicker: View {
 
 /// Presents the selected local network with the same native width as the timetable popup above it.
 struct StationTimetableMunicipalityPopUpButton: NSViewRepresentable {
-    @Binding var municipality: IDOSStationTimetableMunicipality?
-    let municipalities: [IDOSStationTimetableMunicipality]
+    @Binding var municipality: TransitStationTimetableMunicipality?
+    let municipalities: [TransitStationTimetableMunicipality]
 
     func makeCoordinator() -> Coordinator {
         Coordinator(municipality: $municipality, municipalities: municipalities)
@@ -1377,23 +1450,25 @@ struct StationTimetableMunicipalityPopUpButton: NSViewRepresentable {
         let representedMunicipalities = button.itemArray.compactMap {
             $0.representedObject as? String
         }
-        let timetableNames = municipalities.map(\.timetableName)
-        if representedMunicipalities != timetableNames {
+        let municipalityIDs = municipalities.map(Self.representedID)
+        if representedMunicipalities != municipalityIDs {
             button.removeAllItems()
             for municipality in municipalities {
                 button.addItem(withTitle: municipality.name)
-                button.lastItem?.representedObject = municipality.timetableName
+                button.lastItem?.representedObject = Self.representedID(municipality)
             }
         }
 
         if let municipality,
-           let index = municipalities.firstIndex(where: {
-               $0.timetableName == municipality.timetableName
-           })
+           let index = municipalities.firstIndex(of: municipality)
         {
             button.selectItem(at: index)
             button.setAccessibilityValue(municipality.name)
         }
+    }
+
+    private static func representedID(_ municipality: TransitStationTimetableMunicipality) -> String {
+        "\(municipality.dataSourceID.rawValue)\u{1F}\(municipality.identifier)"
     }
 
     func sizeThatFits(
@@ -1407,21 +1482,21 @@ struct StationTimetableMunicipalityPopUpButton: NSViewRepresentable {
     /// Passes the selected native menu item back into the station-timetable search model.
     @MainActor
     final class Coordinator: NSObject {
-        var municipality: Binding<IDOSStationTimetableMunicipality?>
-        var municipalities: [IDOSStationTimetableMunicipality]
+        var municipality: Binding<TransitStationTimetableMunicipality?>
+        var municipalities: [TransitStationTimetableMunicipality]
 
         init(
-            municipality: Binding<IDOSStationTimetableMunicipality?>,
-            municipalities: [IDOSStationTimetableMunicipality]
+            municipality: Binding<TransitStationTimetableMunicipality?>,
+            municipalities: [TransitStationTimetableMunicipality]
         ) {
             self.municipality = municipality
             self.municipalities = municipalities
         }
 
         @objc func selectMunicipality(_ sender: NSPopUpButton) {
-            guard let timetableName = sender.selectedItem?.representedObject as? String,
+            guard let municipalityID = sender.selectedItem?.representedObject as? String,
                   let selected = municipalities.first(where: {
-                      $0.timetableName == timetableName
+                      StationTimetableMunicipalityPopUpButton.representedID($0) == municipalityID
                   })
             else { return }
 

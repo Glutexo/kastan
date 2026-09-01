@@ -6,384 +6,221 @@ import CoreFoundation
 import FoundationNetworking
 #endif
 
-/// A language variant exposed by IDOS for platform-supplied names, notes, and messages.
-public enum IDOSLanguage: String, Codable, Equatable, Sendable {
+/// A language requested for human-readable names, notes, and messages supplied by a transit data source.
+public enum TransitLanguage: String, Codable, Equatable, Sendable {
     case english = "en"
     case czech = "cs"
 
     /// Builds an IDOS endpoint path; Czech is the site's unprefixed default language.
-    func path(timetable: IDOSTimetable, endpoint: String) -> String {
+    func path(timetable: TransitTimetable, endpoint: String) -> String {
         let languagePrefix = self == .english ? "/en" : ""
         return "\(languagePrefix)/\(timetable.slug)/\(endpoint)"
     }
 }
 
-/// Selects the chronological edge extended by an IDOS result-page request.
-public enum IDOSPageDirection: String, Codable, Equatable, Hashable, Sendable {
+/// Selects the chronological edge extended by a transit result-page request.
+public enum TransitPageDirection: String, Codable, Equatable, Hashable, Sendable {
     case earlier
     case later
 }
 
-/// Carries one connection batch together with the opaque IDOS continuation state for both edges.
-public struct IDOSConnectionPage: Sendable {
-    public let connections: [IDOSConnection]
+/// Carries one connection batch together with source-owned continuation state for both chronological edges.
+public struct TransitConnectionPage: Sendable {
+    public let connections: [TransitConnection]
     public let canLoadEarlier: Bool
     public let canLoadLater: Bool
-    let pagingContext: IDOSConnectionPagingContext?
+    public let dataSourceID: TransitDataSourceID
+    public let continuation: TransitPageContinuation?
 
     public init(
-        connections: [IDOSConnection],
+        connections: [TransitConnection],
         canLoadEarlier: Bool = false,
-        canLoadLater: Bool = false
+        canLoadLater: Bool = false,
+        dataSourceID: TransitDataSourceID = .idos
     ) {
         self.connections = connections
         self.canLoadEarlier = canLoadEarlier
         self.canLoadLater = canLoadLater
-        pagingContext = nil
+        self.dataSourceID = dataSourceID
+        continuation = nil
     }
 
-    init(connections: [IDOSConnection], pagingContext: IDOSConnectionPagingContext?) {
+    /// Retains a provider-defined continuation value without exposing it to other data sources.
+    public init<Continuation: Sendable>(
+        connections: [TransitConnection],
+        canLoadEarlier: Bool,
+        canLoadLater: Bool,
+        dataSourceID: TransitDataSourceID,
+        continuation: Continuation
+    ) {
+        self.connections = connections
+        self.canLoadEarlier = canLoadEarlier
+        self.canLoadLater = canLoadLater
+        self.dataSourceID = dataSourceID
+        self.continuation = TransitPageContinuation(continuation)
+    }
+
+    init(connections: [TransitConnection], pagingContext: IDOSConnectionPagingContext?) {
         self.connections = connections
         canLoadEarlier = pagingContext?.allowPrevious ?? false
         canLoadLater = pagingContext?.allowNext ?? false
-        self.pagingContext = pagingContext
+        dataSourceID = .idos
+        continuation = pagingContext.map(TransitPageContinuation.init)
+    }
+
+    var pagingContext: IDOSConnectionPagingContext? {
+        continuation?.value(as: IDOSConnectionPagingContext.self)
     }
 }
 
-/// Carries one station-board batch together with the search window used to extend either edge.
-public struct IDOSDeparturePage: Sendable {
-    public let departures: [IDOSDeparture]
+/// Carries one station-board batch together with source-owned continuation state for both chronological edges.
+public struct TransitDeparturePage: Sendable {
+    public let departures: [TransitDeparture]
     public let canLoadEarlier: Bool
     public let canLoadLater: Bool
-    let pagingContext: IDOSDeparturePagingContext?
+    public let dataSourceID: TransitDataSourceID
+    public let continuation: TransitPageContinuation?
 
     public init(
-        departures: [IDOSDeparture],
+        departures: [TransitDeparture],
         canLoadEarlier: Bool = false,
-        canLoadLater: Bool = false
+        canLoadLater: Bool = false,
+        dataSourceID: TransitDataSourceID = .idos
     ) {
         self.departures = departures
         self.canLoadEarlier = canLoadEarlier
         self.canLoadLater = canLoadLater
-        pagingContext = nil
+        self.dataSourceID = dataSourceID
+        continuation = nil
     }
 
-    init(departures: [IDOSDeparture], pagingContext: IDOSDeparturePagingContext?) {
+    /// Retains a provider-defined continuation value without exposing it to other data sources.
+    public init<Continuation: Sendable>(
+        departures: [TransitDeparture],
+        canLoadEarlier: Bool,
+        canLoadLater: Bool,
+        dataSourceID: TransitDataSourceID,
+        continuation: Continuation
+    ) {
+        self.departures = departures
+        self.canLoadEarlier = canLoadEarlier
+        self.canLoadLater = canLoadLater
+        self.dataSourceID = dataSourceID
+        self.continuation = TransitPageContinuation(continuation)
+    }
+
+    init(departures: [TransitDeparture], pagingContext: IDOSDeparturePagingContext?) {
         self.departures = departures
         canLoadEarlier = pagingContext != nil
         canLoadLater = pagingContext != nil
-        self.pagingContext = pagingContext
+        dataSourceID = .idos
+        continuation = pagingContext.map(TransitPageContinuation.init)
+    }
+
+    var pagingContext: IDOSDeparturePagingContext? {
+        continuation?.value(as: IDOSDeparturePagingContext.self)
     }
 }
 
-public protocol IDOSClienting: Sendable {
-    func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion]
-    func searchStations(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion]
-    func searchStationTimetableLines(
-        prefix: String,
-        limit: Int,
-        timetable: IDOSTimetable
-    ) async throws -> [IDOSSuggestion]
-    func searchStationTimetableLines(
-        prefix: String,
-        limit: Int,
-        timetable: IDOSTimetable,
-        municipality: IDOSStationTimetableMunicipality?
-    ) async throws -> [IDOSSuggestion]
-    func searchStationTimetableStops(
-        prefix: String,
-        line: String,
-        limit: Int,
-        timetable: IDOSTimetable
-    ) async throws -> [IDOSSuggestion]
-    func searchStationTimetableStops(
-        prefix: String,
-        line: String,
-        limit: Int,
-        timetable: IDOSTimetable,
-        municipality: IDOSStationTimetableMunicipality?
-    ) async throws -> [IDOSSuggestion]
-    func findStationTimetable(
-        request: IDOSStationTimetableRequest,
-        language: IDOSLanguage
-    ) async throws -> IDOSStationTimetable
-    /// Loads the inclusive validity interval published for one IDOS timetable.
-    func timetableValidity(
-        for timetable: IDOSTimetable,
-        language: IDOSLanguage
-    ) async throws -> IDOSTimetableValidity
-    func findConnections(request: IDOSConnectionRequest) async throws -> [IDOSConnection]
-    /// Starts a connection search while retaining IDOS's continuation state for both chronological edges.
-    func findConnectionsPage(request: IDOSConnectionRequest) async throws -> IDOSConnectionPage
-    /// Starts a connection search with platform-supplied result text in the selected language.
-    func findConnectionsPage(
-        request: IDOSConnectionRequest,
-        language: IDOSLanguage
-    ) async throws -> IDOSConnectionPage
-    /// Extends an existing connection search through IDOS's native earlier/later paging endpoint.
-    func findConnectionsPage(
-        from page: IDOSConnectionPage,
-        direction: IDOSPageDirection
-    ) async throws -> IDOSConnectionPage
-    /// Loads IDOS's localized message and attachment names before a connection email is sent.
-    func connectionEmailDraft(
-        for connection: IDOSConnection,
-        timetable: IDOSTimetable,
-        language: IDOSLanguage
-    ) async throws -> IDOSConnectionEmailDraft
-    /// Sends one connection as IDOS-generated PDF and calendar attachments to confirmed recipients.
-    func sendConnectionByEmail(
-        _ connection: IDOSConnection,
-        to recipient: String,
-        message: String,
-        timetable: IDOSTimetable,
-        language: IDOSLanguage
-    ) async throws
-    /// Loads IDOS's native calendar export using the historical English default.
-    func connectionCalendar(for connection: IDOSConnection, timetable: IDOSTimetable) async throws -> String
-    /// Loads IDOS's native calendar export in the selected language.
-    func connectionCalendar(
-        for connection: IDOSConnection,
-        timetable: IDOSTimetable,
-        language: IDOSLanguage
-    ) async throws -> String
-    /// Loads the IDOS calendar export represented by a dated service's permanent result link.
-    func serviceCalendar(for service: IDOSServiceDetail) async throws -> String
-    /// Loads a dated service's IDOS calendar export in the selected language.
-    func serviceCalendar(for service: IDOSServiceDetail, language: IDOSLanguage) async throws -> String
-    /// Downloads IDOS's PDF represented by a dated service's permanent result link.
-    func servicePDF(for service: IDOSServiceDetail, language: IDOSLanguage) async throws -> Data
-    /// Downloads IDOS's printable representation of one connection in the selected language.
-    func connectionPDF(
-        for connection: IDOSConnection,
-        timetable: IDOSTimetable,
-        language: IDOSLanguage
-    ) async throws -> Data
-    func findDepartures(request: IDOSDeparturesRequest) async throws -> [IDOSDeparture]
-    /// Starts a station-board search while retaining its chronological search window.
-    func findDeparturesPage(request: IDOSDeparturesRequest) async throws -> IDOSDeparturePage
-    /// Starts a station-board search with platform-supplied result text in the selected language.
-    func findDeparturesPage(
-        request: IDOSDeparturesRequest,
-        language: IDOSLanguage
-    ) async throws -> IDOSDeparturePage
-    /// Extends a station board with an adjacent IDOS time window.
-    func findDeparturesPage(
-        from page: IDOSDeparturePage,
-        direction: IDOSPageDirection
-    ) async throws -> IDOSDeparturePage
-    func serviceDetail(id: String, timetable: IDOSTimetable) async throws -> IDOSServiceDetail
-    /// Loads a complete route with platform-supplied text in the selected language.
-    func serviceDetail(
-        id: String,
-        timetable: IDOSTimetable,
-        language: IDOSLanguage
-    ) async throws -> IDOSServiceDetail
-    /// Loads IDOS's exact per-day operating states for one dated service.
-    func serviceDateLimits(
-        for service: IDOSServiceDetail,
-        language: IDOSLanguage
-    ) async throws -> IDOSServiceDateLimits
-}
+public struct IDOSDataSource: IDOSClienting {
+    public static let descriptor = TransitDataSourceDescriptor.idos
+    public static let serviceTimeZone = TimeZone(identifier: "Europe/Prague")!
 
-public extension IDOSClienting {
-    /// Adapts clients without paging support to a single non-extendable connection page.
-    func findConnectionsPage(request: IDOSConnectionRequest) async throws -> IDOSConnectionPage {
-        IDOSConnectionPage(connections: try await findConnections(request: request))
-    }
-
-    /// Preserves compatibility for custom clients that do not provide localized connection pages yet.
-    func findConnectionsPage(
-        request: IDOSConnectionRequest,
-        language: IDOSLanguage
-    ) async throws -> IDOSConnectionPage {
-        try await findConnectionsPage(request: request)
-    }
-
-    /// Returns no continuation for clients that only implement one-shot connection searches.
-    func findConnectionsPage(
-        from page: IDOSConnectionPage,
-        direction: IDOSPageDirection
-    ) async throws -> IDOSConnectionPage {
-        IDOSConnectionPage(connections: [])
-    }
-
-    /// Preserves compatibility for custom clients that do not provide connection email delivery yet.
-    func connectionEmailDraft(
-        for connection: IDOSConnection,
-        timetable: IDOSTimetable,
-        language: IDOSLanguage
-    ) async throws -> IDOSConnectionEmailDraft {
-        throw IDOSError.emailUnavailable
-    }
-
-    /// Preserves compatibility for custom clients that do not provide connection email delivery yet.
-    func sendConnectionByEmail(
-        _ connection: IDOSConnection,
-        to recipient: String,
-        message: String,
-        timetable: IDOSTimetable,
-        language: IDOSLanguage
-    ) async throws {
-        throw IDOSError.emailUnavailable
-    }
-
-    /// Adapts clients without paging support to the first twenty station-board entries.
-    func findDeparturesPage(request: IDOSDeparturesRequest) async throws -> IDOSDeparturePage {
-        let departures = try await findDepartures(request: request)
-        return IDOSDeparturePage(departures: Array(departures.prefix(20)))
-    }
-
-    /// Preserves compatibility for custom clients that do not provide localized station-board pages yet.
-    func findDeparturesPage(
-        request: IDOSDeparturesRequest,
-        language: IDOSLanguage
-    ) async throws -> IDOSDeparturePage {
-        try await findDeparturesPage(request: request)
-    }
-
-    /// Returns no continuation for clients that only implement one-shot station-board searches.
-    func findDeparturesPage(
-        from page: IDOSDeparturePage,
-        direction: IDOSPageDirection
-    ) async throws -> IDOSDeparturePage {
-        IDOSDeparturePage(departures: [])
-    }
-
-    /// Preserves compatibility for custom clients that do not provide station-timetable searches yet.
-    func searchStationTimetableLines(
-        prefix: String,
-        limit: Int,
-        timetable: IDOSTimetable
-    ) async throws -> [IDOSSuggestion] {
-        throw IDOSError.stationTimetableUnavailable
-    }
-
-    /// Lets existing custom clients ignore a municipality until they adopt the municipality-aware overload.
-    func searchStationTimetableLines(
-        prefix: String,
-        limit: Int,
-        timetable: IDOSTimetable,
-        municipality: IDOSStationTimetableMunicipality?
-    ) async throws -> [IDOSSuggestion] {
-        try await searchStationTimetableLines(prefix: prefix, limit: limit, timetable: timetable)
-    }
-
-    /// Preserves compatibility for custom clients that do not provide station-timetable searches yet.
-    func searchStationTimetableStops(
-        prefix: String,
-        line: String,
-        limit: Int,
-        timetable: IDOSTimetable
-    ) async throws -> [IDOSSuggestion] {
-        throw IDOSError.stationTimetableUnavailable
-    }
-
-    /// Lets existing custom clients ignore a municipality until they adopt the municipality-aware overload.
-    func searchStationTimetableStops(
-        prefix: String,
-        line: String,
-        limit: Int,
-        timetable: IDOSTimetable,
-        municipality: IDOSStationTimetableMunicipality?
-    ) async throws -> [IDOSSuggestion] {
-        try await searchStationTimetableStops(
-            prefix: prefix,
-            line: line,
-            limit: limit,
-            timetable: timetable
-        )
-    }
-
-    /// Preserves compatibility for custom clients that do not provide station-timetable searches yet.
-    func findStationTimetable(
-        request: IDOSStationTimetableRequest,
-        language: IDOSLanguage
-    ) async throws -> IDOSStationTimetable {
-        throw IDOSError.stationTimetableUnavailable
-    }
-
-    /// Preserves compatibility for custom clients that do not expose timetable validity yet.
-    func timetableValidity(
-        for timetable: IDOSTimetable,
-        language: IDOSLanguage
-    ) async throws -> IDOSTimetableValidity {
-        throw IDOSError.invalidResponse
-    }
-
-    /// Preserves compatibility for custom clients whose calendar export is not language-aware yet.
-    func connectionCalendar(
-        for connection: IDOSConnection,
-        timetable: IDOSTimetable,
-        language: IDOSLanguage
-    ) async throws -> String {
-        try await connectionCalendar(for: connection, timetable: timetable)
-    }
-
-    /// Preserves compatibility for custom clients that do not provide dated-service calendar exports yet.
-    func serviceCalendar(for service: IDOSServiceDetail) async throws -> String {
-        throw IDOSError.calendarUnavailable
-    }
-
-    /// Preserves compatibility for custom clients whose dated-service calendar export is not language-aware yet.
-    func serviceCalendar(for service: IDOSServiceDetail, language: IDOSLanguage) async throws -> String {
-        try await serviceCalendar(for: service)
-    }
-
-    /// Preserves compatibility for custom clients that do not provide dated-service PDF exports yet.
-    func servicePDF(for service: IDOSServiceDetail, language: IDOSLanguage) async throws -> Data {
-        throw IDOSError.pdfUnavailable
-    }
-
-    /// Preserves compatibility for custom clients that do not provide IDOS PDF exports yet.
-    func connectionPDF(
-        for connection: IDOSConnection,
-        timetable: IDOSTimetable,
-        language: IDOSLanguage
-    ) async throws -> Data {
-        throw IDOSError.pdfUnavailable
-    }
-
-    /// Loads a service whose self-contained ID carries its own timetable context.
-    func serviceDetail(id: String) async throws -> IDOSServiceDetail {
-        try await serviceDetail(id: id, timetable: .defaultTimetable)
-    }
-
-    /// Loads a self-contained service ID using the selected language for text supplied by IDOS.
-    func serviceDetail(id: String, language: IDOSLanguage) async throws -> IDOSServiceDetail {
-        try await serviceDetail(id: id, timetable: .defaultTimetable, language: language)
-    }
-
-    /// Preserves compatibility for custom clients that have not added language-aware service details yet.
-    func serviceDetail(
-        id: String,
-        timetable: IDOSTimetable,
-        language: IDOSLanguage
-    ) async throws -> IDOSServiceDetail {
-        try await serviceDetail(id: id, timetable: timetable)
-    }
-
-    /// Preserves compatibility for custom clients that do not expose IDOS date-limit data yet.
-    func serviceDateLimits(
-        for service: IDOSServiceDetail,
-        language: IDOSLanguage
-    ) async throws -> IDOSServiceDateLimits {
-        throw IDOSError.dateLimitsUnavailable
-    }
-}
-
-public struct IDOSClient: IDOSClienting {
     public var baseURL: URL
+
+    public var descriptor: TransitDataSourceDescriptor {
+        Self.descriptor
+    }
+
+    public var serviceTimeZone: TimeZone? {
+        Self.serviceTimeZone
+    }
 
     public init(baseURL: URL = URL(string: "https://idos.cz")!) {
         self.baseURL = baseURL
     }
 
-    public func suggest(prefix: String, limit: Int = 8, timetable: IDOSTimetable = .defaultTimetable) async throws -> [IDOSSuggestion] {
+    /// Rejects provider-scoped values before they can be interpreted as IDOS URL identifiers.
+    private func validateOwnership(of timetable: TransitTimetable) throws {
+        guard timetable.dataSourceID == descriptor.id else {
+            throw TransitDataSourceError.valueBelongsToDifferentSource(
+                expected: descriptor.id,
+                actual: timetable.dataSourceID
+            )
+        }
+    }
+
+    private func validateOwnership(
+        of selection: TransitPlaceSelection?,
+        timetable: TransitTimetable
+    ) throws {
+        guard let selection else { return }
+        try validateOwnership(of: selection.dataSourceID)
+        if let actualTimetable = selection.timetableIdentifier,
+           actualTimetable != timetable.identifier {
+            throw TransitDataSourceError.valueBelongsToDifferentTimetable(
+                expected: timetable.identifier,
+                actual: actualTimetable,
+                source: descriptor.id
+            )
+        }
+        guard IDOSPlaceIdentity.components(from: selection.identifier) != nil else {
+            throw TransitDataSourceError.invalidDataSourceValue(source: descriptor)
+        }
+    }
+
+    private func validateOwnership(
+        of municipality: TransitStationTimetableMunicipality?,
+        timetable: TransitTimetable
+    ) throws {
+        guard let municipality else { return }
+        try validateOwnership(of: municipality.dataSourceID)
+        guard municipality.timetableIdentifier == timetable.identifier else {
+            throw TransitDataSourceError.valueBelongsToDifferentTimetable(
+                expected: timetable.identifier,
+                actual: municipality.timetableIdentifier,
+                source: descriptor.id
+            )
+        }
+        guard IDOSMunicipalityIdentity.components(from: municipality.identifier) != nil else {
+            throw TransitDataSourceError.invalidDataSourceValue(source: descriptor)
+        }
+    }
+
+    private func validateOwnership(
+        of connection: TransitConnection,
+        timetable: TransitTimetable
+    ) throws {
+        try validateOwnership(of: connection.dataSourceID)
+        guard !connection.hasExplicitTimetableIdentifier ||
+                connection.timetableIdentifier == timetable.identifier
+        else {
+            throw TransitDataSourceError.valueBelongsToDifferentTimetable(
+                expected: timetable.identifier,
+                actual: connection.timetableIdentifier,
+                source: descriptor.id
+            )
+        }
+    }
+
+    private func validateOwnership(of departure: TransitDeparture) throws {
+        try validateOwnership(of: departure.dataSourceID)
+    }
+
+    private func validateOwnership(of sourceID: TransitDataSourceID) throws {
+        guard sourceID == descriptor.id else {
+            throw TransitDataSourceError.valueBelongsToDifferentSource(
+                expected: descriptor.id,
+                actual: sourceID
+            )
+        }
+    }
+
+    public func suggest(prefix: String, limit: Int = 8, timetable: TransitTimetable = .defaultTimetable) async throws -> [TransitSuggestion] {
         try await searchTimetableObjects(prefix: prefix, limit: limit, timetable: timetable, onlyStation: false)
     }
 
-    public func searchStations(prefix: String, limit: Int = 8, timetable: IDOSTimetable = .defaultTimetable) async throws -> [IDOSSuggestion] {
+    public func searchStations(prefix: String, limit: Int = 8, timetable: TransitTimetable = .defaultTimetable) async throws -> [TransitSuggestion] {
         try await searchTimetableObjects(prefix: prefix, limit: limit, timetable: timetable, onlyStation: true)
     }
 
@@ -391,13 +228,13 @@ public struct IDOSClient: IDOSClienting {
     public func searchStationTimetableLines(
         prefix: String,
         limit: Int = 8,
-        timetable: IDOSTimetable
-    ) async throws -> [IDOSSuggestion] {
+        timetable: TransitTimetable
+    ) async throws -> [TransitSuggestion] {
         try await searchStationTimetableLines(
             prefix: prefix,
             limit: limit,
             timetable: timetable,
-            municipality: IDOSStationTimetableMunicipality.default(for: timetable)
+            municipality: TransitStationTimetableMunicipality.default(for: timetable)
         )
     }
 
@@ -405,9 +242,9 @@ public struct IDOSClient: IDOSClienting {
     public func searchStationTimetableLines(
         prefix: String,
         limit: Int = 8,
-        timetable: IDOSTimetable,
-        municipality: IDOSStationTimetableMunicipality?
-    ) async throws -> [IDOSSuggestion] {
+        timetable: TransitTimetable,
+        municipality: TransitStationTimetableMunicipality?
+    ) async throws -> [TransitSuggestion] {
         try await searchStationTimetableObjects(
             endpoint: "ZJRLines",
             prefix: prefix,
@@ -424,14 +261,14 @@ public struct IDOSClient: IDOSClienting {
         prefix: String,
         line: String,
         limit: Int = 8,
-        timetable: IDOSTimetable
-    ) async throws -> [IDOSSuggestion] {
+        timetable: TransitTimetable
+    ) async throws -> [TransitSuggestion] {
         try await searchStationTimetableStops(
             prefix: prefix,
             line: line,
             limit: limit,
             timetable: timetable,
-            municipality: IDOSStationTimetableMunicipality.default(for: timetable)
+            municipality: TransitStationTimetableMunicipality.default(for: timetable)
         )
     }
 
@@ -440,9 +277,9 @@ public struct IDOSClient: IDOSClienting {
         prefix: String,
         line: String,
         limit: Int = 8,
-        timetable: IDOSTimetable,
-        municipality: IDOSStationTimetableMunicipality?
-    ) async throws -> [IDOSSuggestion] {
+        timetable: TransitTimetable,
+        municipality: TransitStationTimetableMunicipality?
+    ) async throws -> [TransitSuggestion] {
         try await searchStationTimetableObjects(
             endpoint: "ZJRStationsOnLine",
             prefix: prefix,
@@ -457,9 +294,10 @@ public struct IDOSClient: IDOSClienting {
     private func searchTimetableObjects(
         prefix: String,
         limit: Int,
-        timetable: IDOSTimetable,
+        timetable: TransitTimetable,
         onlyStation: Bool
-    ) async throws -> [IDOSSuggestion] {
+    ) async throws -> [TransitSuggestion] {
+        try validateOwnership(of: timetable)
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         components.path = "/en/\(timetable.slug)/Ajax/SearchTimetableObjects/"
         components.queryItems = [
@@ -474,7 +312,7 @@ public struct IDOSClient: IDOSClienting {
         ]
 
         let data = try await data(from: components.requiredURL)
-        return try decodedSuggestions(from: data)
+        return try decodedSuggestions(from: data, timetable: timetable)
     }
 
     private func searchStationTimetableObjects(
@@ -482,10 +320,12 @@ public struct IDOSClient: IDOSClienting {
         prefix: String,
         line: String?,
         limit: Int,
-        timetable: IDOSTimetable,
-        municipality: IDOSStationTimetableMunicipality?,
+        timetable: TransitTimetable,
+        municipality: TransitStationTimetableMunicipality?,
         onlyStation: Bool
-    ) async throws -> [IDOSSuggestion] {
+    ) async throws -> [TransitSuggestion] {
+        try validateOwnership(of: timetable)
+        try validateOwnership(of: municipality, timetable: timetable)
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         components.path = "/en/\(timetable.slug)/Ajax/\(endpoint)/"
         var queryItems = Self.stationTimetableSuggestionQueryItems(
@@ -500,14 +340,14 @@ public struct IDOSClient: IDOSClienting {
         components.queryItems = queryItems
 
         let data = try await data(from: components.requiredURL)
-        return try decodedSuggestions(from: data)
+        return try decodedSuggestions(from: data, timetable: timetable)
     }
 
     /// Builds the municipality-aware query shared by both Station Timetable suggestion endpoints.
     static func stationTimetableSuggestionQueryItems(
         prefix: String,
         limit: Int,
-        municipality: IDOSStationTimetableMunicipality?,
+        municipality: TransitStationTimetableMunicipality?,
         onlyStation: Bool
     ) -> [URLQueryItem] {
         [
@@ -523,17 +363,28 @@ public struct IDOSClient: IDOSClienting {
     }
 
     /// Decodes IDOS suggestions while applying the same readable symbols used by every other result.
-    private func decodedSuggestions(from data: Data) throws -> [IDOSSuggestion] {
+    private func decodedSuggestions(
+        from data: Data,
+        timetable: TransitTimetable
+    ) throws -> [TransitSuggestion] {
         let json = try IDOSJSONP.decodePayload(from: data)
-        return try JSONDecoder().decode([IDOSSuggestion].self, from: json)
+        return try JSONDecoder().decode([TransitSuggestion].self, from: json)
             .map(IDOSPresentationText.normalize)
+            .map { suggestion in
+                var suggestion = suggestion
+                suggestion.dataSourceID = descriptor.id
+                suggestion.timetableIdentifier = timetable.identifier
+                return suggestion
+            }
     }
 
     /// Loads one IDOS station timetable for an MHD or integrated-transport line and direction.
     public func findStationTimetable(
-        request: IDOSStationTimetableRequest,
-        language: IDOSLanguage = .english
-    ) async throws -> IDOSStationTimetable {
+        request: TransitStationTimetableRequest,
+        language: TransitLanguage = .english
+    ) async throws -> TransitStationTimetable {
+        try validateOwnership(of: request.timetable)
+        try validateOwnership(of: request.effectiveMunicipality, timetable: request.timetable)
         guard request.isComplete else {
             throw IDOSError.stationTimetableUnavailable
         }
@@ -555,11 +406,62 @@ public struct IDOSClient: IDOSClienting {
         return result
     }
 
+    /// Resolves IDOS's presentation-only timetable value through the corresponding station-board query.
+    public func resolveStationTimetableDeparture(
+        request: TransitStationTimetableDepartureResolutionRequest,
+        language: TransitLanguage = .english
+    ) async throws -> TransitStationTimetableDepartureResolution? {
+        let stationTimetable = request.stationTimetable
+        try validateOwnership(of: stationTimetable.timetable)
+        guard let selectedStop = stationTimetable.selectedStop,
+              let reference = IDOSStationTimetableDepartureReference(request: request)
+        else {
+            return nil
+        }
+
+        for candidateDate in IDOSStationTimetableDepartureResolver.candidateServiceDates(
+            for: reference.scheduleLabel,
+            searchDate: request.serviceDate,
+            wholeWeek: request.wholeWeek
+        ) {
+            guard let serviceDate = IDOSStationTimetableDepartureResolver.addingDays(
+                reference.dayOffset,
+                to: candidateDate
+            ) else {
+                continue
+            }
+            let departureRequest = TransitDeparturesRequest(
+                timetable: stationTimetable.timetable,
+                station: selectedStop.name,
+                serviceDate: serviceDate,
+                serviceTime: reference.serviceTime,
+                isArrival: false
+            )
+            let page = try await findDeparturesPage(request: departureRequest, language: language)
+            guard let departure = IDOSStationTimetableDepartureResolver.matchingDeparture(
+                in: page.departures,
+                reference: reference,
+                timetable: stationTimetable
+            ) else {
+                continue
+            }
+            return TransitStationTimetableDepartureResolution(
+                departure: departure,
+                request: departureRequest,
+                page: page,
+                serviceDate: serviceDate,
+                serviceTime: reference.serviceTime
+            )
+        }
+        return nil
+    }
+
     /// Loads the exact inclusive date range embedded in the selected IDOS search form.
     public func timetableValidity(
-        for timetable: IDOSTimetable,
-        language: IDOSLanguage = .english
-    ) async throws -> IDOSTimetableValidity {
+        for timetable: TransitTimetable,
+        language: TransitLanguage = .english
+    ) async throws -> TransitTimetableValidity {
+        try validateOwnership(of: timetable)
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         components.path = language.path(timetable: timetable, endpoint: "spojeni/")
         let data = try await data(from: components.requiredURL)
@@ -571,18 +473,24 @@ public struct IDOSClient: IDOSClienting {
         return validity
     }
 
-    public func findConnections(request: IDOSConnectionRequest) async throws -> [IDOSConnection] {
+    public func findConnections(request: TransitConnectionRequest) async throws -> [TransitConnection] {
         try await findConnectionsPage(request: request).connections
     }
 
-    public func findConnectionsPage(request: IDOSConnectionRequest) async throws -> IDOSConnectionPage {
+    public func findConnectionsPage(request: TransitConnectionRequest) async throws -> TransitConnectionPage {
         try await findConnectionsPage(request: request, language: .english)
     }
 
     public func findConnectionsPage(
-        request: IDOSConnectionRequest,
-        language: IDOSLanguage
-    ) async throws -> IDOSConnectionPage {
+        request: TransitConnectionRequest,
+        language: TransitLanguage
+    ) async throws -> TransitConnectionPage {
+        try validateOwnership(of: request.timetable)
+        try validateOwnership(of: request.fromSelection, timetable: request.timetable)
+        try validateOwnership(of: request.toSelection, timetable: request.timetable)
+        for selection in request.viaSelections ?? [] {
+            try validateOwnership(of: selection, timetable: request.timetable)
+        }
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         components.path = language.path(timetable: request.timetable, endpoint: "spojeni/")
 
@@ -599,7 +507,7 @@ public struct IDOSClient: IDOSClienting {
 
         var connections = IDOSConnectionParser.parse(html: html, timetable: request.timetable)
         guard var paging = IDOSConnectionParser.pagingContext(html: html) else {
-            return IDOSConnectionPage(connections: connections)
+            return TransitConnectionPage(connections: connections)
         }
         paging.timetable = request.timetable
         paging.language = language
@@ -621,26 +529,32 @@ public struct IDOSClient: IDOSClienting {
             paging.listedIDs = connections.compactMap { Int($0.id) }
         }
 
-        return IDOSConnectionPage(connections: connections, pagingContext: paging)
+        return TransitConnectionPage(connections: connections, pagingContext: paging)
     }
 
     public func findConnectionsPage(
-        from page: IDOSConnectionPage,
-        direction: IDOSPageDirection
-    ) async throws -> IDOSConnectionPage {
+        from page: TransitConnectionPage,
+        direction: TransitPageDirection
+    ) async throws -> TransitConnectionPage {
+        guard page.dataSourceID == descriptor.id else {
+            throw TransitDataSourceError.pageBelongsToDifferentSource(
+                expected: descriptor.id,
+                actual: page.dataSourceID
+            )
+        }
         guard let paging = page.pagingContext else {
-            return IDOSConnectionPage(connections: [])
+            return TransitConnectionPage(connections: [])
         }
         return try await connectionPage(paging: paging, direction: direction)
     }
 
     private func connectionPage(
         paging: IDOSConnectionPagingContext,
-        direction: IDOSPageDirection
-    ) async throws -> IDOSConnectionPage {
+        direction: TransitPageDirection
+    ) async throws -> TransitConnectionPage {
         let isPrevious = direction == .earlier
         guard let connectionID = isPrevious ? paging.listedIDs.first : paging.listedIDs.last else {
-            return IDOSConnectionPage(connections: [])
+            return TransitConnectionPage(connections: [])
         }
 
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
@@ -708,15 +622,17 @@ public struct IDOSClient: IDOSClienting {
             updatedPaging.allowNext = false
         }
 
-        return IDOSConnectionPage(connections: connections, pagingContext: updatedPaging)
+        return TransitConnectionPage(connections: connections, pagingContext: updatedPaging)
     }
 
     /// Loads the wording and attachment names IDOS will use for one connection email.
     public func connectionEmailDraft(
-        for connection: IDOSConnection,
-        timetable: IDOSTimetable = .defaultTimetable,
-        language: IDOSLanguage = .english
-    ) async throws -> IDOSConnectionEmailDraft {
+        for connection: TransitConnection,
+        timetable: TransitTimetable = .defaultTimetable,
+        language: TransitLanguage = .english
+    ) async throws -> TransitConnectionEmailDraft {
+        try validateOwnership(of: timetable)
+        try validateOwnership(of: connection, timetable: timetable)
         let body = try connectionEmailFormData(
             for: connection,
             rootName: "pdfModel"
@@ -734,7 +650,7 @@ public struct IDOSClient: IDOSClienting {
     }
 
     /// Validates and maps the small JSON document returned while IDOS prepares email attachments.
-    static func connectionEmailDraft(from data: Data) throws -> IDOSConnectionEmailDraft {
+    static func connectionEmailDraft(from data: Data) throws -> TransitConnectionEmailDraft {
         guard let response = try? JSONDecoder().decode(IDOSShareLabelsResponse.self, from: data),
               response.error?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false,
               let pdfFileName = response.filename?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -744,7 +660,7 @@ public struct IDOSClient: IDOSClienting {
         }
 
         let calendarFileName = response.filename2?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return IDOSConnectionEmailDraft(
+        return TransitConnectionEmailDraft(
             message: response.message ?? "",
             description: response.description ?? "",
             attachmentFileNames: [pdfFileName, calendarFileName]
@@ -755,12 +671,14 @@ public struct IDOSClient: IDOSClienting {
 
     /// Asks IDOS to deliver one connection as the same PDF and calendar attachments as its website.
     public func sendConnectionByEmail(
-        _ connection: IDOSConnection,
+        _ connection: TransitConnection,
         to recipient: String,
         message: String,
-        timetable: IDOSTimetable = .defaultTimetable,
-        language: IDOSLanguage = .english
+        timetable: TransitTimetable = .defaultTimetable,
+        language: TransitLanguage = .english
     ) async throws {
+        try validateOwnership(of: timetable)
+        try validateOwnership(of: connection, timetable: timetable)
         let recipient = recipient.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !recipient.isEmpty else {
             throw IDOSError.emailSendingFailed("Enter an email address.")
@@ -800,7 +718,7 @@ public struct IDOSClient: IDOSClienting {
 
     /// Reuses the opaque sharing model parsed from the selected result without exposing IDOS internals publicly.
     private func connectionEmailFormData(
-        for connection: IDOSConnection,
+        for connection: TransitConnection,
         rootName: String,
         additionalValues: [String: String] = [:]
     ) throws -> Data {
@@ -822,18 +740,20 @@ public struct IDOSClient: IDOSClienting {
 
     /// Loads IDOS's native calendar export using the historical English default.
     public func connectionCalendar(
-        for connection: IDOSConnection,
-        timetable: IDOSTimetable = .defaultTimetable
+        for connection: TransitConnection,
+        timetable: TransitTimetable = .defaultTimetable
     ) async throws -> String {
         try await connectionCalendar(for: connection, timetable: timetable, language: .english)
     }
 
     /// Loads IDOS's native calendar export with human-readable text in the selected language.
     public func connectionCalendar(
-        for connection: IDOSConnection,
-        timetable: IDOSTimetable = .defaultTimetable,
-        language: IDOSLanguage
+        for connection: TransitConnection,
+        timetable: TransitTimetable = .defaultTimetable,
+        language: TransitLanguage
     ) async throws -> String {
+        try validateOwnership(of: timetable)
+        try validateOwnership(of: connection, timetable: timetable)
         guard let model = connection.calendarModel, !model.isEmpty else {
             throw IDOSError.calendarUnavailable
         }
@@ -858,14 +778,14 @@ public struct IDOSClient: IDOSClienting {
     }
 
     /// Resolves a dated service's permanent result using the historical English calendar default.
-    public func serviceCalendar(for service: IDOSServiceDetail) async throws -> String {
+    public func serviceCalendar(for service: TransitServiceDetail) async throws -> String {
         try await serviceCalendar(for: service, language: .english)
     }
 
     /// Resolves a dated service's permanent result and returns IDOS's calendar export in the selected language.
     public func serviceCalendar(
-        for service: IDOSServiceDetail,
-        language: IDOSLanguage
+        for service: TransitServiceDetail,
+        language: TransitLanguage
     ) async throws -> String {
         let connection = try await resultConnection(
             for: service,
@@ -880,8 +800,8 @@ public struct IDOSClient: IDOSClienting {
 
     /// Resolves a dated service's permanent result and returns the native PDF generated by IDOS.
     public func servicePDF(
-        for service: IDOSServiceDetail,
-        language: IDOSLanguage = .english
+        for service: TransitServiceDetail,
+        language: TransitLanguage = .english
     ) async throws -> Data {
         let connection = try await resultConnection(
             for: service,
@@ -896,10 +816,12 @@ public struct IDOSClient: IDOSClienting {
 
     /// Downloads the single-connection PDF generated by IDOS's native sharing workflow.
     public func connectionPDF(
-        for connection: IDOSConnection,
-        timetable: IDOSTimetable = .defaultTimetable,
-        language: IDOSLanguage = .english
+        for connection: TransitConnection,
+        timetable: TransitTimetable = .defaultTimetable,
+        language: TransitLanguage = .english
     ) async throws -> Data {
+        try validateOwnership(of: timetable)
+        try validateOwnership(of: connection, timetable: timetable)
         guard let model = connection.pdfModel else {
             throw IDOSError.pdfUnavailable
         }
@@ -919,24 +841,26 @@ public struct IDOSClient: IDOSClienting {
         return data
     }
 
-    public func findDepartures(request: IDOSDeparturesRequest) async throws -> [IDOSDeparture] {
+    public func findDepartures(request: TransitDeparturesRequest) async throws -> [TransitDeparture] {
         try await departureResults(request: request, language: .english)
     }
 
-    public func findDeparturesPage(request: IDOSDeparturesRequest) async throws -> IDOSDeparturePage {
+    public func findDeparturesPage(request: TransitDeparturesRequest) async throws -> TransitDeparturePage {
         try await findDeparturesPage(request: request, language: .english)
     }
 
     public func findDeparturesPage(
-        request: IDOSDeparturesRequest,
-        language: IDOSLanguage
-    ) async throws -> IDOSDeparturePage {
+        request: TransitDeparturesRequest,
+        language: TransitLanguage
+    ) async throws -> TransitDeparturePage {
+        try validateOwnership(of: request.timetable)
+        try validateOwnership(of: request.stationSelection, timetable: request.timetable)
         let departures = Array(
             try await departureResults(request: request, language: language).prefix(20)
         )
         let dates = departures.compactMap { IDOSDepartureParser.scheduledDate(for: $0) }
         guard let earliest = dates.min(), let latest = dates.max() else {
-            return IDOSDeparturePage(departures: departures)
+            return TransitDeparturePage(departures: departures)
         }
 
         let paging = IDOSDeparturePagingContext(
@@ -946,15 +870,21 @@ public struct IDOSClient: IDOSClienting {
             latestCursor: latest,
             listedIDs: Set(departures.map(\.id))
         )
-        return IDOSDeparturePage(departures: departures, pagingContext: paging)
+        return TransitDeparturePage(departures: departures, pagingContext: paging)
     }
 
     public func findDeparturesPage(
-        from page: IDOSDeparturePage,
-        direction: IDOSPageDirection
-    ) async throws -> IDOSDeparturePage {
+        from page: TransitDeparturePage,
+        direction: TransitPageDirection
+    ) async throws -> TransitDeparturePage {
+        guard page.dataSourceID == descriptor.id else {
+            throw TransitDataSourceError.pageBelongsToDifferentSource(
+                expected: descriptor.id,
+                actual: page.dataSourceID
+            )
+        }
         guard var paging = page.pagingContext else {
-            return IDOSDeparturePage(departures: [])
+            return TransitDeparturePage(departures: [])
         }
 
         let pageDuration: TimeInterval = 60 * 60
@@ -982,13 +912,15 @@ public struct IDOSClient: IDOSClienting {
         }
         paging.listedIDs.formUnion(departures.map(\.id))
 
-        return IDOSDeparturePage(departures: departures, pagingContext: paging)
+        return TransitDeparturePage(departures: departures, pagingContext: paging)
     }
 
     private func departureResults(
-        request: IDOSDeparturesRequest,
-        language: IDOSLanguage
-    ) async throws -> [IDOSDeparture] {
+        request: TransitDeparturesRequest,
+        language: TransitLanguage
+    ) async throws -> [TransitDeparture] {
+        try validateOwnership(of: request.timetable)
+        try validateOwnership(of: request.stationSelection, timetable: request.timetable)
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         components.path = language.path(timetable: request.timetable, endpoint: "odjezdy/")
 
@@ -1007,23 +939,21 @@ public struct IDOSClient: IDOSClienting {
     }
 
     private static func departureRequest(
-        _ original: IDOSDeparturesRequest,
+        _ original: TransitDeparturesRequest,
         at date: Date
-    ) -> IDOSDeparturesRequest {
+    ) -> TransitDeparturesRequest {
         var request = original
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: "Europe/Prague")!
         let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
-        request.date = String(
-            format: "%02d.%02d.%04d",
-            components.day ?? 1,
-            components.month ?? 1,
-            components.year ?? 1
+        request.serviceDate = TransitDate(
+            year: components.year ?? 1,
+            month: components.month ?? 1,
+            day: components.day ?? 1
         )
-        request.time = String(
-            format: "%02d:%02d",
-            components.hour ?? 0,
-            components.minute ?? 0
+        request.serviceTime = TransitTime(
+            hour: components.hour ?? 0,
+            minute: components.minute ?? 0
         )
         return request
     }
@@ -1031,17 +961,18 @@ public struct IDOSClient: IDOSClienting {
     /// Loads a complete route; `timetable` is used only when a legacy ID lacks embedded context.
     public func serviceDetail(
         id: String,
-        timetable: IDOSTimetable = .defaultTimetable
-    ) async throws -> IDOSServiceDetail {
+        timetable: TransitTimetable = .defaultTimetable
+    ) async throws -> TransitServiceDetail {
         try await serviceDetail(id: id, timetable: timetable, language: .english)
     }
 
     /// Loads a complete route in the selected IDOS language; `timetable` is only a legacy-ID fallback.
     public func serviceDetail(
         id: String,
-        timetable: IDOSTimetable = .defaultTimetable,
-        language: IDOSLanguage
-    ) async throws -> IDOSServiceDetail {
+        timetable: TransitTimetable = .defaultTimetable,
+        language: TransitLanguage
+    ) async throws -> TransitServiceDetail {
+        try validateOwnership(of: timetable)
         let reference = try IDOSServiceReference(id: id, fallbackTimetable: timetable)
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         components.path = language.path(timetable: reference.timetable, endpoint: "Ajax/TrainDetail")
@@ -1078,9 +1009,10 @@ public struct IDOSClient: IDOSClienting {
 
     /// Loads the same exact run, non-run, and unavailable states shown by IDOS's date-restriction dialog.
     public func serviceDateLimits(
-        for service: IDOSServiceDetail,
-        language: IDOSLanguage = .english
-    ) async throws -> IDOSServiceDateLimits {
+        for service: TransitServiceDetail,
+        language: TransitLanguage = .english
+    ) async throws -> TransitServiceDateLimits {
+        try validateOwnership(of: service.timetable)
         let reference = try IDOSServiceReference(
             id: service.id,
             fallbackTimetable: service.timetable
@@ -1132,9 +1064,10 @@ public struct IDOSClient: IDOSClienting {
 
     /// Loads the one connection encoded by a service share URL for native IDOS export operations.
     private func resultConnection(
-        for service: IDOSServiceDetail,
+        for service: TransitServiceDetail,
         unavailableError: IDOSError
-    ) async throws -> IDOSConnection {
+    ) async throws -> TransitConnection {
+        try validateOwnership(of: service.timetable)
         guard let value = service.shareURL, !value.isEmpty else {
             throw unavailableError
         }
@@ -1189,81 +1122,227 @@ public struct IDOSClient: IDOSClienting {
     }
 }
 
-/// An exact IDOS place selected from suggestions or represented by geographic coordinates.
+/// An exact provider-owned place selected from suggestions or represented by geographic coordinates.
 ///
-/// Supplying this value with a request distinguishes a station or stop from a municipality
-/// with the same visible name and lets IDOS route from, to, or via that exact object.
-/// Endpoint selections can also represent the user's current location.
-/// Omitting it keeps the corresponding request field as free text.
-public struct IDOSPlaceSelection: Codable, Equatable, Sendable {
-    /// The text IDOS places into the visible search field after selection.
+/// The opaque identifier is interpreted only by the data source that created it. Supplying this
+/// value with a request distinguishes an exact stop or place from free text without exposing the
+/// provider's transport representation to application code.
+public struct TransitPlaceSelection: Codable, Equatable, Sendable {
+    /// The provider that owns `identifier`.
+    public var dataSourceID: TransitDataSourceID
+    /// The provider-owned timetable in which this exact selection can be used, when known.
+    public var timetableIdentifier: String?
+    /// An opaque identifier meaningful only to `dataSourceID`.
+    public var identifier: String
+    /// Text placed into the visible search field after selection.
     public var text: String
-    /// The IDOS catalog or coordinate marker describing the selected place.
-    public var listID: String
-    /// The selected catalog object or coordinate mode identifier.
-    public var itemID: String
+    /// Whether this selection follows the user's live location across timetable changes.
+    public var isCurrentLocation: Bool
 
-    public init(text: String, listID: String, itemID: String) {
+    /// Builds a provider-neutral exact selection without imposing IDOS wire fields.
+    public init(
+        dataSourceID: TransitDataSourceID,
+        timetableIdentifier: String? = nil,
+        identifier: String,
+        text: String,
+        isCurrentLocation: Bool = false
+    ) {
+        self.dataSourceID = dataSourceID
+        self.timetableIdentifier = timetableIdentifier
+        self.identifier = identifier
         self.text = text
-        self.listID = listID
-        self.itemID = itemID
+        self.isCurrentLocation = isCurrentLocation
     }
 
-    public init?(suggestion: IDOSSuggestion) {
-        guard let listID = suggestion.value,
-              let itemID = suggestion.value2
-        else {
+    /// Preserves the historical IDOS initializer.
+    public init(text: String, listID: String, itemID: String) {
+        self.init(
+            dataSourceID: .idos,
+            identifier: IDOSPlaceIdentity.identifier(listID: listID, itemID: itemID),
+            text: text,
+            isCurrentLocation: itemID == "myPosition=true" && listID.hasPrefix("loc:")
+        )
+    }
+
+    public init?(suggestion: TransitSuggestion) {
+        guard let identifier = suggestion.identifier else {
             return nil
         }
 
         self.init(
-            text: suggestion.selectedText ?? suggestion.text,
-            listID: listID,
-            itemID: itemID
+            dataSourceID: suggestion.dataSourceID,
+            timetableIdentifier: suggestion.hasExplicitTimetableIdentifier
+                ? suggestion.timetableIdentifier
+                : nil,
+            identifier: identifier,
+            text: suggestion.selectedText ?? suggestion.text
         )
     }
 
-    /// Builds IDOS's exact `My location` value from a WGS-84 coordinate.
+    /// Historical IDOS convenience retained for source compatibility.
+    ///
+    /// Provider-neutral callers use `TransitDataSource.coordinatePlaceSelection` so the selected source owns
+    /// coordinate encoding and can explicitly advertise whether it supports this operation.
     public static func currentLocation(
         text: String,
         latitude: Double,
-        longitude: Double
+        longitude: Double,
+        timetableIdentifier: String? = nil
     ) -> Self {
         Self(
+            dataSourceID: .idos,
+            timetableIdentifier: timetableIdentifier,
+            identifier: IDOSPlaceIdentity.identifier(
+                listID: "loc: \(coordinate(latitude)); \(coordinate(longitude))",
+                itemID: "myPosition=true"
+            ),
             text: text,
-            listID: "loc: \(coordinate(latitude)); \(coordinate(longitude))",
-            itemID: "myPosition=true"
+            isCurrentLocation: true
         )
     }
 
-    fileprivate var formValue: String {
-        // IDOS omits the visible label only for its coordinate-backed `My location` object.
-        if itemID == "myPosition=true", listID.hasPrefix("loc:") {
-            return "\(listID)%\(itemID)"
+    /// The historical IDOS catalog marker, retained for source compatibility.
+    public var listID: String {
+        get {
+            IDOSPlaceIdentity.components(from: identifier)?.listID ?? ""
         }
-        return "\(text)%\(listID)%\(itemID)"
+        set {
+            let itemID = self.itemID
+            dataSourceID = .idos
+            identifier = IDOSPlaceIdentity.identifier(listID: newValue, itemID: itemID)
+            isCurrentLocation = itemID == "myPosition=true" && newValue.hasPrefix("loc:")
+        }
+    }
+
+    /// The historical IDOS item marker, retained for source compatibility.
+    public var itemID: String {
+        get {
+            IDOSPlaceIdentity.components(from: identifier)?.itemID ?? ""
+        }
+        set {
+            let listID = self.listID
+            dataSourceID = .idos
+            identifier = IDOSPlaceIdentity.identifier(listID: listID, itemID: newValue)
+            isCurrentLocation = newValue == "myPosition=true" && listID.hasPrefix("loc:")
+        }
     }
 
     private static func coordinate(_ value: Double) -> String {
         String(format: "%.6f", locale: Locale(identifier: "en_US_POSIX"), value)
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case dataSourceID
+        case timetableIdentifier
+        case identifier
+        case text
+        case isCurrentLocation
+        case listID
+        case itemID
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let text = try container.decode(String.self, forKey: .text)
+        let dataSourceID = try container.decodeIfPresent(TransitDataSourceID.self, forKey: .dataSourceID) ?? .idos
+        let timetableIdentifier = try container.decodeIfPresent(String.self, forKey: .timetableIdentifier)
+        if let identifier = try container.decodeIfPresent(String.self, forKey: .identifier) {
+            self.init(
+                dataSourceID: dataSourceID,
+                timetableIdentifier: timetableIdentifier,
+                identifier: identifier,
+                text: text,
+                isCurrentLocation: try container.decodeIfPresent(Bool.self, forKey: .isCurrentLocation) ?? false
+            )
+        } else {
+            self.init(
+                text: text,
+                listID: try container.decode(String.self, forKey: .listID),
+                itemID: try container.decode(String.self, forKey: .itemID)
+            )
+            self.timetableIdentifier = timetableIdentifier
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(text, forKey: .text)
+        try container.encodeIfPresent(timetableIdentifier, forKey: .timetableIdentifier)
+        if dataSourceID == .idos, let components = IDOSPlaceIdentity.components(from: identifier) {
+            try container.encode(components.listID, forKey: .listID)
+            try container.encode(components.itemID, forKey: .itemID)
+        } else {
+            try container.encode(dataSourceID, forKey: .dataSourceID)
+            try container.encode(identifier, forKey: .identifier)
+            try container.encode(isCurrentLocation, forKey: .isCurrentLocation)
+        }
+    }
 }
 
-public struct IDOSDeparturesRequest: Codable, Equatable, Sendable {
-    public var timetable: IDOSTimetable
+private enum IDOSPlaceIdentity {
+    private static let separator = "\u{1F}"
+
+    static func identifier(listID: String, itemID: String) -> String {
+        listID + separator + itemID
+    }
+
+    static func components(from identifier: String) -> (listID: String, itemID: String)? {
+        guard let separatorIndex = identifier.firstIndex(of: Character(separator)) else { return nil }
+        return (
+            String(identifier[..<separatorIndex]),
+            String(identifier[identifier.index(after: separatorIndex)...])
+        )
+    }
+
+    static func formValue(for selection: TransitPlaceSelection) -> String? {
+        guard selection.dataSourceID == .idos,
+              let components = components(from: selection.identifier)
+        else { return nil }
+        // IDOS omits the visible label only for its coordinate-backed `My location` object.
+        if selection.isCurrentLocation {
+            return "\(components.listID)%\(components.itemID)"
+        }
+        return "\(selection.text)%\(components.listID)%\(components.itemID)"
+    }
+}
+
+private extension TransitDate {
+    /// Translates a provider-neutral civil date only at the IDOS transport boundary.
+    var idosRequestValue: String {
+        String(format: "%d.%d.%04d", day, month, year)
+    }
+}
+
+private extension TransitTime {
+    /// Translates a provider-neutral local time only at the IDOS transport boundary.
+    var idosRequestValue: String {
+        String(format: "%02d:%02d", hour, minute)
+    }
+}
+
+public struct TransitDeparturesRequest: Codable, Equatable, Sendable {
+    public var timetable: TransitTimetable
     public var station: String
     /// An exact autocomplete choice, or `nil` when `station` should be interpreted as free text.
-    public var stationSelection: IDOSPlaceSelection?
+    public var stationSelection: TransitPlaceSelection?
+    /// An IDOS-formatted date retained for source compatibility; new providers should use `serviceDate`.
     public var date: String?
+    /// An IDOS-formatted time retained for source compatibility; new providers should use `serviceTime`.
     public var time: String?
+    /// The provider-neutral civil date requested by the caller.
+    public var serviceDate: TransitDate?
+    /// The provider-neutral local time requested by the caller.
+    public var serviceTime: TransitTime?
     public var isArrival: Bool
 
     public init(
-        timetable: IDOSTimetable = .defaultTimetable,
+        timetable: TransitTimetable = .defaultTimetable,
         station: String,
-        stationSelection: IDOSPlaceSelection? = nil,
+        stationSelection: TransitPlaceSelection? = nil,
         date: String? = nil,
         time: String? = nil,
+        serviceDate: TransitDate? = nil,
+        serviceTime: TransitTime? = nil,
         isArrival: Bool = false
     ) {
         self.timetable = timetable
@@ -1271,21 +1350,23 @@ public struct IDOSDeparturesRequest: Codable, Equatable, Sendable {
         self.stationSelection = stationSelection
         self.date = date
         self.time = time
+        self.serviceDate = serviceDate
+        self.serviceTime = serviceTime
         self.isArrival = isArrival
     }
 
     var formItems: [URLQueryItem] {
         var items = [
             URLQueryItem(name: "From", value: station),
-            URLQueryItem(name: "FromHidden", value: stationSelection?.formValue ?? "%0"),
+            URLQueryItem(name: "FromHidden", value: stationSelection.flatMap(IDOSPlaceIdentity.formValue) ?? "%0"),
             URLQueryItem(name: "IsArr", value: isArrival ? "True" : "False"),
         ]
 
-        if let date {
+        if let date = serviceDate?.idosRequestValue ?? date {
             items.append(URLQueryItem(name: "Date", value: date))
         }
 
-        if let time {
+        if let time = serviceTime?.idosRequestValue ?? time {
             items.append(URLQueryItem(name: "Time", value: time))
         }
 
@@ -1294,24 +1375,69 @@ public struct IDOSDeparturesRequest: Codable, Equatable, Sendable {
     }
 }
 
-/// Selects one municipality inside an IDOS Station Timetable catalog that contains several local networks.
-public struct IDOSStationTimetableMunicipality: Codable, Equatable, Hashable, Sendable {
-    /// Municipality name presented by IDOS.
+/// Selects one provider-owned municipality inside a Station Timetable catalog.
+public struct TransitStationTimetableMunicipality: Codable, Equatable, Hashable, Sendable {
+    public var dataSourceID: TransitDataSourceID
+    /// The provider-owned timetable in which this municipality can be used.
+    public var timetableIdentifier: String
+    /// Opaque municipality identifier interpreted only by `dataSourceID`.
+    public var identifier: String
+    /// Municipality name presented to the user.
     public var name: String
-    /// Catalog index required by the IDOS line and stop suggestion endpoints.
-    public var timetableIndex: Int
-    /// Opaque municipality identifier carried by a permanent Station Timetable result URL.
-    public var timetableName: String
 
-    public init(name: String, timetableIndex: Int, timetableName: String) {
+    public init(
+        dataSourceID: TransitDataSourceID,
+        timetableIdentifier: String,
+        identifier: String,
+        name: String
+    ) {
+        self.dataSourceID = dataSourceID
+        self.timetableIdentifier = timetableIdentifier
+        self.identifier = identifier
         self.name = name
-        self.timetableIndex = timetableIndex
-        self.timetableName = timetableName
+    }
+
+    /// Preserves the historical IDOS initializer.
+    public init(name: String, timetableIndex: Int, timetableName: String) {
+        self.init(
+            dataSourceID: .idos,
+            timetableIdentifier: IDOSMunicipalityIdentity.timetableIdentifier(for: timetableName)
+                ?? TransitTimetable.defaultTimetable.identifier,
+            identifier: IDOSMunicipalityIdentity.identifier(index: timetableIndex, name: timetableName),
+            name: name
+        )
+    }
+
+    /// The historical IDOS catalog index, retained for source compatibility.
+    public var timetableIndex: Int {
+        get {
+            IDOSMunicipalityIdentity.components(from: identifier)?.index ?? 0
+        }
+        set {
+            let timetableName = self.timetableName
+            dataSourceID = .idos
+            identifier = IDOSMunicipalityIdentity.identifier(index: newValue, name: timetableName)
+        }
+    }
+
+    /// The historical IDOS URL identifier, retained for source compatibility.
+    public var timetableName: String {
+        get {
+            IDOSMunicipalityIdentity.components(from: identifier)?.name ?? identifier
+        }
+        set {
+            let timetableIndex = self.timetableIndex
+            dataSourceID = .idos
+            timetableIdentifier = IDOSMunicipalityIdentity.timetableIdentifier(for: newValue)
+                ?? TransitTimetable.defaultTimetable.identifier
+            identifier = IDOSMunicipalityIdentity.identifier(index: timetableIndex, name: newValue)
+        }
     }
 
     /// Returns the municipalities published within a supported multi-municipality timetable.
-    public static func available(for timetable: IDOSTimetable) -> [Self] {
-        switch timetable.slug {
+    public static func available(for timetable: TransitTimetable) -> [Self] {
+        guard timetable.dataSourceID == .idos else { return [] }
+        return switch timetable.slug {
         case "odis":
             odisMunicipalities
         case "iredo":
@@ -1334,7 +1460,7 @@ public struct IDOSStationTimetableMunicipality: Codable, Equatable, Hashable, Se
     }
 
     /// Returns the municipality selected initially by IDOS for the given timetable.
-    public static func `default`(for timetable: IDOSTimetable) -> Self? {
+    public static func `default`(for timetable: TransitTimetable) -> Self? {
         let timetableName: String
         switch timetable.slug {
         case "odis":
@@ -1360,7 +1486,7 @@ public struct IDOSStationTimetableMunicipality: Codable, Equatable, Hashable, Se
     }
 
     /// Resolves a displayed municipality name or its opaque IDOS identifier, defaulting like IDOS when omitted.
-    public static func resolve(_ value: String?, timetable: IDOSTimetable) throws -> Self? {
+    public static func resolve(_ value: String?, timetable: TransitTimetable) throws -> Self? {
         guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return Self.default(for: timetable)
         }
@@ -1383,6 +1509,67 @@ public struct IDOSStationTimetableMunicipality: Codable, Equatable, Hashable, Se
                 locale: Locale(identifier: "cs_CZ")
             )
             .filter { $0.isLetter || $0.isNumber }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case dataSourceID
+        case timetableIdentifier
+        case identifier
+        case name
+        case timetableIndex
+        case timetableName
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let name = try container.decode(String.self, forKey: .name)
+        let sourceID = try container.decodeIfPresent(TransitDataSourceID.self, forKey: .dataSourceID) ?? .idos
+        let timetableIdentifier = try container.decodeIfPresent(String.self, forKey: .timetableIdentifier)
+        if let identifier = try container.decodeIfPresent(String.self, forKey: .identifier) {
+            guard let timetableIdentifier = timetableIdentifier ?? (sourceID == .idos
+                ? TransitTimetable.defaultTimetable.identifier
+                : nil)
+            else {
+                throw DecodingError.keyNotFound(
+                    CodingKeys.timetableIdentifier,
+                    DecodingError.Context(
+                        codingPath: container.codingPath,
+                        debugDescription: "A provider-owned municipality requires its timetable identifier."
+                    )
+                )
+            }
+            self.init(
+                dataSourceID: sourceID,
+                timetableIdentifier: timetableIdentifier,
+                identifier: identifier,
+                name: name
+            )
+        } else {
+            self.init(
+                name: name,
+                timetableIndex: try container.decode(Int.self, forKey: .timetableIndex),
+                timetableName: try container.decode(String.self, forKey: .timetableName)
+            )
+            if let timetableIdentifier {
+                self.timetableIdentifier = timetableIdentifier
+            }
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        if dataSourceID == .idos, let components = IDOSMunicipalityIdentity.components(from: identifier) {
+            try container.encode(components.index, forKey: .timetableIndex)
+            try container.encode(components.name, forKey: .timetableName)
+            if timetableIdentifier != IDOSMunicipalityIdentity.timetableIdentifier(for: components.name) {
+                try container.encode(timetableIdentifier, forKey: .timetableIdentifier)
+            }
+        } else {
+            try container.encode(dataSourceID, forKey: .dataSourceID)
+            try container.encode(timetableIdentifier, forKey: .timetableIdentifier)
+            try container.encode(identifier, forKey: .identifier)
+        }
     }
 
     /// Mirrors the complete municipality chooser currently published by the ODIS Station Timetable form.
@@ -1472,24 +1659,71 @@ public struct IDOSStationTimetableMunicipality: Codable, Equatable, Hashable, Se
     ]
 }
 
+private enum IDOSMunicipalityIdentity {
+    private static let separator = "\u{1F}"
+
+    static func identifier(index: Int, name: String) -> String {
+        String(index) + separator + name
+    }
+
+    static func components(from identifier: String) -> (index: Int, name: String)? {
+        guard let separatorIndex = identifier.firstIndex(of: Character(separator)),
+              let index = Int(identifier[..<separatorIndex])
+        else { return nil }
+        return (index, String(identifier[identifier.index(after: separatorIndex)...]))
+    }
+
+    /// Recovers the owning catalog from the historical IDOS municipality name stored in persisted values.
+    static func timetableIdentifier(for municipalityName: String) -> String? {
+        switch municipalityName {
+        case "Bruntal", "CesTes", "FM", "Havirov", "Karvina", "Krnov", "NJ", "Opava",
+             "Orlova", "ODIS", "Studenka", "Trinec":
+            "odis"
+        case "DvurKral", "Chrudim", "Nachod", "Prelouc", "RychnovNadKneznou",
+             "TynisteNadOrlici", "Vrchlabi":
+            "iredo"
+        case "CeskaLipa", "Jablonec", "Liberec", "Turnov":
+            "idol"
+        case "Hranice", "Olomouc", "Prostej", "Prerov", "Sumperk", "Zabreh":
+            "idsok"
+        case "Bilina", "DC", "Chomutov", "KlasterecNadOhri", "Most", "RoudniceNadLabem",
+             "Teplice", "UL", "Varnsdorf":
+            "duk"
+        case "DO", "KT", "Plzen", "Rokycany", "Stribro", "Tachov":
+            "idpk"
+        case "UherskeHradiste", "Vsetin":
+            "idzk"
+        case "CesBud", "CeskyKrumlov", "JinHrad", "Milevsko", "Pisek", "Strakon", "Tabor",
+             "Vimperk":
+            "ideska"
+        default:
+            nil
+        }
+    }
+}
+
 /// A station-timetable query for one MHD or integrated-transport line and direction.
-public struct IDOSStationTimetableRequest: Codable, Equatable, Sendable {
-    public var timetable: IDOSTimetable
+public struct TransitStationTimetableRequest: Codable, Equatable, Sendable {
+    public var timetable: TransitTimetable
     /// Narrows a multi-municipality integrated timetable to one local network.
-    public var municipality: IDOSStationTimetableMunicipality?
+    public var municipality: TransitStationTimetableMunicipality?
     public var line: String
     public var from: String
     public var to: String
+    /// An IDOS-formatted date retained for source compatibility; new providers should use `serviceDate`.
     public var date: String?
+    /// The provider-neutral civil date requested by the caller.
+    public var serviceDate: TransitDate?
     public var wholeWeek: Bool
 
     public init(
-        timetable: IDOSTimetable,
-        municipality: IDOSStationTimetableMunicipality? = nil,
+        timetable: TransitTimetable,
+        municipality: TransitStationTimetableMunicipality? = nil,
         line: String,
         from: String,
         to: String,
         date: String? = nil,
+        serviceDate: TransitDate? = nil,
         wholeWeek: Bool = false
     ) {
         self.timetable = timetable
@@ -1498,6 +1732,7 @@ public struct IDOSStationTimetableRequest: Codable, Equatable, Sendable {
         self.from = from
         self.to = to
         self.date = date
+        self.serviceDate = serviceDate
         self.wholeWeek = wholeWeek
     }
 
@@ -1516,7 +1751,7 @@ public struct IDOSStationTimetableRequest: Codable, Equatable, Sendable {
         if let municipality = effectiveMunicipality {
             items.append(URLQueryItem(name: "ttn", value: municipality.timetableName))
         }
-        if let date, !date.isEmpty {
+        if let date = serviceDate?.idosRequestValue ?? date, !date.isEmpty {
             items.insert(URLQueryItem(name: "date", value: date), at: 0)
         }
         if wholeWeek {
@@ -1527,22 +1762,22 @@ public struct IDOSStationTimetableRequest: Codable, Equatable, Sendable {
     }
 
     /// Applies the same initial municipality as IDOS when a multi-municipality timetable omits one.
-    var effectiveMunicipality: IDOSStationTimetableMunicipality? {
-        municipality ?? IDOSStationTimetableMunicipality.default(for: timetable)
+    var effectiveMunicipality: TransitStationTimetableMunicipality? {
+        municipality ?? TransitStationTimetableMunicipality.default(for: timetable)
     }
 }
 
 /// A complete IDOS station timetable with its route, hourly departures, keyed explanations, and notes.
-public struct IDOSStationTimetable: Codable, Equatable, Sendable {
-    public var timetable: IDOSTimetable
+public struct TransitStationTimetable: Codable, Equatable, Sendable {
+    public var timetable: TransitTimetable
     /// Identifies the local network selected inside a multi-municipality timetable.
-    public var municipality: IDOSStationTimetableMunicipality?
+    public var municipality: TransitStationTimetableMunicipality?
     public var lineName: String
-    public var transportMode: IDOSTransportMode?
+    public var transportMode: TransitTransportMode?
     public var fromStop: String
     public var toStop: String
-    public var stops: [IDOSStationTimetableStop]
-    public var schedules: [IDOSStationTimetableSchedule]
+    public var stops: [TransitStationTimetableStop]
+    public var schedules: [TransitStationTimetableSchedule]
     /// Explains markers such as `A` that IDOS appends to individual departures.
     public var explanations: [String]
     /// Preserves timetable-wide information that is not tied to an individual departure marker.
@@ -1552,14 +1787,14 @@ public struct IDOSStationTimetable: Codable, Equatable, Sendable {
     public var shareURL: String?
 
     public init(
-        timetable: IDOSTimetable,
-        municipality: IDOSStationTimetableMunicipality? = nil,
+        timetable: TransitTimetable,
+        municipality: TransitStationTimetableMunicipality? = nil,
         lineName: String,
-        transportMode: IDOSTransportMode? = nil,
+        transportMode: TransitTransportMode? = nil,
         fromStop: String,
         toStop: String,
-        stops: [IDOSStationTimetableStop],
-        schedules: [IDOSStationTimetableSchedule],
+        stops: [TransitStationTimetableStop],
+        schedules: [TransitStationTimetableSchedule],
         explanations: [String] = [],
         notes: [String] = [],
         isLockout: Bool = false,
@@ -1579,7 +1814,7 @@ public struct IDOSStationTimetable: Codable, Equatable, Sendable {
         self.shareURL = shareURL
     }
 
-    public var selectedStop: IDOSStationTimetableStop? {
+    public var selectedStop: TransitStationTimetableStop? {
         stops.first(where: \.isSelected)
     }
 
@@ -1602,21 +1837,21 @@ public struct IDOSStationTimetable: Codable, Equatable, Sendable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
-            timetable: try container.decode(IDOSTimetable.self, forKey: .timetable),
+            timetable: try container.decode(TransitTimetable.self, forKey: .timetable),
             municipality: try container.decodeIfPresent(
-                IDOSStationTimetableMunicipality.self,
+                TransitStationTimetableMunicipality.self,
                 forKey: .municipality
             ),
             lineName: try container.decode(String.self, forKey: .lineName),
             transportMode: try container.decodeIfPresent(
-                IDOSTransportMode.self,
+                TransitTransportMode.self,
                 forKey: .transportMode
             ),
             fromStop: try container.decode(String.self, forKey: .fromStop),
             toStop: try container.decode(String.self, forKey: .toStop),
-            stops: try container.decode([IDOSStationTimetableStop].self, forKey: .stops),
+            stops: try container.decode([TransitStationTimetableStop].self, forKey: .stops),
             schedules: try container.decode(
-                [IDOSStationTimetableSchedule].self,
+                [TransitStationTimetableSchedule].self,
                 forKey: .schedules
             ),
             explanations: try container.decodeIfPresent(
@@ -1631,7 +1866,7 @@ public struct IDOSStationTimetable: Codable, Equatable, Sendable {
 }
 
 /// One stop on a station timetable's selected line and direction.
-public struct IDOSStationTimetableStop: Codable, Equatable, Sendable {
+public struct TransitStationTimetableStop: Codable, Equatable, Sendable {
     public var name: String
     public var minuteOffset: Int?
     /// Preserves the fare-zone label when the selected timetable publishes one.
@@ -1659,18 +1894,18 @@ public struct IDOSStationTimetableStop: Codable, Equatable, Sendable {
 }
 
 /// One date or service-day group in a station timetable.
-public struct IDOSStationTimetableSchedule: Codable, Equatable, Sendable {
+public struct TransitStationTimetableSchedule: Codable, Equatable, Sendable {
     public var label: String
-    public var hours: [IDOSStationTimetableHour]
+    public var hours: [TransitStationTimetableHour]
 
-    public init(label: String, hours: [IDOSStationTimetableHour]) {
+    public init(label: String, hours: [TransitStationTimetableHour]) {
         self.label = label
         self.hours = hours
     }
 }
 
 /// Every minute marker supplied by IDOS for one hour, including attached note symbols.
-public struct IDOSStationTimetableHour: Codable, Equatable, Sendable {
+public struct TransitStationTimetableHour: Codable, Equatable, Sendable {
     public var hour: String
     public var departures: [String]
 
@@ -1680,7 +1915,216 @@ public struct IDOSStationTimetableHour: Codable, Equatable, Sendable {
     }
 }
 
-public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
+/// Retains the IDOS-specific meaning encoded in one rendered station-timetable value.
+struct IDOSStationTimetableDepartureReference {
+    let scheduleLabel: String
+    let serviceTime: TransitTime
+    let dayOffset: Int
+    let occurrence: Int
+
+    init?(request: TransitStationTimetableDepartureResolutionRequest) {
+        let timetable = request.stationTimetable
+        guard timetable.schedules.indices.contains(request.scheduleIndex) else { return nil }
+        let schedule = timetable.schedules[request.scheduleIndex]
+        guard schedule.hours.indices.contains(request.hourIndex),
+              schedule.hours[request.hourIndex].departures.indices.contains(request.departureIndex),
+              let hour = Int(schedule.hours[request.hourIndex].hour),
+              (0...23).contains(hour)
+        else {
+            return nil
+        }
+
+        let value = schedule.hours[request.hourIndex].departures[request.departureIndex]
+        let minuteText = value.prefix(while: \.isNumber)
+        guard let minute = Int(minuteText), (0...59).contains(minute) else { return nil }
+
+        scheduleLabel = schedule.label
+        serviceTime = TransitTime(hour: hour, minute: minute)
+        dayOffset = Self.dayOffset(forHourAt: request.hourIndex, in: schedule.hours)
+        occurrence = schedule.hours[request.hourIndex].departures[..<request.departureIndex].filter {
+            Int($0.prefix(while: \.isNumber)) == minute
+        }.count
+    }
+
+    /// Treats a decreasing IDOS hour sequence as the following day of the same service timetable.
+    private static func dayOffset(
+        forHourAt requestedIndex: Int,
+        in hours: [TransitStationTimetableHour]
+    ) -> Int {
+        var previousHour: Int?
+        var offset = 0
+        for hour in hours.prefix(requestedIndex + 1).compactMap({ Int($0.hour) }) {
+            if let previousHour, hour < previousHour {
+                offset += 1
+            }
+            previousHour = hour
+        }
+        return offset
+    }
+}
+
+/// Contains the IDOS text and matching heuristics behind its opt-in resolution capability.
+enum IDOSStationTimetableDepartureResolver {
+    private static var civilCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "en_GB")
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        calendar.firstWeekday = 2
+        calendar.minimumDaysInFirstWeek = 4
+        return calendar
+    }
+
+    static func addingDays(_ days: Int, to date: TransitDate) -> TransitDate? {
+        let calendar = civilCalendar
+        guard let value = date.date(in: calendar),
+              let result = calendar.date(byAdding: .day, value: days, to: value)
+        else {
+            return nil
+        }
+        return TransitDate(result, calendar: calendar)
+    }
+
+    /// Chooses the searched day directly, or the nearest IDOS weekday group inside its Monday-first week.
+    static func candidateServiceDates(
+        for scheduleLabel: String,
+        searchDate: TransitDate,
+        wholeWeek: Bool
+    ) -> [TransitDate] {
+        let calendar = civilCalendar
+        guard let searchDay = searchDate.date(in: calendar) else { return [] }
+        guard wholeWeek,
+              let week = calendar.dateInterval(of: .weekOfYear, for: searchDay)
+        else {
+            return [searchDate]
+        }
+
+        let allowedWeekdays = weekdays(in: scheduleLabel)
+        return (0..<7).compactMap { offset -> Date? in
+            guard let date = calendar.date(byAdding: .day, value: offset, to: week.start),
+                  allowedWeekdays?.contains(calendar.component(.weekday, from: date)) ?? true
+            else {
+                return nil
+            }
+            return date
+        }.sorted { lhs, rhs in
+            let lhsDistance = abs(calendar.dateComponents([.day], from: searchDay, to: lhs).day ?? 0)
+            let rhsDistance = abs(calendar.dateComponents([.day], from: searchDay, to: rhs).day ?? 0)
+            if lhsDistance != rhsDistance {
+                return lhsDistance < rhsDistance
+            }
+            return lhs >= searchDay && rhs < searchDay
+        }.map { TransitDate($0, calendar: calendar) }
+    }
+
+    /// Applies IDOS's line, direction, time, and duplicate-order rules to station-board results.
+    static func matchingDeparture(
+        in departures: [TransitDeparture],
+        reference: IDOSStationTimetableDepartureReference,
+        timetable: TransitStationTimetable
+    ) -> TransitDeparture? {
+        let line = normalizedLineName(timetable.lineName)
+        let candidates = departures.filter { departure in
+            guard let time = normalizedTime(departure.time) else { return false }
+            return departure.dataSourceID == timetable.timetable.dataSourceID &&
+                departure.timetableIdentifier == timetable.timetable.identifier &&
+                time == reference.serviceTime &&
+                normalizedLineName(departure.lineName) == line
+        }
+        guard !candidates.isEmpty else { return nil }
+
+        let destination = normalizedStopName(timetable.toStop)
+        let directedCandidates = candidates.filter { departure in
+            let candidateDestination = normalizedStopName(departure.destination)
+            let candidateVia = normalizedStopName(departure.via ?? "")
+            return candidateDestination == destination ||
+                (!destination.isEmpty && candidateVia.contains(destination))
+        }
+        let preferred = directedCandidates.isEmpty ? candidates : directedCandidates
+        if preferred.count == 1 {
+            return preferred[0]
+        }
+        guard preferred.indices.contains(reference.occurrence) else { return nil }
+        return preferred[reference.occurrence]
+    }
+
+    private static let weekdayNames: [(weekday: Int, names: [String])] = [
+        (2, ["monday", "pondeli"]),
+        (3, ["tuesday", "utery"]),
+        (4, ["wednesday", "streda"]),
+        (5, ["thursday", "ctvrtek"]),
+        (6, ["friday", "patek"]),
+        (7, ["saturday", "sobota"]),
+        (1, ["sunday", "nedele"]),
+    ]
+
+    private static func weekdays(in label: String) -> Set<Int>? {
+        let value = normalizedText(label)
+        if ["workday", "workdays", "working day", "working days", "pracovni den", "pracovni dny"]
+            .contains(where: value.contains)
+        {
+            return [2, 3, 4, 5, 6]
+        }
+
+        let matches = weekdayNames.compactMap { weekday, names -> (Int, String.Index)? in
+            names.compactMap { value.range(of: $0)?.lowerBound }.min().map { (weekday, $0) }
+        }.sorted { $0.1 < $1.1 }
+        guard !matches.isEmpty else { return nil }
+
+        if matches.count == 2 {
+            let separator = value[matches[0].1..<matches[1].1]
+            if separator.contains("-") || separator.contains("–") || separator.contains("—") ||
+                separator.contains(" to ") || separator.contains(" az ")
+            {
+                var weekdays = Set<Int>()
+                var weekday = matches[0].0
+                for _ in 0..<7 {
+                    weekdays.insert(weekday)
+                    if weekday == matches[1].0 { break }
+                    weekday = weekday == 7 ? 1 : weekday + 1
+                }
+                return weekdays
+            }
+        }
+        return Set(matches.map(\.0))
+    }
+
+    private static func normalizedTime(_ value: String) -> TransitTime? {
+        let parts = value.split(separator: ":", omittingEmptySubsequences: false)
+        guard parts.count >= 2,
+              let hour = Int(parts[0]),
+              let minute = Int(parts[1]),
+              (0...23).contains(hour),
+              (0...59).contains(minute)
+        else {
+            return nil
+        }
+        return TransitTime(hour: hour, minute: minute)
+    }
+
+    private static func normalizedLineName(_ value: String) -> String {
+        var normalized = normalizedText(value)
+        for prefix in ["line ", "linka "] where normalized.hasPrefix(prefix) {
+            normalized.removeFirst(prefix.count)
+        }
+        return normalized.filter { $0.isLetter || $0.isNumber }
+    }
+
+    private static func normalizedStopName(_ value: String) -> String {
+        normalizedText(value).filter { $0.isLetter || $0.isNumber }
+    }
+
+    private static func normalizedText(_ value: String) -> String {
+        value
+            .folding(
+                options: [.diacriticInsensitive, .caseInsensitive],
+                locale: Locale(identifier: "cs_CZ")
+            )
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+public struct TransitConnectionRequest: Codable, Equatable, Sendable {
     private static let defaultMaxTransfers = 4
     private static let defaultMinimumTransferTime = -1
     private static let defaultMaximumTransferTime = 240
@@ -1692,20 +2136,26 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
         300, 301, 303, 306,
     ]
 
-    public var timetable: IDOSTimetable
+    public var timetable: TransitTimetable
     public var from: String
     public var to: String
     /// An exact autocomplete choice, or `nil` when `from` should be interpreted as free text.
-    public var fromSelection: IDOSPlaceSelection?
+    public var fromSelection: TransitPlaceSelection?
     /// An exact autocomplete choice, or `nil` when `to` should be interpreted as free text.
-    public var toSelection: IDOSPlaceSelection?
+    public var toSelection: TransitPlaceSelection?
+    /// An IDOS-formatted date retained for source compatibility; new providers should use `serviceDate`.
     public var date: String?
+    /// An IDOS-formatted time retained for source compatibility; new providers should use `serviceTime`.
     public var time: String?
+    /// The provider-neutral civil date requested by the caller.
+    public var serviceDate: TransitDate?
+    /// The provider-neutral local time requested by the caller.
+    public var serviceTime: TransitTime?
     public var isArrival: Bool
     public var onlyDirect: Bool
     public var via: [String]
     /// Exact autocomplete choices aligned with `via`, with `nil` entries retaining free-text interpretation.
-    public var viaSelections: [IDOSPlaceSelection?]?
+    public var viaSelections: [TransitPlaceSelection?]?
     /// The maximum number of transfers permitted, including zero, or `nil` for the IDOS default.
     public var maxTransfers: Int?
     /// The minimum transfer time in minutes, with `-1` selecting the timetable's standard transfer time.
@@ -1723,17 +2173,19 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
     public var resultLimit: Int?
 
     public init(
-        timetable: IDOSTimetable = .defaultTimetable,
+        timetable: TransitTimetable = .defaultTimetable,
         from: String,
         to: String,
-        fromSelection: IDOSPlaceSelection? = nil,
-        toSelection: IDOSPlaceSelection? = nil,
+        fromSelection: TransitPlaceSelection? = nil,
+        toSelection: TransitPlaceSelection? = nil,
         date: String? = nil,
         time: String? = nil,
+        serviceDate: TransitDate? = nil,
+        serviceTime: TransitTime? = nil,
         isArrival: Bool = false,
         onlyDirect: Bool = false,
         via: [String] = [],
-        viaSelections: [IDOSPlaceSelection?]? = nil,
+        viaSelections: [TransitPlaceSelection?]? = nil,
         maxTransfers: Int? = nil,
         minimumTransferTime: Int? = nil,
         maximumTransferTime: Int? = nil,
@@ -1750,6 +2202,8 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
         self.toSelection = toSelection
         self.date = date
         self.time = time
+        self.serviceDate = serviceDate
+        self.serviceTime = serviceTime
         self.isArrival = isArrival
         self.onlyDirect = onlyDirect
         self.via = via
@@ -1767,17 +2221,17 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
     var formItems: [URLQueryItem] {
         var items = [
             URLQueryItem(name: "From", value: from),
-            URLQueryItem(name: "FromHidden", value: fromSelection?.formValue ?? "%0"),
+            URLQueryItem(name: "FromHidden", value: fromSelection.flatMap(IDOSPlaceIdentity.formValue) ?? "%0"),
             URLQueryItem(name: "To", value: to),
-            URLQueryItem(name: "ToHidden", value: toSelection?.formValue ?? "%0"),
+            URLQueryItem(name: "ToHidden", value: toSelection.flatMap(IDOSPlaceIdentity.formValue) ?? "%0"),
             URLQueryItem(name: "IsArr", value: isArrival ? "True" : "False"),
         ]
 
-        if let date {
+        if let date = serviceDate?.idosRequestValue ?? date {
             items.append(URLQueryItem(name: "Date", value: date))
         }
 
-        if let time {
+        if let time = serviceTime?.idosRequestValue ?? time {
             items.append(URLQueryItem(name: "Time", value: time))
         }
 
@@ -1795,7 +2249,7 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
                 }
                 items.append(URLQueryItem(
                     name: "AdvancedForm.ViaHidden[\(index)]",
-                    value: selection?.formValue ?? ""
+                    value: selection.flatMap(IDOSPlaceIdentity.formValue) ?? ""
                 ))
             }
 
@@ -1852,46 +2306,95 @@ public struct IDOSConnectionRequest: Codable, Equatable, Sendable {
     }
 }
 
-public struct IDOSTimetable: Codable, Equatable, Sendable {
+/// Identifies one provider-owned timetable catalog without assuming how its identifier is transported.
+public struct TransitTimetable: Codable, Equatable, Sendable {
+    public var dataSourceID: TransitDataSourceID
     public var slug: String
     public var displayName: String
 
+    /// Provider-neutral spelling of the legacy IDOS `slug` property.
+    public var identifier: String {
+        get { slug }
+        set { slug = newValue }
+    }
+
+    /// Preserves the historical IDOS initializer and its encoded representation.
     public init(slug: String, displayName: String) {
+        dataSourceID = .idos
         self.slug = slug
         self.displayName = displayName
     }
 
-    public static let defaultTimetable = IDOSTimetable(slug: "vlakyautobusymhdvse", displayName: "All timetables")
+    public init(
+        dataSourceID: TransitDataSourceID,
+        identifier: String,
+        displayName: String
+    ) {
+        self.dataSourceID = dataSourceID
+        slug = identifier
+        self.displayName = displayName
+    }
 
-    public static var known: [IDOSTimetable] {
+    private enum CodingKeys: String, CodingKey {
+        case dataSourceID
+        case slug
+        case displayName
+    }
+
+    /// Treats values encoded before multi-source support as IDOS-owned.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            dataSourceID: try container.decodeIfPresent(
+                TransitDataSourceID.self,
+                forKey: .dataSourceID
+            ) ?? .idos,
+            identifier: try container.decode(String.self, forKey: .slug),
+            displayName: try container.decode(String.self, forKey: .displayName)
+        )
+    }
+
+    /// Keeps existing IDOS JSON byte-for-byte compatible while namespacing other providers.
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if dataSourceID != .idos {
+            try container.encode(dataSourceID, forKey: .dataSourceID)
+        }
+        try container.encode(slug, forKey: .slug)
+        try container.encode(displayName, forKey: .displayName)
+    }
+
+    public static let defaultTimetable = TransitTimetable(slug: "vlakyautobusymhdvse", displayName: "All timetables")
+
+    public static var known: [TransitTimetable] {
         baseTimetables + mhdNames
             .map { name in
-                IDOSTimetable(
+                TransitTimetable(
                     slug: mhdSlugOverrides[name] ?? slugify(name),
                     displayName: "Urban Public Transport \(name)"
                 )
             }
     }
 
-    private static let baseTimetables: [IDOSTimetable] = [
+    private static let baseTimetables: [TransitTimetable] = [
         .defaultTimetable,
-        IDOSTimetable(slug: "vlakyautobusymhd", displayName: "Trains + Buses + Urban Public Transport"),
-        IDOSTimetable(slug: "vlaky", displayName: "Trains"),
-        IDOSTimetable(slug: "autobusy", displayName: "Buses"),
-        IDOSTimetable(slug: "vlakyautobusy", displayName: "Trains + Buses"),
-        IDOSTimetable(slug: "pid", displayName: "Prague + PID"),
-        IDOSTimetable(slug: "idsjmk", displayName: "IDS JMK / Brno"),
-        IDOSTimetable(slug: "odis", displayName: "ODIS"),
-        IDOSTimetable(slug: "idol", displayName: "IDOL"),
-        IDOSTimetable(slug: "idsok", displayName: "IDSOK"),
-        IDOSTimetable(slug: "iredo", displayName: "IREDO"),
-        IDOSTimetable(slug: "duk", displayName: "DÚK"),
-        IDOSTimetable(slug: "idpk", displayName: "IDPK"),
-        IDOSTimetable(slug: "idzk", displayName: "IDZK"),
-        IDOSTimetable(slug: "ideska", displayName: "IDESKA"),
+        TransitTimetable(slug: "vlakyautobusymhd", displayName: "Trains + Buses + Urban Public Transport"),
+        TransitTimetable(slug: "vlaky", displayName: "Trains"),
+        TransitTimetable(slug: "autobusy", displayName: "Buses"),
+        TransitTimetable(slug: "vlakyautobusy", displayName: "Trains + Buses"),
+        TransitTimetable(slug: "pid", displayName: "Prague + PID"),
+        TransitTimetable(slug: "idsjmk", displayName: "IDS JMK / Brno"),
+        TransitTimetable(slug: "odis", displayName: "ODIS"),
+        TransitTimetable(slug: "idol", displayName: "IDOL"),
+        TransitTimetable(slug: "idsok", displayName: "IDSOK"),
+        TransitTimetable(slug: "iredo", displayName: "IREDO"),
+        TransitTimetable(slug: "duk", displayName: "DÚK"),
+        TransitTimetable(slug: "idpk", displayName: "IDPK"),
+        TransitTimetable(slug: "idzk", displayName: "IDZK"),
+        TransitTimetable(slug: "ideska", displayName: "IDESKA"),
     ]
 
-    public static func resolve(_ value: String?) throws -> IDOSTimetable {
+    public static func resolve(_ value: String?) throws -> TransitTimetable {
         guard let value, !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return .defaultTimetable
         }
@@ -1905,11 +2408,11 @@ public struct IDOSTimetable: Codable, Equatable, Sendable {
             throw IDOSError.invalidTimetable(value)
         }
 
-        return IDOSTimetable(slug: customSlug, displayName: customSlug)
+        return TransitTimetable(slug: customSlug, displayName: customSlug)
     }
 
-    private static func aliases() -> [String: IDOSTimetable] {
-        var aliases: [String: IDOSTimetable] = [
+    private static func aliases() -> [String: TransitTimetable] {
+        var aliases: [String: TransitTimetable] = [
             "all": .defaultTimetable,
             "default": .defaultTimetable,
             "vlakyautobusymhdvse": .defaultTimetable,
@@ -2092,27 +2595,94 @@ public struct IDOSTimetable: Codable, Equatable, Sendable {
     ]
 }
 
-/// The inclusive first and last service dates published by an IDOS timetable search form.
-public struct IDOSTimetableValidity: Codable, Equatable, Sendable {
+/// The inclusive first and last civil service dates published by a transit timetable.
+public struct TransitTimetableValidity: Codable, Equatable, Sendable {
     public var validFrom: Date
     public var validThrough: Date
+    /// The provider zone in which the absolute compatibility dates represent civil service days.
+    public var timeZoneIdentifier: String?
 
+    /// Retains the original absolute-date initializer for source compatibility.
     public init(validFrom: Date, validThrough: Date) {
         self.validFrom = validFrom
         self.validThrough = validThrough
+        timeZoneIdentifier = IDOSDataSource.serviceTimeZone.identifier
+    }
+
+    /// Associates the compatibility dates with the provider's civil service-day zone.
+    public init(validFrom: Date, validThrough: Date, timeZone: TimeZone) {
+        self.validFrom = validFrom
+        self.validThrough = validThrough
+        timeZoneIdentifier = timeZone.identifier
+    }
+
+    public var timeZone: TimeZone? {
+        timeZoneIdentifier.flatMap(TimeZone.init(identifier:))
+    }
+
+    public var validFromServiceDate: TransitDate {
+        TransitDate(validFrom, calendar: serviceCalendar)
+    }
+
+    public var validThroughServiceDate: TransitDate {
+        TransitDate(validThrough, calendar: serviceCalendar)
+    }
+
+    private var serviceCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone ?? .current
+        return calendar
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case validFrom
+        case validThrough
+        case timeZoneIdentifier
+    }
+
+    /// Treats payloads written before provider zones existed as historical IDOS values.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let timeZone: TimeZone
+        if let identifier = try container.decodeIfPresent(String.self, forKey: .timeZoneIdentifier) {
+            guard let decodedTimeZone = TimeZone(identifier: identifier) else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .timeZoneIdentifier,
+                    in: container,
+                    debugDescription: "Invalid transit service time-zone identifier: \(identifier)"
+                )
+            }
+            timeZone = decodedTimeZone
+        } else {
+            timeZone = IDOSDataSource.serviceTimeZone
+        }
+        self.init(
+            validFrom: try container.decode(Date.self, forKey: .validFrom),
+            validThrough: try container.decode(Date.self, forKey: .validThrough),
+            timeZone: timeZone
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(validFrom, forKey: .validFrom)
+        try container.encode(validThrough, forKey: .validThrough)
+        if timeZoneIdentifier != IDOSDataSource.serviceTimeZone.identifier {
+            try container.encode(timeZoneIdentifier, forKey: .timeZoneIdentifier)
+        }
     }
 }
 
-/// Exact operating states returned by IDOS's native date-restriction calendar for one service.
-public struct IDOSServiceDateLimits: Codable, Equatable, Sendable {
-    /// Mirrors the three meanings shown by IDOS without inferring missing days from prose.
+/// Exact operating states returned by a data source for one service.
+public struct TransitServiceDateLimits: Codable, Equatable, Sendable {
+    /// Preserves the provider's three-state answer without inferring missing days from prose.
     public enum DayStatus: Int, Codable, Equatable, Sendable {
         case doesNotRun = 0
         case runs = 1
         case informationUnavailable = 2
     }
 
-    /// Associates one civil service date with the state published by IDOS.
+    /// Associates one civil service date with the state published by the provider.
     public struct Day: Codable, Equatable, Sendable {
         public var date: Date
         public var status: DayStatus
@@ -2123,44 +2693,162 @@ public struct IDOSServiceDateLimits: Codable, Equatable, Sendable {
         }
     }
 
-    /// The reference day with which IDOS anchors the first returned calendar month.
+    /// The reference day with which the provider anchors its returned calendar interval.
     public var referenceDate: Date
-    /// Every day supplied by IDOS, ordered chronologically across its returned months.
+    /// Every day supplied by the provider, ordered chronologically.
     public var days: [Day]
+    /// The provider zone in which the absolute compatibility dates represent civil service days.
+    public var timeZoneIdentifier: String?
 
+    /// Retains the historical IDOS initializer and its Prague civil-day normalization.
     public init(referenceDate: Date, days: [Day]) {
-        let calendar = Self.serviceCalendar
+        self.init(
+            referenceDate: referenceDate,
+            days: days,
+            timeZone: IDOSDataSource.serviceTimeZone
+        )
+    }
+
+    /// Normalizes absolute compatibility dates in the provider's explicit civil service-day zone.
+    public init(referenceDate: Date, days: [Day], timeZone: TimeZone) {
+        timeZoneIdentifier = timeZone.identifier
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "en_US_POSIX")
+        calendar.timeZone = timeZone
         self.referenceDate = calendar.startOfDay(for: referenceDate)
         self.days = days
             .map { Day(date: calendar.startOfDay(for: $0.date), status: $0.status) }
             .sorted { $0.date < $1.date }
     }
 
-    /// The first civil date for which IDOS returned a state.
+    public var timeZone: TimeZone? {
+        timeZoneIdentifier.flatMap(TimeZone.init(identifier:))
+    }
+
+    public var referenceServiceDate: TransitDate {
+        TransitDate(referenceDate, calendar: serviceCalendar)
+    }
+
+    /// The first civil date for which the provider returned a state.
     public var firstDate: Date? {
         days.first?.date
     }
 
-    /// The last civil date for which IDOS returned a state.
+    /// The last civil date for which the provider returned a state.
     public var lastDate: Date? {
         days.last?.date
     }
 
-    /// Returns only a state explicitly supplied by IDOS; dates outside the response remain absent.
+    public var firstServiceDate: TransitDate? {
+        firstDate.map { TransitDate($0, calendar: serviceCalendar) }
+    }
+
+    public var lastServiceDate: TransitDate? {
+        lastDate.map { TransitDate($0, calendar: serviceCalendar) }
+    }
+
+    /// Returns only a state explicitly supplied by the provider; dates outside the response remain absent.
     public func status(on date: Date) -> DayStatus? {
-        let date = Self.serviceCalendar.startOfDay(for: date)
+        let date = serviceCalendar.startOfDay(for: date)
         return days.first(where: { $0.date == date })?.status
     }
 
-    private static var serviceCalendar: Calendar {
+    /// Looks up a civil service date without first interpreting it in the device time zone.
+    public func status(on serviceDate: TransitDate) -> DayStatus? {
+        guard let date = serviceDate.date(in: serviceCalendar) else { return nil }
+        return status(on: date)
+    }
+
+    private var serviceCalendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.locale = Locale(identifier: "en_US_POSIX")
-        calendar.timeZone = TimeZone(identifier: "Europe/Prague")!
+        calendar.timeZone = timeZone ?? .current
         return calendar
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case referenceDate
+        case days
+        case timeZoneIdentifier
+    }
+
+    /// Treats payloads written before provider zones existed as historical IDOS values.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let referenceDate = try container.decode(Date.self, forKey: .referenceDate)
+        let days = try container.decode([Day].self, forKey: .days)
+        let decodedIdentifier = try container.decodeIfPresent(String.self, forKey: .timeZoneIdentifier)
+        let timeZone: TimeZone
+        if let decodedIdentifier {
+            guard let decodedTimeZone = TimeZone(identifier: decodedIdentifier) else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .timeZoneIdentifier,
+                    in: container,
+                    debugDescription: "Invalid transit service time-zone identifier: \(decodedIdentifier)"
+                )
+            }
+            timeZone = decodedTimeZone
+        } else {
+            timeZone = IDOSDataSource.serviceTimeZone
+        }
+        self.init(referenceDate: referenceDate, days: days, timeZone: timeZone)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(referenceDate, forKey: .referenceDate)
+        try container.encode(days, forKey: .days)
+        if timeZoneIdentifier != IDOSDataSource.serviceTimeZone.identifier {
+            try container.encode(timeZoneIdentifier, forKey: .timeZoneIdentifier)
+        }
     }
 }
 
-public struct IDOSSuggestion: Codable, Equatable, Sendable {
+/// Tracks whether a timetable namespace came from persisted data without changing public value equality.
+private struct TransitTimetableIdentityScope: Equatable, Sendable {
+    let isExplicit: Bool
+
+    static let explicit = Self(isExplicit: true)
+    static let legacyUnscoped = Self(isExplicit: false)
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        true
+    }
+}
+
+/// Accepts an absent timetable namespace only for historical IDOS payloads, which had no source field either.
+private func decodedTimetableIdentifier<Key: CodingKey>(
+    _ identifier: String?,
+    dataSourceID: TransitDataSourceID,
+    key: Key,
+    codingPath: [any CodingKey]
+) throws -> String {
+    if let identifier {
+        return identifier
+    }
+    guard dataSourceID == .idos else {
+        throw DecodingError.keyNotFound(
+            key,
+            DecodingError.Context(
+                codingPath: codingPath,
+                debugDescription: "A provider-owned transit value requires its timetable identifier."
+            )
+        )
+    }
+    return TransitTimetable.defaultTimetable.identifier
+}
+
+public struct TransitSuggestion: Codable, Equatable, Sendable {
+    /// The provider that owns `identifier`.
+    public var dataSourceID: TransitDataSourceID
+    /// The provider-owned timetable in which the suggestion can be used.
+    public var timetableIdentifier: String {
+        didSet { timetableIdentityScope = .explicit }
+    }
+    private var timetableIdentityScope: TransitTimetableIdentityScope
+    var hasExplicitTimetableIdentifier: Bool { timetableIdentityScope.isExplicit }
+    /// An opaque exact-selection identifier, or `nil` for informational suggestions.
+    public var identifier: String?
     public var selectedText: String?
     public var text: String
     public var description: String?
@@ -2176,6 +2864,9 @@ public struct IDOSSuggestion: Codable, Equatable, Sendable {
     public var to: String?
 
     public init(
+        dataSourceID: TransitDataSourceID = .idos,
+        timetableIdentifier: String = TransitTimetable.defaultTimetable.identifier,
+        identifier: String? = nil,
         selectedText: String? = nil,
         text: String,
         description: String? = nil,
@@ -2188,6 +2879,13 @@ public struct IDOSSuggestion: Codable, Equatable, Sendable {
         from: String? = nil,
         to: String? = nil
     ) {
+        self.dataSourceID = dataSourceID
+        self.timetableIdentifier = timetableIdentifier
+        timetableIdentityScope = .explicit
+        self.identifier = identifier ?? {
+            guard dataSourceID == .idos, let value, let value2 else { return nil }
+            return IDOSPlaceIdentity.identifier(listID: value, itemID: value2)
+        }()
         self.selectedText = selectedText
         self.text = text
         self.description = description
@@ -2200,10 +2898,79 @@ public struct IDOSSuggestion: Codable, Equatable, Sendable {
         self.from = from
         self.to = to
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case dataSourceID
+        case timetableIdentifier
+        case identifier
+        case selectedText
+        case text
+        case description
+        case region
+        case value
+        case value2
+        case iconId
+        case coorX
+        case coorY
+        case from
+        case to
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let dataSourceID = try container.decodeIfPresent(TransitDataSourceID.self, forKey: .dataSourceID) ?? .idos
+        let timetableIdentifier = try container.decodeIfPresent(String.self, forKey: .timetableIdentifier)
+        self.init(
+            dataSourceID: dataSourceID,
+            timetableIdentifier: try decodedTimetableIdentifier(
+                timetableIdentifier,
+                dataSourceID: dataSourceID,
+                key: CodingKeys.timetableIdentifier,
+                codingPath: container.codingPath
+            ),
+            identifier: try container.decodeIfPresent(String.self, forKey: .identifier),
+            selectedText: try container.decodeIfPresent(String.self, forKey: .selectedText),
+            text: try container.decode(String.self, forKey: .text),
+            description: try container.decodeIfPresent(String.self, forKey: .description),
+            region: try container.decodeIfPresent(String.self, forKey: .region),
+            value: try container.decodeIfPresent(String.self, forKey: .value),
+            value2: try container.decodeIfPresent(String.self, forKey: .value2),
+            iconId: try container.decodeIfPresent(Int.self, forKey: .iconId),
+            coorX: try container.decodeIfPresent(Double.self, forKey: .coorX),
+            coorY: try container.decodeIfPresent(Double.self, forKey: .coorY),
+            from: try container.decodeIfPresent(String.self, forKey: .from),
+            to: try container.decodeIfPresent(String.self, forKey: .to)
+        )
+        timetableIdentityScope = timetableIdentifier == nil ? .legacyUnscoped : .explicit
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if dataSourceID != .idos {
+            try container.encode(dataSourceID, forKey: .dataSourceID)
+            try container.encode(timetableIdentifier, forKey: .timetableIdentifier)
+            try container.encodeIfPresent(identifier, forKey: .identifier)
+        } else if timetableIdentifier != TransitTimetable.defaultTimetable.identifier {
+            try container.encode(timetableIdentifier, forKey: .timetableIdentifier)
+        }
+        try container.encodeIfPresent(selectedText, forKey: .selectedText)
+        try container.encode(text, forKey: .text)
+        try container.encodeIfPresent(description, forKey: .description)
+        try container.encodeIfPresent(region, forKey: .region)
+        if dataSourceID == .idos {
+            try container.encodeIfPresent(value, forKey: .value)
+            try container.encodeIfPresent(value2, forKey: .value2)
+        }
+        try container.encodeIfPresent(iconId, forKey: .iconId)
+        try container.encodeIfPresent(coorX, forKey: .coorX)
+        try container.encodeIfPresent(coorY, forKey: .coorY)
+        try container.encodeIfPresent(from, forKey: .from)
+        try container.encodeIfPresent(to, forKey: .to)
+    }
 }
 
 /// Describes the editable message and generated attachments IDOS will send for one connection.
-public struct IDOSConnectionEmailDraft: Codable, Equatable, Sendable {
+public struct TransitConnectionEmailDraft: Codable, Equatable, Sendable {
     public var message: String
     public var description: String
     public var attachmentFileNames: [String]
@@ -2219,14 +2986,22 @@ public struct IDOSConnectionEmailDraft: Codable, Equatable, Sendable {
     }
 }
 
-public struct IDOSConnection: Codable, Equatable, Sendable {
+public struct TransitConnection: Codable, Equatable, Sendable {
+    /// The provider that owns this result and its opaque `id`.
+    public var dataSourceID: TransitDataSourceID
+    /// The provider-owned timetable in which this result was found.
+    public var timetableIdentifier: String {
+        didSet { timetableIdentityScope = .explicit }
+    }
+    private var timetableIdentityScope: TransitTimetableIdentityScope
+    var hasExplicitTimetableIdentifier: Bool { timetableIdentityScope.isExplicit }
     public var id: String
     public var departureTime: String
     public var departureStation: String
     public var arrivalTime: String
     public var arrivalStation: String
     public var duration: String
-    public var legs: [IDOSConnectionLeg]
+    public var legs: [TransitConnectionLeg]
     public var shareURL: String?
     var calendarModel: String?
 
@@ -2254,16 +3029,20 @@ public struct IDOSConnection: Codable, Equatable, Sendable {
     }
 
     public init(
+        dataSourceID: TransitDataSourceID = .idos,
+        timetableIdentifier: String = TransitTimetable.defaultTimetable.identifier,
         id: String,
         departureTime: String,
         departureStation: String,
         arrivalTime: String,
         arrivalStation: String,
         duration: String,
-        legs: [IDOSConnectionLeg],
+        legs: [TransitConnectionLeg],
         shareURL: String? = nil
     ) {
         self.init(
+            dataSourceID: dataSourceID,
+            timetableIdentifier: timetableIdentifier,
             id: id,
             departureTime: departureTime,
             departureStation: departureStation,
@@ -2277,16 +3056,21 @@ public struct IDOSConnection: Codable, Equatable, Sendable {
     }
 
     init(
+        dataSourceID: TransitDataSourceID = .idos,
+        timetableIdentifier: String = TransitTimetable.defaultTimetable.identifier,
         id: String,
         departureTime: String,
         departureStation: String,
         arrivalTime: String,
         arrivalStation: String,
         duration: String,
-        legs: [IDOSConnectionLeg],
+        legs: [TransitConnectionLeg],
         shareURL: String? = nil,
         calendarModel: String? = nil
     ) {
+        self.dataSourceID = dataSourceID
+        self.timetableIdentifier = timetableIdentifier
+        timetableIdentityScope = .explicit
         self.id = id
         self.departureTime = departureTime
         self.departureStation = departureStation
@@ -2299,6 +3083,8 @@ public struct IDOSConnection: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case dataSourceID
+        case timetableIdentifier
         case id
         case departureTime
         case departureStation
@@ -2307,6 +3093,48 @@ public struct IDOSConnection: Codable, Equatable, Sendable {
         case duration
         case legs
         case shareURL
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let dataSourceID = try container.decodeIfPresent(TransitDataSourceID.self, forKey: .dataSourceID) ?? .idos
+        let timetableIdentifier = try container.decodeIfPresent(String.self, forKey: .timetableIdentifier)
+        self.init(
+            dataSourceID: dataSourceID,
+            timetableIdentifier: try decodedTimetableIdentifier(
+                timetableIdentifier,
+                dataSourceID: dataSourceID,
+                key: CodingKeys.timetableIdentifier,
+                codingPath: container.codingPath
+            ),
+            id: try container.decode(String.self, forKey: .id),
+            departureTime: try container.decode(String.self, forKey: .departureTime),
+            departureStation: try container.decode(String.self, forKey: .departureStation),
+            arrivalTime: try container.decode(String.self, forKey: .arrivalTime),
+            arrivalStation: try container.decode(String.self, forKey: .arrivalStation),
+            duration: try container.decode(String.self, forKey: .duration),
+            legs: try container.decode([TransitConnectionLeg].self, forKey: .legs),
+            shareURL: try container.decodeIfPresent(String.self, forKey: .shareURL)
+        )
+        timetableIdentityScope = timetableIdentifier == nil ? .legacyUnscoped : .explicit
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if dataSourceID != .idos {
+            try container.encode(dataSourceID, forKey: .dataSourceID)
+            try container.encode(timetableIdentifier, forKey: .timetableIdentifier)
+        } else if timetableIdentifier != TransitTimetable.defaultTimetable.identifier {
+            try container.encode(timetableIdentifier, forKey: .timetableIdentifier)
+        }
+        try container.encode(id, forKey: .id)
+        try container.encode(departureTime, forKey: .departureTime)
+        try container.encode(departureStation, forKey: .departureStation)
+        try container.encode(arrivalTime, forKey: .arrivalTime)
+        try container.encode(arrivalStation, forKey: .arrivalStation)
+        try container.encode(duration, forKey: .duration)
+        try container.encode(legs, forKey: .legs)
+        try container.encodeIfPresent(shareURL, forKey: .shareURL)
     }
 
     public func summaryLine(number: Int, includeDetails: Bool = true) -> String {
@@ -2344,12 +3172,12 @@ public struct IDOSConnection: Codable, Equatable, Sendable {
     }
 }
 
-public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
+public struct TransitConnectionLeg: Codable, Equatable, Sendable {
     public var name: String
     /// Opaque ID shared with the matching departure result for future service-route lookups.
     public var id: String?
     public var color: String?
-    public var transportMode: IDOSTransportMode?
+    public var transportMode: TransitTransportMode?
     public var departureTime: String
     public var fromStation: String
     public var fromTariffZone: String?
@@ -2361,13 +3189,13 @@ public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
     public var carrier: String?
     public var delay: String?
     /// Passenger facilities and restrictions printed beside this service by IDOS.
-    public var serviceInformation: [IDOSServiceInformation]
+    public var serviceInformation: [TransitServiceInformation]
 
     public init(
         name: String,
         id: String? = nil,
         color: String? = nil,
-        transportMode: IDOSTransportMode? = nil,
+        transportMode: TransitTransportMode? = nil,
         departureTime: String,
         fromStation: String,
         fromTariffZone: String? = nil,
@@ -2378,7 +3206,7 @@ public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
         toPlatform: String? = nil,
         carrier: String? = nil,
         delay: String? = nil,
-        serviceInformation: [IDOSServiceInformation] = []
+        serviceInformation: [TransitServiceInformation] = []
     ) {
         self.name = name
         self.id = id
@@ -2422,7 +3250,7 @@ public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
             name: try container.decode(String.self, forKey: .name),
             id: try container.decodeIfPresent(String.self, forKey: .id),
             color: try container.decodeIfPresent(String.self, forKey: .color),
-            transportMode: try container.decodeIfPresent(IDOSTransportMode.self, forKey: .transportMode),
+            transportMode: try container.decodeIfPresent(TransitTransportMode.self, forKey: .transportMode),
             departureTime: try container.decode(String.self, forKey: .departureTime),
             fromStation: try container.decode(String.self, forKey: .fromStation),
             fromTariffZone: try container.decodeIfPresent(String.self, forKey: .fromTariffZone),
@@ -2434,7 +3262,7 @@ public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
             carrier: try container.decodeIfPresent(String.self, forKey: .carrier),
             delay: try container.decodeIfPresent(String.self, forKey: .delay),
             serviceInformation: try container.decodeIfPresent(
-                [IDOSServiceInformation].self,
+                [TransitServiceInformation].self,
                 forKey: .serviceInformation
             ) ?? []
         )
@@ -2505,13 +3333,17 @@ public struct IDOSConnectionLeg: Codable, Equatable, Sendable {
     }
 }
 
-public struct IDOSDeparture: Codable, Equatable, Sendable {
+public struct TransitDeparture: Codable, Equatable, Sendable {
+    /// The provider that owns this result and its opaque `id`.
+    public var dataSourceID: TransitDataSourceID
+    /// The provider-owned timetable in which this result was found.
+    public var timetableIdentifier: String
     public var id: String
     public var stationName: String?
     public var time: String
     public var lineName: String
     public var lineColor: String?
-    public var transportMode: IDOSTransportMode?
+    public var transportMode: TransitTransportMode?
     public var destination: String
     public var tariffZone: String?
     public var platform: String?
@@ -2519,23 +3351,27 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
     public var carrier: String?
     public var delay: String?
     /// Passenger facilities and restrictions printed beside this service by IDOS.
-    public var serviceInformation: [IDOSServiceInformation]
+    public var serviceInformation: [TransitServiceInformation]
 
     public init(
+        dataSourceID: TransitDataSourceID = .idos,
+        timetableIdentifier: String = TransitTimetable.defaultTimetable.identifier,
         id: String,
         stationName: String? = nil,
         time: String,
         lineName: String,
         lineColor: String? = nil,
-        transportMode: IDOSTransportMode? = nil,
+        transportMode: TransitTransportMode? = nil,
         destination: String,
         tariffZone: String? = nil,
         platform: String? = nil,
         via: String? = nil,
         carrier: String? = nil,
         delay: String? = nil,
-        serviceInformation: [IDOSServiceInformation] = []
+        serviceInformation: [TransitServiceInformation] = []
     ) {
+        self.dataSourceID = dataSourceID
+        self.timetableIdentifier = timetableIdentifier
         self.id = id
         self.stationName = stationName
         self.time = time
@@ -2552,6 +3388,8 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case dataSourceID
+        case timetableIdentifier
         case id
         case stationName
         case time
@@ -2570,13 +3408,22 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
     /// Keeps previously encoded station-board rows decodable after passenger information was added.
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        let dataSourceID = try container.decodeIfPresent(TransitDataSourceID.self, forKey: .dataSourceID) ?? .idos
+        let timetableIdentifier = try container.decodeIfPresent(String.self, forKey: .timetableIdentifier)
         self.init(
+            dataSourceID: dataSourceID,
+            timetableIdentifier: try decodedTimetableIdentifier(
+                timetableIdentifier,
+                dataSourceID: dataSourceID,
+                key: CodingKeys.timetableIdentifier,
+                codingPath: container.codingPath
+            ),
             id: try container.decode(String.self, forKey: .id),
             stationName: try container.decodeIfPresent(String.self, forKey: .stationName),
             time: try container.decode(String.self, forKey: .time),
             lineName: try container.decode(String.self, forKey: .lineName),
             lineColor: try container.decodeIfPresent(String.self, forKey: .lineColor),
-            transportMode: try container.decodeIfPresent(IDOSTransportMode.self, forKey: .transportMode),
+            transportMode: try container.decodeIfPresent(TransitTransportMode.self, forKey: .transportMode),
             destination: try container.decode(String.self, forKey: .destination),
             tariffZone: try container.decodeIfPresent(String.self, forKey: .tariffZone),
             platform: try container.decodeIfPresent(String.self, forKey: .platform),
@@ -2584,7 +3431,7 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
             carrier: try container.decodeIfPresent(String.self, forKey: .carrier),
             delay: try container.decodeIfPresent(String.self, forKey: .delay),
             serviceInformation: try container.decodeIfPresent(
-                [IDOSServiceInformation].self,
+                [TransitServiceInformation].self,
                 forKey: .serviceInformation
             ) ?? []
         )
@@ -2592,6 +3439,12 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+        if dataSourceID != .idos {
+            try container.encode(dataSourceID, forKey: .dataSourceID)
+            try container.encode(timetableIdentifier, forKey: .timetableIdentifier)
+        } else if timetableIdentifier != TransitTimetable.defaultTimetable.identifier {
+            try container.encode(timetableIdentifier, forKey: .timetableIdentifier)
+        }
         try container.encode(id, forKey: .id)
         try container.encodeIfPresent(stationName, forKey: .stationName)
         try container.encode(time, forKey: .time)
@@ -2655,25 +3508,31 @@ public struct IDOSDeparture: Codable, Equatable, Sendable {
 }
 
 /// Complete route and product information for one dated public-transport service.
-public struct IDOSServiceDetail: Codable, Equatable, Sendable {
+public struct TransitServiceDetail: Codable, Equatable, Sendable {
     public var id: String
-    public var timetable: IDOSTimetable
+    public var timetable: TransitTimetable
     public var name: String
     public var color: String?
-    public var transportMode: IDOSTransportMode?
+    public var transportMode: TransitTransportMode?
     public var date: String?
-    public var stops: [IDOSServiceStop]
-    public var information: [String]
+    public var stops: [TransitServiceStop]
+    /// Canonical provider-supplied passenger meanings in their original order.
+    public var serviceInformation: [TransitServiceInformation]
+    /// Historical raw-text surface retained as a writable compatibility view.
+    public var information: [String] {
+        get { serviceInformation.map(\.text) }
+        set { serviceInformation = newValue.map { TransitServiceInformation(text: $0) } }
+    }
     public var shareURL: String?
 
     public init(
         id: String,
-        timetable: IDOSTimetable = .defaultTimetable,
+        timetable: TransitTimetable = .defaultTimetable,
         name: String,
         color: String? = nil,
-        transportMode: IDOSTransportMode? = nil,
+        transportMode: TransitTransportMode? = nil,
         date: String? = nil,
-        stops: [IDOSServiceStop],
+        stops: [TransitServiceStop],
         information: [String] = [],
         shareURL: String? = nil
     ) {
@@ -2684,8 +3543,82 @@ public struct IDOSServiceDetail: Codable, Equatable, Sendable {
         self.transportMode = transportMode
         self.date = date
         self.stops = stops
-        self.information = information
+        serviceInformation = information.map { TransitServiceInformation(text: $0) }
         self.shareURL = shareURL
+    }
+
+    /// Builds service details from categories supplied directly by a structured provider.
+    public init(
+        id: String,
+        timetable: TransitTimetable = .defaultTimetable,
+        name: String,
+        color: String? = nil,
+        transportMode: TransitTransportMode? = nil,
+        date: String? = nil,
+        stops: [TransitServiceStop],
+        serviceInformation: [TransitServiceInformation],
+        shareURL: String? = nil
+    ) {
+        self.id = id
+        self.timetable = timetable
+        self.name = name
+        self.color = color
+        self.transportMode = transportMode
+        self.date = date
+        self.stops = stops
+        self.serviceInformation = serviceInformation
+        self.shareURL = shareURL
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case timetable
+        case name
+        case color
+        case transportMode
+        case date
+        case stops
+        case information
+        case serviceInformation
+        case shareURL
+    }
+
+    /// Reads historical raw information while preferring categories persisted by a structured provider.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let information = try container.decodeIfPresent([String].self, forKey: .information) ?? []
+        self.init(
+            id: try container.decode(String.self, forKey: .id),
+            timetable: try container.decode(TransitTimetable.self, forKey: .timetable),
+            name: try container.decode(String.self, forKey: .name),
+            color: try container.decodeIfPresent(String.self, forKey: .color),
+            transportMode: try container.decodeIfPresent(TransitTransportMode.self, forKey: .transportMode),
+            date: try container.decodeIfPresent(String.self, forKey: .date),
+            stops: try container.decode([TransitServiceStop].self, forKey: .stops),
+            serviceInformation: try container.decodeIfPresent(
+                [TransitServiceInformation].self,
+                forKey: .serviceInformation
+            ) ?? information.map { TransitServiceInformation(text: $0) },
+            shareURL: try container.decodeIfPresent(String.self, forKey: .shareURL)
+        )
+    }
+
+    /// Keeps the historical raw field and adds structured categories only when text classification cannot recover them.
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(timetable, forKey: .timetable)
+        try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(color, forKey: .color)
+        try container.encodeIfPresent(transportMode, forKey: .transportMode)
+        try container.encodeIfPresent(date, forKey: .date)
+        try container.encode(stops, forKey: .stops)
+        try container.encode(information, forKey: .information)
+        let inferred = information.map { TransitServiceInformation(text: $0) }
+        if serviceInformation != inferred {
+            try container.encode(serviceInformation, forKey: .serviceInformation)
+        }
+        try container.encodeIfPresent(shareURL, forKey: .shareURL)
     }
 
     /// Combines the transport emoji with the IDOS line color without replacing the service name.
@@ -2698,7 +3631,7 @@ public struct IDOSServiceDetail: Codable, Equatable, Sendable {
 }
 
 /// One calling point on a service's complete route as supplied by IDOS.
-public struct IDOSServiceStop: Codable, Equatable, Sendable {
+public struct TransitServiceStop: Codable, Equatable, Sendable {
     public var name: String
     public var arrivalTime: String?
     public var departureTime: String?
@@ -2732,7 +3665,7 @@ public struct IDOSServiceStop: Codable, Equatable, Sendable {
     }
 }
 
-public enum IDOSTransportMode: String, Codable, Equatable, Sendable {
+public enum TransitTransportMode: String, Codable, Equatable, Sendable {
     case train
     case bus
     case tram
@@ -2766,7 +3699,7 @@ public enum IDOSTransportMode: String, Codable, Equatable, Sendable {
         }
     }
 
-    static func infer(from text: String) -> IDOSTransportMode? {
+    static func infer(from text: String) -> TransitTransportMode? {
         let normalized = text
             .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
             .lowercased()
@@ -2833,7 +3766,7 @@ public enum IDOSError: LocalizedError, Sendable {
     case invalidURL
     case invalidJSONP
     case invalidTimetable(String)
-    case invalidStationTimetableMunicipality(String, timetable: IDOSTimetable)
+    case invalidStationTimetableMunicipality(String, timetable: TransitTimetable)
     case networkUnavailable(String)
     case emailUnavailable
     case emailSendingFailed(String)
@@ -2855,7 +3788,7 @@ public enum IDOSError: LocalizedError, Sendable {
         case .invalidTimetable(let value):
             return "Invalid timetable: \(value). Use an alias or a URL slug without slashes."
         case .invalidStationTimetableMunicipality(let value, let timetable):
-            let available = IDOSStationTimetableMunicipality.available(for: timetable)
+            let available = TransitStationTimetableMunicipality.available(for: timetable)
                 .map(\.name)
                 .joined(separator: ", ")
             guard !available.isEmpty else {
@@ -2983,14 +3916,14 @@ struct IDOSConnectionPagingContext: Sendable {
     var searchItem: Data
     var allowPrevious: Bool
     var allowNext: Bool
-    var timetable: IDOSTimetable
-    var language: IDOSLanguage
+    var timetable: TransitTimetable
+    var language: TransitLanguage
     var listedIDs: [Int]
 }
 
 struct IDOSDeparturePagingContext: Sendable {
-    var request: IDOSDeparturesRequest
-    var language: IDOSLanguage
+    var request: TransitDeparturesRequest
+    var language: TransitLanguage
     var earliestCursor: Date
     var latestCursor: Date
     var listedIDs: Set<String>
@@ -2998,7 +3931,7 @@ struct IDOSDeparturePagingContext: Sendable {
 
 /// Converts the complete wording behind IDOS result symbols into the shared product model.
 private enum IDOSServiceInformationHTMLParser {
-    static func parseTitles(in html: String) -> [IDOSServiceInformation] {
+    static func parseTitles(in html: String) -> [TransitServiceInformation] {
         RegexSupport.captures(
             pattern: #"\btitle="([^"]+)""#,
             in: html
@@ -3007,23 +3940,23 @@ private enum IDOSServiceInformationHTMLParser {
         .map(HTMLText.decodeEntities)
         .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
         .filter { !$0.isEmpty }
-        .map { IDOSServiceInformation(text: $0) }
+        .map { TransitServiceInformation(text: $0) }
     }
 }
 
 enum IDOSConnectionParser {
     static func parse(
         html: String,
-        timetable: IDOSTimetable = .defaultTimetable
-    ) -> [IDOSConnection] {
+        timetable: TransitTimetable = .defaultTimetable
+    ) -> [TransitConnection] {
         parse(html: html, result: connectionResult(from: html), timetable: timetable)
     }
 
     static func parse(
         html: String,
         result: [String: Any]?,
-        timetable: IDOSTimetable = .defaultTimetable
-    ) -> [IDOSConnection] {
+        timetable: TransitTimetable = .defaultTimetable
+    ) -> [TransitConnection] {
         let calendarModels = calendarModels(in: html, result: result)
         let legIdentifiers = legIdentifiersByConnectionID(in: result, timetable: timetable)
         let starts = RegexSupport.matches(
@@ -3041,7 +3974,8 @@ enum IDOSConnectionParser {
                 id: id,
                 block: block,
                 legIdentifiers: legIdentifiers[id] ?? [],
-                calendarModel: calendarModels[id]
+                calendarModel: calendarModels[id],
+                timetable: timetable
             )
         }
     }
@@ -3082,8 +4016,9 @@ enum IDOSConnectionParser {
         id: String,
         block: String,
         legIdentifiers: [String?],
-        calendarModel: String?
-    ) -> IDOSConnection? {
+        calendarModel: String?,
+        timetable: TransitTimetable
+    ) -> TransitConnection? {
         let stationRows = RegexSupport.captures(
             pattern: #"<p class="reset time[^"]*"[^>]*>(.*?)</p>\s*<p class="station">(.*?)</p>"#,
             in: block,
@@ -3111,7 +4046,7 @@ enum IDOSConnectionParser {
 
         let lines = lineDetails(in: block)
 
-        let legs = lines.indices.compactMap { index -> IDOSConnectionLeg? in
+        let legs = lines.indices.compactMap { index -> TransitConnectionLeg? in
             let departureIndex = index * 2
             let arrivalIndex = departureIndex + 1
 
@@ -3123,7 +4058,7 @@ enum IDOSConnectionParser {
 
             let departure = stationRows[departureIndex]
             let arrival = stationRows[arrivalIndex]
-            return IDOSConnectionLeg(
+            return TransitConnectionLeg(
                 name: lines[index].name,
                 id: legIdentifiers.indices.contains(index) ? legIdentifiers[index] : nil,
                 color: lines[index].color,
@@ -3142,7 +4077,9 @@ enum IDOSConnectionParser {
             )
         }
 
-        return IDOSConnection(
+        return TransitConnection(
+            dataSourceID: .idos,
+            timetableIdentifier: timetable.identifier,
             id: id,
             departureTime: first.time,
             departureStation: first.station,
@@ -3165,7 +4102,7 @@ enum IDOSConnectionParser {
     /// Builds the same opaque service identifier that departure results expose for a specific run.
     private static func legIdentifiersByConnectionID(
         in result: [String: Any]?,
-        timetable: IDOSTimetable
+        timetable: TransitTimetable
     ) -> [String: [String?]] {
         guard let connectionData = result?["connData"] as? [[String: Any]] else {
             return [:]
@@ -3186,7 +4123,7 @@ enum IDOSConnectionParser {
 
     private static func serviceIdentifier(
         from train: [String: Any],
-        timetable: IDOSTimetable
+        timetable: TransitTimetable
     ) -> String? {
         guard let timetableIndex = integer(train["ttIndex"]),
               let trainID = integer(train["train"]),
@@ -3370,10 +4307,10 @@ enum IDOSConnectionParser {
     private static func lineDetails(in block: String) -> [(
         name: String,
         color: String?,
-        transportMode: IDOSTransportMode?,
+        transportMode: TransitTransportMode?,
         carrier: String?,
         delay: String?,
-        serviceInformation: [IDOSServiceInformation]
+        serviceInformation: [TransitServiceInformation]
     )] {
         let lineBlocks = RegexSupport.matches(
             pattern: #"<div class="line-item">.*?(?=<div class="line-item">|<div class="connection-expand">|</div>\s*$)"#,
@@ -3427,7 +4364,7 @@ enum IDOSConnectionParser {
             return (
                 name: name,
                 color: HTMLStyle.color(from: heading),
-                transportMode: IDOSTransportMode.infer(from: "\(title) \(name)"),
+                transportMode: TransitTransportMode.infer(from: "\(title) \(name)"),
                 carrier: carrier(in: lineBlock),
                 delay: delay(in: lineBlock),
                 serviceInformation: serviceInformation(in: lineBlock)
@@ -3436,7 +4373,7 @@ enum IDOSConnectionParser {
     }
 
     /// Reads only the service symbols beside a line title, excluding action, carrier, and stop tooltips.
-    private static func serviceInformation(in html: String) -> [IDOSServiceInformation] {
+    private static func serviceInformation(in html: String) -> [TransitServiceInformation] {
         guard let specifications = RegexSupport.capture(
             pattern: #"<p\b[^>]*\bclass="[^"]*\bspecs\b[^"]*"[^>]*>(.*?)</p>"#,
             in: html,
@@ -3501,7 +4438,7 @@ enum IDOSConnectionParser {
 
 enum IDOSTimetableValidityParser {
     /// Reads the two JavaScript dates used by IDOS to constrain the selected timetable's search form.
-    static func parse(html: String) -> IDOSTimetableValidity? {
+    static func parse(html: String) -> TransitTimetableValidity? {
         guard let values = RegexSupport.captures(
             pattern: #"Conn\.ConnFormParams\s*\(\s*new Date\([\"'](\d{1,2})/(\d{1,2})/(\d{4})[\"']\)\s*,\s*new Date\([\"'](\d{1,2})/(\d{1,2})/(\d{4})[\"']\)"#,
             in: html
@@ -3514,7 +4451,11 @@ enum IDOSTimetableValidityParser {
             return nil
         }
 
-        return IDOSTimetableValidity(validFrom: validFrom, validThrough: validThrough)
+        return TransitTimetableValidity(
+            validFrom: validFrom,
+            validThrough: validThrough,
+            timeZone: IDOSDataSource.serviceTimeZone
+        )
     }
 
     private static func date(month: String, day: String, year: String) -> Date? {
@@ -3553,7 +4494,7 @@ enum IDOSConnectionFormParser {
 
 enum IDOSServiceDateLimitsParser {
     /// Converts the JavaScript assignments returned by IDOS's date-restriction endpoint into civil dates.
-    static func parse(script: String) -> IDOSServiceDateLimits? {
+    static func parse(script: String) -> TransitServiceDateLimits? {
         guard let referenceValues = RegexSupport.captures(
             pattern: #"_startDay\.setFullYear\s*\(\s*(\d{4})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})\s*\)"#,
             in: script
@@ -3590,7 +4531,7 @@ enum IDOSServiceDateLimitsParser {
             return nil
         }
 
-        var days: [IDOSServiceDateLimits.Day] = []
+        var days: [TransitServiceDateLimits.Day] = []
         for (monthOffset, rawMonth) in rawMonths.enumerated() {
             guard let month = calendar.date(byAdding: .month, value: monthOffset, to: firstMonth),
                   let dayRange = calendar.range(of: .day, in: .month, for: month)
@@ -3603,9 +4544,9 @@ enum IDOSServiceDateLimitsParser {
                 omittingEmptySubsequences: false
             )
             guard rawStatuses.count == dayRange.count else { return nil }
-            let statuses = rawStatuses.compactMap { value -> IDOSServiceDateLimits.DayStatus? in
+            let statuses = rawStatuses.compactMap { value -> TransitServiceDateLimits.DayStatus? in
                 Int(value.trimmingCharacters(in: .whitespacesAndNewlines))
-                    .flatMap(IDOSServiceDateLimits.DayStatus.init(rawValue:))
+                    .flatMap(TransitServiceDateLimits.DayStatus.init(rawValue:))
             }
             guard statuses.count == rawStatuses.count else { return nil }
 
@@ -3613,11 +4554,15 @@ enum IDOSServiceDateLimitsParser {
                 guard let date = calendar.date(bySetting: .day, value: index + 1, of: month) else {
                     return nil
                 }
-                days.append(IDOSServiceDateLimits.Day(date: date, status: status))
+                days.append(TransitServiceDateLimits.Day(date: date, status: status))
             }
         }
 
-        return IDOSServiceDateLimits(referenceDate: referenceDate, days: days)
+        return TransitServiceDateLimits(
+            referenceDate: referenceDate,
+            days: days,
+            timeZone: IDOSDataSource.serviceTimeZone
+        )
     }
 
     private static func date(year: Int, month: Int, day: Int) -> Date? {
@@ -3645,9 +4590,9 @@ enum IDOSServiceDateLimitsParser {
 enum IDOSStationTimetableParser {
     static func parse(
         html: String,
-        request: IDOSStationTimetableRequest,
+        request: TransitStationTimetableRequest,
         shareURL: String? = nil
-    ) -> IDOSStationTimetable? {
+    ) -> TransitStationTimetable? {
         guard let routeHTML = RegexSupport.capture(
             pattern: #"<div class="zjr-stations">(.*?</table>)\s*</div>"#,
             in: html,
@@ -3670,11 +4615,11 @@ enum IDOSStationTimetableParser {
         let lineName = removingLineLabel(from: rawLineName)
         let remarks = timetableRemarks(in: html, schedules: schedules)
 
-        return IDOSStationTimetable(
+        return TransitStationTimetable(
             timetable: request.timetable,
             municipality: request.effectiveMunicipality,
             lineName: lineName,
-            transportMode: IDOSTransportMode.infer(from: lineName),
+            transportMode: TransitTransportMode.infer(from: lineName),
             fromStop: request.from.trimmingCharacters(in: .whitespacesAndNewlines),
             toStop: request.to.trimmingCharacters(in: .whitespacesAndNewlines),
             stops: stops,
@@ -3686,7 +4631,7 @@ enum IDOSStationTimetableParser {
         )
     }
 
-    private static func stopRows(in html: String) -> [IDOSStationTimetableStop] {
+    private static func stopRows(in html: String) -> [TransitStationTimetableStop] {
         RegexSupport.captures(
             pattern: #"<tr\b[^>]*>(.*?)</tr>"#,
             in: html,
@@ -3741,7 +4686,7 @@ enum IDOSStationTimetableParser {
                         normalized != "stanoviste"
                 }
 
-            return IDOSStationTimetableStop(
+            return TransitStationTimetableStop(
                 name: name,
                 minuteOffset: minuteOffset,
                 tariffZone: tariffZone,
@@ -3752,7 +4697,7 @@ enum IDOSStationTimetableParser {
         }
     }
 
-    private static func scheduleTables(in html: String) -> [IDOSStationTimetableSchedule] {
+    private static func scheduleTables(in html: String) -> [TransitStationTimetableSchedule] {
         RegexSupport.captures(
             pattern: #"<div class="zjr-table-container[^"]*"[^>]*>(.*?</table>)\s*</div>"#,
             in: html,
@@ -3773,16 +4718,16 @@ enum IDOSStationTimetableParser {
                 pattern: #"<tr\b[^>]*>\s*<td[^>]*zjr-table__date[^>]*>(.*?)</td>\s*<td[^>]*>(.*?)</td>\s*</tr>"#,
                 in: table,
                 options: [.dotMatchesLineSeparators]
-            ).compactMap { row -> IDOSStationTimetableHour? in
+            ).compactMap { row -> TransitStationTimetableHour? in
                 guard row.count == 2 else { return nil }
                 let hour = HTMLText.clean(row[0])
                 guard !hour.isEmpty else { return nil }
                 let departures = HTMLText.clean(row[1])
                     .split(whereSeparator: \.isWhitespace)
                     .map(String.init)
-                return IDOSStationTimetableHour(hour: hour, departures: departures)
+                return TransitStationTimetableHour(hour: hour, departures: departures)
             }
-            return IDOSStationTimetableSchedule(label: label, hours: hours)
+            return TransitStationTimetableSchedule(label: label, hours: hours)
         }
     }
 
@@ -3794,7 +4739,7 @@ enum IDOSStationTimetableParser {
     /// Separates keyed explanations only when their marker occurs beside a concrete departure.
     private static func timetableRemarks(
         in html: String,
-        schedules: [IDOSStationTimetableSchedule]
+        schedules: [TransitStationTimetableSchedule]
     ) -> TimetableRemarks {
         guard let list = RegexSupport.capture(
             pattern: #"<ul class="remarks-list">(.*?)</ul>"#,
@@ -3828,7 +4773,7 @@ enum IDOSStationTimetableParser {
 
     /// Returns every non-numeric suffix attached to a minute value, such as `A` in `35A`.
     private static func departureExplanationMarkers(
-        in schedules: [IDOSStationTimetableSchedule]
+        in schedules: [TransitStationTimetableSchedule]
     ) -> Set<String> {
         Set(
             schedules
@@ -3894,7 +4839,7 @@ enum IDOSStationTimetableParser {
 
 enum IDOSDepartureParser {
     /// Recovers the full scheduled timestamp retained in every parsed departure identifier.
-    static func scheduledDate(for departure: IDOSDeparture) -> Date? {
+    static func scheduledDate(for departure: TransitDeparture) -> Date? {
         guard let parts = RegexSupport.captures(
             pattern: #"-(\d{2})\.(\d{2})\.(\d{4}) (\d{2}):(\d{2}):(\d{2})$"#,
             in: departure.id
@@ -3926,8 +4871,8 @@ enum IDOSDepartureParser {
 
     static func parse(
         html: String,
-        timetable: IDOSTimetable = .defaultTimetable
-    ) -> [IDOSDeparture] {
+        timetable: TransitTimetable = .defaultTimetable
+    ) -> [TransitDeparture] {
         let stationName = resolvedStationName(in: html)
 
         return RegexSupport.captures(
@@ -3950,8 +4895,8 @@ enum IDOSDepartureParser {
         firstRow: String,
         secondRow: String,
         stationName: String?,
-        timetable: IDOSTimetable
-    ) -> IDOSDeparture? {
+        timetable: TransitTimetable
+    ) -> TransitDeparture? {
         let headings = RegexSupport.captures(
             pattern: #"<h3\b[^>]*>(.*?)</h3>"#,
             in: firstRow,
@@ -4014,13 +4959,15 @@ enum IDOSDepartureParser {
         ).map(HTMLText.clean)
         let serviceInformation = serviceInformation(in: firstRow)
 
-        return IDOSDeparture(
+        return TransitDeparture(
+            dataSourceID: .idos,
+            timetableIdentifier: timetable.identifier,
             id: "\(timetable.slug):\(timetableIndex)-\(trainID)-\(dateTime)",
             stationName: stationName,
             time: time,
             lineName: lineName,
             lineColor: HTMLStyle.color(from: lineHTML),
-            transportMode: IDOSTransportMode.infer(from: lineName),
+            transportMode: TransitTransportMode.infer(from: lineName),
             destination: destination,
             tariffZone: tariffZone,
             platform: platform,
@@ -4032,7 +4979,7 @@ enum IDOSDepartureParser {
     }
 
     /// Isolates the service cell so station, platform, and destination tooltips cannot become facilities.
-    private static func serviceInformation(in html: String) -> [IDOSServiceInformation] {
+    private static func serviceInformation(in html: String) -> [TransitServiceInformation] {
         guard let serviceCell = RegexSupport.capture(
             pattern: #"<span\b[^>]*\bclass="[^"]*\bdesc\b[^"]*"[^>]*>(.*?)</td>"#,
             in: html,
@@ -4124,7 +5071,7 @@ enum IDOSDepartureParser {
 /// Resolves current self-contained IDs and upgrades legacy IDs with caller-supplied timetable context.
 struct IDOSServiceReference {
     let id: String
-    let timetable: IDOSTimetable
+    let timetable: TransitTimetable
     let timetableIndex: Int
     let trainID: Int
     let year: Int
@@ -4133,16 +5080,16 @@ struct IDOSServiceReference {
     let hour: Int
     let minute: Int
 
-    init(id: String, fallbackTimetable: IDOSTimetable) throws {
+    init(id: String, fallbackTimetable: TransitTimetable) throws {
         let value = id.trimmingCharacters(in: .whitespacesAndNewlines)
         let prefixed = RegexSupport.captures(
             pattern: #"^([A-Za-z0-9-]+):(.*)$"#,
             in: value
         ).first
         let legacyID: String
-        let timetable: IDOSTimetable
+        let timetable: TransitTimetable
         if let prefixed, prefixed.count == 2,
-           let embeddedTimetable = try? IDOSTimetable.resolve(prefixed[0])
+           let embeddedTimetable = try? TransitTimetable.resolve(prefixed[0])
         {
             timetable = embeddedTimetable
             legacyID = prefixed[1]
@@ -4206,9 +5153,9 @@ enum IDOSServiceDetailParser {
     static func parse(
         html: String,
         id: String,
-        timetable: IDOSTimetable = .defaultTimetable,
-        language: IDOSLanguage? = nil
-    ) -> IDOSServiceDetail? {
+        timetable: TransitTimetable = .defaultTimetable,
+        language: TransitLanguage? = nil
+    ) -> TransitServiceDetail? {
         guard let heading = RegexSupport.capture(
             pattern: #"(<h1\b.*?</h1>)"#,
             in: html,
@@ -4227,7 +5174,7 @@ enum IDOSServiceDetailParser {
             pattern: #"<li class="item([^"]*)"([^>]*)>(.*?)</li>"#,
             in: html,
             options: [.dotMatchesLineSeparators]
-        ).compactMap { row -> IDOSServiceStop? in
+        ).compactMap { row -> TransitServiceStop? in
             let attributes = row[1]
             let block = row[2]
             guard let stopName = RegexSupport.capture(
@@ -4266,7 +5213,7 @@ enum IDOSServiceDetailParser {
                 notes.insert(title, at: 0)
             }
 
-            return IDOSServiceStop(
+            return TransitServiceStop(
                 name: stopName,
                 arrivalTime: time(className: "arrival", in: block),
                 departureTime: time(className: "departure", in: block),
@@ -4284,12 +5231,12 @@ enum IDOSServiceDetailParser {
         }
 
         let headingTitle = attribute("title", in: heading) ?? ""
-        return IDOSServiceDetail(
+        return TransitServiceDetail(
             id: id,
             timetable: timetable,
             name: name,
             color: HTMLStyle.color(from: heading),
-            transportMode: IDOSTransportMode.infer(from: "\(headingTitle) \(name)"),
+            transportMode: TransitTransportMode.infer(from: "\(headingTitle) \(name)"),
             date: RegexSupport.capture(
                 pattern: #"line-top-date.*?<strong>(.*?)</strong>"#,
                 in: html,
@@ -4366,7 +5313,7 @@ enum IDOSServiceDetailParser {
     /// Prefers the requested language only when IDOS supplied a recognized Czech-English pair.
     private static func localizedInformation(
         _ values: [String],
-        language: IDOSLanguage?
+        language: TransitLanguage?
     ) -> [String] {
         guard let language else { return values }
         let variants = values.map(localizedInformationVariant)
@@ -4415,7 +5362,7 @@ enum IDOSServiceDetailParser {
 
     private struct LocalizedInformationVariant {
         let kind: LocalizedInformationKind
-        let language: IDOSLanguage
+        let language: TransitLanguage
     }
 
     private enum LocalizedInformationKind: Equatable {
@@ -4542,7 +5489,7 @@ enum IDOSPresentationText {
     }
 
     /// Normalizes only the labels and descriptions that can be presented from an IDOS suggestion.
-    static func normalize(_ suggestion: IDOSSuggestion) -> IDOSSuggestion {
+    static func normalize(_ suggestion: TransitSuggestion) -> TransitSuggestion {
         var suggestion = suggestion
         suggestion.selectedText = suggestion.selectedText.map(normalize)
         suggestion.text = normalize(suggestion.text)

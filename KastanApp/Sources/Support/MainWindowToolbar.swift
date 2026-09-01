@@ -29,12 +29,26 @@ enum MainWindowWidthPresentation {
 /// Installs one stable AppKit toolbar instead of relying on SwiftUI's transient toolbar-item identities.
 struct MainWindowToolbarInstaller: NSViewRepresentable {
     @Binding var selection: AppSection
+    let sections: [AppSection]
     let openFavoriteTimetables: @MainActor () -> Void
     let openAppInformation: @MainActor () -> Void
+
+    init(
+        selection: Binding<AppSection>,
+        sections: [AppSection] = AppSection.allCases,
+        openFavoriteTimetables: @escaping @MainActor () -> Void,
+        openAppInformation: @escaping @MainActor () -> Void
+    ) {
+        _selection = selection
+        self.sections = sections
+        self.openFavoriteTimetables = openFavoriteTimetables
+        self.openAppInformation = openAppInformation
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(
             selection: $selection,
+            sections: sections,
             openFavoriteTimetables: openFavoriteTimetables,
             openAppInformation: openAppInformation
         )
@@ -74,6 +88,7 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
     @MainActor
     final class Coordinator: NSObject, NSToolbarDelegate {
         private var selection: Binding<AppSection>
+        private let sections: [AppSection]
         private var openFavoriteTimetables: () -> Void
         private var openAppInformation: () -> Void
         private weak var window: NSWindow?
@@ -91,10 +106,12 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
 
         init(
             selection: Binding<AppSection>,
+            sections: [AppSection] = AppSection.allCases,
             openFavoriteTimetables: @escaping () -> Void,
             openAppInformation: @escaping () -> Void
         ) {
             self.selection = selection
+            self.sections = sections
             self.openFavoriteTimetables = openFavoriteTimetables
             self.openAppInformation = openAppInformation
             super.init()
@@ -176,12 +193,12 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
             let item = NSToolbarItem(itemIdentifier: .searchMode)
             let label = AppLocalization.string("Search mode")
             let control = NSSegmentedControl(
-                labels: AppSection.allCases.map { AppLocalization.string($0.localizationKey) },
+                labels: sections.map { AppLocalization.string($0.localizationKey) },
                 trackingMode: .selectOne,
                 target: self,
                 action: #selector(selectModeSegment(_:))
             )
-            control.selectedSegment = AppSection.allCases.firstIndex(of: selection.wrappedValue) ?? 0
+            control.selectedSegment = sections.firstIndex(of: selection.wrappedValue) ?? 0
             control.setAccessibilityLabel(label)
             control.sizeToFit()
 
@@ -225,7 +242,7 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
         private func makeModeMenuRepresentation(title: String) -> NSMenuItem {
             let root = NSMenuItem(title: title, action: nil, keyEquivalent: "")
             let menu = NSMenu(title: title)
-            for (index, section) in AppSection.allCases.enumerated() {
+            for (index, section) in sections.enumerated() {
                 let item = NSMenuItem(
                     title: AppLocalization.string(section.localizationKey),
                     action: #selector(selectMode(_:)),
@@ -255,26 +272,26 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
 
         private func updateModeMenuState(in menu: NSMenu) {
             for (index, item) in menu.items.enumerated() {
-                item.state = AppSection.allCases.indices.contains(index) && AppSection.allCases[index] == selection.wrappedValue
+                item.state = sections.indices.contains(index) && sections[index] == selection.wrappedValue
                     ? .on
                     : .off
             }
         }
 
         private func updateModeControlState() {
-            modeControl?.selectedSegment = AppSection.allCases.firstIndex(of: selection.wrappedValue) ?? 0
+            modeControl?.selectedSegment = sections.firstIndex(of: selection.wrappedValue) ?? 0
         }
 
         @objc private func selectMode(_ sender: NSMenuItem) {
-            guard AppSection.allCases.indices.contains(sender.tag) else { return }
-            selection.wrappedValue = AppSection.allCases[sender.tag]
+            guard sections.indices.contains(sender.tag) else { return }
+            selection.wrappedValue = sections[sender.tag]
             updateModeControlState()
             updateModeMenuState()
         }
 
         @objc private func selectModeSegment(_ sender: NSSegmentedControl) {
-            guard AppSection.allCases.indices.contains(sender.selectedSegment) else { return }
-            selection.wrappedValue = AppSection.allCases[sender.selectedSegment]
+            guard sections.indices.contains(sender.selectedSegment) else { return }
+            selection.wrappedValue = sections[sender.selectedSegment]
             updateModeMenuState()
         }
 

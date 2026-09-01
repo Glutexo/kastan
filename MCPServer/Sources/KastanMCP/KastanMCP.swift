@@ -25,7 +25,7 @@ struct KastanMCPApp {
             case .run(let configuration):
                 switch configuration.transport {
                 case .stdio:
-                    try await KastanMCPServer.runStdio(client: IDOSClient())
+                    try await KastanMCPServer.runStdio(dataSource: IDOSDataSource())
                 case .http:
                     guard let http = configuration.http else {
                         throw KastanMCPConfigurationError.missingHTTPConfiguration
@@ -45,10 +45,10 @@ enum KastanMCPServer {
     static let version = "0.6.0"
 
     static func makeServer(
-        client: any IDOSClienting,
+        dataSource: any IDOSClienting,
         configuration: Server.Configuration = .strict
     ) async -> Server {
-        let tools = KastanMCPTools(client: client)
+        let tools = KastanMCPTools(dataSource: dataSource)
         let server = Server(
             name: "kastan-mcp",
             version: version,
@@ -68,8 +68,8 @@ enum KastanMCPServer {
         return server
     }
 
-    static func runStdio(client: any IDOSClienting) async throws {
-        let server = await makeServer(client: client)
+    static func runStdio(dataSource: any IDOSClienting) async throws {
+        let server = await makeServer(dataSource: dataSource)
         let transport = StdioTransport()
         try await server.start(transport: transport)
         await server.waitUntilCompleted()
@@ -78,7 +78,7 @@ enum KastanMCPServer {
 
 /// Exposes the stable Kaštan library operations as read-only MCP tools.
 struct KastanMCPTools: Sendable {
-    let client: any IDOSClienting
+    let dataSource: any IDOSClienting
 
     static let definitions: [Tool] = [
         Tool(
@@ -273,18 +273,18 @@ struct KastanMCPTools: Sendable {
     private func suggestPlaces(_ values: [String: Value]) async throws -> SuggestedPlacesOutput {
         let arguments = try ToolArguments(values, allowed: ["prefix", "timetable", "limit"])
         let prefix = try arguments.requiredString("prefix")
-        let timetable = try IDOSTimetable.resolve(arguments.optionalString("timetable"))
+        let timetable = try dataSource.resolveTimetable(arguments.optionalString("timetable"))
         let limit = try arguments.integer("limit", default: 8, range: 1...20)
-        let suggestions = try await client.suggest(prefix: prefix, limit: limit, timetable: timetable)
+        let suggestions = try await dataSource.suggest(prefix: prefix, limit: limit, timetable: timetable)
         return SuggestedPlacesOutput(query: prefix, timetable: timetable, suggestions: suggestions)
     }
 
     private func searchStations(_ values: [String: Value]) async throws -> StationsOutput {
         let arguments = try ToolArguments(values, allowed: ["prefix", "timetable", "limit"])
         let prefix = try arguments.requiredString("prefix")
-        let timetable = try IDOSTimetable.resolve(arguments.optionalString("timetable"))
+        let timetable = try dataSource.resolveTimetable(arguments.optionalString("timetable"))
         let limit = try arguments.integer("limit", default: 8, range: 1...20)
-        let stations = try await client.searchStations(prefix: prefix, limit: limit, timetable: timetable)
+        let stations = try await dataSource.searchStations(prefix: prefix, limit: limit, timetable: timetable)
         return StationsOutput(query: prefix, timetable: timetable, stations: stations)
     }
 
@@ -296,13 +296,13 @@ struct KastanMCPTools: Sendable {
             allowed: ["prefix", "timetable", "municipality", "limit"]
         )
         let prefix = try arguments.requiredString("prefix")
-        let timetable = try IDOSTimetable.resolve(arguments.optionalString("timetable"))
-        let municipality = try IDOSStationTimetableMunicipality.resolve(
+        let timetable = try dataSource.resolveTimetable(arguments.optionalString("timetable"))
+        let municipality = try dataSource.resolveStationTimetableMunicipality(
             arguments.optionalString("municipality"),
             timetable: timetable
         )
         let limit = try arguments.integer("limit", default: 8, range: 1...20)
-        let lines = try await client.searchStationTimetableLines(
+        let lines = try await dataSource.searchStationTimetableLines(
             prefix: prefix,
             limit: limit,
             timetable: timetable,
@@ -325,13 +325,13 @@ struct KastanMCPTools: Sendable {
         )
         let prefix = try arguments.requiredString("prefix")
         let line = try arguments.requiredString("line")
-        let timetable = try IDOSTimetable.resolve(arguments.optionalString("timetable"))
-        let municipality = try IDOSStationTimetableMunicipality.resolve(
+        let timetable = try dataSource.resolveTimetable(arguments.optionalString("timetable"))
+        let municipality = try dataSource.resolveStationTimetableMunicipality(
             arguments.optionalString("municipality"),
             timetable: timetable
         )
         let limit = try arguments.integer("limit", default: 8, range: 1...20)
-        let stops = try await client.searchStationTimetableStops(
+        let stops = try await dataSource.searchStationTimetableStops(
             prefix: prefix,
             line: line,
             limit: limit,
@@ -355,8 +355,8 @@ struct KastanMCPTools: Sendable {
                 "maxTransfers", "minimumTransferTime", "limit",
             ]
         )
-        let timetable = try IDOSTimetable.resolve(arguments.optionalString("timetable"))
-        let request = IDOSConnectionRequest(
+        let timetable = try dataSource.resolveTimetable(arguments.optionalString("timetable"))
+        let request = TransitConnectionRequest(
             timetable: timetable,
             from: try arguments.requiredString("from"),
             to: try arguments.requiredString("to"),
@@ -369,14 +369,14 @@ struct KastanMCPTools: Sendable {
             minimumTransferTime: try arguments.optionalInteger("minimumTransferTime", minimum: 0),
             resultLimit: try arguments.integer("limit", default: 5, range: 1...20)
         )
-        let connections = try await client.findConnections(request: request)
+        let connections = try await dataSource.findConnections(request: request)
         return ConnectionsOutput(request: request, connections: connections)
     }
 
     private func findDepartures(_ values: [String: Value]) async throws -> DeparturesOutput {
         let arguments = try ToolArguments(values, allowed: ["station", "timetable", "date", "time", "isArrival", "limit"])
-        let timetable = try IDOSTimetable.resolve(arguments.optionalString("timetable"))
-        let request = IDOSDeparturesRequest(
+        let timetable = try dataSource.resolveTimetable(arguments.optionalString("timetable"))
+        let request = TransitDeparturesRequest(
             timetable: timetable,
             station: try arguments.requiredString("station"),
             date: try arguments.optionalString("date"),
@@ -384,7 +384,7 @@ struct KastanMCPTools: Sendable {
             isArrival: try arguments.boolean("isArrival", default: false)
         )
         let limit = try arguments.integer("limit", default: 8, range: 1...20)
-        let departures = try await client.findDepartures(request: request)
+        let departures = try await dataSource.findDepartures(request: request)
         return DeparturesOutput(request: request, departures: Array(departures.prefix(limit)))
     }
 
@@ -396,10 +396,10 @@ struct KastanMCPTools: Sendable {
                 "language",
             ]
         )
-        let timetable = try IDOSTimetable.resolve(arguments.optionalString("timetable"))
-        let request = IDOSStationTimetableRequest(
+        let timetable = try dataSource.resolveTimetable(arguments.optionalString("timetable"))
+        let request = TransitStationTimetableRequest(
             timetable: timetable,
-            municipality: try IDOSStationTimetableMunicipality.resolve(
+            municipality: try dataSource.resolveStationTimetableMunicipality(
                 arguments.optionalString("municipality"),
                 timetable: timetable
             ),
@@ -409,7 +409,7 @@ struct KastanMCPTools: Sendable {
             date: try arguments.optionalString("date"),
             wholeWeek: try arguments.boolean("wholeWeek", default: false)
         )
-        let stationTimetable = try await client.findStationTimetable(
+        let stationTimetable = try await dataSource.findStationTimetable(
             request: request,
             language: try arguments.idosLanguage("language", default: .english)
         )
@@ -420,22 +420,22 @@ struct KastanMCPTools: Sendable {
         let arguments = try ToolArguments(values, allowed: ["id", "timetable", "language"])
         let id = try arguments.requiredString("id")
         let language = try arguments.idosLanguage("language", default: .english)
-        let service: IDOSServiceDetail
+        let service: TransitServiceDetail
         if let timetableValue = try arguments.optionalString("timetable") {
-            service = try await client.serviceDetail(
+            service = try await dataSource.serviceDetail(
                 id: id,
-                timetable: IDOSTimetable.resolve(timetableValue),
+                timetable: dataSource.resolveTimetable(timetableValue),
                 language: language
             )
         } else {
-            service = try await client.serviceDetail(id: id, language: language)
+            service = try await dataSource.serviceDetail(id: id, language: language)
         }
         return ServiceDetailOutput(service: service)
     }
 
     private func listTimetables(_ values: [String: Value]) throws -> TimetablesOutput {
         _ = try ToolArguments(values, allowed: [])
-        return TimetablesOutput(timetables: IDOSTimetable.known)
+        return TimetablesOutput(timetables: dataSource.timetables)
     }
 
     private func success(_ output: any Encodable) throws -> CallTool.Result {

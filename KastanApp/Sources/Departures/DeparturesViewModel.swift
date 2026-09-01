@@ -1,10 +1,10 @@
 import Foundation
 import Kastan
 
-/// Transfers one already resolved station-board result into Departures without repeating its IDOS request.
+/// Transfers one already resolved provider station-board result into Departures without repeating its request.
 struct ResolvedDepartureSearch {
-    let request: IDOSDeparturesRequest
-    let page: IDOSDeparturePage
+    let request: TransitDeparturesRequest
+    let page: TransitDeparturePage
     let dateAndTime: Date
 }
 
@@ -18,11 +18,11 @@ final class DeparturesViewModel: ObservableObject {
             }
         }
     }
-    /// The selected IDOS station or stop, retained only while its visible text is unchanged.
+    /// The provider-owned station or stop, retained only while its visible text is unchanged.
     @Published var stationSelection: PlaceFieldSelection?
-    @Published var timetable = AppTimetableDefaults.search {
+    @Published var timetable: TransitTimetable {
         didSet {
-            guard timetable.slug != oldValue.slug else { return }
+            guard timetable != oldValue else { return }
             stationSelection = nil
         }
     }
@@ -35,18 +35,26 @@ final class DeparturesViewModel: ObservableObject {
     /// Distinguishes the live current-moment default from a board instant deliberately chosen or submitted.
     @Published private(set) var usesCurrentDateAndTime = true
     @Published var isArrival = false
-    @Published private(set) var departures: [IDOSDeparture] = []
+    @Published private(set) var departures: [TransitDeparture] = []
     @Published private(set) var isSearching = false
     @Published private(set) var isLoadingEarlier = false
     @Published private(set) var isLoadingLater = false
     @Published var errorMessage: String?
 
-    let client: any IDOSClienting
-    private var resultPage: IDOSDeparturePage?
+    let client: any TransitDataSource
+    private var resultPage: TransitDeparturePage?
     private var isRefreshingCurrentDateAndTime = false
 
-    init(client: any IDOSClienting) {
+    init(client: any TransitDataSource) {
         self.client = client
+        timetable = AppTimetableDefaults.search(
+            in: client.timetables,
+            defaultTimetable: client.defaultTimetable
+        )
+    }
+
+    var timetables: [TransitTimetable] {
+        client.timetables
     }
 
     var canSearch: Bool {
@@ -55,11 +63,13 @@ final class DeparturesViewModel: ObservableObject {
     }
 
     var canLoadEarlier: Bool {
-        !departures.isEmpty && resultPage?.canLoadEarlier == true && !isSearching && !isLoadingLater
+        client.descriptor.supports(.departurePaging) &&
+            !departures.isEmpty && resultPage?.canLoadEarlier == true && !isSearching && !isLoadingLater
     }
 
     var canLoadLater: Bool {
-        !departures.isEmpty && resultPage?.canLoadLater == true && !isSearching && !isLoadingEarlier
+        client.descriptor.supports(.departurePaging) &&
+            !departures.isEmpty && resultPage?.canLoadLater == true && !isSearching && !isLoadingEarlier
     }
 
     /// Keeps the untouched station-board instant current while preserving every explicit choice.
@@ -121,19 +131,19 @@ final class DeparturesViewModel: ObservableObject {
         resultPage = nil
         defer { isSearching = false }
 
-        let request = IDOSDeparturesRequest(
+        let request = TransitDeparturesRequest(
             timetable: timetable,
             station: station,
-            stationSelection: stationSelection?.text == station ? stationSelection?.idosSelection : nil,
-            date: IDOSRequestFormatting.date(from: date),
-            time: IDOSRequestFormatting.time(from: time),
+            stationSelection: stationSelection?.text == station ? stationSelection?.placeSelection : nil,
+            serviceDate: TransitRequestFormatting.serviceDate(from: date),
+            serviceTime: TransitRequestFormatting.serviceTime(from: time),
             isArrival: isArrival
         )
 
         do {
             let page = try await client.findDeparturesPage(
                 request: request,
-                language: AppLanguagePreference.idosLanguage
+                language: AppLanguagePreference.transitLanguage
             )
             departures = page.departures
             resultPage = page
@@ -144,7 +154,7 @@ final class DeparturesViewModel: ObservableObject {
     }
 
     /// Extends the submitted station board at the selected chronological edge without replacing rows.
-    func loadMore(_ direction: IDOSPageDirection) async {
+    func loadMore(_ direction: TransitPageDirection) async {
         guard let resultPage,
               (direction == .earlier ? canLoadEarlier : canLoadLater)
         else {
@@ -171,9 +181,9 @@ final class DeparturesViewModel: ObservableObject {
         }
     }
 
-    private func merge(_ additionalDepartures: [IDOSDeparture], direction: IDOSPageDirection) {
-        let knownIDs = Set(departures.map(\.id))
-        let uniqueDepartures = additionalDepartures.filter { !knownIDs.contains($0.id) }
+    private func merge(_ additionalDepartures: [TransitDeparture], direction: TransitPageDirection) {
+        let knownIDs = Set(departures.map(\.appIdentity))
+        let uniqueDepartures = additionalDepartures.filter { !knownIDs.contains($0.appIdentity) }
         if direction == .earlier {
             departures.insert(contentsOf: uniqueDepartures, at: 0)
         } else {

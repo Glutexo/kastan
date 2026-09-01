@@ -248,5 +248,11 @@ Network and parsing failures are likewise returned as tool errors.
 
 ## Data Source
 
+The MCP server intentionally accepts only the IDOS-compatible `IDOSClienting` boundary and uses the built-in
+`IDOSDataSource` by default. The provider-neutral `TransitDataSource` architecture is available to other Kaštan
+interfaces, but MCP does not expose it because this server's tool names, schemas, arguments, and result models are
+an explicitly IDOS-only public contract. There is no public data-source selector; `timetable` selects a catalog
+within IDOS.
+
 The server uses publicly reachable IDOS web endpoints and parses HTML and internal JSONP responses through the
 shared `Kastan` library. It is intended for low-frequency personal use, not as a stable or guaranteed data API.

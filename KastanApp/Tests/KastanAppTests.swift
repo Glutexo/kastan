@@ -1,7 +1,7 @@
 import AppKit
 import Foundation
+@testable import Kastan
 @testable import KastanApp
-import Kastan
 import SwiftUI
 import XCTest
 
@@ -60,8 +60,8 @@ final class KastanAppTests: XCTestCase {
         }
 
         XCTAssertFalse(
-            menuItems.contains { $0.title == AppLocalization.string("Open in IDOS") },
-            "Opening IDOS belongs inside the sharing picker instead of the application menu"
+            menuItems.contains { $0.title == AppLocalization.string("Open Link") },
+            "Opening a result link belongs inside the sharing picker instead of the application menu"
         )
     }
 
@@ -803,6 +803,39 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 20)), .runs)
     }
 
+    func testExactOperatingDaysUseTheProviderCivilTimeZone() throws {
+        let providerTimeZone = try XCTUnwrap(TimeZone(identifier: "America/Los_Angeles"))
+        var providerCalendar = Calendar(identifier: .gregorian)
+        providerCalendar.timeZone = providerTimeZone
+        let providerDate = try XCTUnwrap(providerCalendar.date(from: DateComponents(
+            year: 2026,
+            month: 9,
+            day: 7,
+            hour: 23
+        )))
+        let limits = TransitServiceDateLimits(
+            referenceDate: providerDate,
+            days: [.init(date: providerDate, status: .runs)],
+            timeZone: providerTimeZone
+        )
+        let validityStart = try XCTUnwrap(
+            providerCalendar.date(byAdding: .day, value: -7, to: providerDate)
+        )
+        let validityEnd = try XCTUnwrap(
+            providerCalendar.date(byAdding: .day, value: 7, to: providerDate)
+        )
+        let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(
+            note: "jede 7.IX.",
+            validityStart: validityStart,
+            validityEnd: validityEnd,
+            dateLimits: limits,
+            timeZone: try XCTUnwrap(TimeZone(identifier: "Asia/Tokyo"))
+        ))
+
+        XCTAssertEqual(serviceCalendar.calendar.timeZone.identifier, providerTimeZone.identifier)
+        XCTAssertEqual(serviceCalendar.status(on: providerDate), .runs)
+    }
+
     func testExactServiceDaysDoNotReplaceASeparateNoteApplicabilityRule() throws {
         let dateLimits = IDOSServiceDateLimits(
             referenceDate: serviceDate(2026, 7, 25),
@@ -847,6 +880,57 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(withExactData.linkedContent.runs.compactMap(\.link).contains(destination))
     }
 
+    func testStructuredProviderOperatingCalendarDoesNotRequireIDOSWording() {
+        let information = TransitServiceInformation(
+            text: "Operating dates",
+            category: .operatingCalendar
+        )
+        let dateLimits = TransitServiceDateLimits(
+            referenceDate: serviceDate(2026, 7, 19),
+            days: [.init(date: serviceDate(2026, 7, 19), status: .runs)]
+        )
+        let validity = TransitTimetableValidity(
+            validFrom: serviceDate(2026, 7, 1),
+            validThrough: serviceDate(2026, 7, 31)
+        )
+        let notes = ServiceNotesView(
+            notes: [information.text],
+            serviceInformation: [information],
+            timetableValidity: validity,
+            serviceDateLimits: dateLimits,
+            requiresExactServiceOperatingDays: true
+        )
+
+        XCTAssertTrue(
+            notes.linkedContent.runs.compactMap(\.link).contains(
+                ServiceNotesView.calendarDestination(for: 0)
+            )
+        )
+    }
+
+    func testStructuredProviderOperatingCalendarUsesExactDatesWithoutTimetableValidity() {
+        let information = TransitServiceInformation(
+            text: "Operating dates",
+            category: .operatingCalendar
+        )
+        let dateLimits = TransitServiceDateLimits(
+            referenceDate: serviceDate(2026, 7, 19),
+            days: [.init(date: serviceDate(2026, 7, 19), status: .runs)]
+        )
+        let notes = ServiceNotesView(
+            notes: [information.text],
+            serviceInformation: [information],
+            serviceDateLimits: dateLimits,
+            requiresExactServiceOperatingDays: true
+        )
+
+        XCTAssertTrue(
+            notes.linkedContent.runs.compactMap(\.link).contains(
+                ServiceNotesView.calendarDestination(for: 0)
+            )
+        )
+    }
+
     func testOptionClickRequestsRecognizedCalendarConditions() {
         XCTAssertTrue(ServiceCalendarOpeningOptions.showsRecognizedConditions(for: [.option]))
         XCTAssertTrue(ServiceCalendarOpeningOptions.showsRecognizedConditions(for: [.option, .shift]))
@@ -881,6 +965,20 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(ServiceInformationRuleLink.shouldOpen(for: []))
         XCTAssertFalse(ServiceInformationRuleLink.shouldOpen(for: [.command]))
         XCTAssertEqual(ServiceNotesView.informationLineSpacing, 8)
+    }
+
+    func testServiceNotesRetainAnExactStructuredProviderCategory() {
+        let information = TransitServiceInformation(
+            text: "Bistro car",
+            category: .wheelchair
+        )
+        let content = ServiceNotesView(
+            notes: [information.text],
+            serviceInformation: [information]
+        ).linkedContent
+
+        XCTAssertEqual(String(content.characters), "\(information.symbol) \(information.text)")
+        XCTAssertNotEqual(information.symbol, TransitServiceInformation(text: information.text).symbol)
     }
 
     func testServiceInformationStaysHiddenUntilDisclosureExpands() throws {
@@ -1007,117 +1105,32 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(unmarked.explanation)
     }
 
-    func testStationTimetableDepartureReferenceRetainsDuplicatesAndThePostMidnightDate() throws {
+    func testStationTimetableDepartureReferenceDoesNotInterpretProviderDisplayText() throws {
         let schedule = IDOSStationTimetableSchedule(
-            label: "Workdays",
-            hours: [
-                IDOSStationTimetableHour(hour: "22", departures: ["05"]),
-                IDOSStationTimetableHour(hour: "23", departures: ["40"]),
-                IDOSStationTimetableHour(hour: "0", departures: ["12A", "12B"]),
-                IDOSStationTimetableHour(hour: "1", departures: []),
-            ]
+            label: "market days",
+            hours: [IDOSStationTimetableHour(hour: "morning", departures: ["quarter past"])]
         )
-        let first = try XCTUnwrap(StationTimetableDepartureReference(
+        let reference = try XCTUnwrap(StationTimetableDepartureReference(
             scheduleIndex: 0,
             schedule: schedule,
-            hourIndex: 2,
+            hourIndex: 0,
             departureIndex: 0
         ))
-        let second = try XCTUnwrap(StationTimetableDepartureReference(
-            scheduleIndex: 0,
-            schedule: schedule,
-            hourIndex: 2,
-            departureIndex: 1
-        ))
 
-        XCTAssertEqual(first.displayTime, "0:12")
-        XCTAssertEqual(first.dayOffset, 1)
-        XCTAssertEqual(first.occurrence, 0)
-        XCTAssertEqual(second.occurrence, 1)
-        XCTAssertNotEqual(first, second)
+        XCTAssertEqual(reference.scheduleIndex, 0)
+        XCTAssertEqual(reference.hourIndex, 0)
+        XCTAssertEqual(reference.departureIndex, 0)
+        XCTAssertEqual(reference.value, "quarter past")
     }
 
-    func testWholeWeekDepartureLookupPrefersTheNearestMatchingServiceDay() throws {
-        let calendar = StationTimetableDepartureLookup.serviceCalendar
-        let wednesday = try XCTUnwrap(calendar.date(from: DateComponents(
-            year: 2026,
-            month: 9,
-            day: 2
-        )))
-        let saturday = try XCTUnwrap(calendar.date(from: DateComponents(
-            year: 2026,
-            month: 9,
-            day: 5
-        )))
-        let sunday = try XCTUnwrap(calendar.date(from: DateComponents(
-            year: 2026,
-            month: 9,
-            day: 6
-        )))
-
-        XCTAssertEqual(
-            StationTimetableDepartureLookup.candidateServiceDates(
-                for: "Saturday + Sunday",
-                searchDate: wednesday,
-                wholeWeek: true,
-                calendar: calendar
-            ),
-            [saturday, sunday]
-        )
-        XCTAssertEqual(
-            StationTimetableDepartureLookup.candidateServiceDates(
-                for: "Sobota + Neděle",
-                searchDate: wednesday,
-                wholeWeek: true,
-                calendar: calendar
-            ),
-            [saturday, sunday]
-        )
-        XCTAssertEqual(
-            StationTimetableDepartureLookup.candidateServiceDates(
-                for: "Pracovní den",
-                searchDate: saturday,
-                wholeWeek: true,
-                calendar: calendar
-            ).first,
-            calendar.date(byAdding: .day, value: -1, to: saturday)
-        )
-        XCTAssertEqual(
-            StationTimetableDepartureLookup.candidateServiceDates(
-                for: "Saturday + Sunday",
-                searchDate: wednesday,
-                wholeWeek: false,
-                calendar: calendar
-            ),
-            [wednesday]
-        )
-    }
-
-    func testStationTimetableDepartureLookupPreservesTheSelectedDateAcrossTimeZones() throws {
+    func testResolvedSemanticDateAndTimePreserveTheSelectedDateAcrossTimeZones() throws {
         var tokyoCalendar = Calendar(identifier: .gregorian)
         tokyoCalendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Tokyo"))
-        let selectedDate = try XCTUnwrap(tokyoCalendar.date(from: DateComponents(
-            year: 2026,
-            month: 8,
-            day: 31
-        )))
-
-        let serviceDate = StationTimetableDepartureLookup.serviceDate(
-            for: selectedDate,
-            sourceCalendar: tokyoCalendar
-        )
-
-        XCTAssertEqual(
-            StationTimetableDepartureLookup.requestDate(from: serviceDate),
-            "31.8.2026"
-        )
-
-        let displayedDateAndTime = StationTimetableDepartureLookup.displayDateAndTime(
-            for: serviceDate,
-            hour: 5,
-            minute: 13,
-            displayCalendar: tokyoCalendar
-        )
+        let serviceDate = TransitDate(year: 2026, month: 8, day: 31)
+        let displayedDateAndTime = try XCTUnwrap(serviceDate.date(
+            in: tokyoCalendar,
+            at: TransitTime(hour: 5, minute: 13)
+        ))
         let displayedComponents = tokyoCalendar.dateComponents(
             [.year, .month, .day, .hour, .minute],
             from: displayedDateAndTime
@@ -1127,62 +1140,6 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(displayedComponents.day, 31)
         XCTAssertEqual(displayedComponents.hour, 5)
         XCTAssertEqual(displayedComponents.minute, 13)
-    }
-
-    func testStationTimetableDepartureLookupMatchesLineDirectionAndDuplicateOrder() throws {
-        let schedule = IDOSStationTimetableSchedule(
-            label: "31.8.2026 Monday",
-            hours: [IDOSStationTimetableHour(hour: "5", departures: ["21", "21A"])]
-        )
-        let reference = try XCTUnwrap(StationTimetableDepartureReference(
-            scheduleIndex: 0,
-            schedule: schedule,
-            hourIndex: 0,
-            departureIndex: 1
-        ))
-        let timetable = IDOSStationTimetable(
-            timetable: IDOSTimetable(slug: "pid", displayName: "Prague + PID"),
-            lineName: "Line Bus 154",
-            fromStop: "Strašnická",
-            toStop: "Sídliště Libuš",
-            stops: [IDOSStationTimetableStop(name: "Strašnická", isSelected: true)],
-            schedules: [schedule]
-        )
-        let departures = [
-            IDOSDeparture(
-                id: "wrong-line",
-                time: "5:21",
-                lineName: "Tram 7",
-                destination: "Radlická"
-            ),
-            IDOSDeparture(
-                id: "opposite-direction",
-                time: "5:21",
-                lineName: "Bus 154",
-                destination: "Strašnická"
-            ),
-            IDOSDeparture(
-                id: "first-matching-run",
-                time: "5:21",
-                lineName: "Bus 154",
-                destination: "Sídliště Libuš"
-            ),
-            IDOSDeparture(
-                id: "second-matching-run",
-                time: "05:21",
-                lineName: "Bus 154",
-                destination: "Sídliště Libuš"
-            ),
-        ]
-
-        XCTAssertEqual(
-            StationTimetableDepartureLookup.matchingDeparture(
-                in: departures,
-                reference: reference,
-                timetable: timetable
-            )?.id,
-            "second-matching-run"
-        )
     }
 
     func testStationTimetableTimesBecomeButtonsWhenTheyCanOpenServices() {
@@ -1353,7 +1310,14 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(forceClickPreviewAttachmentCount(in: hostingView), 2)
         let secondPreview = try XCTUnwrap(departures.previewDeparture?(1))
         let selection = await secondPreview.resolveSelection()
-        XCTAssertEqual(selection?.id, "service-1")
+        XCTAssertEqual(
+            selection?.id,
+            AppTransitValueIdentity(
+                dataSourceID: .idos,
+                timetableIdentifier: TransitTimetable.defaultTimetable.identifier,
+                valueIdentifier: "service-1"
+            )
+        )
         XCTAssertTrue(secondPreview.showsItemDetails)
         XCTAssertFalse(secondPreview.showsStopNoteText)
     }
@@ -1723,12 +1687,12 @@ final class KastanAppTests: XCTestCase {
             "Share Text"
         )
         XCTAssertEqual(
-            czech.localizedString(forKey: "Open in IDOS", value: nil, table: nil),
-            "Otevřít v IDOSu"
+            czech.localizedString(forKey: "Open Link", value: nil, table: nil),
+            "Otevřít odkaz"
         )
         XCTAssertEqual(
-            english.localizedString(forKey: "Open in IDOS", value: nil, table: nil),
-            "Open in IDOS"
+            english.localizedString(forKey: "Open Link", value: nil, table: nil),
+            "Open Link"
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Download ICS File", value: nil, table: nil),
@@ -1819,17 +1783,52 @@ final class KastanAppTests: XCTestCase {
             ]
         )
         XCTAssertEqual(
-            ResultDetailAction.availableActions(hasPermanentLink: true, canSendByEmail: true),
+            ResultDetailAction.availableActions(canSendByEmail: true),
             ResultDetailAction.allCases
         )
         XCTAssertEqual(
-            ResultDetailAction.availableActions(hasPermanentLink: false, canSendByEmail: true),
+            ResultDetailAction.availableActions(canSendByEmail: false),
             [.addToCalendar, .openPDF, .share]
+        )
+    }
+
+    func testResultActionsFollowProviderExportCapabilities() {
+        let descriptor = TransitDataSourceDescriptor(
+            id: "calendar-only",
+            displayName: "Calendar Transit",
+            capabilities: [.connections, .connectionCalendarExport]
+        )
+        let connectionAvailability = ResultDetailActionAvailability.connection(descriptor)
+        let serviceAvailability = ResultDetailActionAvailability.service(descriptor)
+
+        XCTAssertEqual(
+            connectionAvailability,
+            ResultDetailActionAvailability(
+                canSendByEmail: false,
+                canAddToCalendar: true,
+                canOpenPDF: false
+            )
         )
         XCTAssertEqual(
-            ResultDetailAction.availableActions(hasPermanentLink: true, canSendByEmail: false),
-            [.addToCalendar, .openPDF, .share]
+            ResultDetailAction.availableActions(
+                canSendByEmail: connectionAvailability.canSendByEmail,
+                canAddToCalendar: connectionAvailability.canAddToCalendar,
+                canOpenPDF: connectionAvailability.canOpenPDF
+            ),
+            [.addToCalendar, .share]
         )
+        XCTAssertFalse(connectionAvailability.canComposeConnectionEmailInMail)
+        XCTAssertFalse(serviceAvailability.canAddToCalendar)
+        XCTAssertFalse(serviceAvailability.canOpenPDF)
+
+        let emailWithOneAttachment = ResultDetailActionAvailability.connection(
+            TransitDataSourceDescriptor(
+                id: "email-pdf",
+                displayName: "Email PDF Transit",
+                capabilities: [.connectionEmail, .connectionPDFExport]
+            )
+        )
+        XCTAssertTrue(emailWithOneAttachment.canComposeConnectionEmailInMail)
     }
 
     func testOptionChangesIDOSConnectionEmailToMailComposition() {
@@ -2006,7 +2005,7 @@ final class KastanAppTests: XCTestCase {
 
     func testResultContextMenusKeepConnectionAndServiceActionsDistinct() throws {
         XCTAssertEqual(
-            ResultContextAction.availableActions(for: .connection, hasPermanentLink: true),
+            ResultContextAction.availableActions(for: .connection),
             [
                 .openInNewWindow,
                 .separator,
@@ -2017,7 +2016,14 @@ final class KastanAppTests: XCTestCase {
             ]
         )
         XCTAssertEqual(
-            ResultContextAction.availableActions(for: .connection),
+            ResultContextAction.availableActions(
+                for: .connection,
+                availability: ResultDetailActionAvailability(
+                    canSendByEmail: false,
+                    canAddToCalendar: true,
+                    canOpenPDF: true
+                )
+            ),
             [
                 .openInNewWindow,
                 .separator,
@@ -2098,7 +2104,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(requestCount, 1)
     }
 
-    func testSharingPickerKeepsSystemServicesAndAddsOpeningInIDOS() throws {
+    func testSharingPickerKeepsSystemServicesAndAddsOpeningTheProviderLink() throws {
         let url = try XCTUnwrap(URL(string: "https://idos.cz/en/vlaky/spojeni/prehled/?p=share"))
         var openedURL: URL?
         let presenter = ResultSharingServicePickerPresenter { openedURL = $0 }
@@ -2119,15 +2125,15 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(services.count, 2)
         XCTAssertIdentical(services.first, nativeService)
         let openService = try XCTUnwrap(services.last)
-        XCTAssertEqual(openService.title, AppLocalization.string("Open in IDOS"))
-        XCTAssertEqual(openService.menuItemTitle, AppLocalization.string("Open in IDOS"))
+        XCTAssertEqual(openService.title, AppLocalization.string("Open Link"))
+        XCTAssertEqual(openService.menuItemTitle, AppLocalization.string("Open Link"))
 
         openService.perform(withItems: [url])
 
         XCTAssertEqual(openedURL, url)
     }
 
-    func testTextSharingKeepsSystemServicesWithoutOfferingIDOSOpening() {
+    func testTextSharingKeepsSystemServicesWithoutOfferingLinkOpening() {
         let presenter = ResultSharingServicePickerPresenter()
         let nativeService = NSSharingService(
             title: "Native service",
@@ -2181,12 +2187,30 @@ final class KastanAppTests: XCTestCase {
             performCalendarAction: { _ in },
             performPDFAction: { _ in }
         )
+        let unsupportedExports = ResultDetailCommandContext(
+            hasLoadedResult: true,
+            isPerformingAction: false,
+            permanentLink: URL(string: "https://example.com/connection"),
+            shareText: "Portable result",
+            availability: ResultDetailActionAvailability(
+                canSendByEmail: false,
+                canAddToCalendar: false,
+                canOpenPDF: false
+            ),
+            performEmailAction: { _ in },
+            performCalendarAction: { _ in },
+            performPDFAction: { _ in }
+        )
 
         XCTAssertTrue(ResultDetailAction.allCases.allSatisfy(ready.isEnabled))
         XCTAssertTrue(ResultDetailAction.allCases.allSatisfy { !loading.isEnabled($0) })
         XCTAssertTrue(ResultDetailAction.allCases.allSatisfy { !exporting.isEnabled($0) })
         XCTAssertTrue(textOnly.isEnabled(.share))
         XCTAssertFalse(textOnly.isEnabled(.sendByEmail))
+        XCTAssertFalse(unsupportedExports.isEnabled(.sendByEmail))
+        XCTAssertFalse(unsupportedExports.isEnabled(.addToCalendar))
+        XCTAssertFalse(unsupportedExports.isEnabled(.openPDF))
+        XCTAssertTrue(unsupportedExports.isEnabled(.share))
     }
 
     func testConnectionSharedTextMatchesTheLocalizedPlainCLIShape() throws {
@@ -2233,6 +2257,34 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(czechText.contains("➡️  Přímý · ⚡ Nejrychlejší"))
         XCTAssertFalse(englishText.contains("\u{001B}"))
         XCTAssertFalse(englishText.contains(connection.id))
+    }
+
+    func testConnectionSharedTextPreservesAnotherProvidersTimetableName() throws {
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        let timetable = TransitTimetable(
+            dataSourceID: "municipal",
+            identifier: "vlaky",
+            displayName: "City Network"
+        )
+        let connection = TransitConnection(
+            dataSourceID: "municipal",
+            timetableIdentifier: "vlaky",
+            id: "connection-1",
+            departureTime: "12:00",
+            departureStation: "Market",
+            arrivalTime: "12:10",
+            arrivalStation: "Museum",
+            duration: "10 min",
+            legs: []
+        )
+
+        let text = CLIPlainTextPresentation(bundle: english).connection(
+            connection,
+            timetable: timetable
+        )
+
+        XCTAssertTrue(text.contains("(City Network)"))
+        XCTAssertFalse(text.contains("(Trains)"))
     }
 
     func testConnectionHTMLForMailEscapesIDOSAndIntroductoryContent() throws {
@@ -3184,6 +3236,47 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertEqual(stationTimetables.from, "Cílová zastávka")
         XCTAssertEqual(stationTimetables.to, "Výchozí zastávka")
+    }
+
+    func testStationTimetableDepartureLinksRequireAdvertisedCapabilities() {
+        struct LimitedSource: TransitDataSource {
+            let descriptor: TransitDataSourceDescriptor
+        }
+
+        func model(_ capabilities: Set<TransitDataSourceCapability>) -> StationTimetablesViewModel {
+            StationTimetablesViewModel(client: LimitedSource(
+                descriptor: TransitDataSourceDescriptor(
+                    id: "limited",
+                    displayName: "Limited Transit",
+                    capabilities: capabilities
+                )
+            ))
+        }
+
+        let timetableOnly = model([.stationTimetables])
+        XCTAssertFalse(timetableOnly.canFindDepartureResults)
+        XCTAssertFalse(timetableOnly.canOpenDepartureServices)
+
+        let departuresWithoutResolution = model([.stationTimetables, .departures])
+        XCTAssertFalse(departuresWithoutResolution.canFindDepartureResults)
+        XCTAssertFalse(departuresWithoutResolution.canOpenDepartureServices)
+
+        let departures = model([
+            .stationTimetables,
+            .stationTimetableDepartureResolution,
+            .departures,
+        ])
+        XCTAssertTrue(departures.canFindDepartureResults)
+        XCTAssertFalse(departures.canOpenDepartureServices)
+
+        let services = model([
+            .stationTimetables,
+            .stationTimetableDepartureResolution,
+            .departures,
+            .serviceDetails,
+        ])
+        XCTAssertTrue(services.canFindDepartureResults)
+        XCTAssertTrue(services.canOpenDepartureServices)
     }
 
     func testClosedSearchDateTimePickerShowsModeWithoutEagerEditors() {
@@ -4506,6 +4599,19 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(AppWindow.connectionDetail, "connection-detail")
     }
 
+    func testSearchModesFollowTheActiveDataSourceCapabilities() {
+        let descriptor = TransitDataSourceDescriptor(
+            id: "limited",
+            displayName: "Limited Transit",
+            capabilities: [.departures, .stationTimetables]
+        )
+
+        XCTAssertEqual(
+            AppSection.available(for: descriptor),
+            [.departures, .stationTimetables]
+        )
+    }
+
     func testForceClickPreviewPrefersTheSmallestLatestTargetUnderThePointer() throws {
         let connectionID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000001"))
         let serviceID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000002"))
@@ -4724,6 +4830,34 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(selection, .departures)
     }
 
+    func testNativeToolbarIncludesOnlyProviderSupportedModes() throws {
+        var selection = AppSection.departures
+        let coordinator = MainWindowToolbarInstaller.Coordinator(
+            selection: Binding(
+                get: { selection },
+                set: { selection = $0 }
+            ),
+            sections: [.departures],
+            openFavoriteTimetables: {},
+            openAppInformation: {}
+        )
+        let modeItem = try XCTUnwrap(
+            coordinator.toolbar(
+                coordinator.toolbar,
+                itemForItemIdentifier: .searchMode,
+                willBeInsertedIntoToolbar: true
+            )
+        )
+        let modeControl = try XCTUnwrap(modeItem.view as? NSSegmentedControl)
+
+        XCTAssertEqual(modeControl.segmentCount, 1)
+        XCTAssertEqual(modeControl.label(forSegment: 0), AppLocalization.string("Departures"))
+
+        modeControl.selectedSegment = 0
+        modeControl.sendAction(modeControl.action, to: modeControl.target)
+        XCTAssertEqual(selection, .departures)
+    }
+
     func testMainWindowToolbarPreservesSavedWindowFrame() {
         var selection = AppSection.connections
         let coordinator = MainWindowToolbarInstaller.Coordinator(
@@ -4870,6 +5004,64 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertEqual(favorites.slugs, ["odis", "pid"])
         XCTAssertEqual(TimetableFavorites(serialized: favorites.serialized), favorites)
+    }
+
+    func testFavoriteTimetablesKeepEqualIdentifiersFromDifferentSourcesDistinct() {
+        let idos = TransitTimetable(
+            dataSourceID: .idos,
+            identifier: "shared",
+            displayName: "IDOS Shared"
+        )
+        let municipal = TransitTimetable(
+            dataSourceID: "municipal",
+            identifier: "shared",
+            displayName: "Municipal Shared"
+        )
+        let catalog = [idos, municipal]
+        var favorites = TimetableFavorites(serialized: "[]", catalog: catalog)
+
+        favorites.toggle(idos)
+        favorites.toggle(municipal)
+
+        let restored = TimetableFavorites(serialized: favorites.serialized, catalog: catalog)
+        let pickerOptions = AppTimetablePickerOptions(
+            favoriteTimetables: restored.timetables,
+            allowedTimetables: catalog
+        )
+        XCTAssertTrue(restored.contains(idos))
+        XCTAssertTrue(restored.contains(municipal))
+        XCTAssertEqual(restored.timetables, catalog)
+        XCTAssertEqual(pickerOptions.favoriteTimetables, catalog)
+        XCTAssertNotEqual(idos.appIdentity, municipal.appIdentity)
+    }
+
+    func testFavoriteTimetablesRetainOtherProviderReferencesWhileOneCatalogIsActive() {
+        let idos = TransitTimetable(
+            dataSourceID: .idos,
+            identifier: "vlaky",
+            displayName: "Trains"
+        )
+        let municipal = TransitTimetable(
+            dataSourceID: "municipal",
+            identifier: "network",
+            displayName: "Municipal Network"
+        )
+        var allFavorites = TimetableFavorites(serialized: "[]", catalog: [idos, municipal])
+        allFavorites.toggle(idos)
+        allFavorites.toggle(municipal)
+
+        var idosFavorites = TimetableFavorites(
+            serialized: allFavorites.serialized,
+            catalog: [idos]
+        )
+        idosFavorites.toggle(idos)
+
+        let restored = TimetableFavorites(
+            serialized: idosFavorites.serialized,
+            catalog: [idos, municipal]
+        )
+        XCTAssertFalse(restored.contains(idos))
+        XCTAssertTrue(restored.contains(municipal))
     }
 
     func testFavoriteStarContextMenuOffersOnlyTheFavoritesManager() {
@@ -5053,7 +5245,7 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testCurrentLocationFillsEitherConnectionEndpointAndSurvivesTimetableChanges() async {
+    func testCurrentLocationFillsEitherConnectionEndpointAndClearsItsOpaqueValueAcrossTimetables() async {
         let provider = StubCurrentLocationProvider(result: .success(CurrentLocationCoordinate(
             latitude: 49.197391,
             longitude: 16.619124
@@ -5073,7 +5265,8 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(model.fromSelection?.kind)
 
         model.timetable = IDOSTimetable(slug: "pid", displayName: "Prague + PID")
-        XCTAssertTrue(model.fromSelection?.isCurrentLocation == true)
+        XCTAssertEqual(model.from, locationText)
+        XCTAssertNil(model.fromSelection)
 
         model.from = "Praha"
         model.to = "Brno"
@@ -5084,6 +5277,33 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(model.to, locationText)
         XCTAssertTrue(model.toSelection?.isCurrentLocation == true)
         XCTAssertEqual(request?.toSelection, model.toSelection?.idosSelection)
+        XCTAssertEqual(provider.requestCount, 2)
+    }
+
+    func testCurrentLocationIsReencodedForTheNewTimetableBeforeSearching() async throws {
+        let provider = StubCurrentLocationProvider(result: .success(CurrentLocationCoordinate(
+            latitude: 49.197391,
+            longitude: 16.619124
+        )))
+        let client = MockIDOSClient()
+        let model = ConnectionsViewModel(
+            client: client,
+            calendarImporter: RecordingCalendarImporter(),
+            currentLocationProvider: provider
+        )
+        let locationText = AppLocalization.string("My location")
+
+        await model.fillCurrentLocation(in: .from)
+        model.to = "Brno"
+        model.timetable = IDOSTimetable(slug: "pid", displayName: "Prague + PID")
+
+        await model.search()
+
+        let recordedRequest = await client.lastConnectionRequest
+        let request = try XCTUnwrap(recordedRequest)
+        XCTAssertEqual(model.from, locationText)
+        XCTAssertEqual(request.fromSelection?.timetableIdentifier, "pid")
+        XCTAssertEqual(request.fromSelection, model.fromSelection?.placeSelection)
         XCTAssertEqual(provider.requestCount, 2)
     }
 
@@ -5162,6 +5382,31 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testCurrentLocationShortcutRequiresSourceCapability() async {
+        struct LimitedSource: TransitDataSource {
+            let descriptor = TransitDataSourceDescriptor(
+                id: "limited",
+                displayName: "Limited Transit",
+                capabilities: [.connections]
+            )
+        }
+
+        let provider = StubCurrentLocationProvider(result: .success(CurrentLocationCoordinate(
+            latitude: 49.197391,
+            longitude: 16.619124
+        )))
+        let model = ConnectionsViewModel(
+            client: LimitedSource(),
+            calendarImporter: RecordingCalendarImporter(),
+            currentLocationProvider: provider
+        )
+
+        XCTAssertFalse(model.canFillCurrentLocation)
+        await model.fillCurrentLocation(in: .from)
+        XCTAssertEqual(provider.requestCount, 0)
+        XCTAssertNil(model.fromSelection)
+    }
+
     func testLocationPermissionPromptIsLocalized() throws {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
@@ -5201,6 +5446,24 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertGreaterThan(hostingView.fittingSize.height, 0)
         XCTAssertLessThanOrEqual(hostingView.fittingSize.height, 28)
+    }
+
+    func testPlaceFieldSelectionAcceptsProviderOwnedSuggestionWithoutIDOSValues() throws {
+        let suggestion = TransitSuggestion(
+            dataSourceID: "municipal",
+            timetableIdentifier: "metro",
+            identifier: "place:river-market",
+            selectedText: "River Market",
+            text: "River Market station",
+            description: "metro station"
+        )
+
+        let selection = try XCTUnwrap(PlaceFieldSelection(suggestion: suggestion))
+
+        XCTAssertEqual(selection.text, "River Market")
+        XCTAssertEqual(selection.placeSelection.dataSourceID, "municipal")
+        XCTAssertEqual(selection.placeSelection.identifier, "place:river-market")
+        XCTAssertFalse(selection.isCurrentLocation)
     }
 
     func testSuggestionButtonAcceptsClicksAcrossTheFullRow() {
@@ -5481,14 +5744,61 @@ final class KastanAppTests: XCTestCase {
     }
 
     func testServiceSelectionRoundTripsThroughWindowState() throws {
+        let timetable = IDOSTimetable(slug: "vlaky", displayName: "Trains")
         let selection = ServiceSelection(
             id: "service-301",
+            timetable: timetable,
             highlight: ServiceRouteHighlight(fromStop: "Frýdlant n. O.", toStop: "Ostravice")
         )
 
         let data = try JSONEncoder().encode(selection)
+        let decoded = try JSONDecoder().decode(ServiceSelection.self, from: data)
 
-        XCTAssertEqual(try JSONDecoder().decode(ServiceSelection.self, from: data), selection)
+        XCTAssertEqual(decoded, selection)
+        XCTAssertEqual(decoded.serviceID, "service-301")
+        XCTAssertEqual(decoded.timetable, timetable)
+        XCTAssertEqual(decoded.dataSourceID, .idos)
+        XCTAssertEqual(
+            decoded.id,
+            AppTransitValueIdentity(
+                dataSourceID: .idos,
+                timetableIdentifier: "vlaky",
+                valueIdentifier: "service-301"
+            )
+        )
+    }
+
+    func testServiceSelectionRestoresLegacyWindowStateAsIDOS() throws {
+        let data = Data(#"{"id":"legacy-service"}"#.utf8)
+
+        let decoded = try JSONDecoder().decode(ServiceSelection.self, from: data)
+
+        XCTAssertEqual(decoded.serviceID, "legacy-service")
+        XCTAssertEqual(decoded.timetable, .defaultTimetable)
+        XCTAssertEqual(decoded.dataSourceID, .idos)
+        XCTAssertEqual(
+            decoded.id,
+            AppTransitValueIdentity(
+                dataSourceID: .idos,
+                timetableIdentifier: TransitTimetable.defaultTimetable.identifier,
+                valueIdentifier: "legacy-service"
+            )
+        )
+    }
+
+    func testServiceDetailLoadsUsingTheSelectionsExactTimetable() async {
+        let client = MockIDOSClient()
+        let timetable = IDOSTimetable(slug: "vlaky", displayName: "Trains")
+        let model = ServiceDetailViewModel(
+            id: "train-301",
+            timetable: timetable,
+            client: client
+        )
+
+        await model.load()
+
+        let requestedTimetables = await client.serviceDetailRequestTimetables
+        XCTAssertEqual(requestedTimetables, [timetable])
     }
 
     func testServiceDetailWindowLoadsARetargetedSelection() async {
@@ -5615,7 +5925,7 @@ final class KastanAppTests: XCTestCase {
 
     func testCompleteConnectionRoundTripsThroughWindowState() throws {
         let selection = ConnectionSelection(
-            connection: connection(id: "connection-window"),
+            connection: connection(id: "connection-window", timetableIdentifier: "vlaky"),
             timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains")
         )
 
@@ -5623,7 +5933,14 @@ final class KastanAppTests: XCTestCase {
         let decoded = try JSONDecoder().decode(ConnectionSelection.self, from: data)
 
         XCTAssertEqual(decoded, selection)
-        XCTAssertEqual(decoded.id, "vlaky:connection-window")
+        XCTAssertEqual(
+            decoded.id,
+            AppTransitValueIdentity(
+                dataSourceID: .idos,
+                timetableIdentifier: "vlaky",
+                valueIdentifier: "connection-window"
+            )
+        )
         XCTAssertEqual(Set([decoded, selection]).count, 1)
 
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
@@ -5637,11 +5954,110 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testConnectionSelectionRestoresLegacyIDOSWindowTimetable() throws {
+        struct LegacySelection: Encodable {
+            let connection: TransitConnection
+            let timetable: TransitTimetable
+        }
+
+        let timetable = IDOSTimetable(slug: "vlaky", displayName: "Trains")
+        let data = try JSONEncoder().encode(
+            LegacySelection(
+                connection: connection(id: "legacy-connection"),
+                timetable: timetable
+            )
+        )
+
+        let decoded = try JSONDecoder().decode(ConnectionSelection.self, from: data)
+
+        XCTAssertEqual(decoded.connection.dataSourceID, .idos)
+        XCTAssertEqual(decoded.connection.timetableIdentifier, timetable.identifier)
+        XCTAssertEqual(decoded.timetable, timetable)
+    }
+
+    func testConnectionSelectionCannotRouteThroughAnotherProvider() {
+        let municipalConnection = TransitConnection(
+            dataSourceID: "municipal",
+            timetableIdentifier: "metro",
+            id: "connection-42",
+            departureTime: "08:00",
+            departureStation: "River Market",
+            arrivalTime: "08:10",
+            arrivalStation: "Museum",
+            duration: "10 min",
+            legs: []
+        )
+
+        let selection = ConnectionSelection(
+            connection: municipalConnection,
+            timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains")
+        )
+
+        XCTAssertEqual(selection.dataSourceID, TransitDataSourceID("municipal"))
+        XCTAssertEqual(selection.timetable.dataSourceID, TransitDataSourceID("municipal"))
+        XCTAssertEqual(selection.timetable.identifier, "metro")
+    }
+
+    func testResultOwnershipDoesNotFollowAMutableTimetablePicker() {
+        let idos = TransitTimetable(
+            dataSourceID: .idos,
+            identifier: "shared",
+            displayName: "IDOS Shared"
+        )
+        let municipal = TransitTimetable(
+            dataSourceID: "municipal",
+            identifier: "shared",
+            displayName: "Municipal Shared"
+        )
+        let connection = TransitConnection(
+            dataSourceID: municipal.dataSourceID,
+            timetableIdentifier: municipal.identifier,
+            id: "same-result-id",
+            departureTime: "08:00",
+            departureStation: "River Market",
+            arrivalTime: "08:10",
+            arrivalStation: "Museum",
+            duration: "10 min",
+            legs: []
+        )
+        let departure = TransitDeparture(
+            dataSourceID: municipal.dataSourceID,
+            timetableIdentifier: municipal.identifier,
+            id: "same-result-id",
+            time: "08:00",
+            lineName: "M1",
+            destination: "Museum"
+        )
+
+        XCTAssertEqual(connection.appTimetable(in: [idos, municipal]), municipal)
+        XCTAssertEqual(departure.appTimetable(in: [idos, municipal]), municipal)
+        let expectedIdentity = AppTransitValueIdentity(
+            dataSourceID: "municipal",
+            timetableIdentifier: "shared",
+            valueIdentifier: "same-result-id"
+        )
+        XCTAssertEqual(connection.appIdentity, expectedIdentity)
+        XCTAssertEqual(departure.appIdentity, expectedIdentity)
+
+        XCTAssertNotEqual(
+            AppTransitValueIdentity(
+                dataSourceID: "municipal:shared",
+                timetableIdentifier: "same",
+                valueIdentifier: "result:id"
+            ),
+            AppTransitValueIdentity(
+                dataSourceID: "municipal",
+                timetableIdentifier: "shared:same",
+                valueIdentifier: "result:id"
+            )
+        )
+    }
+
     func testCompleteConnectionDetailRendersAtCompactWindowWidth() {
         XCTAssertEqual(ConnectionDetailView.defaultWindowWidth, 400)
         XCTAssertEqual(ConnectionDetailView.minimumWindowWidth, 400)
         let selection = ConnectionSelection(
-            connection: connection(id: "connection-detail"),
+            connection: connection(id: "connection-detail", timetableIdentifier: "vlaky"),
             timetable: IDOSTimetable(slug: "vlaky", displayName: "Trains")
         )
         let hostingView = NSHostingView(
@@ -5727,6 +6143,10 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(request?.viaSelections?[0], viaSelection.idosSelection)
         XCTAssertNil(request?.viaSelections?[1])
         XCTAssertEqual(request?.timetable.slug, "vlaky")
+        XCTAssertNil(request?.date)
+        XCTAssertNil(request?.time)
+        XCTAssertEqual(request?.serviceDate, TransitRequestFormatting.serviceDate(from: model.date))
+        XCTAssertEqual(request?.serviceTime, TransitRequestFormatting.serviceTime(from: model.time))
         XCTAssertEqual(request?.isArrival, true)
         XCTAssertEqual(request?.maxTransfers, 2)
         XCTAssertEqual(request?.minimumTransferTime, 5)
@@ -6277,9 +6697,13 @@ final class KastanAppTests: XCTestCase {
         let request = await client.lastDeparturesRequest
         XCTAssertEqual(request?.station, "Ostrava-Svinov")
         XCTAssertEqual(request?.stationSelection, stationSelection.idosSelection)
+        XCTAssertNil(request?.date)
+        XCTAssertNil(request?.time)
+        XCTAssertEqual(request?.serviceDate, TransitRequestFormatting.serviceDate(from: model.date))
+        XCTAssertEqual(request?.serviceTime, TransitRequestFormatting.serviceTime(from: model.time))
         XCTAssertEqual(request?.isArrival, true)
         let searchLanguage = await client.lastDepartureSearchLanguage
-        XCTAssertEqual(searchLanguage, AppLanguagePreference.idosLanguage)
+        XCTAssertEqual(searchLanguage, AppLanguagePreference.transitLanguage)
         XCTAssertEqual(model.departures.count, 20)
     }
 
@@ -6323,8 +6747,14 @@ final class KastanAppTests: XCTestCase {
     func testConnectionPagingPrependsAndAppendsUniqueResults() async {
         let client = MockIDOSClient()
         await client.configureConnectionPages(
-            earlier: [connection(id: "connection-0"), connection(id: "connection-1")],
-            later: [connection(id: "connection-1"), connection(id: "connection-2")]
+            earlier: [
+                connection(id: "connection-0", timetableIdentifier: "vlaky"),
+                connection(id: "connection-1", timetableIdentifier: "vlaky"),
+            ],
+            later: [
+                connection(id: "connection-1", timetableIdentifier: "vlaky"),
+                connection(id: "connection-2", timetableIdentifier: "vlaky"),
+            ]
         )
         let model = ConnectionsViewModel(client: client)
         model.from = "Praha"
@@ -6371,8 +6801,14 @@ final class KastanAppTests: XCTestCase {
     func testDeparturePagingPrependsAndAppendsUniqueResults() async {
         let client = MockIDOSClient()
         await client.configureDeparturePages(
-            earlier: [departure(id: "departure-0"), departure(id: "departure-1")],
-            later: [departure(id: "departure-20"), departure(id: "departure-21")]
+            earlier: [
+                departure(id: "departure-0", timetableIdentifier: "vlaky"),
+                departure(id: "departure-1", timetableIdentifier: "vlaky"),
+            ],
+            later: [
+                departure(id: "departure-20", timetableIdentifier: "vlaky"),
+                departure(id: "departure-21", timetableIdentifier: "vlaky"),
+            ]
         )
         let model = DeparturesViewModel(client: client)
         model.station = "Ostrava-Svinov"
@@ -6639,6 +7075,29 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(query?.timetableSlug, "pid")
     }
 
+    func testPlaceSuggestionsDoNotStartWithoutTheAdvertisedCapability() {
+        struct LimitedSource: TransitDataSource {
+            let descriptor = TransitDataSourceDescriptor(
+                id: "limited",
+                displayName: "Limited Transit",
+                capabilities: [.connections]
+            )
+        }
+
+        let model = PlaceSuggestionsModel(client: LimitedSource(), scope: .places)
+        model.update(
+            query: "Market",
+            timetable: TransitTimetable(
+                dataSourceID: "limited",
+                identifier: "network",
+                displayName: "Network"
+            )
+        )
+
+        XCTAssertFalse(model.isLoading)
+        XCTAssertTrue(model.suggestions.isEmpty)
+    }
+
     func testPlaceSuggestionVisibilityRefiltersTheLastResponseWithoutAnotherRequest() async throws {
         let client = MockIDOSClient()
         await client.configureSuggestions([
@@ -6708,8 +7167,9 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(request?.from, "Strašnická")
         XCTAssertEqual(request?.to, "Sídliště Libuš")
         XCTAssertEqual(request?.wholeWeek, true)
-        XCTAssertEqual(request?.date, IDOSRequestFormatting.date(from: model.date))
-        XCTAssertEqual(language, AppLanguagePreference.idosLanguage)
+        XCTAssertNil(request?.date)
+        XCTAssertEqual(request?.serviceDate, TransitRequestFormatting.serviceDate(from: model.date))
+        XCTAssertEqual(language, AppLanguagePreference.transitLanguage)
         XCTAssertEqual(model.result?.selectedStop?.name, "Strašnická")
         XCTAssertNil(model.errorMessage)
     }
@@ -6731,6 +7191,7 @@ final class KastanAppTests: XCTestCase {
         await client.configureDepartureResponses([
             "31.8.2026": [
                 IDOSDeparture(
+                    timetableIdentifier: "pid",
                     id: "pid:0-54986-31.08.2026 05:13:00",
                     stationName: "Strašnická",
                     time: "5:13",
@@ -6751,15 +7212,24 @@ final class KastanAppTests: XCTestCase {
         let selection = await model.serviceSelection(for: departure)
         let request = await client.lastDeparturesRequest
 
-        XCTAssertEqual(selection?.id, "pid:0-54986-31.08.2026 05:13:00")
+        XCTAssertEqual(
+            selection?.id,
+            AppTransitValueIdentity(
+                dataSourceID: .idos,
+                timetableIdentifier: "pid",
+                valueIdentifier: "pid:0-54986-31.08.2026 05:13:00"
+            )
+        )
         XCTAssertEqual(
             selection?.highlight,
             ServiceRouteHighlight(fromStop: "Strašnická", toStop: "Sídliště Libuš")
         )
         XCTAssertEqual(request?.timetable.slug, "pid")
         XCTAssertEqual(request?.station, "Strašnická")
-        XCTAssertEqual(request?.date, "31.8.2026")
-        XCTAssertEqual(request?.time, "5:13")
+        XCTAssertNil(request?.date)
+        XCTAssertNil(request?.time)
+        XCTAssertEqual(request?.serviceDate, TransitDate(year: 2026, month: 8, day: 31))
+        XCTAssertEqual(request?.serviceTime, TransitTime(hour: 5, minute: 13))
         let departureSearchLanguage = await client.lastDepartureSearchLanguage
         XCTAssertEqual(departureSearchLanguage, AppLanguagePreference.idosLanguage)
         XCTAssertNil(model.resolvingDeparture)
@@ -6781,6 +7251,7 @@ final class KastanAppTests: XCTestCase {
             to: "Sídliště Libuš"
         ))
         let matchingDeparture = IDOSDeparture(
+            timetableIdentifier: "pid",
             id: "pid:0-54986-31.08.2026 05:13:00",
             stationName: "Strašnická",
             time: "5:13",
@@ -6808,8 +7279,8 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(departuresModel.timetable.slug, "pid")
         XCTAssertEqual(departuresModel.station, "Strašnická")
         XCTAssertNil(departuresModel.stationSelection)
-        XCTAssertEqual(IDOSRequestFormatting.date(from: departuresModel.date), "31.8.2026")
-        XCTAssertEqual(IDOSRequestFormatting.time(from: departuresModel.time), "5:13")
+        XCTAssertEqual(TransitRequestFormatting.displayDate(from: departuresModel.date), "31.8.2026")
+        XCTAssertEqual(TransitRequestFormatting.displayTime(from: departuresModel.time), "5:13")
         XCTAssertFalse(departuresModel.isArrival)
         XCTAssertFalse(departuresModel.usesCurrentDateAndTime)
         XCTAssertEqual(departuresModel.departures, [matchingDeparture])
@@ -6837,6 +7308,7 @@ final class KastanAppTests: XCTestCase {
         await client.configureDepartureResponses([
             "4.9.2026": [
                 IDOSDeparture(
+                    timetableIdentifier: "pid",
                     id: "pid:0-54986-04.09.2026 05:13:00",
                     time: "5:13",
                     lineName: "Bus 154",
@@ -6856,8 +7328,15 @@ final class KastanAppTests: XCTestCase {
         let selection = await model.serviceSelection(for: departure)
         let requests = await client.departureRequests
 
-        XCTAssertEqual(selection?.id, "pid:0-54986-04.09.2026 05:13:00")
-        XCTAssertEqual(requests.map(\.date), ["4.9.2026"])
+        XCTAssertEqual(
+            selection?.id,
+            AppTransitValueIdentity(
+                dataSourceID: .idos,
+                timetableIdentifier: "pid",
+                valueIdentifier: "pid:0-54986-04.09.2026 05:13:00"
+            )
+        )
+        XCTAssertEqual(requests.map(\.serviceDate), [TransitDate(year: 2026, month: 9, day: 4)])
         XCTAssertNil(model.errorMessage)
     }
 
@@ -6886,10 +7365,78 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(selection)
         XCTAssertEqual(
             model.errorMessage,
-            AppLocalization.string("IDOS could not identify this station-timetable departure.")
+            AppLocalization.string(
+                "%@ could not identify this station-timetable departure.",
+                "IDOS"
+            )
         )
         XCTAssertEqual(model.result, result)
         XCTAssertNil(model.resolvingDeparture)
+    }
+
+    func testStationTimetableResolutionUsesTheProviderWithoutInterpretingItsDisplayValue() async throws {
+        let client = SymbolicStationTimetableSource()
+        let model = StationTimetablesViewModel(client: client)
+        model.date = serviceDate(2026, 8, 31)
+        model.line = "Harbor loop"
+        model.from = "Market"
+        model.to = "Pier"
+        await model.search()
+
+        let result = try XCTUnwrap(model.result)
+        let reference = try XCTUnwrap(StationTimetableDepartureReference(
+            scheduleIndex: 0,
+            schedule: result.schedules[0],
+            hourIndex: 0,
+            departureIndex: 0
+        ))
+        let resolvedSearch = await model.departureSearch(for: reference)
+        let search = try XCTUnwrap(resolvedSearch)
+
+        XCTAssertEqual(reference.value, "quarter past")
+        XCTAssertEqual(search.page.departures.first?.id, "symbolic:quarter-past")
+        XCTAssertEqual(search.request.serviceTime, TransitTime(hour: 8, minute: 15))
+        XCTAssertNotEqual(
+            try XCTUnwrap(client.serviceTimeZone).identifier,
+            TimeZone.current.identifier
+        )
+        let departures = DeparturesViewModel(client: client)
+        departures.present(search)
+        XCTAssertEqual(
+            TransitRequestFormatting.serviceDate(from: departures.date),
+            TransitDate(year: 2026, month: 8, day: 31)
+        )
+        XCTAssertEqual(
+            TransitRequestFormatting.serviceTime(from: departures.time),
+            TransitTime(hour: 8, minute: 15)
+        )
+        XCTAssertNil(model.errorMessage)
+    }
+
+    func testTransitRequestFormattingKeepsGregorianValuesInTheDeviceTimeZone() throws {
+        let timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Tokyo"))
+        let serviceDate = TransitDate(year: 2026, month: 8, day: 31)
+        let serviceTime = TransitTime(hour: 8, minute: 15)
+        let value = try XCTUnwrap(TransitRequestFormatting.displayDateAndTime(
+            serviceDate: serviceDate,
+            serviceTime: serviceTime,
+            timeZone: timeZone
+        ))
+        var buddhistCalendar = Calendar(identifier: .buddhist)
+        buddhistCalendar.timeZone = timeZone
+
+        XCTAssertNotEqual(
+            buddhistCalendar.component(.year, from: value),
+            serviceDate.year
+        )
+        XCTAssertEqual(
+            TransitRequestFormatting.serviceDate(from: value, timeZone: timeZone),
+            serviceDate
+        )
+        XCTAssertEqual(
+            TransitRequestFormatting.serviceTime(from: value, timeZone: timeZone),
+            serviceTime
+        )
     }
 
     func testStationTimetableMunicipalitySelectionClearsAndScopesTheRoute() async throws {
@@ -6999,7 +7546,10 @@ final class KastanAppTests: XCTestCase {
             emailMailComposer: composer
         )
         model.timetable = timetable
-        let connection = connection(id: "connection-mail-draft")
+        let connection = connection(
+            id: "connection-mail-draft",
+            timetableIdentifier: timetable.identifier
+        )
 
         await model.composeEmailInMail(for: connection)
 
@@ -7173,8 +7723,13 @@ final class KastanAppTests: XCTestCase {
     }
 }
 
-private func connection(id: String, duration: String = "2 h 30 min") -> IDOSConnection {
+private func connection(
+    id: String,
+    duration: String = "2 h 30 min",
+    timetableIdentifier: String = IDOSTimetable.defaultTimetable.identifier
+) -> IDOSConnection {
     IDOSConnection(
+        timetableIdentifier: timetableIdentifier,
         id: id,
         departureTime: "12:00",
         departureStation: "Praha hl.n.",
@@ -7249,8 +7804,12 @@ private func connectionCardOpenCount(
     return openCount
 }
 
-private func departure(id: String) -> IDOSDeparture {
+private func departure(
+    id: String,
+    timetableIdentifier: String = IDOSTimetable.defaultTimetable.identifier
+) -> IDOSDeparture {
     IDOSDeparture(
+        timetableIdentifier: timetableIdentifier,
         id: id,
         time: "16:00",
         lineName: "S2",
@@ -7521,7 +8080,94 @@ private final class StubCurrentLocationProvider: CurrentLocationProviding {
     }
 }
 
+/// Exercises app routing with a provider whose timetable values are not IDOS-formatted minutes.
+private struct SymbolicStationTimetableSource: TransitDataSource {
+    static let sourceID: TransitDataSourceID = "symbolic"
+    static let timetable = TransitTimetable(
+        dataSourceID: sourceID,
+        identifier: "harbor",
+        displayName: "Harbor Transit"
+    )
+
+    let descriptor = TransitDataSourceDescriptor(
+        id: sourceID,
+        displayName: "Symbolic Transit",
+        capabilities: [
+            .timetables,
+            .stationTimetables,
+            .departures,
+            .stationTimetableDepartureResolution,
+        ]
+    )
+
+    private static let providerTimeZone: TimeZone = {
+        let tokyo = TimeZone(identifier: "Asia/Tokyo")!
+        if tokyo.identifier != TimeZone.current.identifier {
+            return tokyo
+        }
+        return TimeZone(identifier: "America/Los_Angeles")!
+    }()
+
+    var defaultTimetable: TransitTimetable { Self.timetable }
+    var serviceTimeZone: TimeZone? { Self.providerTimeZone }
+
+    func findStationTimetable(
+        request: TransitStationTimetableRequest,
+        language: TransitLanguage
+    ) async throws -> TransitStationTimetable {
+        TransitStationTimetable(
+            timetable: Self.timetable,
+            lineName: request.line,
+            fromStop: request.from,
+            toStop: request.to,
+            stops: [TransitStationTimetableStop(name: request.from, isSelected: true)],
+            schedules: [TransitStationTimetableSchedule(
+                label: "market days",
+                hours: [TransitStationTimetableHour(
+                    hour: "morning",
+                    departures: ["quarter past"]
+                )]
+            )]
+        )
+    }
+
+    func resolveStationTimetableDeparture(
+        request: TransitStationTimetableDepartureResolutionRequest,
+        language: TransitLanguage
+    ) async throws -> TransitStationTimetableDepartureResolution? {
+        let value = request.stationTimetable.schedules[request.scheduleIndex]
+            .hours[request.hourIndex].departures[request.departureIndex]
+        guard value == "quarter past" else { return nil }
+        let serviceTime = TransitTime(hour: 8, minute: 15)
+        let departure = TransitDeparture(
+            dataSourceID: Self.sourceID,
+            timetableIdentifier: Self.timetable.identifier,
+            id: "symbolic:quarter-past",
+            time: value,
+            lineName: "Harbor loop",
+            destination: "Pier"
+        )
+        let departureRequest = TransitDeparturesRequest(
+            timetable: Self.timetable,
+            station: "Market",
+            serviceDate: request.serviceDate,
+            serviceTime: serviceTime
+        )
+        return TransitStationTimetableDepartureResolution(
+            departure: departure,
+            request: departureRequest,
+            page: TransitDeparturePage(
+                departures: [departure],
+                dataSourceID: Self.sourceID
+            ),
+            serviceDate: request.serviceDate,
+            serviceTime: serviceTime
+        )
+    }
+}
+
 private actor MockIDOSClient: IDOSClienting {
+    nonisolated let descriptor = TransitDataSourceDescriptor.idos
     var lastConnectionRequest: IDOSConnectionRequest?
     var lastDeparturesRequest: IDOSDeparturesRequest?
     var departureRequests: [IDOSDeparturesRequest] = []
@@ -7549,6 +8195,7 @@ private actor MockIDOSClient: IDOSClienting {
     var suggestionRequestCount = 0
     var serviceDetailRequestCount = 0
     var serviceDetailRequestIDs: [String] = []
+    var serviceDetailRequestTimetables: [IDOSTimetable] = []
     private var serviceShareURL: String?
     private var configuredServiceDetail: IDOSServiceDetail?
     private var connectionPages: [IDOSPageDirection: [IDOSConnection]] = [:]
@@ -7672,6 +8319,51 @@ private actor MockIDOSClient: IDOSClienting {
         )
     }
 
+    func resolveStationTimetableDeparture(
+        request: TransitStationTimetableDepartureResolutionRequest,
+        language: TransitLanguage
+    ) async throws -> TransitStationTimetableDepartureResolution? {
+        guard let reference = IDOSStationTimetableDepartureReference(request: request) else {
+            return nil
+        }
+        for candidateDate in IDOSStationTimetableDepartureResolver.candidateServiceDates(
+            for: reference.scheduleLabel,
+            searchDate: request.serviceDate,
+            wholeWeek: request.wholeWeek
+        ) {
+            guard let serviceDate = IDOSStationTimetableDepartureResolver.addingDays(
+                reference.dayOffset,
+                to: candidateDate
+            ), let selectedStop = request.stationTimetable.selectedStop
+            else {
+                continue
+            }
+            let departureRequest = TransitDeparturesRequest(
+                timetable: request.stationTimetable.timetable,
+                station: selectedStop.name,
+                serviceDate: serviceDate,
+                serviceTime: reference.serviceTime,
+                isArrival: false
+            )
+            let page = try await findDeparturesPage(request: departureRequest, language: language)
+            guard let departure = IDOSStationTimetableDepartureResolver.matchingDeparture(
+                in: page.departures,
+                reference: reference,
+                timetable: request.stationTimetable
+            ) else {
+                continue
+            }
+            return TransitStationTimetableDepartureResolution(
+                departure: departure,
+                request: departureRequest,
+                page: page,
+                serviceDate: serviceDate,
+                serviceTime: reference.serviceTime
+            )
+        }
+        return nil
+    }
+
     func timetableValidity(
         for timetable: IDOSTimetable,
         language: IDOSLanguage
@@ -7704,6 +8396,8 @@ private actor MockIDOSClient: IDOSClienting {
         lastConnectionRequest = request
         return [
             IDOSConnection(
+                dataSourceID: request.timetable.dataSourceID,
+                timetableIdentifier: request.timetable.identifier,
                 id: "connection-1",
                 departureTime: "12:00",
                 departureStation: "Praha hl.n.",
@@ -7816,10 +8510,15 @@ private actor MockIDOSClient: IDOSClienting {
         lastDeparturesRequest = request
         departureRequests.append(request)
         if let departureResponsesByDate {
-            return departureResponsesByDate[request.date ?? ""] ?? []
+            let date = request.date ?? request.serviceDate.map {
+                "\($0.day).\($0.month).\($0.year)"
+            } ?? ""
+            return departureResponsesByDate[date] ?? []
         }
         return (1...25).map { index in
             IDOSDeparture(
+                dataSourceID: request.timetable.dataSourceID,
+                timetableIdentifier: request.timetable.identifier,
                 id: "departure-\(index)",
                 time: "16:\(String(format: "%02d", index))",
                 lineName: "S2",
@@ -7859,6 +8558,7 @@ private actor MockIDOSClient: IDOSClienting {
     func serviceDetail(id: String, timetable: IDOSTimetable) async throws -> IDOSServiceDetail {
         serviceDetailRequestCount += 1
         serviceDetailRequestIDs.append(id)
+        serviceDetailRequestTimetables.append(timetable)
         if let configuredServiceDetail {
             return configuredServiceDetail
         }

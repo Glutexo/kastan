@@ -3,9 +3,9 @@ import Foundation
 public struct StopAlias: Codable, Equatable, Sendable {
     public var name: String
     public var station: String
-    public var timetable: IDOSTimetable
+    public var timetable: TransitTimetable
 
-    public init(name: String, station: String, timetable: IDOSTimetable) {
+    public init(name: String, station: String, timetable: TransitTimetable) {
         self.name = name
         self.station = station
         self.timetable = timetable
