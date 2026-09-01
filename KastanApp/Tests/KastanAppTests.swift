@@ -2377,20 +2377,20 @@ final class KastanAppTests: XCTestCase {
             Button {} label: {
                 Label("Remove journey option", systemImage: "minus")
                     .labelStyle(.iconOnly)
-                    .frame(width: 20, height: 14)
+                    .frame(width: JourneyOptionRowLayout.actionIconWidth, height: 14)
             }
             .buttonStyle(.bordered)
             .fixedSize()
-            .frame(width: JourneyOptionRowLayout.actionButtonWidth)
+            .background(SearchSupplementLayoutProbe(name: "remove-action"))
 
             Button {} label: {
                 Label("Add journey option", systemImage: "plus")
                     .labelStyle(.iconOnly)
-                    .frame(width: 20, height: 14)
+                    .frame(width: JourneyOptionRowLayout.actionIconWidth, height: 14)
             }
             .buttonStyle(.bordered)
             .fixedSize()
-            .frame(width: JourneyOptionRowLayout.actionButtonWidth)
+            .background(SearchSupplementLayoutProbe(name: "add-action"))
         }
         .frame(width: contentWidth, height: 28, alignment: .leading)
         let hostingView = NSHostingView(rootView: row)
@@ -2410,6 +2410,11 @@ final class KastanAppTests: XCTestCase {
             .compactMap { $0 as? NSControl }
             .filter { !$0.isHidden && $0.alphaValue > 0 && !$0.visibleRect.isEmpty }
         let popupButtons = visibleControls.compactMap { $0 as? NSPopUpButton }
+        let probes = hostingView.allDescendantViews
+            .compactMap { $0 as? SearchSupplementLayoutProbeView }
+        let actionProbes = try ["remove-action", "add-action"].map { name in
+            try XCTUnwrap(probes.first { $0.name == name })
+        }
 
         XCTAssertEqual(popupButtons.count, 2)
         for control in visibleControls {
@@ -2421,6 +2426,14 @@ final class KastanAppTests: XCTestCase {
             XCTAssertGreaterThanOrEqual(
                 popupButton.frame.width,
                 popupButton.intrinsicContentSize.width - 0.5
+            )
+        }
+        for actionProbe in actionProbes {
+            let frame = hostingView.convert(actionProbe.bounds, from: actionProbe)
+            XCTAssertEqual(
+                frame.width,
+                JourneyOptionRowLayout.actionButtonWidth,
+                accuracy: 0.5
             )
         }
     }

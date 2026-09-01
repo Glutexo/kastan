@@ -195,7 +195,8 @@ enum ConnectionEndpointLayout {
 @MainActor
 enum JourneyOptionRowLayout {
     static let spacing: CGFloat = 8
-    static let actionButtonWidth: CGFloat = 44
+    static let actionIconWidth: CGFloat = 12
+    static let actionButtonWidth: CGFloat = 36
     static let minimumFlexibleValueWidth: CGFloat = 160
     private static let fixedItemSpacingCount: CGFloat = 4
     private static let horizontalSafetyMargin: CGFloat = 2
@@ -572,11 +573,10 @@ struct ConnectionsView: View {
                 } label: {
                     Label("Remove journey option", systemImage: "minus")
                         .labelStyle(.iconOnly)
-                        .frame(width: 20, height: 14)
+                        .frame(width: JourneyOptionRowLayout.actionIconWidth, height: 14)
                 }
                 .buttonStyle(.bordered)
                 .fixedSize()
-                .frame(width: JourneyOptionRowLayout.actionButtonWidth)
                 .help("Remove journey option")
             }
 
@@ -585,11 +585,10 @@ struct ConnectionsView: View {
             } label: {
                 Label("Add journey option", systemImage: "plus")
                     .labelStyle(.iconOnly)
-                    .frame(width: 20, height: 14)
+                    .frame(width: JourneyOptionRowLayout.actionIconWidth, height: 14)
             }
             .buttonStyle(.bordered)
             .fixedSize()
-            .frame(width: JourneyOptionRowLayout.actionButtonWidth)
             .help("Add journey option")
         }
         .frame(height: 28)
