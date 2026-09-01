@@ -53,9 +53,9 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   visible for the lifetime of that search window even without Option, after collapsing the options, and after clearing
   it again. Expanded full-width conditions appear below without moving the action row. Either the arrow or heading
   toggles the conditions. Direct connections are mutually exclusive with the maximum-transfer and both transfer-time
-  conditions. Selecting the checkbox, or entering zero as the maximum number of transfers, enables direct-only mode and
-  removes those three rows. Their values remain remembered; after clearing direct-only mode, manually adding any of the
-  conditions restores its last value instead of its default.
+  conditions. Selecting the checkbox, or entering zero as the maximum number of transfers, enables direct-only mode,
+  sends zero as the maximum transfer count, and removes those three rows. Their values remain remembered; after clearing
+  direct-only mode, manually adding any of the conditions restores its last value instead of its default.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, optional tariff zones and platforms or stands, lockout labels, keyed departure explanations,

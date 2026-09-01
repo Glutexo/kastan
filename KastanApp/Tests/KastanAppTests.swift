@@ -5699,7 +5699,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(model.onlyDirect)
         XCTAssertEqual(model.journeyOptions.count, 2)
         XCTAssertEqual(model.journeyOptions.map(\.id), [viaOption.id, walkingOption.id])
-        XCTAssertNil(model.maximumTransfers)
+        XCTAssertEqual(model.maximumTransfers, 0)
         XCTAssertNil(model.minimumTransferTime)
         XCTAssertNil(model.maximumTransferTime)
         XCTAssertEqual(model.maximumWalkingTime, 45)
@@ -5855,7 +5855,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertGreaterThan(catalogWidth, popupButton.intrinsicContentSize.width)
     }
 
-    func testDirectOnlyRequestOmitsMutuallyExclusiveTransferConditions() async {
+    func testDirectOnlyRequestSetsZeroTransfersAndOmitsTransferTimes() async {
         let client = MockIDOSClient()
         let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())
         model.from = "Praha"
@@ -5875,7 +5875,7 @@ final class KastanAppTests: XCTestCase {
 
         let request = await client.lastConnectionRequest
         XCTAssertEqual(request?.onlyDirect, true)
-        XCTAssertNil(request?.maxTransfers)
+        XCTAssertEqual(request?.maxTransfers, 0)
         XCTAssertNil(request?.minimumTransferTime)
         XCTAssertNil(request?.maximumTransferTime)
         XCTAssertEqual(request?.maximumWalkingTime, 45)

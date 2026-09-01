@@ -299,9 +299,13 @@ final class ConnectionsViewModel: ObservableObject {
         }
     }
 
-    /// Returns the single visible transfer ceiling, or `nil` when that condition was not selected.
+    /// Returns zero in direct-only mode, otherwise the single visible transfer ceiling when selected.
     var maximumTransfers: Int? {
-        journeyOptions.first { $0.kind == .maximumTransfers }?.maximumTransfers
+        if onlyDirect {
+            return 0
+        }
+
+        return journeyOptions.first { $0.kind == .maximumTransfers }?.maximumTransfers
     }
 
     /// Returns each optional IDOS transfer control only while its row remains visible.
@@ -468,7 +472,7 @@ final class ConnectionsViewModel: ObservableObject {
         let requestedViaSelections = requestedViaEntries.isEmpty
             ? nil
             : requestedViaEntries.map(\.selection)
-        let requestedMaximumTransfers = onlyDirect ? nil : maximumTransfers
+        let requestedMaximumTransfers = maximumTransfers
         let request = IDOSConnectionRequest(
             timetable: timetable,
             from: departure,
