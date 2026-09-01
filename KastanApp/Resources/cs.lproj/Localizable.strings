@@ -108,11 +108,11 @@
 "Line number or name" = "Číslo nebo název linky";
 "%lld hr" = "%lld hod";
 "%lld min" = "%lld min";
-"Maximum distance to walk" = "Maximální délka přesunu";
-"Maximum distance to walk, if there is Urban Public Transport available" = "Maximální délka přesunu, je-li MHD";
+"Maximum distance to walk" = "Nejvyšší délka přesunu";
+"Maximum distance to walk, if there is Urban Public Transport available" = "Nejvyšší délka přesunu, je-li MHD";
 "Maximum number of transfers" = "Nejvyšší počet přestupů";
-"Maximum transfer time" = "Maximální čas na přestup";
-"Minimum transfer time" = "Minimální čas na přestup";
+"Maximum transfer time" = "Nejvyšší čas na přestup";
+"Minimum transfer time" = "Nejnižší čas na přestup";
 "Matched rule: contains “%@”." = "Použité pravidlo: obsahuje „%@“.";
 "Matched rule: %@." = "Použité pravidlo: %@.";
 "No specific service-information rule matched; the supplied fallback was used." = "Žádné konkrétní pravidlo pro informace o spoji neuspělo; byla použita předaná záložní hodnota.";
