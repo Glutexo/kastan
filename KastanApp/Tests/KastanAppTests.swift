@@ -3991,7 +3991,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(ResultMetadata.connectionLeg(leg, showsDetails: false))
     }
 
-    func testConnectionLegPlatformsUseCompactLocalizedPresentation() throws {
+    func testConnectionLegPlatformsOfferCompleteLocalizedTextAndCompactFallback() throws {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let train = IDOSConnectionLeg(
             name: "S6",
@@ -4046,6 +4046,45 @@ final class KastanAppTests: XCTestCase {
                 AppLocalization.string("track %@", "3"),
             ].joined(separator: " ")
         )
+    }
+
+    func testAdaptiveConnectionPlatformPrefersFullTextAndKeepsAOneLineFallback() {
+        let value = ResultMetadata.CompactItem(
+            text: "2/3",
+            helpText: "nástupiště 2, kolej 3"
+        )
+        let preferred = NSHostingView(
+            rootView: AdaptiveConnectionPlatform(value: value)
+                .fixedSize()
+        )
+        let constrained = NSHostingView(
+            rootView: AdaptiveConnectionPlatform(value: value)
+                .frame(width: 30)
+        )
+        let fullLabel = NSHostingView(
+            rootView: Text(verbatim: value.helpText)
+                .font(.caption)
+                .fixedSize()
+        )
+        let compactLabel = NSHostingView(
+            rootView: Text(verbatim: value.text)
+                .font(.caption)
+                .fixedSize()
+        )
+
+        XCTAssertEqual(
+            preferred.fittingSize.width,
+            fullLabel.fittingSize.width,
+            accuracy: 0.5
+        )
+        XCTAssertGreaterThan(fullLabel.fittingSize.width, 30)
+        XCTAssertLessThan(compactLabel.fittingSize.width, 30)
+        XCTAssertEqual(
+            constrained.fittingSize.height,
+            preferred.fittingSize.height,
+            accuracy: 0.5
+        )
+        XCTAssertLessThan(constrained.fittingSize.height, 24)
     }
 
     func testServiceInformationUsesSymbolsUntilTheSharedTextPreferenceIsEnabled() throws {

@@ -977,6 +977,29 @@ struct CompactStopMetadata: View {
     }
 }
 
+/// Prefers a complete localized connection platform while retaining IDOS's shorthand for scarce row space.
+struct AdaptiveConnectionPlatform: View {
+    let value: ResultMetadata.CompactItem
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            label(value.helpText)
+            label(value.text)
+        }
+        .help(Text(verbatim: value.helpText))
+        .accessibilityLabel(Text(verbatim: value.helpText))
+        .layoutPriority(-1)
+    }
+
+    private func label(_ text: String) -> some View {
+        Text(verbatim: text)
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+    }
+}
+
 /// Keeps optional metadata compact, readable, and governed by the global View preference.
 enum ResultMetadata {
     /// Keeps the source value short on the route while retaining its complete localized meaning.

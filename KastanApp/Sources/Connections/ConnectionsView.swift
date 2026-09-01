@@ -1579,7 +1579,7 @@ private struct ConnectionLegRow: View {
                             )
                         }
                         if let platform = ResultMetadata.compactConnectionPlatform(leg) {
-                            CompactStopMetadata(values: [platform])
+                            AdaptiveConnectionPlatform(value: platform)
                         }
                         Spacer()
                         if leg.id != nil {
