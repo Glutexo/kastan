@@ -629,9 +629,15 @@ struct AppSectionCommands: Commands {
 /// Launches the native Kaštan experience while sharing all IDOS behavior with the CLI and MCP server.
 @main
 struct KastanApp: App {
-    /// Retains usable compact search forms and toolbar actions at the narrowest supported main-window size.
-    static let minimumMainWindowWidth: CGFloat = 522
-    /// Opens new main windows directly in the fully supported compact layout.
+    /// Preserves the established search baseline while fitting every complete localized journey-option row.
+    static let baselineMainWindowWidth: CGFloat = 522
+    static let minimumMainWindowWidth = max(
+        baselineMainWindowWidth,
+        DetailLayout.minimumAvailableWidth(
+            fittingContentWidth: JourneyOptionRowLayout.minimumContentWidth
+        )
+    )
+    /// Opens new main windows directly at the narrowest width supported by the active localization.
     static let defaultMainWindowWidth = minimumMainWindowWidth
 
     @AppStorage(ConnectionBadgePreference.storageKey)

@@ -2327,23 +2327,102 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(SearchActionButton.contentWidth, 140)
     }
 
-    func testMainWindowDefaultsToCompactSearchWorkspaceWidth() {
+    func testMainWindowDefaultsToFullyReadableLocalizedSearchWorkspaceWidth() {
         let layout = DetailLayout(availableWidth: KastanApp.minimumMainWindowWidth)
 
-        XCTAssertEqual(KastanApp.minimumMainWindowWidth, 522)
+        XCTAssertGreaterThanOrEqual(
+            KastanApp.minimumMainWindowWidth,
+            KastanApp.baselineMainWindowWidth
+        )
         XCTAssertEqual(KastanApp.defaultMainWindowWidth, KastanApp.minimumMainWindowWidth)
-        XCTAssertEqual(layout.contentWidth, 490)
-        XCTAssertTrue(layout.usesStackedSearchControls)
+        XCTAssertGreaterThanOrEqual(
+            layout.contentWidth,
+            JourneyOptionRowLayout.minimumContentWidth
+        )
         XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: true), 0)
         XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: false), 8)
         XCTAssertEqual(SearchTimetablePicker.pickerWidth, 236)
         let endpointFieldWidth = ConnectionEndpointLayout.fieldWidth(contentWidth: layout.contentWidth)
-        XCTAssertEqual(endpointFieldWidth, 218)
         XCTAssertEqual(
             (2 * endpointFieldWidth) + ConnectionEndpointLayout.swapButtonWidth +
                 (2 * ConnectionEndpointLayout.spacing),
             layout.contentWidth
         )
+    }
+
+    func testWidestJourneyOptionRowFitsLocalizedMinimumWithoutCompression() throws {
+        let contentWidth = DetailLayout(
+            availableWidth: KastanApp.minimumMainWindowWidth
+        ).contentWidth
+        let row = HStack(spacing: JourneyOptionRowLayout.spacing) {
+            JourneyOptionKindPicker(
+                selection: .constant(.maximumCityWalkingTime),
+                availableKinds: JourneyOptionKind.allCases
+            )
+            .fixedSize(horizontal: true, vertical: false)
+
+            Picker(selection: .constant(true)) {
+                Text(verbatim: AppLocalization.string("Also at the beginning/end of journey"))
+                    .tag(true)
+                Text(verbatim: AppLocalization.string("Only during transfers"))
+                    .tag(false)
+            } label: {
+                Text(verbatim: JourneyOptionKind.walkToNearbyStops.localizedTitle)
+            }
+            .labelsHidden()
+            .fixedSize()
+
+            Spacer(minLength: 0)
+
+            Button {} label: {
+                Label("Remove journey option", systemImage: "minus")
+                    .labelStyle(.iconOnly)
+                    .frame(width: 20, height: 14)
+            }
+            .buttonStyle(.bordered)
+            .fixedSize()
+            .frame(width: JourneyOptionRowLayout.actionButtonWidth)
+
+            Button {} label: {
+                Label("Add journey option", systemImage: "plus")
+                    .labelStyle(.iconOnly)
+                    .frame(width: 20, height: 14)
+            }
+            .buttonStyle(.bordered)
+            .fixedSize()
+            .frame(width: JourneyOptionRowLayout.actionButtonWidth)
+        }
+        .frame(width: contentWidth, height: 28, alignment: .leading)
+        let hostingView = NSHostingView(rootView: row)
+        hostingView.frame = NSRect(x: 0, y: 0, width: contentWidth, height: 28)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        let visibleControls = hostingView.allDescendantViews
+            .compactMap { $0 as? NSControl }
+            .filter { !$0.isHidden && $0.alphaValue > 0 && !$0.visibleRect.isEmpty }
+        let popupButtons = visibleControls.compactMap { $0 as? NSPopUpButton }
+
+        XCTAssertEqual(popupButtons.count, 2)
+        for control in visibleControls {
+            let frame = hostingView.convert(control.bounds, from: control)
+            XCTAssertGreaterThanOrEqual(frame.minX, -1)
+            XCTAssertLessThanOrEqual(frame.maxX, contentWidth + 1)
+        }
+        for popupButton in popupButtons {
+            XCTAssertGreaterThanOrEqual(
+                popupButton.frame.width,
+                popupButton.intrinsicContentSize.width - 0.5
+            )
+        }
     }
 
     func testCompactConnectionFormKeepsNativeControlsInsideWindow() {
@@ -5879,7 +5958,7 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testJourneyOptionPickerUsesCompactStableCatalogWidthWhenOnlyViaIsAvailable() throws {
+    func testJourneyOptionPickerUsesFullStableCatalogWidthWhenOnlyViaIsAvailable() throws {
         let picker = JourneyOptionKindPicker(
             selection: .constant(.via),
             availableKinds: [.via]
@@ -5902,13 +5981,9 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(popupButton.sizingTitles, JourneyOptionKind.allCases.map(\.localizedTitle))
         XCTAssertEqual(
             catalogWidth,
-            min(
-                nativeCatalogButton.intrinsicContentSize.width,
-                StableWidthPopUpButton.maximumCatalogWidth
-            ),
+            nativeCatalogButton.intrinsicContentSize.width,
             accuracy: 0.5
         )
-        XCTAssertLessThanOrEqual(catalogWidth, StableWidthPopUpButton.maximumCatalogWidth)
         XCTAssertEqual(popupButton.frame.width, catalogWidth, accuracy: 0.5)
 
         popupButton.sizingTitles = [JourneyOptionKind.via.localizedTitle]

@@ -191,6 +191,50 @@ enum ConnectionEndpointLayout {
     }
 }
 
+/// Reserves the complete localized condition/value pair and both fixed row actions at the window minimum.
+@MainActor
+enum JourneyOptionRowLayout {
+    static let spacing: CGFloat = 8
+    static let actionButtonWidth: CGFloat = 44
+    static let minimumFlexibleValueWidth: CGFloat = 160
+    private static let fixedItemSpacingCount: CGFloat = 4
+    private static let horizontalSafetyMargin: CGFloat = 2
+
+    static var minimumContentWidth: CGFloat {
+        ceil(
+            conditionCatalogWidth + maximumFixedValueWidth +
+                (2 * actionButtonWidth) +
+                (fixedItemSpacingCount * spacing) +
+                horizontalSafetyMargin
+        )
+    }
+
+    private static var conditionCatalogWidth: CGFloat {
+        StableWidthPopUpButton.catalogWidth(
+            for: JourneyOptionKind.allCases.map(\.localizedTitle)
+        )
+    }
+
+    private static var maximumFixedValueWidth: CGFloat {
+        let booleanTitles = [
+            AppLocalization.string("Also at the beginning/end of journey"),
+            AppLocalization.string("Only during transfers"),
+            AppLocalization.string("Between any stops"),
+            AppLocalization.string("Only stops of the same name"),
+        ]
+        let durationTitles = (
+            JourneyDurationChoice.minimumTransferTimes +
+                JourneyDurationChoice.maximumTransferTimes +
+                JourneyDurationChoice.maximumWalkingTimes
+        ).map { $0.localizedTitle() }
+
+        return max(
+            minimumFlexibleValueWidth,
+            StableWidthPopUpButton.catalogWidth(for: booleanTitles + durationTitles)
+        )
+    }
+}
+
 /// Combines a compact macOS search workspace with expandable journey results.
 struct ConnectionsView: View {
     @Environment(\.openWindow) private var openWindow
@@ -515,7 +559,7 @@ struct ConnectionsView: View {
     }
 
     private func journeyOptionRow(option: Binding<JourneyOptionEntry>) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: JourneyOptionRowLayout.spacing) {
             journeyOptionKindMenu(option: option)
 
             journeyOptionValue(option: option)
@@ -532,6 +576,7 @@ struct ConnectionsView: View {
                 }
                 .buttonStyle(.bordered)
                 .fixedSize()
+                .frame(width: JourneyOptionRowLayout.actionButtonWidth)
                 .help("Remove journey option")
             }
 
@@ -544,12 +589,13 @@ struct ConnectionsView: View {
             }
             .buttonStyle(.bordered)
             .fixedSize()
+            .frame(width: JourneyOptionRowLayout.actionButtonWidth)
             .help("Add journey option")
         }
         .frame(height: 28)
     }
 
-    /// Sizes from every supported condition, with the native popup enforcing its compact-window cap.
+    /// Sizes from every supported condition so changing a row never shifts or truncates its localized title.
     private func journeyOptionKindMenu(option: Binding<JourneyOptionEntry>) -> some View {
         JourneyOptionKindPicker(
             selection: journeyOptionKindBinding(for: option),
@@ -873,10 +919,8 @@ struct JourneyOptionKindPicker: NSViewRepresentable {
     }
 }
 
-/// Uses the full catalog as a stable sizing reference without letting long localized titles overflow compact windows.
+/// Uses the complete localized catalog as a stable, selection-independent sizing reference.
 final class StableWidthPopUpButton: NSPopUpButton {
-    static let maximumCatalogWidth: CGFloat = 200
-
     var sizingTitles: [String] = [] {
         didSet {
             guard sizingTitles != oldValue else { return }
@@ -890,18 +934,33 @@ final class StableWidthPopUpButton: NSPopUpButton {
             return nativeSize
         }
 
+        return NSSize(
+            width: max(
+                nativeSize.width,
+                Self.catalogWidth(
+                    for: sizingTitles,
+                    controlSize: controlSize,
+                    bezelStyle: bezelStyle,
+                    font: font
+                )
+            ),
+            height: nativeSize.height
+        )
+    }
+
+    /// Measures the same native popup chrome used by both condition and value selectors.
+    static func catalogWidth(
+        for titles: [String],
+        controlSize: NSControl.ControlSize = .regular,
+        bezelStyle: NSButton.BezelStyle = .rounded,
+        font: NSFont? = nil
+    ) -> CGFloat {
         let sizingButton = NSPopUpButton(frame: .zero, pullsDown: false)
         sizingButton.controlSize = controlSize
         sizingButton.bezelStyle = bezelStyle
-        if let font {
-            sizingButton.font = font
-        }
-        sizingButton.addItems(withTitles: sizingTitles)
-
-        return NSSize(
-            width: min(sizingButton.intrinsicContentSize.width, Self.maximumCatalogWidth),
-            height: nativeSize.height
-        )
+        sizingButton.font = font
+        sizingButton.addItems(withTitles: titles)
+        return sizingButton.intrinsicContentSize.width
     }
 }
 

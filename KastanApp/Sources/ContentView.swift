@@ -52,6 +52,8 @@ extension FocusedValues {
 struct DetailLayout {
     private static let compactPaddingBreakpoint: CGFloat = 600
     private static let stackedSearchBreakpoint: CGFloat = 820
+    private static let compactHorizontalPadding: CGFloat = 16
+    private static let regularHorizontalPadding: CGFloat = 24
 
     let availableWidth: CGFloat
 
@@ -60,7 +62,9 @@ struct DetailLayout {
     }
 
     var horizontalPadding: CGFloat {
-        availableWidth < Self.compactPaddingBreakpoint ? 16 : 24
+        availableWidth < Self.compactPaddingBreakpoint
+            ? Self.compactHorizontalPadding
+            : Self.regularHorizontalPadding
     }
 
     var contentWidth: CGFloat {
@@ -69,6 +73,17 @@ struct DetailLayout {
 
     var usesStackedSearchControls: Bool {
         contentWidth < Self.stackedSearchBreakpoint
+    }
+
+    /// Converts a required full-width search row into the narrowest window that retains its active padding.
+    static func minimumAvailableWidth(fittingContentWidth requiredContentWidth: CGFloat) -> CGFloat {
+        let requiredContentWidth = max(requiredContentWidth, 0)
+        let compactWidth = ceil(requiredContentWidth + (2 * compactHorizontalPadding))
+        if compactWidth < compactPaddingBreakpoint {
+            return compactWidth
+        }
+
+        return ceil(requiredContentWidth + (2 * regularHorizontalPadding))
     }
 }
 
