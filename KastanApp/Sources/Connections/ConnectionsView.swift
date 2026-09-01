@@ -398,7 +398,7 @@ struct ConnectionsView: View {
         }
     }
 
-    /// Keeps the common direct-only shortcut synchronized with its explicit journey condition.
+    /// Keeps the common direct-only shortcut synchronized with mutually exclusive transfer conditions.
     private var directConnectionsOnlyToggle: some View {
         Toggle("Direct connections only", isOn: Binding(
             get: { model.onlyDirect },
@@ -552,10 +552,21 @@ struct ConnectionsView: View {
     /// Sizes from every supported condition, with the native popup enforcing its compact-window cap.
     private func journeyOptionKindMenu(option: Binding<JourneyOptionEntry>) -> some View {
         JourneyOptionKindPicker(
-            selection: option.kind,
+            selection: journeyOptionKindBinding(for: option),
             availableKinds: model.availableJourneyOptionKinds(for: option.wrappedValue.id)
         )
         .fixedSize(horizontal: true, vertical: false)
+    }
+
+    /// Lets the model restore remembered values whenever a transfer-related condition is selected again.
+    private func journeyOptionKindBinding(for option: Binding<JourneyOptionEntry>) -> Binding<JourneyOptionKind> {
+        let optionID = option.wrappedValue.id
+        return Binding(
+            get: {
+                model.journeyOptions.first { $0.id == optionID }?.kind ?? .via
+            },
+            set: { model.setJourneyOptionKind($0, for: optionID) }
+        )
     }
 
     @ViewBuilder
@@ -655,14 +666,12 @@ struct ConnectionsView: View {
 
     /// Preserves the former stepper's accepted range while presenting the requested number field.
     private func maximumTransfersBinding(for option: Binding<JourneyOptionEntry>) -> Binding<Int> {
-        Binding(
-            get: { option.wrappedValue.maximumTransfers },
-            set: { newValue in
-                option.wrappedValue.maximumTransfers = min(
-                    max(newValue, ConnectionsViewModel.maximumTransferRange.lowerBound),
-                    ConnectionsViewModel.maximumTransferRange.upperBound
-                )
-            }
+        let optionID = option.wrappedValue.id
+        return Binding(
+            get: {
+                model.journeyOptions.first { $0.id == optionID }?.maximumTransfers ?? 0
+            },
+            set: { model.setMaximumTransfers($0, for: optionID) }
         )
     }
 
