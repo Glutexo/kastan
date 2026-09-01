@@ -5819,7 +5819,15 @@ final class KastanAppTests: XCTestCase {
                 value: nil,
                 table: nil
             ),
-            "Nejvyšší délka přesunu, je-li MHD"
+            "Nejvyšší délka přesunu (MHD)"
+        )
+        XCTAssertEqual(
+            czech.localizedString(
+                forKey: "Walk to a nearby stop at the beginning/end of journey",
+                value: nil,
+                table: nil
+            ),
+            "Pěší přesun mezi zastávkami"
         )
         XCTAssertEqual(
             czech.localizedString(
@@ -5827,7 +5835,27 @@ final class KastanAppTests: XCTestCase {
                 value: nil,
                 table: nil
             ),
-            "Používat přesuny jen mezi zastávkami stejného jména"
+            "Přesun dle jména zastávky"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Also at the beginning/end of journey", value: nil, table: nil),
+            "i na začátku/konci cesty"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Only during transfers", value: nil, table: nil),
+            "pouze při přestupu"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Between any stops", value: nil, table: nil),
+            "mezi libovolnými"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Only stops of the same name", value: nil, table: nil),
+            "pouze stejného jména"
+        )
+        XCTAssertEqual(
+            english.localizedString(forKey: "Only during transfers", value: nil, table: nil),
+            "only during transfers"
         )
         XCTAssertEqual(JourneyDurationChoice(minutes: -1).localizedTitle(bundle: czech), "Standardní")
         XCTAssertEqual(JourneyDurationChoice(minutes: 0).localizedTitle(bundle: czech), "0 minut")

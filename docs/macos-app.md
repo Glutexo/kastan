@@ -42,13 +42,14 @@ so its IDOS requests and parsed models stay aligned with the CLI and MCP server.
   use compact popups containing the values accepted by IDOS: the minimum offers Standard or 0, 1, 2, 3, 4, 5, 10, 20,
   30, or 60 minutes; the maximum offers 10, 20, 30, 45, 60, 120, 240, 360, 480, 720, or 1,080 minutes; and both walking
   limits offer 0, 5, 10, 20, 30, 45, or 60 minutes. Whole-hour values are labeled in hours, while Czech minute values
-  use their complete grammatically inflected unit names. The two on/off conditions
-  use native checkboxes and start with IDOS's defaults: nearby stops enabled and same-name transfers disabled. Every
-  editor shares one row height and follows a selection-independent condition menu whose compact capped width keeps
-  long localized names inside the minimum window; opening the menu still shows their complete wording. Fixed-size
-  controls add and remove rows while summaries retain locale-aware transfer wording. Departure/Arrival remains visible
-  on the compact journey editor. The journey-options heading shares one level with Search. Expanding it or holding
-  Option reveals the Direct connections only checkbox beside the heading; after the user first toggles that checkbox, it
+  use their complete grammatically inflected unit names. The two Boolean conditions use compact popups that state both
+  outcomes explicitly. Walking between stops offers also at the beginning/end of journey or only during transfers and
+  defaults to the former; Walking by stop name offers between any stops or only stops of the same name and defaults to
+  the former. Every editor shares one row height and follows a selection-independent condition menu whose compact capped
+  width keeps long localized names inside the minimum window; opening the menu still shows their complete wording.
+  Fixed-size controls add and remove rows while summaries retain locale-aware transfer wording. Departure/Arrival
+  remains visible on the compact journey editor. The journey-options heading shares one level with Search. Expanding it
+  or holding Option reveals the Direct connections only checkbox beside the heading; after the user first toggles it, it
   stays
   visible for the lifetime of that search window even without Option, after collapsing the options, and after clearing
   it again. Expanded full-width conditions appear below without moving the action row. Either the arrow or heading

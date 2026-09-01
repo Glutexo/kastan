@@ -7,6 +7,7 @@
 "address" = "address";
 "Addresses" = "Addresses";
 "All timetables" = "All timetables";
+"Also at the beginning/end of journey" = "also at the beginning/end of journey";
 "Applies" = "Applies";
 "Applies on days %@ throughout timetable validity" = "Applies on days %@ throughout timetable validity";
 "Availability and accuracy are not guaranteed. Confirm important journey details with the carrier." = "Availability and accuracy are not guaranteed. Confirm important journey details with the carrier.";
@@ -16,6 +17,7 @@
 "Arrival tends to be delayed" = "Arrival tends to be delayed";
 "Arrival tends to be on time" = "Arrival tends to be on time";
 "Attachments" = "Attachments";
+"Between any stops" = "between any stops";
 "Board type" = "Board type";
 "borough" = "borough";
 "Boroughs" = "Boroughs";
@@ -112,6 +114,8 @@
 "Maximum number of transfers" = "Maximum number of transfers";
 "Maximum transfer time" = "Maximum transfer time";
 "Minimum transfer time" = "Minimum transfer time";
+"Only during transfers" = "only during transfers";
+"Only stops of the same name" = "only stops of the same name";
 "Matched rule: contains “%@”." = "Matched rule: contains “%@”.";
 "Matched rule: %@." = "Matched rule: %@.";
 "No specific service-information rule matched; the supplied fallback was used." = "No specific service-information rule matched; the supplied fallback was used.";

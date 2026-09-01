@@ -624,13 +624,19 @@ struct ConnectionsView: View {
                 label: option.wrappedValue.kind.localizedTitle
             )
         case .walkToNearbyStops:
-            journeyBooleanToggle(
-                isOn: option.walkToNearbyStops,
+            journeyBooleanPicker(
+                selection: option.walkToNearbyStops,
+                enabledTitle: AppLocalization.string("Also at the beginning/end of journey"),
+                disabledTitle: AppLocalization.string("Only during transfers"),
+                enabledFirst: true,
                 label: option.wrappedValue.kind.localizedTitle
             )
         case .sameNameWalkingTransfersOnly:
-            journeyBooleanToggle(
-                isOn: option.sameNameWalkingTransfersOnly,
+            journeyBooleanPicker(
+                selection: option.sameNameWalkingTransfersOnly,
+                enabledTitle: AppLocalization.string("Only stops of the same name"),
+                disabledTitle: AppLocalization.string("Between any stops"),
+                enabledFirst: false,
                 label: option.wrappedValue.kind.localizedTitle
             )
         }
@@ -654,9 +660,23 @@ struct ConnectionsView: View {
         .accessibilityLabel(Text(verbatim: label))
     }
 
-    /// Uses the same checkbox interaction as IDOS while the option name remains visible in the row picker.
-    private func journeyBooleanToggle(isOn: Binding<Bool>, label: String) -> some View {
-        Toggle(isOn: isOn) {
+    /// Makes both outcomes of an IDOS Boolean condition explicit in the compact value popup.
+    private func journeyBooleanPicker(
+        selection: Binding<Bool>,
+        enabledTitle: String,
+        disabledTitle: String,
+        enabledFirst: Bool,
+        label: String
+    ) -> some View {
+        Picker(selection: selection) {
+            if enabledFirst {
+                Text(verbatim: enabledTitle).tag(true)
+                Text(verbatim: disabledTitle).tag(false)
+            } else {
+                Text(verbatim: disabledTitle).tag(false)
+                Text(verbatim: enabledTitle).tag(true)
+            }
+        } label: {
             Text(verbatim: label)
         }
         .labelsHidden()

@@ -7,6 +7,7 @@
 "address" = "adresa";
 "Addresses" = "Adresy";
 "All timetables" = "Všechny jízdní řády";
+"Also at the beginning/end of journey" = "i na začátku/konci cesty";
 "Applies" = "Platí";
 "Applies on days %@ throughout timetable validity" = "Platí ve dnech %@ po celou platnost jízdního řádu";
 "Availability and accuracy are not guaranteed. Confirm important journey details with the carrier." = "Dostupnost ani přesnost dat nejsou zaručeny. Důležité údaje o cestě si ověřte u dopravce.";
@@ -16,6 +17,7 @@
 "Arrival tends to be delayed" = "Příjezd bývá zpožděn";
 "Arrival tends to be on time" = "Příjezd bývá včas";
 "Attachments" = "Přílohy";
+"Between any stops" = "mezi libovolnými";
 "Board type" = "Typ tabule";
 "borough" = "městská část";
 "Boroughs" = "Čtvrti";
@@ -101,17 +103,19 @@
 "Invalid timetable: %@." = "Neplatný jízdní řád: %@.";
 "Invalid municipality: %@. Available for %@: %@." = "Neplatná obec: %@. Pro %@ jsou dostupné: %@.";
 "Timetable %@ does not offer a municipality choice." = "Jízdní řád %@ nenabízí výběr obce.";
-"Use transfers only between stops of the same name" = "Používat přesuny jen mezi zastávkami stejného jména";
+"Use transfers only between stops of the same name" = "Přesun dle jména zastávky";
 "Journey options" = "Možnosti cesty";
 "Journey option" = "Možnost cesty";
 "Line" = "Linka";
 "Line number or name" = "Číslo nebo název linky";
 "%lld hr" = "%lld hod";
 "Maximum distance to walk" = "Nejvyšší délka přesunu";
-"Maximum distance to walk, if there is Urban Public Transport available" = "Nejvyšší délka přesunu, je-li MHD";
+"Maximum distance to walk, if there is Urban Public Transport available" = "Nejvyšší délka přesunu (MHD)";
 "Maximum number of transfers" = "Nejvyšší počet přestupů";
 "Maximum transfer time" = "Nejvyšší čas na přestup";
 "Minimum transfer time" = "Nejnižší čas na přestup";
+"Only during transfers" = "pouze při přestupu";
+"Only stops of the same name" = "pouze stejného jména";
 "Matched rule: contains “%@”." = "Použité pravidlo: obsahuje „%@“.";
 "Matched rule: %@." = "Použité pravidlo: %@.";
 "No specific service-information rule matched; the supplied fallback was used." = "Žádné konkrétní pravidlo pro informace o spoji neuspělo; byla použita předaná záložní hodnota.";
@@ -235,7 +239,7 @@
 "The calendar data could not be saved." = "Data kalendáře se nepodařilo uložit.";
 "The connection was sent to %@." = "Spojení bylo odesláno na %@.";
 "The email could not be prepared in Mail." = "E-mail se nepodařilo připravit v Mailu.";
-"Walk to a nearby stop at the beginning/end of journey" = "Pěší přesun na blízkou zastávku na začátku/konci cesty";
+"Walk to a nearby stop at the beginning/end of journey" = "Pěší přesun mezi zastávkami";
 "Time" = "Čas";
 "Time means" = "Význam času";
 "Timetable" = "Jízdní řád";
