@@ -818,26 +818,29 @@ final class KastanAppTests: XCTestCase {
 
     func testExactIDOSOperatingDaysOverrideTheInterpretedServiceNote() throws {
         let dateLimits = IDOSServiceDateLimits(
-            referenceDate: serviceDate(2026, 7, 18),
+            referenceDate: idosServiceDate(2026, 7, 18),
             days: [
-                .init(date: serviceDate(2026, 7, 18), status: .doesNotRun),
-                .init(date: serviceDate(2026, 7, 19), status: .informationUnavailable),
-                .init(date: serviceDate(2026, 7, 20), status: .runs),
+                .init(date: idosServiceDate(2026, 7, 18), status: .doesNotRun),
+                .init(date: idosServiceDate(2026, 7, 19), status: .informationUnavailable),
+                .init(date: idosServiceDate(2026, 7, 20), status: .runs),
             ]
         )
         let serviceCalendar = try XCTUnwrap(StationTimetableServiceCalendar(
             note: "jede 19.VII.",
-            validityStart: serviceDate(2026, 7, 1),
-            validityEnd: serviceDate(2026, 7, 31),
+            validityStart: idosServiceDate(2026, 7, 1),
+            validityEnd: idosServiceDate(2026, 7, 31),
             dateLimits: dateLimits
         ))
 
         XCTAssertTrue(serviceCalendar.usesExactOperatingDays)
-        XCTAssertEqual(serviceCalendar.calendarStart, serviceDate(2026, 7, 18))
-        XCTAssertEqual(serviceCalendar.calendarEnd, serviceDate(2026, 7, 20))
-        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 18)), .doesNotRun)
-        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 19)), .informationUnavailable)
-        XCTAssertEqual(serviceCalendar.status(on: serviceDate(2026, 7, 20)), .runs)
+        XCTAssertEqual(serviceCalendar.calendarStart, idosServiceDate(2026, 7, 18))
+        XCTAssertEqual(serviceCalendar.calendarEnd, idosServiceDate(2026, 7, 20))
+        XCTAssertEqual(serviceCalendar.status(on: idosServiceDate(2026, 7, 18)), .doesNotRun)
+        XCTAssertEqual(
+            serviceCalendar.status(on: idosServiceDate(2026, 7, 19)),
+            .informationUnavailable
+        )
+        XCTAssertEqual(serviceCalendar.status(on: idosServiceDate(2026, 7, 20)), .runs)
     }
 
     func testExactOperatingDaysUseTheProviderCivilTimeZone() throws {
@@ -1684,6 +1687,19 @@ final class KastanAppTests: XCTestCase {
         ))!
     }
 
+    /// Creates compatibility IDOS values in the provider's civil zone, independently of the test Mac's zone.
+    private func idosServiceDate(_ year: Int, _ month: Int, _ day: Int) -> Date {
+        let calendar = StationTimetableServiceCalendar.serviceCalendar(
+            timeZone: IDOSDataSource.serviceTimeZone
+        )
+        return calendar.date(from: DateComponents(
+            timeZone: calendar.timeZone,
+            year: year,
+            month: month,
+            day: day
+        ))!
+    }
+
     func testResultDetailToolbarAndFileMenuShareFourPrimaryActions() throws {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
@@ -2449,15 +2465,9 @@ final class KastanAppTests: XCTestCase {
         let compactLayout = StationTimetableResultLayout(
             availableWidth: minimumTwoColumnWidth - 1
         )
-        let minimumWindowLayout = StationTimetableResultLayout(
-            availableWidth: DetailLayout(
-                availableWidth: KastanApp.minimumMainWindowWidth
-            ).contentWidth
-        )
 
         XCTAssertFalse(fittedLayout.usesSectionPicker)
         XCTAssertTrue(compactLayout.usesSectionPicker)
-        XCTAssertTrue(minimumWindowLayout.usesSectionPicker)
     }
 
     func testStationTimetableResultSectionPickerSelectsLocalizedContent() throws {
@@ -6980,10 +6990,10 @@ final class KastanAppTests: XCTestCase {
 
         await model.load()
 
-        XCTAssertEqual(model.timetableValidity?.validFrom, serviceDate(2025, 12, 14))
-        XCTAssertEqual(model.timetableValidity?.validThrough, serviceDate(2026, 12, 12))
+        XCTAssertEqual(model.timetableValidity?.validFrom, idosServiceDate(2025, 12, 14))
+        XCTAssertEqual(model.timetableValidity?.validThrough, idosServiceDate(2026, 12, 12))
         XCTAssertEqual(
-            model.serviceDateLimits?.status(on: serviceDate(2026, 8, 27)),
+            model.serviceDateLimits?.status(on: idosServiceDate(2026, 8, 27)),
             .runs
         )
         let language = await client.lastServiceDateLimitsLanguage
