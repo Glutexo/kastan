@@ -89,8 +89,8 @@ restoration, favorites, paging, and export.
   rendered departure asks that provider to resolve its dated run on demand and opens the complete route,
   with the selected stop highlighted through the searched direction. Option-clicking it instead switches to
   Departures and presents the already resolved station board for the same stop, date, time, and timetable without
-  repeating the provider request. Force Clicking it performs the same on-demand lookup and presents the standard
-  complete-route preview without also opening a window. Times after
+  repeating the provider request. Force Clicking it performs the same on-demand lookup and presents a compact
+  complete-route preview at the detail view's minimum supported width without also opening a window. Times after
   midnight and Whole week grouping follow the selected provider's own resolution semantics; IDOS keeps its following-
   day and nearest Monday–Sunday occurrence rules inside the IDOS adapter.
   Explanations also appear in their own

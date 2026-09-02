@@ -4,6 +4,11 @@ import SwiftUI
 /// Keeps service previews large enough to show useful route context without becoming another full window.
 enum ResultPreviewLayout {
     static let serviceSize = CGSize(width: 600, height: 560)
+    /// Keeps a preview anchored to a timetable minute as compact as the adaptive service detail supports.
+    static let stationTimetableServiceSize = CGSize(
+        width: 400,
+        height: serviceSize.height
+    )
 }
 
 /// Distinguishes an independent service window from the same route embedded in a preview.

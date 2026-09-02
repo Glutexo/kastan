@@ -1308,6 +1308,10 @@ final class KastanAppTests: XCTestCase {
         defer { window.orderOut(nil) }
 
         XCTAssertEqual(forceClickPreviewAttachmentCount(in: hostingView), 2)
+        XCTAssertEqual(
+            ResultPreviewLayout.stationTimetableServiceSize,
+            CGSize(width: 400, height: 560)
+        )
         let secondPreview = try XCTUnwrap(departures.previewDeparture?(1))
         let selection = await secondPreview.resolveSelection()
         XCTAssertEqual(
