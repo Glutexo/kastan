@@ -14,7 +14,7 @@ struct KastanApp {
 
 /// Executes one Kaštan CLI invocation and renders its human-readable output in the selected language.
 struct CommandRunner {
-    let version = "0.6.0"
+    let version = "0.7.0"
     let dataSource: any TransitDataSource
     let aliasFile: StopAliasFile
     let calendarImporter: CalendarImporting

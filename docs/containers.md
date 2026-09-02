@@ -12,8 +12,8 @@ Swift installation and run on both AMD64 and ARM64 hosts.
 | `ghcr.io/glutexo/kastan-cli` | `kastan` | Interactive and scripted CLI searches. |
 | `ghcr.io/glutexo/kastan-mcp` | `kastan-mcp` | MCP communication over stdio or authenticated Streamable HTTP. |
 
-Use `latest` for the newest stable release, a complete version such as `0.6.0` for a fixed release, or a
-minor-version tag such as `0.6` for compatible patch updates. The rolling `main` tag contains the newest commit
+Use `latest` for the newest stable release, a complete version such as `0.7.0` for a fixed release, or a
+minor-version tag such as `0.7` for compatible patch updates. The rolling `main` tag contains the newest commit
 on the default branch, while `sha-<commit>` identifies its exact source revision.
 
 Both images run as the unprivileged numeric user `65532` and contain the CA certificates and libraries required
@@ -85,7 +85,7 @@ export KASTAN_MCP_BEARER_TOKEN="$(openssl rand -hex 32)"
 docker run --rm \
   --publish 127.0.0.1:8080:8080 \
   --env KASTAN_MCP_BEARER_TOKEN \
-  ghcr.io/glutexo/kastan-mcp:0.6.0 \
+  ghcr.io/glutexo/kastan-mcp:0.7.0 \
   --transport http \
   --host 0.0.0.0
 ```
@@ -100,7 +100,7 @@ docker run --rm \
   --env KASTAN_MCP_OAUTH_ISSUER=https://your-subdomain.authkit.app \
   --env KASTAN_MCP_OAUTH_RESOURCE=https://mcp.example.com/mcp \
   --env KASTAN_MCP_OAUTH_REQUIRED_SCOPES=openid \
-  ghcr.io/glutexo/kastan-mcp:0.6.0 \
+  ghcr.io/glutexo/kastan-mcp:0.7.0 \
   --transport http \
   --host 0.0.0.0
 ```
