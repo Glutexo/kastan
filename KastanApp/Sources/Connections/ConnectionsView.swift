@@ -434,11 +434,13 @@ struct ConnectionsView: View {
         JourneySearchControls(
             isSearching: model.isSearching,
             canSearch: model.canSearch,
-            supplement: JourneySearchControlsSupplement(
-                leading: journeyOptionsHeader,
-                adjacent: directConnectionsOnlyShortcut,
-                details: journeyOptionsDetails
-            )
+            supplement: model.hasConfigurableConnectionOptions
+                ? JourneySearchControlsSupplement(
+                    leading: journeyOptionsHeader,
+                    adjacent: directConnectionsOnlyShortcut,
+                    details: journeyOptionsDetails
+                )
+                : nil
         ) {
             performSearch()
         }
@@ -460,10 +462,11 @@ struct ConnectionsView: View {
     /// Reveals the direct-only shortcut for context and keeps it after its first explicit use.
     @ViewBuilder
     private var directConnectionsOnlyShortcut: some View {
-        if DirectConnectionsShortcutPresentation.isVisible(
+        if model.supportsOnlyDirect, DirectConnectionsShortcutPresentation.isVisible(
             journeyOptionsAreExpanded: isJourneyOptionsExpanded,
             optionIsPressed: optionIsPressed,
-            hasBeenUsed: hasUsedDirectConnectionsShortcut
+            hasBeenUsed: hasUsedDirectConnectionsShortcut,
+            isOnlyConfigurableOption: model.supportedJourneyOptionKinds.isEmpty
         ) {
             directConnectionsOnlyToggle
         }
@@ -537,14 +540,17 @@ struct ConnectionsView: View {
     }
 
     /// Keeps the disclosure affordance on the shared action row while its content expands below it.
+    @ViewBuilder
     private var journeyOptionsHeader: some View {
-        JourneyOptionsDisclosureHeader(isExpanded: $isJourneyOptionsExpanded)
+        if !model.supportedJourneyOptionKinds.isEmpty {
+            JourneyOptionsDisclosureHeader(isExpanded: $isJourneyOptionsExpanded)
+        }
     }
 
     /// Uses the complete search width below the stable action row.
     @ViewBuilder
     private var journeyOptionsDetails: some View {
-        if isJourneyOptionsExpanded {
+        if !model.supportedJourneyOptionKinds.isEmpty, isJourneyOptionsExpanded {
             VStack(alignment: .leading, spacing: 0) {
                 Divider()
 
@@ -553,6 +559,17 @@ struct ConnectionsView: View {
                         .padding(.vertical, 6)
 
                     Divider()
+                }
+
+                if model.journeyOptions.isEmpty, model.canAddJourneyOption {
+                    Button {
+                        model.addJourneyOption()
+                    } label: {
+                        Label("Add journey option", systemImage: "plus")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .padding(.vertical, 6)
                 }
             }
             .padding(.top, 8)
@@ -568,7 +585,7 @@ struct ConnectionsView: View {
 
             Spacer(minLength: 0)
 
-            if model.journeyOptions.count > 1 {
+            if model.canRemoveJourneyOption(id: option.wrappedValue.id) {
                 Button {
                     model.removeJourneyOption(id: option.wrappedValue.id)
                 } label: {
@@ -581,16 +598,18 @@ struct ConnectionsView: View {
                 .help("Remove journey option")
             }
 
-            Button {
-                model.addJourneyOption(after: option.wrappedValue.id)
-            } label: {
-                Label("Add journey option", systemImage: "plus")
-                    .labelStyle(.iconOnly)
-                    .frame(width: JourneyOptionRowLayout.actionIconWidth, height: 14)
+            if model.canAddJourneyOption {
+                Button {
+                    model.addJourneyOption(after: option.wrappedValue.id)
+                } label: {
+                    Label("Add journey option", systemImage: "plus")
+                        .labelStyle(.iconOnly)
+                        .frame(width: JourneyOptionRowLayout.actionIconWidth, height: 14)
+                }
+                .buttonStyle(.bordered)
+                .fixedSize()
+                .help("Add journey option")
             }
-            .buttonStyle(.bordered)
-            .fixedSize()
-            .help("Add journey option")
         }
         .frame(height: 28)
     }

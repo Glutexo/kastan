@@ -1,4 +1,5 @@
 import AppKit
+import Kastan
 import SwiftUI
 
 extension NSToolbar.Identifier {
@@ -6,6 +7,7 @@ extension NSToolbar.Identifier {
 }
 
 extension NSToolbarItem.Identifier {
+    static let dataSource = NSToolbarItem.Identifier("cz.glutexo.kastan.data-source")
     static let searchMode = NSToolbarItem.Identifier("cz.glutexo.kastan.search-mode")
     static let favoriteTimetables = NSToolbarItem.Identifier("cz.glutexo.kastan.favorite-timetables")
     static let appInformation = NSToolbarItem.Identifier("cz.glutexo.kastan.app-information")
@@ -29,18 +31,24 @@ enum MainWindowWidthPresentation {
 /// Installs one stable AppKit toolbar instead of relying on SwiftUI's transient toolbar-item identities.
 struct MainWindowToolbarInstaller: NSViewRepresentable {
     @Binding var selection: AppSection
+    @Binding var dataSourceSelection: TransitDataSourceID
     let sections: [AppSection]
+    let dataSourceDescriptors: [TransitDataSourceDescriptor]
     let openFavoriteTimetables: @MainActor () -> Void
     let openAppInformation: @MainActor () -> Void
 
     init(
         selection: Binding<AppSection>,
         sections: [AppSection] = AppSection.allCases,
+        dataSourceSelection: Binding<TransitDataSourceID> = .constant(.idos),
+        dataSourceDescriptors: [TransitDataSourceDescriptor] = [.idos],
         openFavoriteTimetables: @escaping @MainActor () -> Void,
         openAppInformation: @escaping @MainActor () -> Void
     ) {
         _selection = selection
+        _dataSourceSelection = dataSourceSelection
         self.sections = sections
+        self.dataSourceDescriptors = dataSourceDescriptors
         self.openFavoriteTimetables = openFavoriteTimetables
         self.openAppInformation = openAppInformation
     }
@@ -49,6 +57,8 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
         Coordinator(
             selection: $selection,
             sections: sections,
+            dataSourceSelection: $dataSourceSelection,
+            dataSourceDescriptors: dataSourceDescriptors,
             openFavoriteTimetables: openFavoriteTimetables,
             openAppInformation: openAppInformation
         )
@@ -64,6 +74,9 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
         nsView.coordinator = context.coordinator
         context.coordinator.update(
             selection: $selection,
+            sections: sections,
+            dataSourceSelection: $dataSourceSelection,
+            dataSourceDescriptors: dataSourceDescriptors,
             openFavoriteTimetables: openFavoriteTimetables,
             openAppInformation: openAppInformation
         )
@@ -88,11 +101,14 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
     @MainActor
     final class Coordinator: NSObject, NSToolbarDelegate {
         private var selection: Binding<AppSection>
-        private let sections: [AppSection]
+        private var sections: [AppSection]
+        private var dataSourceSelection: Binding<TransitDataSourceID>
+        private var dataSourceDescriptors: [TransitDataSourceDescriptor]
         private var openFavoriteTimetables: () -> Void
         private var openAppInformation: () -> Void
         private weak var window: NSWindow?
         private weak var modeControl: NSSegmentedControl?
+        private weak var dataSourceControl: NSPopUpButton?
 
         lazy var toolbar: NSToolbar = {
             let toolbar = NSToolbar(identifier: .kastanMainWindow)
@@ -107,11 +123,15 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
         init(
             selection: Binding<AppSection>,
             sections: [AppSection] = AppSection.allCases,
+            dataSourceSelection: Binding<TransitDataSourceID> = .constant(.idos),
+            dataSourceDescriptors: [TransitDataSourceDescriptor] = [.idos],
             openFavoriteTimetables: @escaping () -> Void,
             openAppInformation: @escaping () -> Void
         ) {
             self.selection = selection
             self.sections = sections
+            self.dataSourceSelection = dataSourceSelection
+            self.dataSourceDescriptors = dataSourceDescriptors
             self.openFavoriteTimetables = openFavoriteTimetables
             self.openAppInformation = openAppInformation
             super.init()
@@ -119,14 +139,30 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
 
         func update(
             selection: Binding<AppSection>,
+            sections: [AppSection],
+            dataSourceSelection: Binding<TransitDataSourceID>,
+            dataSourceDescriptors: [TransitDataSourceDescriptor],
             openFavoriteTimetables: @escaping () -> Void,
             openAppInformation: @escaping () -> Void
         ) {
+            let sectionsChanged = self.sections != sections
+            let descriptorsChanged = self.dataSourceDescriptors != dataSourceDescriptors
             self.selection = selection
+            self.sections = sections
+            self.dataSourceSelection = dataSourceSelection
+            self.dataSourceDescriptors = dataSourceDescriptors
             self.openFavoriteTimetables = openFavoriteTimetables
             self.openAppInformation = openAppInformation
+            if sectionsChanged {
+                refreshModeItem()
+            }
+            if descriptorsChanged {
+                refreshDataSourceItem()
+            }
             updateModeControlState()
             updateModeMenuState()
+            updateDataSourceControlState()
+            updateDataSourceMenuState()
         }
 
         func install(on window: NSWindow?) {
@@ -152,14 +188,25 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
             }
             window = nil
             modeControl = nil
+            dataSourceControl = nil
         }
 
         func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-            [.flexibleSpace, .searchMode, .flexibleSpace, .favoriteTimetables, .appInformation]
+            var identifiers: [NSToolbarItem.Identifier] = []
+            if showsDataSourceSelector {
+                identifiers.append(.dataSource)
+            }
+            identifiers += [.flexibleSpace, .searchMode, .flexibleSpace, .favoriteTimetables, .appInformation]
+            return identifiers
         }
 
         func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-            [.flexibleSpace, .searchMode, .favoriteTimetables, .appInformation]
+            var identifiers: [NSToolbarItem.Identifier] = [.flexibleSpace, .searchMode]
+            if showsDataSourceSelector {
+                identifiers.append(.dataSource)
+            }
+            identifiers += [.favoriteTimetables, .appInformation]
+            return identifiers
         }
 
         func toolbar(
@@ -168,6 +215,8 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
             willBeInsertedIntoToolbar flag: Bool
         ) -> NSToolbarItem? {
             switch itemIdentifier {
+            case .dataSource:
+                showsDataSourceSelector ? makeDataSourceToolbarItem(retainView: flag) : nil
             case .searchMode:
                 makeModeToolbarItem(retainView: flag)
             case .favoriteTimetables:
@@ -212,6 +261,35 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
             if retainView {
                 modeControl = control
             }
+            return item
+        }
+
+        /// Presents registered providers only when choosing one can change the active window.
+        private func makeDataSourceToolbarItem(retainView: Bool) -> NSToolbarItem {
+            let item = NSToolbarItem(itemIdentifier: .dataSource)
+            let label = AppLocalization.string("Data source")
+            let control = NSPopUpButton(frame: .zero, pullsDown: false)
+            control.controlSize = .regular
+            control.target = self
+            control.action = #selector(selectDataSource(_:))
+            for descriptor in dataSourceDescriptors {
+                control.addItem(withTitle: descriptor.displayName)
+                control.lastItem?.representedObject = descriptor.id.rawValue
+            }
+            control.setAccessibilityLabel(label)
+            control.sizeToFit()
+
+            item.label = label
+            item.paletteLabel = label
+            item.toolTip = label
+            item.view = control
+            item.visibilityPriority = .user
+            item.menuFormRepresentation = makeDataSourceMenuRepresentation(title: label)
+
+            if retainView {
+                dataSourceControl = control
+            }
+            updateDataSourceControlState(in: control)
             return item
         }
 
@@ -261,6 +339,47 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
             return root
         }
 
+        private func makeDataSourceMenuRepresentation(title: String) -> NSMenuItem {
+            let root = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            let menu = NSMenu(title: title)
+            for (index, descriptor) in dataSourceDescriptors.enumerated() {
+                let item = NSMenuItem(
+                    title: descriptor.displayName,
+                    action: #selector(selectDataSourceMenuItem(_:)),
+                    keyEquivalent: ""
+                )
+                item.target = self
+                item.tag = index
+                menu.addItem(item)
+            }
+            root.submenu = menu
+            updateDataSourceMenuState(in: menu)
+            return root
+        }
+
+        private var showsDataSourceSelector: Bool {
+            dataSourceDescriptors.count > 1
+        }
+
+        /// Rebuilds the segmented control when a newly selected provider advertises other modes.
+        private func refreshModeItem() {
+            guard let item = toolbar.items.first(where: { $0.itemIdentifier == .searchMode }) else {
+                return
+            }
+            let replacement = makeModeToolbarItem(retainView: true)
+            item.view = replacement.view
+            item.menuFormRepresentation = replacement.menuFormRepresentation
+        }
+
+        private func refreshDataSourceItem() {
+            guard let item = toolbar.items.first(where: { $0.itemIdentifier == .dataSource }) else {
+                return
+            }
+            let replacement = makeDataSourceToolbarItem(retainView: true)
+            item.view = replacement.view
+            item.menuFormRepresentation = replacement.menuFormRepresentation
+        }
+
         private func updateModeMenuState() {
             guard let menu = toolbar.items
                 .first(where: { $0.itemIdentifier == .searchMode })?
@@ -282,6 +401,36 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
             modeControl?.selectedSegment = sections.firstIndex(of: selection.wrappedValue) ?? 0
         }
 
+        private func updateDataSourceControlState() {
+            guard let dataSourceControl else { return }
+            updateDataSourceControlState(in: dataSourceControl)
+        }
+
+        private func updateDataSourceControlState(in control: NSPopUpButton) {
+            let selectedIndex = dataSourceDescriptors.firstIndex {
+                $0.id == dataSourceSelection.wrappedValue
+            } ?? 0
+            control.selectItem(at: selectedIndex)
+        }
+
+        private func updateDataSourceMenuState() {
+            guard let menu = toolbar.items
+                .first(where: { $0.itemIdentifier == .dataSource })?
+                .menuFormRepresentation?
+                .submenu
+            else { return }
+            updateDataSourceMenuState(in: menu)
+        }
+
+        private func updateDataSourceMenuState(in menu: NSMenu) {
+            for (index, item) in menu.items.enumerated() {
+                item.state = dataSourceDescriptors.indices.contains(index) &&
+                    dataSourceDescriptors[index].id == dataSourceSelection.wrappedValue
+                    ? .on
+                    : .off
+            }
+        }
+
         @objc private func selectMode(_ sender: NSMenuItem) {
             guard sections.indices.contains(sender.tag) else { return }
             selection.wrappedValue = sections[sender.tag]
@@ -293,6 +442,19 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
             guard sections.indices.contains(sender.selectedSegment) else { return }
             selection.wrappedValue = sections[sender.selectedSegment]
             updateModeMenuState()
+        }
+
+        @objc private func selectDataSource(_ sender: NSPopUpButton) {
+            guard let rawValue = sender.selectedItem?.representedObject as? String else { return }
+            dataSourceSelection.wrappedValue = TransitDataSourceID(rawValue)
+            updateDataSourceMenuState()
+        }
+
+        @objc private func selectDataSourceMenuItem(_ sender: NSMenuItem) {
+            guard dataSourceDescriptors.indices.contains(sender.tag) else { return }
+            dataSourceSelection.wrappedValue = dataSourceDescriptors[sender.tag].id
+            updateDataSourceControlState()
+            updateDataSourceMenuState()
         }
 
         @objc private func showFavoriteTimetables(_ sender: Any?) {

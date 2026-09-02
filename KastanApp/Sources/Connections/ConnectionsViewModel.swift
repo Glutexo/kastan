@@ -14,6 +14,28 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
 
     var id: Self { self }
 
+    /// Maps one product editor to the provider-neutral option advertised by a data source.
+    var transitConnectionOption: TransitConnectionOption {
+        switch self {
+        case .via:
+            .via
+        case .maximumTransfers:
+            .maximumTransfers
+        case .minimumTransferTime:
+            .minimumTransferTime
+        case .maximumTransferTime:
+            .maximumTransferTime
+        case .maximumWalkingTime:
+            .maximumWalkingTime
+        case .maximumCityWalkingTime:
+            .maximumCityWalkingTime
+        case .walkToNearbyStops:
+            .walkToNearbyStops
+        case .sameNameWalkingTransfersOnly:
+            .sameNameWalkingTransfersOnly
+        }
+    }
+
     /// Uses the same product wording in the picker and its corresponding editor.
     var localizedTitle: String {
         switch self {
@@ -170,7 +192,7 @@ final class ConnectionsViewModel: ObservableObject {
     /// Exact provider-owned choices retained only while their corresponding visible text is unchanged.
     @Published var fromSelection: PlaceFieldSelection?
     @Published var toSelection: PlaceFieldSelection?
-    @Published var journeyOptions = [JourneyOptionEntry()]
+    @Published var journeyOptions: [JourneyOptionEntry]
     @Published var timetable: TransitTimetable {
         didSet {
             guard timetable != oldValue else { return }
@@ -225,6 +247,11 @@ final class ConnectionsViewModel: ObservableObject {
         currentLocationProvider: any CurrentLocationProviding = SystemCurrentLocationProvider()
     ) {
         self.client = client
+        // An empty via field is an inactive affordance. Every other editor carries a meaningful default value,
+        // so sources without via support start with no row until the user explicitly adds a condition.
+        journeyOptions = client.descriptor.connectionOptions.contains(.via)
+            ? [JourneyOptionEntry(kind: .via)]
+            : []
         timetable = AppTimetableDefaults.search(
             in: client.timetables,
             defaultTimetable: client.defaultTimetable
@@ -239,6 +266,26 @@ final class ConnectionsViewModel: ObservableObject {
 
     var timetables: [TransitTimetable] {
         client.timetables
+    }
+
+    /// Limits the extensible editor to fields the selected provider promises to interpret.
+    var supportedJourneyOptionKinds: [JourneyOptionKind] {
+        JourneyOptionKind.allCases.filter {
+            client.descriptor.connectionOptions.contains($0.transitConnectionOption)
+        }
+    }
+
+    var supportsOnlyDirect: Bool {
+        client.descriptor.connectionOptions.contains(.onlyDirect)
+    }
+
+    /// Treats a zero transfer ceiling as a direct journey even when the provider has no separate direct flag.
+    var hasNoTransfers: Bool {
+        onlyDirect || maximumTransfers == 0
+    }
+
+    var hasConfigurableConnectionOptions: Bool {
+        supportsOnlyDirect || !supportedJourneyOptionKinds.isEmpty
     }
 
     /// Exposes the location shortcut only when the selected source can turn coordinates into an exact place.
@@ -347,14 +394,26 @@ final class ConnectionsViewModel: ObservableObject {
         journeyOptions.first { $0.kind == .sameNameWalkingTransfersOnly }?.sameNameWalkingTransfersOnly
     }
 
-    /// Presents the explicit transfer ceiling, or IDOS's four-transfer default, in the summary.
+    /// Presents an active transfer ceiling, retaining only IDOS's established implicit four-transfer default.
     var transferLimitLabel: String {
-        if onlyDirect {
+        if hasNoTransfers {
             return AppLocalization.string("Direct only")
         }
 
-        let transferLimit = maximumTransfers ?? Self.defaultMaximumTransfers
-        return AppLocalization.plural("Up to %lld transfers", count: transferLimit)
+        if let maximumTransfers,
+           client.descriptor.connectionOptions.contains(.maximumTransfers) {
+            return AppLocalization.plural("Up to %lld transfers", count: maximumTransfers)
+        }
+
+        guard client.descriptor.id == .idos,
+              client.descriptor.connectionOptions.contains(.maximumTransfers)
+        else {
+            return ""
+        }
+        return AppLocalization.plural(
+            "Up to %lld transfers",
+            count: Self.defaultMaximumTransfers
+        )
     }
 
     func swapEndpoints() {
@@ -373,8 +432,8 @@ final class ConnectionsViewModel: ObservableObject {
 
     /// Keeps each picker limited to repeatable conditions and currently unused singleton conditions.
     func availableJourneyOptionKinds(for id: JourneyOptionEntry.ID) -> [JourneyOptionKind] {
-        JourneyOptionKind.allCases.filter { kind in
-            (!onlyDirect || !kind.isTransferTimeCondition) &&
+        supportedJourneyOptionKinds.filter { kind in
+            (!hasNoTransfers || !kind.isTransferTimeCondition) &&
                 (kind.allowsMultiple || !journeyOptions.contains { option in
                     option.id != id && option.kind == kind
                 })
@@ -383,6 +442,7 @@ final class ConnectionsViewModel: ObservableObject {
 
     /// Applies a selected condition kind and restores the last value removed for transfer-related conditions.
     func setJourneyOptionKind(_ kind: JourneyOptionKind, for id: JourneyOptionEntry.ID) {
+        guard supportedJourneyOptionKinds.contains(kind) else { return }
         guard let currentOption = journeyOptions.first(where: { $0.id == id }) else { return }
         guard currentOption.kind != kind else { return }
 
@@ -405,11 +465,25 @@ final class ConnectionsViewModel: ObservableObject {
 
     /// Inserts a new, immediately editable condition directly after the selected row.
     func addJourneyOption(after id: JourneyOptionEntry.ID) {
-        guard let index = journeyOptions.firstIndex(where: { $0.id == id }) else { return }
-        journeyOptions.insert(makeJourneyOptionEntry(), at: index + 1)
+        guard let index = journeyOptions.firstIndex(where: { $0.id == id }),
+              let kind = availableJourneyOptionKindsForNewRow
+        else { return }
+        journeyOptions.insert(makeJourneyOptionEntry(kind: kind), at: index + 1)
     }
 
-    /// Removes the selected condition while retaining its transfer value and one empty row for future input.
+    /// Activates the first supported condition after an initially empty provider-specific editor.
+    func addJourneyOption() {
+        guard journeyOptions.isEmpty,
+              let kind = availableJourneyOptionKindsForNewRow
+        else { return }
+        journeyOptions.append(makeJourneyOptionEntry(kind: kind))
+    }
+
+    var canAddJourneyOption: Bool {
+        availableJourneyOptionKindsForNewRow != nil
+    }
+
+    /// Removes the selected condition while retaining its transfer value and an inactive via field when available.
     func removeJourneyOption(id: JourneyOptionEntry.ID) {
         guard let index = journeyOptions.firstIndex(where: { $0.id == id }) else { return }
         let removedOption = journeyOptions[index]
@@ -420,17 +494,32 @@ final class ConnectionsViewModel: ObservableObject {
             onlyDirect = false
         }
         if journeyOptions.count == 1 {
-            journeyOptions[0] = makeJourneyOptionEntry(id: id)
+            if client.descriptor.connectionOptions.contains(.via) {
+                journeyOptions[0] = makeJourneyOptionEntry(id: id, kind: .via)
+            } else {
+                journeyOptions.remove(at: index)
+            }
         } else {
             journeyOptions.remove(at: index)
         }
     }
 
+    /// Keeps the inactive sole via row stable while allowing an active provider-specific row to be removed.
+    func canRemoveJourneyOption(id: JourneyOptionEntry.ID) -> Bool {
+        guard journeyOptions.contains(where: { $0.id == id }) else { return false }
+        return journeyOptions.count > 1 || !client.descriptor.connectionOptions.contains(.via)
+    }
+
     /// Synchronizes direct-only mode with a visible zero-transfer row and removes transfer-time conditions.
     func setOnlyDirect(_ onlyDirect: Bool) {
+        guard supportsOnlyDirect else {
+            self.onlyDirect = false
+            return
+        }
         self.onlyDirect = onlyDirect
         if onlyDirect {
             removeTransferTimeConditions()
+            guard client.descriptor.connectionOptions.contains(.maximumTransfers) else { return }
             if let index = journeyOptions.firstIndex(where: { $0.kind == .maximumTransfers }) {
                 rememberTransferValue(from: journeyOptions[index])
                 journeyOptions[index].maximumTransfers = 0
@@ -448,7 +537,8 @@ final class ConnectionsViewModel: ObservableObject {
 
     /// Treats zero transfers as the direct-only shortcut; positive values continue editing the visible condition.
     func setMaximumTransfers(_ value: Int, for id: JourneyOptionEntry.ID) {
-        guard let index = journeyOptions.firstIndex(where: { $0.id == id }),
+        guard client.descriptor.connectionOptions.contains(.maximumTransfers),
+              let index = journeyOptions.firstIndex(where: { $0.id == id }),
               journeyOptions[index].kind == .maximumTransfers
         else {
             return
@@ -461,7 +551,12 @@ final class ConnectionsViewModel: ObservableObject {
         if clampedValue == 0 {
             rememberTransferValue(from: journeyOptions[index])
             journeyOptions[index].maximumTransfers = 0
-            setOnlyDirect(true)
+            removeTransferTimeConditions()
+            if supportsOnlyDirect {
+                setOnlyDirect(true)
+            } else {
+                onlyDirect = false
+            }
             return
         }
 
@@ -504,7 +599,9 @@ final class ConnectionsViewModel: ObservableObject {
         let arrival = to.trimmingCharacters(in: .whitespacesAndNewlines)
         let requestedViaEntries = journeyOptions.compactMap {
             option -> (place: String, selection: TransitPlaceSelection?)? in
-            guard option.kind == .via else { return nil }
+            guard client.descriptor.connectionOptions.contains(.via), option.kind == .via else {
+                return nil
+            }
             let place = option.viaPlace.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !place.isEmpty else { return nil }
             let selection = option.viaSelection?.text == place
@@ -515,7 +612,11 @@ final class ConnectionsViewModel: ObservableObject {
         let requestedViaSelections = requestedViaEntries.isEmpty
             ? nil
             : requestedViaEntries.map(\.selection)
-        let requestedMaximumTransfers = maximumTransfers
+        let requestedMaximumTransfers = client.descriptor.connectionOptions.contains(.maximumTransfers)
+            ? maximumTransfers
+            : nil
+        let requestsOnlyDirect = supportsOnlyDirect && onlyDirect
+        let requestHasNoTransfers = requestsOnlyDirect || requestedMaximumTransfers == 0
         let request = TransitConnectionRequest(
             timetable: timetable,
             from: departure,
@@ -525,16 +626,25 @@ final class ConnectionsViewModel: ObservableObject {
             serviceDate: TransitRequestFormatting.serviceDate(from: date),
             serviceTime: TransitRequestFormatting.serviceTime(from: time),
             isArrival: isArrival,
-            onlyDirect: onlyDirect,
+            onlyDirect: requestsOnlyDirect,
             via: requestedViaEntries.map(\.place),
             viaSelections: requestedViaSelections,
             maxTransfers: requestedMaximumTransfers,
-            minimumTransferTime: onlyDirect ? nil : minimumTransferTime,
-            maximumTransferTime: onlyDirect ? nil : maximumTransferTime,
-            maximumWalkingTime: maximumWalkingTime,
-            maximumCityWalkingTime: maximumCityWalkingTime,
-            walkToNearbyStops: walkToNearbyStops,
-            sameNameWalkingTransfersOnly: sameNameWalkingTransfersOnly,
+            minimumTransferTime: requestHasNoTransfers ||
+                !client.descriptor.connectionOptions.contains(.minimumTransferTime)
+                ? nil : minimumTransferTime,
+            maximumTransferTime: requestHasNoTransfers ||
+                !client.descriptor.connectionOptions.contains(.maximumTransferTime)
+                ? nil : maximumTransferTime,
+            maximumWalkingTime: client.descriptor.connectionOptions.contains(.maximumWalkingTime)
+                ? maximumWalkingTime : nil,
+            maximumCityWalkingTime: client.descriptor.connectionOptions.contains(.maximumCityWalkingTime)
+                ? maximumCityWalkingTime : nil,
+            walkToNearbyStops: client.descriptor.connectionOptions.contains(.walkToNearbyStops)
+                ? walkToNearbyStops : nil,
+            sameNameWalkingTransfersOnly: client.descriptor.connectionOptions
+                .contains(.sameNameWalkingTransfersOnly)
+                ? sameNameWalkingTransfersOnly : nil,
             resultLimit: 10
         )
 
@@ -563,6 +673,13 @@ final class ConnectionsViewModel: ObservableObject {
             minimumTransferTime: rememberedTransferValues.minimumTransferTime,
             maximumTransferTime: rememberedTransferValues.maximumTransferTime
         )
+    }
+
+    private var availableJourneyOptionKindsForNewRow: JourneyOptionKind? {
+        supportedJourneyOptionKinds.first { kind in
+            (!hasNoTransfers || !kind.isTransferTimeCondition) &&
+                (kind.allowsMultiple || !journeyOptions.contains { $0.kind == kind })
+        }
     }
 
     /// Captures only a row's active transfer value so unrelated hidden defaults cannot overwrite remembered choices.

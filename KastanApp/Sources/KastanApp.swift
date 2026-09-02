@@ -620,6 +620,7 @@ struct ResultDetailCommands: Commands {
 struct AppSectionCommands: Commands {
     @FocusedValue(\.appSectionSelection) private var selection: Binding<AppSection>?
     @FocusedValue(\.availableAppSections) private var availableSections: Set<AppSection>?
+    @FocusedValue(\.activeDataSourceDescriptor) private var activeDataSourceDescriptor
     @Binding var showsConnectionBadges: Bool
     @Binding var showsItemDetails: Bool
     @Binding var showsAlternatingRowBackgrounds: Bool
@@ -627,7 +628,6 @@ struct AppSectionCommands: Commands {
     @Binding var showsAddressSuggestions: Bool
     @Binding var showsBoroughSuggestions: Bool
     @Binding var showsMunicipalitySuggestions: Bool
-    let supportsPlaceSuggestions: Bool
 
     var body: some Commands {
         CommandGroup(after: .toolbar) {
@@ -655,7 +655,7 @@ struct AppSectionCommands: Commands {
 
             Divider()
 
-            if supportsPlaceSuggestions {
+            if activeDataSourceDescriptor?.supports(.placeSuggestions) != false {
                 Menu {
                     Toggle("Addresses", isOn: $showsAddressSuggestions)
                     Toggle("Boroughs", isOn: $showsBoroughSuggestions)
@@ -719,10 +719,6 @@ struct KastanApp: App {
     /// Registers concrete providers once and routes restorable results back to the source that issued them.
     private let dataSources = TransitDataSourceRegistry.builtIn
 
-    private var client: any TransitDataSource {
-        dataSources.defaultDataSource
-    }
-
     init() {
         SymbolTextPreference.migrateLegacyValues()
         ApplicationMainMenu.shared.install()
@@ -731,7 +727,7 @@ struct KastanApp: App {
     var body: some Scene {
         WindowGroup(id: AppWindow.main) {
             ContentView(
-                client: client,
+                dataSources: dataSources,
                 showsConnectionBadges: showsConnectionBadges,
                 showsItemDetails: showsItemDetails,
                 showsServiceInformationText: showsSymbolsAsText,
@@ -759,8 +755,7 @@ struct KastanApp: App {
                 showsSymbolsAsText: $showsSymbolsAsText,
                 showsAddressSuggestions: $showsAddressSuggestions,
                 showsBoroughSuggestions: $showsBoroughSuggestions,
-                showsMunicipalitySuggestions: $showsMunicipalitySuggestions,
-                supportsPlaceSuggestions: client.descriptor.supports(.placeSuggestions)
+                showsMunicipalitySuggestions: $showsMunicipalitySuggestions
             )
             SearchEditCommands()
             AppInformationCommands()
@@ -769,7 +764,12 @@ struct KastanApp: App {
 
         Window("Favorite timetables", id: AppWindow.favoriteTimetables) {
             NavigationStack {
-                FavoriteTimetablesView(timetables: client.timetables)
+                FavoriteTimetablesView(
+                    timetables: dataSources.descriptors.flatMap { descriptor in
+                        dataSources.dataSource(for: descriptor.id)?.timetables ?? []
+                    },
+                    dataSourceDescriptors: dataSources.descriptors
+                )
             }
             .frame(minWidth: FavoriteTimetablesView.minimumWindowWidth, minHeight: 520)
         }

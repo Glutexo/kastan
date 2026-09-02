@@ -43,6 +43,115 @@ import Testing
     #expect(output.contains("Direct connections only"))
     #expect(!output.contains("--jr"))
     #expect(output.contains("--version"))
+    #expect(output.contains("--source"))
+    #expect(output.contains("available: idos; default: idos"))
+    #expect(output.contains("Timetable identifier supplied by the selected data source"))
+    #expect(output.contains("Default timetable for IDOS is All timetables (vlakyautobusymhdvse)."))
+    #expect(!output.contains("IDOS URL slug"))
+}
+
+@Test func sourceOptionRoutesCollidingTimetablesAcrossGlobalArgumentPositions() async throws {
+    let alternateID: TransitDataSourceID = "alternate"
+    let registry = try TransitDataSourceRegistry(
+        dataSources: [
+            CLIRoutingDataSource(id: .idos, timetableName: "IDOS shared timetable"),
+            CLIRoutingDataSource(id: alternateID, timetableName: "Alternate shared timetable"),
+        ],
+        defaultDataSourceID: .idos
+    )
+    let runner = CommandRunner(
+        dataSourceRegistry: registry,
+        preferredLanguageIdentifiers: ["en"],
+        environment: [:]
+    )
+
+    let defaultOutput = await runner.output(for: ["timetables", "--format", "json"])
+    let sourceBeforeCommand = await runner.output(
+        for: ["--source", "alternate", "timetables", "--format", "json"]
+    )
+    let sourceAfterCommand = await runner.output(
+        for: ["timetables", "--source", "alternate", "--format", "json"]
+    )
+    let sourceWithEquals = await runner.output(
+        for: ["timetables", "--format", "json", "--source=alternate"]
+    )
+    let alternateHelp = await runner.output(for: ["--source", "alternate", "--help"])
+    let alternateCzechHelp = await runner.output(
+        for: ["--source=alternate", "--help", "--language", "cs"]
+    )
+    let alternateUnknownCommand = await runner.output(
+        for: ["--source=alternate", "unknown", "extra", "arguments"]
+    )
+
+    #expect(try timetableName(in: defaultOutput) == "IDOS shared timetable")
+    #expect(try timetableName(in: sourceBeforeCommand) == "Alternate shared timetable")
+    #expect(try timetableName(in: sourceAfterCommand) == "Alternate shared timetable")
+    #expect(try timetableName(in: sourceWithEquals) == "Alternate shared timetable")
+    #expect(alternateHelp.contains(
+        "Default timetable for Alternate shared timetable is Alternate shared timetable (shared)."
+    ))
+    #expect(alternateCzechHelp.contains(
+        "Výchozí jízdní řád zdroje Alternate shared timetable je Alternate shared timetable (shared)."
+    ))
+    #expect(alternateUnknownCommand.contains(
+        "Default timetable for Alternate shared timetable is Alternate shared timetable (shared)."
+    ))
+}
+
+@Test func sourceOptionReportsLocalizedUnknownAndMissingValues() async throws {
+    let registry = try TransitDataSourceRegistry(
+        dataSources: [
+            CLIRoutingDataSource(id: .idos, timetableName: "IDOS shared timetable"),
+            CLIRoutingDataSource(id: "alternate", timetableName: "Alternate shared timetable"),
+        ],
+        defaultDataSourceID: .idos
+    )
+    let runner = CommandRunner(
+        dataSourceRegistry: registry,
+        preferredLanguageIdentifiers: ["en"],
+        environment: [:]
+    )
+
+    let unknown = await runner.output(for: ["--source=missing", "timetables"])
+    let missing = await runner.output(for: ["timetables", "--source", "--language", "cs"])
+
+    #expect(unknown == "❌ Error: Unknown data source: missing. Available sources: alternate, idos.")
+    #expect(missing == "❌ Chyba: Chybí hodnota pro --source. Dostupné zdroje: alternate, idos.")
+}
+
+@Test func connectionOptionsAreRejectedBeforeAnUnsupportedProviderRequest() async throws {
+    let limitedID: TransitDataSourceID = "limited"
+    let registry = try TransitDataSourceRegistry(
+        dataSources: [
+            CLIRoutingDataSource(id: .idos, timetableName: "IDOS shared timetable"),
+            CLIRoutingDataSource(
+                id: limitedID,
+                timetableName: "Limited shared timetable",
+                capabilities: [.timetables, .connections]
+            ),
+        ],
+        defaultDataSourceID: .idos
+    )
+    let runner = CommandRunner(
+        dataSourceRegistry: registry,
+        preferredLanguageIdentifiers: ["en"],
+        environment: [:]
+    )
+    let base = ["--source", "limited", "connections", "Praha", "Brno"]
+
+    let withoutProviderSpecificOptions = await runner.output(for: base)
+    let direct = await runner.output(for: base + ["-x"])
+    let via = await runner.output(for: base + ["-V", "Pardubice"])
+    let maximumTransfers = await runner.output(for: base + ["-X", "1"])
+    let minimumTransferTime = await runner.output(
+        for: base + ["--min-transfer-time=5", "--language", "cs"]
+    )
+
+    #expect(!withoutProviderSpecificOptions.hasPrefix("❌"))
+    #expect(direct == "❌ Error: Option -x is not supported by data source Limited shared timetable (limited).")
+    #expect(via == "❌ Error: Option -V is not supported by data source Limited shared timetable (limited).")
+    #expect(maximumTransfers == "❌ Error: Option -X is not supported by data source Limited shared timetable (limited).")
+    #expect(minimumTransferTime == "❌ Chyba: Zdroj dat Limited shared timetable (limited) nepodporuje volbu --min-transfer-time.")
 }
 
 @Test func systemLanguageSelectsFirstSupportedLocalization() async {
@@ -2907,6 +3016,41 @@ private func englishCommandRunner(
         preferredLanguageIdentifiers: ["en"],
         environment: [:]
     )
+}
+
+/// Supplies two provider catalogs with the same timetable identifier so CLI routing cannot pass by accident.
+private struct CLIRoutingDataSource: TransitDataSource {
+    let descriptor: TransitDataSourceDescriptor
+    let defaultTimetable: TransitTimetable
+
+    init(
+        id: TransitDataSourceID,
+        timetableName: String,
+        capabilities: Set<TransitDataSourceCapability> = [.timetables],
+        connectionOptions: Set<TransitConnectionOption> = []
+    ) {
+        descriptor = TransitDataSourceDescriptor(
+            id: id,
+            displayName: timetableName,
+            capabilities: capabilities,
+            connectionOptions: connectionOptions
+        )
+        defaultTimetable = TransitTimetable(
+            dataSourceID: id,
+            identifier: "shared",
+            displayName: timetableName
+        )
+    }
+
+    func findConnections(request: TransitConnectionRequest) async throws -> [TransitConnection] {
+        []
+    }
+}
+
+private func timetableName(in output: String) throws -> String? {
+    let json = try jsonDictionary(output)
+    let timetables = try #require(json["timetables"] as? [[String: Any]])
+    return timetables.first?["displayName"] as? String
 }
 
 private struct MockIDOSClient: IDOSClienting {

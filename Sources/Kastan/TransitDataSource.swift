@@ -105,27 +105,57 @@ public enum TransitDataSourceCapability: String, CaseIterable, Codable, Equatabl
     case connectionEmail
 }
 
+/// Identifies one independently selectable connection-search option a provider understands.
+///
+/// Interfaces use this contract to offer only controls whose values the selected provider can honor. Supporting
+/// connection search alone does not imply support for any individual option.
+public enum TransitConnectionOption: String, CaseIterable, Codable, Equatable, Hashable, Sendable {
+    /// Limits results to journeys that require no transfer.
+    case onlyDirect
+    /// Adds an ordered intermediate place through which the journey must travel.
+    case via
+    /// Limits how many transfers a journey may contain.
+    case maximumTransfers
+    /// Requires at least a selected amount of time for each transfer.
+    case minimumTransferTime
+    /// Limits how long a transfer may take.
+    case maximumTransferTime
+    /// Limits walking between stops during the journey.
+    case maximumWalkingTime
+    /// Applies a separate walking limit where urban public transport is available.
+    case maximumCityWalkingTime
+    /// Allows the journey to begin or end at a nearby stop reached on foot.
+    case walkToNearbyStops
+    /// Restricts walking transfers to stops that share the same name.
+    case sameNameWalkingTransfersOnly
+}
+
 /// Identifies one provider and advertises only the product operations that it can fulfill.
 public struct TransitDataSourceDescriptor: Codable, Equatable, Sendable {
     public let id: TransitDataSourceID
     public let displayName: String
     public let capabilities: Set<TransitDataSourceCapability>
+    /// Connection-search controls whose values this provider can honor independently.
+    public let connectionOptions: Set<TransitConnectionOption>
 
     public init(
         id: TransitDataSourceID,
         displayName: String,
-        capabilities: Set<TransitDataSourceCapability>
+        capabilities: Set<TransitDataSourceCapability>,
+        connectionOptions: Set<TransitConnectionOption> = []
     ) {
         self.id = id
         self.displayName = displayName
         self.capabilities = capabilities
+        self.connectionOptions = connectionOptions
     }
 
     /// Metadata for Kaštan's built-in IDOS web data source.
     public static let idos = Self(
         id: .idos,
         displayName: "IDOS",
-        capabilities: Set(TransitDataSourceCapability.allCases)
+        capabilities: Set(TransitDataSourceCapability.allCases),
+        connectionOptions: Set(TransitConnectionOption.allCases)
     )
 
     /// Conservative metadata for an older `IDOSClienting` conformer that has not declared its operations.
@@ -148,6 +178,43 @@ public struct TransitDataSourceDescriptor: Codable, Equatable, Sendable {
 
     public func supports(_ capability: TransitDataSourceCapability) -> Bool {
         capabilities.contains(capability)
+    }
+
+    /// Reports whether an individual connection-search control can be offered for this provider.
+    public func supports(_ option: TransitConnectionOption) -> Bool {
+        connectionOptions.contains(option)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case displayName
+        case capabilities
+        case connectionOptions
+    }
+
+    /// Decodes descriptors written before fine-grained connection options as supporting no implicit options.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(TransitDataSourceID.self, forKey: .id),
+            displayName: try container.decode(String.self, forKey: .displayName),
+            capabilities: try container.decode(Set<TransitDataSourceCapability>.self, forKey: .capabilities),
+            connectionOptions: try container.decodeIfPresent(
+                Set<TransitConnectionOption>.self,
+                forKey: .connectionOptions
+            ) ?? []
+        )
+    }
+
+    /// Keeps descriptors with no declared connection options in their historical encoded shape.
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(displayName, forKey: .displayName)
+        try container.encode(capabilities, forKey: .capabilities)
+        if !connectionOptions.isEmpty {
+            try container.encode(connectionOptions, forKey: .connectionOptions)
+        }
     }
 }
 

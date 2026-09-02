@@ -14,9 +14,10 @@ enum DirectConnectionsShortcutPresentation {
     static func isVisible(
         journeyOptionsAreExpanded: Bool,
         optionIsPressed: Bool,
-        hasBeenUsed: Bool
+        hasBeenUsed: Bool,
+        isOnlyConfigurableOption: Bool = false
     ) -> Bool {
-        journeyOptionsAreExpanded || optionIsPressed || hasBeenUsed
+        isOnlyConfigurableOption || journeyOptionsAreExpanded || optionIsPressed || hasBeenUsed
     }
 }
 

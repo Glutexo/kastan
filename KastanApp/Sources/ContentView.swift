@@ -74,6 +74,18 @@ extension FocusedValues {
     }
 }
 
+/// Exposes the focused main window's provider contract to capability-sensitive app commands.
+struct ActiveDataSourceDescriptorKey: FocusedValueKey {
+    typealias Value = TransitDataSourceDescriptor
+}
+
+extension FocusedValues {
+    var activeDataSourceDescriptor: TransitDataSourceDescriptor? {
+        get { self[ActiveDataSourceDescriptorKey.self] }
+        set { self[ActiveDataSourceDescriptorKey.self] = newValue }
+    }
+}
+
 /// Converts the detail column's measured width into stable responsive layout decisions.
 struct DetailLayout {
     private static let compactPaddingBreakpoint: CGFloat = 600
@@ -232,67 +244,150 @@ struct SearchWorkspace<SearchContent: View, ResultsContent: View>: View {
     }
 }
 
-/// Retains independent search state while the native toolbar switches among all three transit search modes.
+/// Owns every provider-specific model that must be discarded together when a main window changes source.
+@MainActor
+final class AppDataSourceWorkspace: ObservableObject, Identifiable {
+    let id = UUID()
+    let client: any TransitDataSource
+    let availableSections: [AppSection]
+    let connectionsModel: ConnectionsViewModel
+    let departuresModel: DeparturesViewModel
+    let stationTimetablesModel: StationTimetablesViewModel
+    @Published var selection: AppSection
+
+    init(client: any TransitDataSource) {
+        self.client = client
+        availableSections = AppSection.available(for: client.descriptor)
+        selection = availableSections.first ?? .connections
+        connectionsModel = ConnectionsViewModel(client: client)
+        departuresModel = DeparturesViewModel(client: client)
+        stationTimetablesModel = StationTimetablesViewModel(client: client)
+    }
+}
+
+/// Keeps a source choice local to one main window and replaces all provider-owned state atomically.
+@MainActor
+final class AppDataSourceSelection: ObservableObject {
+    let registry: TransitDataSourceRegistry
+    let descriptors: [TransitDataSourceDescriptor]
+    let timetables: [TransitTimetable]
+    @Published private(set) var workspace: AppDataSourceWorkspace
+
+    init(registry: TransitDataSourceRegistry) {
+        self.registry = registry
+        descriptors = registry.descriptors
+        timetables = registry.descriptors.flatMap { descriptor in
+            registry.dataSource(for: descriptor.id)?.timetables ?? []
+        }
+        workspace = AppDataSourceWorkspace(client: registry.defaultDataSource)
+    }
+
+    var selectedDataSourceID: TransitDataSourceID {
+        workspace.client.descriptor.id
+    }
+
+    var showsSourceSelector: Bool {
+        descriptors.count > 1
+    }
+
+    /// Rejects unknown source IDs and creates fresh search state for every accepted provider change.
+    @discardableResult
+    func selectDataSource(_ id: TransitDataSourceID) -> Bool {
+        guard id != selectedDataSourceID,
+              let dataSource = registry.dataSource(for: id)
+        else {
+            return false
+        }
+
+        workspace = AppDataSourceWorkspace(client: dataSource)
+        return true
+    }
+}
+
+/// Selects one provider per main window while retaining independent state among its search modes.
 struct ContentView: View {
-    @Environment(\.openWindow) private var openWindow
-    private let client: any TransitDataSource
+    @StateObject private var dataSourceSelection: AppDataSourceSelection
     private let showsConnectionBadges: Bool
     private let showsItemDetails: Bool
     private let showsServiceInformationText: Bool
     private let showsStopNoteText: Bool
-    private let availableSections: [AppSection]
-    @StateObject private var connectionsModel: ConnectionsViewModel
-    @StateObject private var departuresModel: DeparturesViewModel
-    @StateObject private var stationTimetablesModel: StationTimetablesViewModel
-    @State private var selection: AppSection
 
     init(
-        client: any TransitDataSource,
+        dataSources: TransitDataSourceRegistry,
         showsConnectionBadges: Bool,
         showsItemDetails: Bool,
         showsServiceInformationText: Bool,
         showsStopNoteText: Bool
     ) {
-        self.client = client
+        _dataSourceSelection = StateObject(
+            wrappedValue: AppDataSourceSelection(registry: dataSources)
+        )
         self.showsConnectionBadges = showsConnectionBadges
         self.showsItemDetails = showsItemDetails
         self.showsServiceInformationText = showsServiceInformationText
         self.showsStopNoteText = showsStopNoteText
-        let availableSections = AppSection.available(for: client.descriptor)
-        self.availableSections = availableSections
-        _selection = State(initialValue: availableSections.first ?? .connections)
-        _connectionsModel = StateObject(wrappedValue: ConnectionsViewModel(client: client))
-        _departuresModel = StateObject(wrappedValue: DeparturesViewModel(client: client))
-        _stationTimetablesModel = StateObject(wrappedValue: StationTimetablesViewModel(client: client))
     }
+
+    var body: some View {
+        ProviderSearchWorkspaceView(
+            workspace: dataSourceSelection.workspace,
+            dataSourceDescriptors: dataSourceSelection.descriptors,
+            selectedDataSourceID: Binding(
+                get: { dataSourceSelection.selectedDataSourceID },
+                set: { dataSourceSelection.selectDataSource($0) }
+            ),
+            showsConnectionBadges: showsConnectionBadges,
+            showsItemDetails: showsItemDetails,
+            showsServiceInformationText: showsServiceInformationText,
+            showsStopNoteText: showsStopNoteText
+        )
+        .id(dataSourceSelection.workspace.id)
+    }
+}
+
+/// Renders one immutable provider context; replacing this view also removes its transient SwiftUI state.
+private struct ProviderSearchWorkspaceView: View {
+    @Environment(\.openWindow) private var openWindow
+    @ObservedObject var workspace: AppDataSourceWorkspace
+    let dataSourceDescriptors: [TransitDataSourceDescriptor]
+    @Binding var selectedDataSourceID: TransitDataSourceID
+    let showsConnectionBadges: Bool
+    let showsItemDetails: Bool
+    let showsServiceInformationText: Bool
+    let showsStopNoteText: Bool
+
+    private var client: any TransitDataSource { workspace.client }
 
     var body: some View {
         selectedContent
             .background {
                 MainWindowToolbarInstaller(
-                    selection: $selection,
-                    sections: availableSections,
+                    selection: $workspace.selection,
+                    sections: workspace.availableSections,
+                    dataSourceSelection: $selectedDataSourceID,
+                    dataSourceDescriptors: dataSourceDescriptors,
                     openFavoriteTimetables: { openWindow(id: AppWindow.favoriteTimetables) },
                     openAppInformation: { openWindow(id: AppWindow.information) }
                 )
             }
-            .focusedSceneValue(\.appSectionSelection, $selection)
-            .focusedSceneValue(\.availableAppSections, Set(availableSections))
+            .focusedSceneValue(\.appSectionSelection, $workspace.selection)
+            .focusedSceneValue(\.availableAppSections, Set(workspace.availableSections))
+            .focusedSceneValue(\.activeDataSourceDescriptor, client.descriptor)
     }
 
     @ViewBuilder
     private var selectedContent: some View {
-        if !availableSections.contains(selection) {
+        if !workspace.availableSections.contains(workspace.selection) {
             EmptyStateView(
                 title: "Search unavailable",
                 systemImage: "exclamationmark.magnifyingglass",
                 description: "The selected data source does not provide a search mode supported by this app."
             )
         } else {
-            switch selection {
+            switch workspace.selection {
             case .connections:
                 ConnectionsView(
-                    model: connectionsModel,
+                    model: workspace.connectionsModel,
                     client: client,
                     showsConnectionBadges: showsConnectionBadges,
                     showsItemDetails: showsItemDetails,
@@ -301,7 +396,7 @@ struct ContentView: View {
                 )
             case .departures:
                 DeparturesView(
-                    model: departuresModel,
+                    model: workspace.departuresModel,
                     client: client,
                     showsItemDetails: showsItemDetails,
                     showsServiceInformationText: showsServiceInformationText,
@@ -309,13 +404,13 @@ struct ContentView: View {
                 )
             case .stationTimetables:
                 StationTimetablesView(
-                    model: stationTimetablesModel,
+                    model: workspace.stationTimetablesModel,
                     client: client,
                     showsItemDetails: showsItemDetails,
                     showsStopNoteText: showsStopNoteText,
                     showInDepartures: { search in
-                        departuresModel.present(search)
-                        selection = .departures
+                        workspace.departuresModel.present(search)
+                        workspace.selection = .departures
                     }
                 )
             }

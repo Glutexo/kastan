@@ -8,6 +8,13 @@ only search modes advertised by the active source, while result menus and toolba
 PDF, and service-detail actions. Provider-owned timetable and result identities remain qualified during window
 restoration, favorites, paging, and export.
 
+Each main window owns its selected data source and its complete search workspace. A source picker appears in the
+toolbar only when the app is composed with more than one provider; with the current single built-in provider, IDOS is
+selected directly and the picker stays hidden. Changing the source starts a fresh workspace for that window, so query
+values, results, paging state, and the active search mode never cross provider boundaries. Other main windows retain
+their own selections. Favorite timetables from every registered provider remain available in the shared manager and
+show their source when more than one provider is registered.
+
 ## Features
 
 - Connection searches with full-row selectable place suggestions whose icons distinguish municipalities from
@@ -35,8 +42,10 @@ restoration, favorites, paging, and export.
   is visually separated from the native Select All command. Both search commands reveal a collapsed active search
   before applying an action; Connections support every current value and swapping, Departures support the three temporal
   values, and Station Timetables support Date and swapping while unsupported commands stay visibly disabled. Searches also
-  support arrival mode and an extensible journey-options builder modeled after native macOS rule editors. Selecting
-  the same exact departure and arrival shows inline guidance and disables Search before any IDOS request can start.
+  support arrival mode and an extensible journey-options builder modeled after native macOS rule editors. The active
+  provider advertises every supported journey option independently; the app omits Direct connections only and each
+  unsupported condition instead of assuming that connection search implies the complete IDOS option set. Selecting
+  the same exact departure and arrival shows inline guidance and disables Search before any provider request can start.
   Connections and Station Timetables share the same borderless 24-point direction-swap control between their fields.
   Each condition first selects Via, Maximum number of transfers, Minimum transfer time, Maximum transfer time,
   Maximum distance to walk, Maximum distance to walk when Urban Public Transport is available, walking to a nearby
@@ -59,12 +68,13 @@ restoration, favorites, paging, and export.
   stays
   visible for the lifetime of that search window even without Option, after collapsing the options, and after clearing
   it again. Expanded full-width conditions appear below without moving the action row. Either the arrow or heading
-  toggles the conditions. Direct connections are represented by a maximum-transfer condition set to zero and are
-  mutually exclusive with a positive maximum-transfer value and both transfer-time conditions. Selecting the checkbox,
-  or entering zero as the maximum number of transfers, enables direct-only mode, keeps or adds the zero-transfer row,
-  and removes both transfer-time rows.
-  Clearing direct-only mode removes the zero-transfer row. The previous positive transfer count and both time values
-  remain remembered; manually adding any of these conditions later restores its last value instead of its default.
+  toggles the conditions. For IDOS, which advertises both controls, Direct connections are represented by a
+  maximum-transfer condition set to zero and are mutually exclusive with a positive maximum-transfer value and both
+  transfer-time conditions. Selecting the checkbox, or entering zero as the maximum number of transfers, enables
+  direct-only mode, keeps or adds the zero-transfer row, and removes both transfer-time rows. Clearing direct-only mode
+  removes the zero-transfer row. The previous positive transfer count and both time values remain remembered; manually
+  adding any of these conditions later restores its last value instead of its default. A source that advertises Direct
+  connections only without the maximum-transfer option still gets the checkbox, without an unsupported synthetic row.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, optional tariff zones and platforms or stands, lockout labels, keyed departure explanations,

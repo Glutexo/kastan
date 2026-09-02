@@ -329,12 +329,25 @@ standalone city catalog. Run `timetables` to list every built-in slug and displa
 
 ## Data Source
 
-The shipped executable selects `IDOSDataSource`, currently Kaštan's only built-in provider, and exposes no
-data-source selector. Its `CommandRunner` depends on the provider-neutral `TransitDataSource` contract, resolves
-timetables from the selected provider's catalog, and checks the capability required by a command or native export.
-This internal composition boundary lets a future built-in provider reuse the CLI parsing and presentation without
-imitating IDOS identifiers. `CommandRunner` itself remains an implementation detail of the executable rather than a
-public library API.
+Select a registered provider by its stable ID with the global `--source` option. Both separated and attached forms
+are accepted, and the option may appear before or after the command:
+
+```sh
+swift run kastan --source idos connections Praha Beroun
+swift run kastan timetables --source=idos
+```
+
+When `--source` is omitted, Kaštan uses the registry's declared default provider. The shipped registry currently
+contains only `IDOSDataSource`, so `idos` is both the sole available ID and the default; localized `--help` output
+reports the live available-ID list and default. An unknown ID or a missing option value produces a localized error
+that also lists the available IDs. Connection-specific flags such as `--direct`, `--via`, `--max-transfers`, and
+`--min-transfer-time` are accepted only when the selected provider advertises the corresponding
+`TransitConnectionOption`; otherwise Kaštan reports a localized error before making a provider request.
+
+`CommandRunner` depends on the provider-neutral `TransitDataSourceRegistry`, resolves timetables from the selected
+provider's catalog, and checks the capability required by a command or native export. This composition boundary lets
+a future built-in provider reuse CLI parsing and presentation without imitating IDOS identifiers.
+`CommandRunner` itself remains an implementation detail of the executable rather than a public library API.
 
 For compatibility with the existing CLI and its structured output, timetable catalog and alias fields continue to
 call the provider-owned timetable identifier a `slug`. A non-IDOS provider can use any value in that field; Kaštan

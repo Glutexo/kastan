@@ -7,7 +7,7 @@ import FoundationNetworking
 @main
 struct KastanApp {
     static func main() async {
-        let runner = CommandRunner()
+        let runner = CommandRunner(dataSourceRegistry: .builtIn)
         print(await runner.output(for: CommandLine.arguments.dropFirst()))
     }
 }
@@ -16,6 +16,7 @@ struct KastanApp {
 struct CommandRunner {
     let version = "0.7.0"
     let dataSource: any TransitDataSource
+    let dataSourceRegistry: TransitDataSourceRegistry
     let aliasFile: StopAliasFile
     let calendarImporter: CalendarImporting
     let preferredLanguageIdentifiers: [String]
@@ -29,10 +30,44 @@ struct CommandRunner {
         environment: [String: String] = ProcessInfo.processInfo.environment
     ) {
         self.dataSource = dataSource
+        do {
+            self.dataSourceRegistry = try TransitDataSourceRegistry(
+                dataSources: [dataSource],
+                defaultDataSourceID: dataSource.descriptor.id
+            )
+        } catch {
+            preconditionFailure("Invalid command-line data source: \(error.localizedDescription)")
+        }
         self.aliasFile = aliasFile
         self.calendarImporter = calendarImporter
         self.preferredLanguageIdentifiers = preferredLanguageIdentifiers
         self.environment = environment
+    }
+
+    /// Creates a runner that can select any registered provider through the global `--source` option.
+    init(
+        dataSourceRegistry: TransitDataSourceRegistry,
+        aliasFile: StopAliasFile = StopAliasFile(),
+        calendarImporter: CalendarImporting = SystemCalendarImporter(),
+        preferredLanguageIdentifiers: [String] = Locale.preferredLanguages,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) {
+        self.dataSource = dataSourceRegistry.defaultDataSource
+        self.dataSourceRegistry = dataSourceRegistry
+        self.aliasFile = aliasFile
+        self.calendarImporter = calendarImporter
+        self.preferredLanguageIdentifiers = preferredLanguageIdentifiers
+        self.environment = environment
+    }
+
+    /// Reuses the invocation environment while routing one parsed command to its selected provider.
+    private init(activeDataSource: any TransitDataSource, copying runner: CommandRunner) {
+        dataSource = activeDataSource
+        dataSourceRegistry = runner.dataSourceRegistry
+        aliasFile = runner.aliasFile
+        calendarImporter = runner.calendarImporter
+        preferredLanguageIdentifiers = runner.preferredLanguageIdentifiers
+        environment = runner.environment
     }
 
     /// Preserves source compatibility for test harnesses and integrations that used the original client label.
@@ -65,8 +100,12 @@ struct CommandRunner {
             localization = invocation.localization
             arguments = invocation.arguments
 
+            let sourceInvocation = try dataSourceInvocation(arguments)
+            arguments = sourceInvocation.arguments
+            let activeRunner = CommandRunner(activeDataSource: sourceInvocation.dataSource, copying: self)
+
             if arguments.contains("--help") || arguments.contains("-h") {
-                return localization.text(.help)
+                return activeRunner.help(localization: localization)
             }
 
             if arguments.contains("--version") {
@@ -84,27 +123,27 @@ struct CommandRunner {
 
             switch command {
             case "suggest":
-                return try await suggestOutput(for: Array(arguments.dropFirst()), localization: localization)
+                return try await activeRunner.suggestOutput(for: Array(arguments.dropFirst()), localization: localization)
             case "stations":
-                return try await stationsOutput(for: Array(arguments.dropFirst()), localization: localization)
+                return try await activeRunner.stationsOutput(for: Array(arguments.dropFirst()), localization: localization)
             case "connections":
-                return try await connectionsOutput(for: Array(arguments.dropFirst()), localization: localization)
+                return try await activeRunner.connectionsOutput(for: Array(arguments.dropFirst()), localization: localization)
             case "departures":
-                return try await departuresOutput(for: Array(arguments.dropFirst()), localization: localization)
+                return try await activeRunner.departuresOutput(for: Array(arguments.dropFirst()), localization: localization)
             case "station-timetables", "station-timetable":
-                return try await stationTimetablesOutput(for: Array(arguments.dropFirst()), localization: localization)
+                return try await activeRunner.stationTimetablesOutput(for: Array(arguments.dropFirst()), localization: localization)
             case "service":
-                return try await serviceOutput(for: Array(arguments.dropFirst()), localization: localization)
+                return try await activeRunner.serviceOutput(for: Array(arguments.dropFirst()), localization: localization)
             case "aliases":
-                return try await aliasesOutput(for: Array(arguments.dropFirst()), localization: localization)
+                return try await activeRunner.aliasesOutput(for: Array(arguments.dropFirst()), localization: localization)
             case "timetables":
-                return try timetablesOutput(for: Array(arguments.dropFirst()), localization: localization)
+                return try activeRunner.timetablesOutput(for: Array(arguments.dropFirst()), localization: localization)
             default:
-                if let output = try await shorthandOutput(for: arguments, localization: localization) {
+                if let output = try await activeRunner.shorthandOutput(for: arguments, localization: localization) {
                     return output
                 }
 
-                return "❌ \(localization.text(.unknownCommand, command))\n\n\(localization.text(.help))"
+                return "❌ \(localization.text(.unknownCommand, command))\n\n\(activeRunner.help(localization: localization))"
             }
         } catch {
             return OutputFormat.preferredErrorFormat(in: originalArguments).renderError(
@@ -112,6 +151,73 @@ struct CommandRunner {
                 localization: localization
             )
         }
+    }
+
+    /// Removes the provider selector before command-specific option parsing and resolves its stable ID.
+    private func dataSourceInvocation(
+        _ arguments: [String]
+    ) throws -> (arguments: [String], dataSource: any TransitDataSource) {
+        var remaining: [String] = []
+        var requestedSourceID: TransitDataSourceID?
+        var index = 0
+
+        while index < arguments.count {
+            let argument = arguments[index]
+            if argument == "--source" {
+                guard arguments.indices.contains(index + 1),
+                      !arguments[index + 1].hasPrefix("-"),
+                      !arguments[index + 1].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                else {
+                    throw CommandError.missingSource(argument, availableDataSourceIDs)
+                }
+
+                requestedSourceID = TransitDataSourceID(
+                    arguments[index + 1].trimmingCharacters(in: .whitespacesAndNewlines)
+                )
+                index += 2
+                continue
+            }
+
+            if argument.hasPrefix("--source=") {
+                let value = String(argument.dropFirst("--source=".count))
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !value.isEmpty else {
+                    throw CommandError.missingSource("--source", availableDataSourceIDs)
+                }
+
+                requestedSourceID = TransitDataSourceID(value)
+                index += 1
+                continue
+            }
+
+            remaining.append(argument)
+            index += 1
+        }
+
+        guard let requestedSourceID else {
+            return (remaining, dataSourceRegistry.defaultDataSource)
+        }
+        guard let dataSource = dataSourceRegistry.dataSource(for: requestedSourceID) else {
+            throw CommandError.unknownSource(requestedSourceID.rawValue, availableDataSourceIDs)
+        }
+        return (remaining, dataSource)
+    }
+
+    private var availableDataSourceIDs: String {
+        dataSourceRegistry.descriptors.map(\.id.rawValue).joined(separator: ", ")
+    }
+
+    /// Adds the live registry catalog to localized usage text so provider IDs remain discoverable.
+    private func help(localization: Localization) -> String {
+        let defaultTimetable = dataSource.defaultTimetable
+        return localization.text(
+            .help,
+            availableDataSourceIDs,
+            dataSourceRegistry.defaultDataSourceID.rawValue,
+            dataSource.descriptor.displayName,
+            localization.timetableName(defaultTimetable),
+            defaultTimetable.identifier
+        )
     }
 
     /// Removes global language options before command parsing and resolves the invocation's output language.
@@ -292,6 +398,22 @@ struct CommandRunner {
                 "--from", "-f", "--to", "-t", "--via", "-V", "--timetable", "-T", "--date", "-d", "--time", "-m",
                 "--max-transfers", "-X", "--min-transfer-time", "-M", "--format", "-o", "--limit", "-l",
             ]
+        )
+        try requireConnectionOption(
+            .onlyDirect,
+            usedAs: options.firstOption(named: ["--direct", "--only-direct", "-x"])
+        )
+        try requireConnectionOption(
+            .via,
+            usedAs: options.firstOption(named: ["--via", "-V"])
+        )
+        try requireConnectionOption(
+            .maximumTransfers,
+            usedAs: options.firstOption(named: ["--max-transfers", "-X"])
+        )
+        try requireConnectionOption(
+            .minimumTransferTime,
+            usedAs: options.firstOption(named: ["--min-transfer-time", "-M"])
         )
         let format = try options.outputFormat()
         let addToCalendar = options.contains("--add-to-calendar", short: "-c")
@@ -668,6 +790,21 @@ struct CommandRunner {
         }
     }
 
+    /// Rejects a provider-specific journey control before sending a request that cannot honor it.
+    private func requireConnectionOption(
+        _ option: TransitConnectionOption,
+        usedAs commandLineOption: String?
+    ) throws {
+        guard let commandLineOption else { return }
+        guard dataSource.descriptor.supports(option) else {
+            throw CommandError.unsupportedConnectionOption(
+                commandLineOption,
+                providerName: dataSource.descriptor.displayName,
+                providerID: dataSource.descriptor.id.rawValue
+            )
+        }
+    }
+
     private func resolveTimetable(explicitValue: String?, aliases: [StopAlias]) throws -> TransitTimetable {
         let explicitTimetable = try explicitValue.map(dataSource.resolveTimetable)
         let resolvedAliases = try aliases.map { alias in
@@ -814,6 +951,9 @@ struct CommandRunner {
 private enum CommandError: Error {
     case invalidLanguage(String)
     case missingLanguage(String)
+    case unknownSource(String, String)
+    case missingSource(String, String)
+    case unsupportedConnectionOption(String, providerName: String, providerID: String)
     case invalidOutputFormat(String)
     case invalidNonNegativeInteger(name: String, value: String)
     case conflictingOptions(String, String)
@@ -831,6 +971,12 @@ private enum CommandError: Error {
             return localization.text(.invalidLanguage, value)
         case .missingLanguage(let option):
             return localization.text(.missingLanguage, option)
+        case .unknownSource(let value, let available):
+            return localization.text(.unknownSource, value, available)
+        case .missingSource(let option, let available):
+            return localization.text(.missingSource, option, available)
+        case .unsupportedConnectionOption(let option, let providerName, let providerID):
+            return localization.text(.unsupportedConnectionOption, option, providerName, providerID)
         case .invalidOutputFormat(let value):
             return localization.text(.invalidOutputFormat, value)
         case .invalidNonNegativeInteger(let name, let value):
@@ -2790,6 +2936,16 @@ private struct CommandOptions {
         return arguments.contains { argument in
             names.contains(argument)
         }
+    }
+
+    /// Returns the spelling used for the first matching option, without leaking its attached value.
+    func firstOption(named names: Set<String>) -> String? {
+        for argument in arguments {
+            for name in names where argument == name || argument.hasPrefix("\(name)=") {
+                return name
+            }
+        }
+        return nil
     }
 
     func rejectUnknownOptions(allowedFlags: Set<String> = [], allowedValueOptions: Set<String>) throws {

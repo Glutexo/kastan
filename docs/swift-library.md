@@ -153,6 +153,14 @@ descriptor explicitly, so
 persisted source IDs never depend on a Swift type name. Consumers can inspect `descriptor.supports(_:)` before
 presenting a capability.
 
+Connection-search controls use a second, fine-grained contract. A descriptor lists its supported
+`TransitConnectionOption` values in `connectionOptions`, covering Direct connections only, Via, transfer-count and
+transfer-time limits, walking limits, and the two walking-transfer policies independently. Advertising
+`TransitDataSourceCapability.connections` does not imply support for any of these request options. Interfaces should
+therefore check `descriptor.supports(_:)` for the individual option before presenting its control or accepting its
+value. IDOS declares the complete set; descriptors created without `connectionOptions`, including descriptors decoded
+from older stored JSON, conservatively declare none.
+
 `stationTimetableDepartureResolution` is a separate capability from `stationTimetables` and `departures`. It means
 that a consumer may pass a `TransitStationTimetableDepartureResolutionRequest` to
 `resolveStationTimetableDeparture(request:language:)` and receive the provider's

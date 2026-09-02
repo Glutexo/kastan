@@ -4663,6 +4663,326 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testMainWindowDataSourceSelectionStartsAtRegistryDefaultAndRebuildsProviderState() throws {
+        let idos = AppSourceSelectionTestSource(
+            id: .idos,
+            name: "IDOS",
+            timetableIdentifier: "shared",
+            capabilities: [.timetables, .connections]
+        )
+        let municipal = AppSourceSelectionTestSource(
+            id: "municipal",
+            name: "Municipal Transit",
+            timetableIdentifier: "shared",
+            capabilities: [.timetables, .departures]
+        )
+        let registry = try TransitDataSourceRegistry(
+            dataSources: [municipal, idos],
+            defaultDataSourceID: .idos
+        )
+        let selection = AppDataSourceSelection(registry: registry)
+        let otherWindowSelection = AppDataSourceSelection(registry: registry)
+        let idosWorkspace = selection.workspace
+        idosWorkspace.connectionsModel.from = "Provider-owned state"
+
+        XCTAssertEqual(selection.selectedDataSourceID, .idos)
+        XCTAssertTrue(selection.showsSourceSelector)
+        XCTAssertEqual(selection.timetables.map(\.identifier), ["shared", "shared"])
+        XCTAssertEqual(Set(selection.timetables.map(\.appIdentity)).count, 2)
+        XCTAssertTrue(selection.selectDataSource("municipal"))
+        XCTAssertEqual(selection.selectedDataSourceID, "municipal")
+        XCTAssertEqual(otherWindowSelection.selectedDataSourceID, .idos)
+        XCTAssertNotIdentical(selection.workspace, otherWindowSelection.workspace)
+        XCTAssertNotIdentical(selection.workspace, idosWorkspace)
+        XCTAssertEqual(selection.workspace.availableSections, [.departures])
+        XCTAssertEqual(selection.workspace.connectionsModel.from, "")
+
+        let municipalWorkspace = selection.workspace
+        XCTAssertFalse(selection.selectDataSource("missing"))
+        XCTAssertIdentical(selection.workspace, municipalWorkspace)
+        XCTAssertTrue(selection.selectDataSource(.idos))
+        XCTAssertNotIdentical(selection.workspace, idosWorkspace)
+        XCTAssertNotIdentical(selection.workspace, municipalWorkspace)
+        XCTAssertEqual(selection.workspace.connectionsModel.from, "")
+    }
+
+    func testSingleSourceWindowOmitsSourceSelectorAndFavoritesNeedNoProviderSubtitle() throws {
+        let idos = AppSourceSelectionTestSource(
+            id: .idos,
+            name: "IDOS",
+            timetableIdentifier: "shared",
+            capabilities: [.timetables, .connections]
+        )
+        let registry = try TransitDataSourceRegistry(
+            dataSources: [idos],
+            defaultDataSourceID: .idos
+        )
+        let selection = AppDataSourceSelection(registry: registry)
+        let presentation = FavoriteTimetableSourcePresentation(
+            descriptors: registry.descriptors
+        )
+
+        XCTAssertFalse(selection.showsSourceSelector)
+        XCTAssertNil(presentation.sourceName(for: idos.defaultTimetable))
+
+        var section = AppSection.connections
+        let coordinator = MainWindowToolbarInstaller.Coordinator(
+            selection: Binding(get: { section }, set: { section = $0 }),
+            dataSourceDescriptors: registry.descriptors,
+            openFavoriteTimetables: {},
+            openAppInformation: {}
+        )
+        XCTAssertFalse(
+            coordinator.toolbarDefaultItemIdentifiers(coordinator.toolbar).contains(.dataSource)
+        )
+        XCTAssertNil(coordinator.toolbar(
+            coordinator.toolbar,
+            itemForItemIdentifier: .dataSource,
+            willBeInsertedIntoToolbar: true
+        ))
+    }
+
+    func testMultiSourceToolbarSelectsProviderAndRefreshesSupportedModes() throws {
+        let descriptors = [
+            TransitDataSourceDescriptor(
+                id: .idos,
+                displayName: "IDOS",
+                capabilities: [.connections]
+            ),
+            TransitDataSourceDescriptor(
+                id: "municipal",
+                displayName: "Municipal Transit",
+                capabilities: [.departures]
+            ),
+        ]
+        var sourceID = TransitDataSourceID.idos
+        var section = AppSection.connections
+        let coordinator = MainWindowToolbarInstaller.Coordinator(
+            selection: Binding(get: { section }, set: { section = $0 }),
+            sections: [.connections],
+            dataSourceSelection: Binding(get: { sourceID }, set: { sourceID = $0 }),
+            dataSourceDescriptors: descriptors,
+            openFavoriteTimetables: {},
+            openAppInformation: {}
+        )
+
+        XCTAssertEqual(
+            coordinator.toolbarDefaultItemIdentifiers(coordinator.toolbar).first,
+            .dataSource
+        )
+        let sourceItem = try XCTUnwrap(coordinator.toolbar(
+            coordinator.toolbar,
+            itemForItemIdentifier: .dataSource,
+            willBeInsertedIntoToolbar: true
+        ))
+        let sourceControl = try XCTUnwrap(sourceItem.view as? NSPopUpButton)
+        XCTAssertEqual(sourceControl.itemTitles, ["IDOS", "Municipal Transit"])
+
+        sourceControl.selectItem(at: 1)
+        sourceControl.sendAction(sourceControl.action, to: sourceControl.target)
+        XCTAssertEqual(sourceID, "municipal")
+
+        coordinator.toolbar.insertItem(withItemIdentifier: .searchMode, at: 0)
+        section = .departures
+        coordinator.update(
+            selection: Binding(get: { section }, set: { section = $0 }),
+            sections: [.departures],
+            dataSourceSelection: Binding(get: { sourceID }, set: { sourceID = $0 }),
+            dataSourceDescriptors: descriptors,
+            openFavoriteTimetables: {},
+            openAppInformation: {}
+        )
+        let modeControl = try XCTUnwrap(
+            coordinator.toolbar.items.first { $0.itemIdentifier == .searchMode }?.view
+                as? NSSegmentedControl
+        )
+        XCTAssertEqual(modeControl.segmentCount, 1)
+        XCTAssertEqual(modeControl.label(forSegment: 0), AppLocalization.string("Departures"))
+
+        let presentation = FavoriteTimetableSourcePresentation(descriptors: descriptors)
+        let municipalTimetable = TransitTimetable(
+            dataSourceID: "municipal",
+            identifier: "shared",
+            displayName: "Shared"
+        )
+        XCTAssertEqual(presentation.sourceName(for: municipalTimetable), "Municipal Transit")
+    }
+
+    func testConnectionOptionEditorsFollowTheProviderContract() {
+        let limited = AppSourceSelectionTestSource(
+            id: "limited",
+            name: "Limited",
+            timetableIdentifier: "network",
+            capabilities: [.timetables, .connections],
+            connectionOptions: [.via, .maximumWalkingTime]
+        )
+        let model = ConnectionsViewModel(client: limited)
+        let firstID = model.journeyOptions[0].id
+
+        XCTAssertEqual(model.supportedJourneyOptionKinds, [.via, .maximumWalkingTime])
+        XCTAssertEqual(
+            model.availableJourneyOptionKinds(for: firstID),
+            [.via, .maximumWalkingTime]
+        )
+        XCTAssertFalse(model.supportsOnlyDirect)
+        model.setOnlyDirect(true)
+        XCTAssertFalse(model.onlyDirect)
+        model.setJourneyOptionKind(.maximumTransfers, for: firstID)
+        XCTAssertEqual(model.journeyOptions[0].kind, .via)
+        XCTAssertTrue(model.transferLimitLabel.isEmpty)
+
+        let unavailable = AppSourceSelectionTestSource(
+            id: "plain",
+            name: "Plain",
+            timetableIdentifier: "network",
+            capabilities: [.timetables, .connections]
+        )
+        let unavailableModel = ConnectionsViewModel(client: unavailable)
+        XCTAssertTrue(unavailableModel.journeyOptions.isEmpty)
+        XCTAssertFalse(unavailableModel.hasConfigurableConnectionOptions)
+    }
+
+    func testNonViaConnectionOptionStaysInactiveUntilExplicitlyAdded() async throws {
+        let requestRecorder = AppConnectionRequestRecorder()
+        let source = AppSourceSelectionTestSource(
+            id: "limited",
+            name: "Limited",
+            timetableIdentifier: "network",
+            capabilities: [.timetables, .connections],
+            connectionOptions: [.maximumTransfers],
+            connectionRequestRecorder: requestRecorder
+        )
+        let model = ConnectionsViewModel(client: source)
+        model.from = "Praha"
+        model.to = "Brno"
+
+        XCTAssertTrue(model.journeyOptions.isEmpty)
+        XCTAssertTrue(model.canAddJourneyOption)
+        XCTAssertTrue(model.transferLimitLabel.isEmpty)
+
+        await model.search()
+
+        var request = await requestRecorder.lastRequest
+        XCTAssertNil(request?.maxTransfers)
+
+        model.addJourneyOption()
+        let option = try XCTUnwrap(model.journeyOptions.first)
+        XCTAssertEqual(option.kind, .maximumTransfers)
+        XCTAssertEqual(option.maximumTransfers, 4)
+        XCTAssertTrue(model.canRemoveJourneyOption(id: option.id))
+        model.removeJourneyOption(id: option.id)
+        XCTAssertTrue(model.journeyOptions.isEmpty)
+
+        await model.search()
+
+        request = await requestRecorder.lastRequest
+        XCTAssertNil(request?.maxTransfers)
+    }
+
+    func testClearingDirectOnlyDoesNotReactivateAProviderDefaultConstraint() async {
+        let requestRecorder = AppConnectionRequestRecorder()
+        let source = AppSourceSelectionTestSource(
+            id: "direct-and-limit",
+            name: "Direct and limit",
+            timetableIdentifier: "network",
+            capabilities: [.timetables, .connections],
+            connectionOptions: [.onlyDirect, .maximumTransfers],
+            connectionRequestRecorder: requestRecorder
+        )
+        let model = ConnectionsViewModel(client: source)
+        model.from = "Praha"
+        model.to = "Brno"
+
+        model.setOnlyDirect(true)
+        XCTAssertEqual(model.journeyOptions.first?.maximumTransfers, 0)
+        model.setOnlyDirect(false)
+        XCTAssertTrue(model.journeyOptions.isEmpty)
+
+        await model.search()
+
+        let request = await requestRecorder.lastRequest
+        XCTAssertEqual(request?.onlyDirect, false)
+        XCTAssertNil(request?.maxTransfers)
+    }
+
+    func testDirectOnlyPreventsAddingASparseProviderTransferTimeCondition() {
+        let source = AppSourceSelectionTestSource(
+            id: "direct-and-transfer-time",
+            name: "Direct and transfer time",
+            timetableIdentifier: "network",
+            capabilities: [.timetables, .connections],
+            connectionOptions: [.onlyDirect, .minimumTransferTime]
+        )
+        let model = ConnectionsViewModel(client: source)
+
+        XCTAssertTrue(model.canAddJourneyOption)
+        model.setOnlyDirect(true)
+
+        XCTAssertTrue(model.onlyDirect)
+        XCTAssertTrue(model.journeyOptions.isEmpty)
+        XCTAssertFalse(model.canAddJourneyOption)
+    }
+
+    func testZeroTransferLimitSuppressesTransferTimeWithoutUnsupportedDirectFlag() async throws {
+        let requestRecorder = AppConnectionRequestRecorder()
+        let source = AppSourceSelectionTestSource(
+            id: "transfer-limits",
+            name: "Transfer limits",
+            timetableIdentifier: "network",
+            capabilities: [.timetables, .connections],
+            connectionOptions: [.maximumTransfers, .minimumTransferTime],
+            connectionRequestRecorder: requestRecorder
+        )
+        let model = ConnectionsViewModel(client: source)
+        model.from = "Praha"
+        model.to = "Brno"
+        model.addJourneyOption()
+        let maximumTransfers = try XCTUnwrap(model.journeyOptions.first)
+        model.addJourneyOption(after: maximumTransfers.id)
+        model.journeyOptions[1].minimumTransferTime = 5
+
+        model.setMaximumTransfers(0, for: maximumTransfers.id)
+
+        XCTAssertTrue(model.hasNoTransfers)
+        XCTAssertFalse(model.onlyDirect)
+        XCTAssertEqual(model.journeyOptions.map(\.kind), [.maximumTransfers])
+        XCTAssertFalse(model.canAddJourneyOption)
+        XCTAssertFalse(
+            model.availableJourneyOptionKinds(for: maximumTransfers.id).contains(.minimumTransferTime)
+        )
+
+        await model.search()
+
+        let request = await requestRecorder.lastRequest
+        XCTAssertEqual(request?.onlyDirect, false)
+        XCTAssertEqual(request?.maxTransfers, 0)
+        XCTAssertNil(request?.minimumTransferTime)
+    }
+
+    func testDirectOnlyShortcutIsAlwaysVisibleWhenItIsTheProvidersOnlyOption() {
+        XCTAssertTrue(DirectConnectionsShortcutPresentation.isVisible(
+            journeyOptionsAreExpanded: false,
+            optionIsPressed: false,
+            hasBeenUsed: false,
+            isOnlyConfigurableOption: true
+        ))
+
+        let directOnly = AppSourceSelectionTestSource(
+            id: "direct",
+            name: "Direct",
+            timetableIdentifier: "network",
+            capabilities: [.timetables, .connections],
+            connectionOptions: [.onlyDirect]
+        )
+        let model = ConnectionsViewModel(client: directOnly)
+        model.setOnlyDirect(true)
+
+        XCTAssertTrue(model.supportsOnlyDirect)
+        XCTAssertTrue(model.supportedJourneyOptionKinds.isEmpty)
+        XCTAssertTrue(model.onlyDirect)
+        XCTAssertTrue(model.journeyOptions.isEmpty)
+    }
+
     func testForceClickPreviewPrefersTheSmallestLatestTargetUnderThePointer() throws {
         let connectionID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000001"))
         let serviceID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000002"))
@@ -8128,6 +8448,56 @@ private final class StubCurrentLocationProvider: CurrentLocationProviding {
     func currentLocation() async throws -> CurrentLocationCoordinate {
         requestCount += 1
         return try result.get()
+    }
+}
+
+/// Supplies compact provider registries for per-window source-selection and capability tests.
+private struct AppSourceSelectionTestSource: TransitDataSource {
+    let descriptor: TransitDataSourceDescriptor
+    let timetables: [TransitTimetable]
+    let defaultTimetable: TransitTimetable
+    let connectionRequestRecorder: AppConnectionRequestRecorder?
+
+    init(
+        id: TransitDataSourceID,
+        name: String,
+        timetableIdentifier: String,
+        capabilities: Set<TransitDataSourceCapability>,
+        connectionOptions: Set<TransitConnectionOption> = [],
+        connectionRequestRecorder: AppConnectionRequestRecorder? = nil
+    ) {
+        descriptor = TransitDataSourceDescriptor(
+            id: id,
+            displayName: name,
+            capabilities: capabilities,
+            connectionOptions: connectionOptions
+        )
+        let timetable = TransitTimetable(
+            dataSourceID: id,
+            identifier: timetableIdentifier,
+            displayName: "\(name) timetable"
+        )
+        timetables = [timetable]
+        defaultTimetable = timetable
+        self.connectionRequestRecorder = connectionRequestRecorder
+    }
+
+    func findConnections(request: TransitConnectionRequest) async throws -> [TransitConnection] {
+        await connectionRequestRecorder?.record(request)
+        return []
+    }
+}
+
+/// Captures provider-neutral requests so capability tests can distinguish supported controls from active values.
+private actor AppConnectionRequestRecorder {
+    private var requests: [TransitConnectionRequest] = []
+
+    var lastRequest: TransitConnectionRequest? {
+        requests.last
+    }
+
+    func record(_ request: TransitConnectionRequest) {
+        requests.append(request)
     }
 }
 

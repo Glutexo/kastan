@@ -3,6 +3,49 @@ import Foundation
 import Testing
 @testable import KastanCLI
 
+/// Applies the provider invariants every concrete data-source test suite can reuse.
+func expectTransitDataSourceContract(
+    _ dataSource: any TransitDataSource,
+    connectionOptions expectedConnectionOptions: Set<TransitConnectionOption>
+) {
+    let descriptor = dataSource.descriptor
+    let timetableIdentifiers = dataSource.timetables.map { $0.identifier.lowercased() }
+
+    #expect(!descriptor.id.rawValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    #expect(!descriptor.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    #expect(descriptor.supports(.timetables))
+    #expect(descriptor.connectionOptions == expectedConnectionOptions)
+    #expect(descriptor.connectionOptions.isEmpty || descriptor.supports(.connections))
+    #expect(dataSource.defaultTimetable.dataSourceID == descriptor.id)
+    #expect(dataSource.timetables.contains(dataSource.defaultTimetable))
+    #expect(dataSource.timetables.allSatisfy { $0.dataSourceID == descriptor.id })
+    #expect(Set(timetableIdentifiers).count == timetableIdentifiers.count)
+}
+
+/// Exercises the reusable provider contract against both complete and conservative declarations.
+@Suite struct TransitDataSourceProviderContractTests {
+    @Test func builtInProvider() {
+        expectTransitDataSourceContract(
+            IDOSDataSource(),
+            connectionOptions: Set(TransitConnectionOption.allCases)
+        )
+    }
+
+    @Test func customProviderWithNoImpliedOptions() {
+        expectTransitDataSourceContract(
+            MunicipalTransitDataSource(),
+            connectionOptions: []
+        )
+    }
+
+    @Test func customProviderWithExplicitOptions() {
+        expectTransitDataSourceContract(
+            RegionalTransitDataSource(),
+            connectionOptions: [.onlyDirect, .via]
+        )
+    }
+}
+
 /// Keeps the built-in provider's identity and complete product contract discoverable through neutral metadata.
 @Test func builtInDescriptorAdvertisesEveryTransitCapability() {
     let descriptor = TransitDataSourceDescriptor.idos
@@ -10,8 +53,60 @@ import Testing
     #expect(descriptor.id == .idos)
     #expect(descriptor.displayName == "IDOS")
     #expect(descriptor.capabilities == Set(TransitDataSourceCapability.allCases))
+    #expect(descriptor.connectionOptions == Set(TransitConnectionOption.allCases))
     #expect(IDOSDataSource.descriptor == descriptor)
     #expect(IDOSDataSource().descriptor == descriptor)
+}
+
+/// Keeps every IDOS connection control discoverable without implying support for custom or legacy providers.
+@Test func connectionOptionsRequireExplicitProviderSupport() {
+    let custom = MunicipalTransitDataSource().descriptor
+    let legacy = LegacyTransitClient().descriptor
+
+    #expect(TransitConnectionOption.allCases == [
+        .onlyDirect,
+        .via,
+        .maximumTransfers,
+        .minimumTransferTime,
+        .maximumTransferTime,
+        .maximumWalkingTime,
+        .maximumCityWalkingTime,
+        .walkToNearbyStops,
+        .sameNameWalkingTransfersOnly,
+    ])
+    #expect(TransitConnectionOption.allCases.allSatisfy(TransitDataSourceDescriptor.idos.supports))
+    #expect(custom.supports(.connections))
+    #expect(custom.connectionOptions.isEmpty)
+    #expect(legacy.supports(.connections))
+    #expect(legacy.connectionOptions.isEmpty)
+}
+
+/// Preserves stored descriptors from before connection-option discovery while round-tripping explicit support.
+@Test func descriptorJSONPreservesFineGrainedOptionCompatibility() throws {
+    let legacyJSON = Data(
+        #"{"id":"regional","displayName":"Regional Transit","capabilities":["connections","timetables"]}"#.utf8
+    )
+    let decoder = JSONDecoder()
+    let legacy = try decoder.decode(TransitDataSourceDescriptor.self, from: legacyJSON)
+
+    #expect(legacy.connectionOptions.isEmpty)
+
+    let legacyReencoded = try JSONSerialization.jsonObject(with: JSONEncoder().encode(legacy))
+    let legacyObject = try #require(legacyReencoded as? [String: Any])
+    #expect(legacyObject["connectionOptions"] == nil)
+
+    let declared = TransitDataSourceDescriptor(
+        id: "regional",
+        displayName: "Regional Transit",
+        capabilities: [.timetables, .connections],
+        connectionOptions: [.onlyDirect, .via]
+    )
+    #expect(
+        try decoder.decode(
+            TransitDataSourceDescriptor.self,
+            from: JSONEncoder().encode(declared)
+        ) == declared
+    )
 }
 
 /// Keeps cross-surface departure matching opt-in for providers whose station-timetable and board data align.
@@ -185,6 +280,53 @@ import Testing
     #expect(registry.defaultDataSource.descriptor == .idos)
     #expect(registry.dataSource(for: .idos)?.descriptor == .idos)
     #expect(registry.dataSource(for: "unregistered") == nil)
+}
+
+/// Routes colliding timetable and result identifiers through the provider selected by stable source identity.
+@Test func registryRoutesTwoProvidersWithCollidingOwnedIdentifiers() async throws {
+    let municipal = MunicipalTransitDataSource()
+    let regional = RegionalTransitDataSource()
+    let registry = try TransitDataSourceRegistry(
+        dataSources: [regional, municipal],
+        defaultDataSourceID: MunicipalTransitDataSource.sourceID
+    )
+
+    #expect(registry.defaultDataSource.descriptor.id == MunicipalTransitDataSource.sourceID)
+    #expect(registry.descriptors.map(\.id) == [
+        MunicipalTransitDataSource.sourceID,
+        RegionalTransitDataSource.sourceID,
+    ])
+
+    let routedMunicipal = try #require(registry.dataSource(for: MunicipalTransitDataSource.sourceID))
+    let routedRegional = try #require(registry.dataSource(for: RegionalTransitDataSource.sourceID))
+    #expect(routedMunicipal.defaultTimetable.identifier == routedRegional.defaultTimetable.identifier)
+    #expect(routedMunicipal.defaultTimetable.dataSourceID == MunicipalTransitDataSource.sourceID)
+    #expect(routedRegional.defaultTimetable.dataSourceID == RegionalTransitDataSource.sourceID)
+    #expect(routedMunicipal.descriptor.connectionOptions.isEmpty)
+    #expect(routedRegional.descriptor.connectionOptions == [.onlyDirect, .via])
+
+    let municipalPage = try await routedMunicipal.findConnectionsPage(request: TransitConnectionRequest(
+        timetable: MunicipalTransitDataSource.metro,
+        from: "River Market",
+        to: "Museum"
+    ))
+    let regionalPage = try await routedRegional.findConnectionsPage(request: TransitConnectionRequest(
+        timetable: RegionalTransitDataSource.metro,
+        from: "River Market",
+        to: "Museum",
+        onlyDirect: true,
+        via: ["Junction"]
+    ))
+    let municipalResult = try #require(municipalPage.connections.first)
+    let regionalResult = try #require(regionalPage.connections.first)
+
+    #expect(municipalResult.id == regionalResult.id)
+    #expect(municipalResult.timetableIdentifier == regionalResult.timetableIdentifier)
+    #expect(municipalPage.dataSourceID == MunicipalTransitDataSource.sourceID)
+    #expect(regionalPage.dataSourceID == RegionalTransitDataSource.sourceID)
+    #expect(municipalResult.dataSourceID == municipalPage.dataSourceID)
+    #expect(regionalResult.dataSourceID == regionalPage.dataSourceID)
+    #expect(municipalResult.dataSourceID != regionalResult.dataSourceID)
 }
 
 /// Proves that the CLI consumes a provider-owned timetable catalog and suggestions through the neutral contract.
@@ -1251,6 +1393,47 @@ private struct MunicipalTransitDataSource: TransitDataSource {
             arrivalTime: "08:10",
             arrivalStation: request.to,
             duration: "10 min",
+            legs: []
+        )]
+    }
+}
+
+/// A second provider that deliberately reuses another provider's timetable and result identifiers.
+private struct RegionalTransitDataSource: TransitDataSource {
+    static let sourceID: TransitDataSourceID = "regional"
+    static let metro = TransitTimetable(
+        dataSourceID: sourceID,
+        identifier: MunicipalTransitDataSource.metro.identifier,
+        displayName: "Regional Metro"
+    )
+
+    let descriptor = TransitDataSourceDescriptor(
+        id: sourceID,
+        displayName: "Regional Transit",
+        capabilities: [.timetables, .connections],
+        connectionOptions: [.onlyDirect, .via]
+    )
+
+    var defaultTimetable: TransitTimetable { Self.metro }
+
+    func findConnections(request: TransitConnectionRequest) async throws -> [TransitConnection] {
+        guard request.timetable == Self.metro,
+              request.from == "River Market",
+              request.to == "Museum",
+              request.onlyDirect,
+              request.via == ["Junction"]
+        else {
+            throw MunicipalFixtureError.unexpectedConnectionRequest
+        }
+        return [TransitConnection(
+            dataSourceID: Self.sourceID,
+            timetableIdentifier: request.timetable.identifier,
+            id: "connection:1",
+            departureTime: "08:00",
+            departureStation: request.from,
+            arrivalTime: "08:12",
+            arrivalStation: request.to,
+            duration: "12 min",
             legs: []
         )]
     }
