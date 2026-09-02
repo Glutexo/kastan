@@ -365,6 +365,43 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testFileMenuOffersOneDirectNewWindowCommand() async throws {
+        // SwiftUI assembles commands from every declared scene after the app finishes launching.
+        try await Task.sleep(for: .milliseconds(250))
+
+        let newWindowTitle = AppLocalization.string("New Window")
+        let newTabTitle = AppLocalization.string("New Tab")
+        let fileMenu = try XCTUnwrap(
+            NSApplication.shared.mainMenu?.items
+                .compactMap(\.submenu)
+                .first { menu in menu.items.contains { $0.title == newTabTitle } }
+        )
+        let newWindowItems = fileMenu.items.filter { $0.title == newWindowTitle }
+        let newWindowItem = try XCTUnwrap(newWindowItems.first)
+
+        XCTAssertEqual(newWindowItems.count, 1)
+        XCTAssertNil(
+            newWindowItem.submenu,
+            "New Window must be a direct command rather than a submenu of internal scenes"
+        )
+        XCTAssertEqual(newWindowItem.keyEquivalent, "n")
+        XCTAssertTrue(newWindowItem.keyEquivalentModifierMask.contains(.command))
+        XCTAssertFalse(newWindowItem.keyEquivalentModifierMask.contains(.option))
+        XCTAssertFalse(newWindowItem.keyEquivalentModifierMask.contains(.shift))
+        XCTAssertFalse(newWindowItem.keyEquivalentModifierMask.contains(.control))
+
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        XCTAssertEqual(
+            czech.localizedString(forKey: "New Window", value: nil, table: nil),
+            "Nové okno"
+        )
+        XCTAssertEqual(
+            english.localizedString(forKey: "New Window", value: nil, table: nil),
+            "New Window"
+        )
+    }
+
     func testAppInformationCommandIsRemovedOnlyFromTheWindowMenu() {
         let title = AppLocalization.string("About Kaštan")
 

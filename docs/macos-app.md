@@ -160,7 +160,9 @@ restoration, favorites, paging, and export.
   results and removes duplicate rows. If connection paging fails after its IDOS session expires, the error banner
   can repeat the unchanged search, replace the stale list with progress, and establish a fresh paging session.
 - Native tabs and windows, including independent favorite-timetable, complete-connection, and resizable
-  service-route windows. A connection opened in its own window presents its email, export, and sharing actions as
+  service-route windows. The File menu's New Window command always opens a fresh primary search window; supporting
+  detail scenes open only from the related result and never appear as generic new-window choices. A connection opened
+  in its own window presents its email, export, and sharing actions as
   individually visible controls in the native toolbar instead of repeating the result-card action menu, and
   each of its services can still open a separate complete route. The active connection or service detail repeats
   every toolbar action in the File menu, with all commands disabled while an export or Mail draft is being prepared.

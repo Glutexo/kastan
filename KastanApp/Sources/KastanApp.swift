@@ -10,8 +10,9 @@ enum ApplicationArtwork {
     }
 }
 
-/// Stable identifiers for the app's secondary window scenes.
+/// Stable identifiers for the app's main and supporting window scenes.
 enum AppWindow {
+    static let main = "main"
     static let information = "app-information"
     static let favoriteTimetables = "favorite-timetables"
     static let connectionDetail = "connection-detail"
@@ -21,15 +22,12 @@ enum AppWindow {
 /// Performs native tab and window operations for the active macOS window.
 @MainActor
 enum AppWindowActions {
-    static func newTab() {
+    /// Creates a fresh main search window and joins it to the active window as a native tab.
+    static func newTab(openMainWindow: () -> Void) {
         guard let sourceWindow = NSApplication.shared.keyWindow else { return }
         let existingWindows = Set(NSApplication.shared.windows.map(ObjectIdentifier.init))
 
-        NSApplication.shared.sendAction(
-            #selector(NSResponder.newWindowForTab(_:)),
-            to: nil,
-            from: nil
-        )
+        openMainWindow()
 
         attachNewWindow(
             to: sourceWindow,
@@ -187,10 +185,19 @@ final class ApplicationMainMenu: NSObject {
 
 /// Gives the primary WindowGroup a complete, unambiguous set of File menu commands.
 struct AppWindowCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+
     var body: some Commands {
-        CommandGroup(after: .newItem) {
+        CommandGroup(replacing: .newItem) {
+            Button("New Window") {
+                openWindow(id: AppWindow.main)
+            }
+            .keyboardShortcut("n")
+
             Button("New Tab") {
-                AppWindowActions.newTab()
+                AppWindowActions.newTab {
+                    openWindow(id: AppWindow.main)
+                }
             }
             .keyboardShortcut("t")
 
@@ -722,7 +729,7 @@ struct KastanApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup(id: AppWindow.main) {
             ContentView(
                 client: client,
                 showsConnectionBadges: showsConnectionBadges,
@@ -787,6 +794,7 @@ struct KastanApp: App {
                 .environment(\.showsAlternatingRowBackgrounds, showsAlternatingRowBackgrounds)
             }
         }
+        .commandsRemoved()
         .defaultSize(width: ServiceDetailView.defaultWindowWidth, height: 640)
 
         WindowGroup("Connection detail", id: AppWindow.connectionDetail, for: ConnectionSelection.self) { selection in
@@ -803,6 +811,7 @@ struct KastanApp: App {
                 .environment(\.showsAlternatingRowBackgrounds, showsAlternatingRowBackgrounds)
             }
         }
+        .commandsRemoved()
         .defaultSize(width: ConnectionDetailView.defaultWindowWidth, height: 640)
     }
 }
