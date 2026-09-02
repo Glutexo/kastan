@@ -9,10 +9,12 @@ FROM swift:${SWIFT_VERSION}-noble AS source
 WORKDIR /workspace
 
 # Resolve the remote MCP dependencies before copying sources so dependency downloads
-# stay cached when only Kaštan implementation files change.
+# stay cached when only Kaštan implementation files change. HTTP/1.1 keeps Git
+# dependency fetches reliable inside virtualized Docker networks.
 COPY Package.swift ./
 COPY MCPServer/Package.swift MCPServer/Package.resolved ./MCPServer/
-RUN swift package --package-path MCPServer resolve
+RUN git config --global http.version HTTP/1.1 \
+    && swift package --package-path MCPServer resolve
 
 COPY Sources ./Sources
 COPY Tests ./Tests
