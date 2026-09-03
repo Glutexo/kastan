@@ -6916,10 +6916,16 @@ final class KastanAppTests: XCTestCase {
         let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
         let firstID = model.journeyOptions[0].id
 
+        XCTAssertFalse(model.canRemoveJourneyOption(id: firstID))
+
+        model.journeyOptions[0].viaPlace = "Pardubice"
         XCTAssertTrue(model.canRemoveJourneyOption(id: firstID))
+        model.journeyOptions[0].viaPlace = ""
+        XCTAssertFalse(model.canRemoveJourneyOption(id: firstID))
 
         model.addJourneyOption(after: firstID)
         XCTAssertEqual(model.journeyOptions.count, 2)
+        XCTAssertTrue(model.canRemoveJourneyOption(id: firstID))
 
         let secondID = model.journeyOptions[1].id
         model.journeyOptions[1].viaPlace = "Olomouc"
@@ -6929,6 +6935,7 @@ final class KastanAppTests: XCTestCase {
 
         model.removeJourneyOption(id: secondID)
         XCTAssertEqual(model.journeyOptions, [JourneyOptionEntry(id: secondID)])
+        XCTAssertFalse(model.canRemoveJourneyOption(id: secondID))
     }
 
     func testJourneyOptionPickerKeepsSingletonConditionsUnique() {

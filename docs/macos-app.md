@@ -71,9 +71,10 @@ manager and show their source when more than one ordinary provider is registered
   defaults to the former; Walking by stop name offers between any stops or only stops of the same name and defaults to
   the former. Every editor shares one row height and follows a selection-independent condition menu sized from the
   complete localized catalog. Every row retains its minus action; removing the sole condition from a source that
-  supports Via resets that row to an empty, inactive Via field instead of removing it. The main-window minimum follows
-  the widest complete condition/value pair, including both fixed row actions, so labels remain unabridged and controls
-  stay inside the content edges. Summaries retain
+  supports Via resets that row to an empty, inactive Via field instead of removing it, then disables the minus action
+  until the row becomes active again or another row is added. The main-window minimum follows the widest complete
+  condition/value pair, including both fixed row actions, so labels remain unabridged and controls stay inside the
+  content edges. Summaries retain
   locale-aware transfer wording. Departure/Arrival
   remains visible on the compact journey editor. The journey-options heading shares one level with Search. Expanding it
   or holding Option reveals the Direct connections only checkbox beside the heading; after the user first toggles it, it

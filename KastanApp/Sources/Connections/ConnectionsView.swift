@@ -585,18 +585,17 @@ struct ConnectionsView: View {
 
             Spacer(minLength: 0)
 
-            if model.canRemoveJourneyOption(id: option.wrappedValue.id) {
-                Button {
-                    model.removeJourneyOption(id: option.wrappedValue.id)
-                } label: {
-                    Label("Remove journey option", systemImage: "minus")
-                        .labelStyle(.iconOnly)
-                        .frame(width: JourneyOptionRowLayout.actionIconWidth, height: 14)
-                }
-                .buttonStyle(.bordered)
-                .fixedSize()
-                .help("Remove journey option")
+            Button {
+                model.removeJourneyOption(id: option.wrappedValue.id)
+            } label: {
+                Label("Remove journey option", systemImage: "minus")
+                    .labelStyle(.iconOnly)
+                    .frame(width: JourneyOptionRowLayout.actionIconWidth, height: 14)
             }
+            .buttonStyle(.bordered)
+            .fixedSize()
+            .disabled(!model.canRemoveJourneyOption(id: option.wrappedValue.id))
+            .help("Remove journey option")
 
             if model.canAddJourneyOption {
                 Button {
