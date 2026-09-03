@@ -120,7 +120,7 @@ import Testing
     #expect(genericCzechHelp.contains("Povinné ID zdroje dat (dostupné: alternate, idos)"))
     #expect(!genericCzechHelp.contains("výchozí: idos"))
     #expect(!genericCzechHelp.contains("Výchozí jízdní řád zdroje"))
-    #expect(versionWithoutSource == "0.7.0")
+    #expect(versionWithoutSource == "0.7.1")
 }
 
 @Test func sourceOptionReportsLocalizedUnknownAndMissingValues() async throws {
@@ -407,7 +407,7 @@ import Testing
 @Test func versionOutputShowsCurrentVersion() async {
     let output = await englishCommandRunner(client: MockIDOSClient()).output(for: ["--version"])
 
-    #expect(output == "0.7.0")
+    #expect(output == "0.7.1")
 }
 
 @Test func suggestCommandPrintsSuggestions() async {

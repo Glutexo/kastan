@@ -18,7 +18,7 @@ the service to one instance, four concurrent requests, and 60 authenticated MCP 
 - A WorkOS environment with an AuthKit domain. Production WorkOS environments must be unlocked with billing
   information.
 - `openssl` for the temporary migration credential.
-- A Kaštan MCP image that includes OAuth mode; the commands below use the fixed `0.7.0` release.
+- A Kaštan MCP image that includes OAuth mode; the commands below use the fixed `0.7.1` release.
 
 Choose the deployment values once for the current shell:
 
@@ -28,7 +28,7 @@ export REGION="europe-west3"
 export SERVICE="kastan-mcp"
 export SECRET="kastan-mcp-bearer-token"
 export SERVICE_ACCOUNT="kastan-mcp-runtime"
-export IMAGE="ghcr.io/glutexo/kastan-mcp:0.7.0"
+export IMAGE="ghcr.io/glutexo/kastan-mcp:0.7.1"
 export AUTHKIT_ISSUER="https://your-subdomain.authkit.app"
 
 gcloud config set project "$PROJECT_ID"

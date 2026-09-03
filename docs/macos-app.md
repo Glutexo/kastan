@@ -373,16 +373,16 @@ make source-zip
 ```
 
 Plain `make` is equivalent to `make dist` and creates both downloads. The artifact names use the app's current
-marketing version and are written to `dist/`. For version `0.7.0`,
-`make dmg` creates `kastan-0.7.0-macos.dmg` with a Release build stored as `Kastan.app` and displayed as `Kaštan`
+marketing version and are written to `dist/`. For version `0.7.1`,
+`make dmg` creates `kastan-0.7.1-macos.dmg` with a Release build stored as `Kastan.app` and displayed as `Kaštan`
 for both Apple Silicon and Intel Macs. The image also contains an Applications shortcut. Xcode gives this local
 build an ad-hoc signature that preserves the app sandbox and hardened runtime, but it is not signed with an Apple
 Developer ID or notarized.
 Gatekeeper can therefore require the user to explicitly approve the first launch; a seamless public download
 requires a Developer ID certificate and Apple notarization outside this workflow.
 
-`make source-zip` creates `kastan-0.7.0-source.zip` from the current Git `HEAD`. The archive has a top-level
-`kastan-0.7.0/` directory and contains the tracked, buildable sources and documentation for every Kaštan interface.
+`make source-zip` creates `kastan-0.7.1-source.zip` from the current Git `HEAD`. The archive has a top-level
+`kastan-0.7.1/` directory and contains the tracked, buildable sources and documentation for every Kaštan interface.
 It intentionally excludes uncommitted changes, Git metadata, dependency caches, and build or distribution artifacts.
 To keep the two downloads aligned, `make dist` requires a clean Git worktree before it creates either artifact.
 The individual `make dmg` target can still package an app with local changes during development.
