@@ -365,12 +365,24 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testFileMenuOffersOneDirectNewWindowCommand() async throws {
+    func testNewTabOpensAWindowWhenThereIsNoActiveWindowToAttachTo() {
+        var openCount = 0
+
+        AppWindowActions.newTab(sourceWindow: nil) {
+            openCount += 1
+        }
+
+        XCTAssertEqual(openCount, 1)
+    }
+
+    func testFileMenuOffersDirectCreationCommandsAndOptionOnlyMockAlternatesWithOneRegularSource() async throws {
         // SwiftUI assembles commands from every declared scene after the app finishes launching.
         try await Task.sleep(for: .milliseconds(250))
 
         let newWindowTitle = AppLocalization.string("New Window")
         let newTabTitle = AppLocalization.string("New Tab")
+        let newMockWindowTitle = AppLocalization.string("New Mock Window")
+        let newMockTabTitle = AppLocalization.string("New Mock Tab")
         let fileMenu = try XCTUnwrap(
             NSApplication.shared.mainMenu?.items
                 .compactMap(\.submenu)
@@ -390,6 +402,20 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(newWindowItem.keyEquivalentModifierMask.contains(.shift))
         XCTAssertFalse(newWindowItem.keyEquivalentModifierMask.contains(.control))
 
+        let newTabItem = try XCTUnwrap(fileMenu.items.first { $0.title == newTabTitle })
+        XCTAssertNil(newTabItem.submenu)
+        XCTAssertEqual(newTabItem.keyEquivalent, "t")
+        XCTAssertTrue(newTabItem.keyEquivalentModifierMask.contains(.command))
+        XCTAssertFalse(newTabItem.keyEquivalentModifierMask.contains(.option))
+
+        for (title, shortcut) in [(newMockWindowTitle, "n"), (newMockTabTitle, "t")] {
+            let alternate = try XCTUnwrap(fileMenu.items.first { $0.title == title })
+            XCTAssertTrue(alternate.isAlternate)
+            XCTAssertEqual(alternate.keyEquivalent, shortcut)
+            XCTAssertTrue(alternate.keyEquivalentModifierMask.contains(.command))
+            XCTAssertTrue(alternate.keyEquivalentModifierMask.contains(.option))
+        }
+
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
         XCTAssertEqual(
@@ -400,6 +426,45 @@ final class KastanAppTests: XCTestCase {
             english.localizedString(forKey: "New Window", value: nil, table: nil),
             "New Window"
         )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "New Mock Window", value: nil, table: nil),
+            "Nové mockové okno"
+        )
+        XCTAssertEqual(
+            english.localizedString(forKey: "New Mock Tab", value: nil, table: nil),
+            "New Mock Tab"
+        )
+    }
+
+    func testNestedProviderMenusKeepMockChoicesAsOptionAlternates() {
+        let mainMenu = NSMenu(title: "Main")
+        let fileMenu = NSMenu(title: "File")
+        let fileItem = NSMenuItem(title: "File", action: nil, keyEquivalent: "")
+        fileItem.submenu = fileMenu
+        mainMenu.addItem(fileItem)
+
+        let newWindowMenu = NSMenu(title: "New Window")
+        let newWindowItem = NSMenuItem(title: "New Window", action: nil, keyEquivalent: "")
+        newWindowItem.submenu = newWindowMenu
+        fileMenu.addItem(newWindowItem)
+
+        let regular = NSMenuItem(title: "IDOS", action: nil, keyEquivalent: "n")
+        regular.keyEquivalentModifierMask = [.command]
+        let mock = NSMenuItem(title: "Kaštan Mock", action: nil, keyEquivalent: "n")
+        mock.keyEquivalentModifierMask = [.command]
+        newWindowMenu.addItem(regular)
+        newWindowMenu.addItem(mock)
+
+        XCTAssertTrue(ApplicationMainMenu.menu(newWindowMenu, belongsTo: mainMenu))
+        ApplicationMainMenu.configureMockDataSourceAlternates(
+            in: fileMenu,
+            mockDataSourceDisplayName: "Kaštan Mock"
+        )
+
+        XCTAssertFalse(regular.isAlternate)
+        XCTAssertTrue(mock.isAlternate)
+        XCTAssertTrue(mock.keyEquivalentModifierMask.contains(.command))
+        XCTAssertTrue(mock.keyEquivalentModifierMask.contains(.option))
     }
 
     func testAppInformationCommandIsRemovedOnlyFromTheWindowMenu() {
@@ -4661,6 +4726,212 @@ final class KastanAppTests: XCTestCase {
             AppSection.available(for: descriptor),
             [.departures, .stationTimetables]
         )
+    }
+
+    func testMainWindowSceneValueKeepsSameProviderWindowsDistinctAndRestorable() throws {
+        let first = MainWindowSceneValue(
+            id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
+            dataSourceID: .idos
+        )
+        let second = MainWindowSceneValue(
+            id: UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!,
+            dataSourceID: .idos
+        )
+
+        XCTAssertNotEqual(first, second)
+        XCTAssertEqual(first.dataSourceID, second.dataSourceID)
+        XCTAssertEqual(
+            try JSONDecoder().decode(
+                MainWindowSceneValue.self,
+                from: JSONEncoder().encode(first)
+            ),
+            first
+        )
+    }
+
+    func testLastClosedMainWindowDataSourcePersistsMockAndRejectsRemovedSources() throws {
+        let suiteName = "cz.glutexo.kastan.tests.last-closed.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let preference = LastClosedMainWindowDataSource(defaults: defaults)
+        XCTAssertEqual(
+            preference.resolvedDataSourceID(in: .builtIn),
+            TransitDataSourceID.idos
+        )
+
+        preference.remember(.mock)
+        XCTAssertEqual(preference.dataSourceID, .mock)
+        XCTAssertEqual(
+            LastClosedMainWindowDataSource(defaults: defaults)
+                .resolvedDataSourceID(in: .builtIn),
+            TransitDataSourceID.mock
+        )
+
+        defaults.set("removed-provider", forKey: LastClosedMainWindowDataSource.storageKey)
+        XCTAssertEqual(
+            LastClosedMainWindowDataSource(defaults: defaults)
+                .resolvedDataSourceID(in: .builtIn),
+            TransitDataSourceID.idos
+        )
+    }
+
+    func testMainWindowCloseObserverRecordsOnlyItsWindowAtActualCloseTime() {
+        let observedWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 240),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        let otherWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 240),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        var currentDataSourceID = TransitDataSourceID.idos
+        var recordedDataSourceIDs: [TransitDataSourceID] = []
+        let coordinator = MainWindowCloseObserver.Coordinator {
+            recordedDataSourceIDs.append(currentDataSourceID)
+        }
+        coordinator.install(on: observedWindow)
+
+        NotificationCenter.default.post(
+            name: NSWindow.willCloseNotification,
+            object: otherWindow
+        )
+        XCTAssertTrue(recordedDataSourceIDs.isEmpty)
+
+        currentDataSourceID = .mock
+        NotificationCenter.default.post(
+            name: NSWindow.willCloseNotification,
+            object: observedWindow
+        )
+        XCTAssertEqual(recordedDataSourceIDs, [.mock])
+
+        coordinator.uninstall()
+        NotificationCenter.default.post(
+            name: NSWindow.willCloseNotification,
+            object: observedWindow
+        )
+        XCTAssertEqual(recordedDataSourceIDs, [.mock])
+    }
+
+    func testWindowCommandPolicyCountsOnlyRegularSourcesAndKeepsShortcutsRegular() throws {
+        let idos = AppSourceSelectionTestSource(
+            id: .idos,
+            name: "IDOS",
+            timetableIdentifier: "idos",
+            capabilities: [.timetables, .connections]
+        )
+        let municipal = AppSourceSelectionTestSource(
+            id: "municipal",
+            name: "Municipal Transit",
+            timetableIdentifier: "municipal",
+            capabilities: [.timetables, .departures]
+        )
+        let mock = AppSourceSelectionTestSource(
+            id: .mock,
+            name: "Kaštan Mock",
+            timetableIdentifier: "mock",
+            capabilities: [.timetables, .connections]
+        )
+        let singleRegularRegistry = try TransitDataSourceRegistry(
+            dataSources: [idos],
+            defaultDataSourceID: .idos,
+            explicitDataSources: [mock]
+        )
+        let multipleRegularRegistry = try TransitDataSourceRegistry(
+            dataSources: [municipal, idos],
+            defaultDataSourceID: .idos,
+            explicitDataSources: [mock]
+        )
+        let singlePolicy = AppWindowCommandPolicy(registry: singleRegularRegistry)
+        let multiplePolicy = AppWindowCommandPolicy(registry: multipleRegularRegistry)
+
+        XCTAssertFalse(singlePolicy.usesProviderSubmenus)
+        XCTAssertEqual(singlePolicy.regularDataSources.map(\.id), [.idos])
+        XCTAssertEqual(singlePolicy.mockDataSource?.id, .mock)
+        XCTAssertTrue(multiplePolicy.usesProviderSubmenus)
+        XCTAssertEqual(
+            multiplePolicy.preferredRegularDataSourceID(
+                focusedDataSourceID: "municipal",
+                lastClosedDataSourceID: .idos
+            ),
+            "municipal"
+        )
+        XCTAssertEqual(
+            multiplePolicy.preferredRegularDataSourceID(
+                focusedDataSourceID: .mock,
+                lastClosedDataSourceID: "municipal"
+            ),
+            "municipal"
+        )
+        XCTAssertEqual(
+            multiplePolicy.preferredRegularDataSourceID(
+                focusedDataSourceID: .mock,
+                lastClosedDataSourceID: .mock
+            ),
+            TransitDataSourceID.idos
+        )
+    }
+
+    func testExplicitMockCanInitializeAWindowButCannotEnterOrdinaryPickersOrFavorites() throws {
+        let idos = AppSourceSelectionTestSource(
+            id: .idos,
+            name: "IDOS",
+            timetableIdentifier: "idos",
+            capabilities: [.timetables, .connections]
+        )
+        let municipal = AppSourceSelectionTestSource(
+            id: "municipal",
+            name: "Municipal Transit",
+            timetableIdentifier: "municipal",
+            capabilities: [.timetables, .departures]
+        )
+        let mock = AppSourceSelectionTestSource(
+            id: .mock,
+            name: "Kaštan Mock",
+            timetableIdentifier: "mock",
+            capabilities: [.timetables, .connections]
+        )
+        let registry = try TransitDataSourceRegistry(
+            dataSources: [municipal, idos],
+            defaultDataSourceID: .idos,
+            explicitDataSources: [mock]
+        )
+        let selection = AppDataSourceSelection(
+            registry: registry,
+            initialDataSourceID: .mock
+        )
+
+        XCTAssertEqual(selection.selectedDataSourceID, .mock)
+        XCTAssertFalse(selection.showsSourceSelector)
+        XCTAssertEqual(Set(selection.timetables.map(\.dataSourceID)), [.idos, "municipal"])
+        XCTAssertFalse(selection.selectDataSource(.mock))
+
+        var section = AppSection.connections
+        let coordinator = MainWindowToolbarInstaller.Coordinator(
+            selection: Binding(get: { section }, set: { section = $0 }),
+            dataSourceSelection: .constant(.mock),
+            dataSourceDescriptors: registry.descriptors,
+            allowsDataSourceSelection: selection.showsSourceSelector,
+            openFavoriteTimetables: {},
+            openAppInformation: {}
+        )
+        XCTAssertFalse(
+            coordinator.toolbarDefaultItemIdentifiers(coordinator.toolbar).contains(.dataSource)
+        )
+        XCTAssertNil(coordinator.toolbar(
+            coordinator.toolbar,
+            itemForItemIdentifier: .dataSource,
+            willBeInsertedIntoToolbar: true
+        ))
+
+        XCTAssertTrue(selection.selectDataSource("municipal"))
+        XCTAssertEqual(selection.selectedDataSourceID, "municipal")
+        XCTAssertFalse(selection.selectDataSource(.mock))
     }
 
     func testMainWindowDataSourceSelectionStartsAtRegistryDefaultAndRebuildsProviderState() throws {

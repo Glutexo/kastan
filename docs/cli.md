@@ -337,12 +337,23 @@ swift run kastan --source idos connections Praha Beroun
 swift run kastan timetables --source=idos
 ```
 
-When `--source` is omitted, Kaštan uses the registry's declared default provider. The shipped registry currently
-contains only `IDOSDataSource`, so `idos` is both the sole available ID and the default; localized `--help` output
-reports the live available-ID list and default. An unknown ID or a missing option value produces a localized error
-that also lists the available IDs. Connection-specific flags such as `--direct`, `--via`, `--max-transfers`, and
-`--min-transfer-time` are accepted only when the selected provider advertises the corresponding
-`TransitConnectionOption`; otherwise Kaštan reports a localized error before making a provider request.
+When the registry contains one regular provider, `--source` is optional and Kaštan uses that provider by default.
+The shipped registry currently has only IDOS as a regular provider, so omitting the option selects `idos`. Once two
+or more regular providers are available, every command must select one explicitly. `--help` and `--version` remain
+available without a source; provider-neutral help then lists the regular IDs and marks `--source` as required.
+
+Kaštan also ships a deterministic mock source for automated tests. It is deliberately absent from the regular source
+list, never becomes the default, and does not make `--source` mandatory while IDOS remains the only regular provider.
+Tests can select it explicitly without making a network request:
+
+```sh
+swift run kastan --source mock timetables --format json
+```
+
+An unknown ID or a missing option value produces a localized error that lists the regular provider IDs.
+Connection-specific flags such as `--direct`, `--via`, `--max-transfers`, and `--min-transfer-time` are accepted only
+when the selected provider advertises the corresponding `TransitConnectionOption`; otherwise Kaštan reports a
+localized error before making a provider request.
 
 `CommandRunner` depends on the provider-neutral `TransitDataSourceRegistry`, resolves timetables from the selected
 provider's catalog, and checks the capability required by a command or native export. This composition boundary lets

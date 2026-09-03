@@ -34,6 +34,7 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
     @Binding var dataSourceSelection: TransitDataSourceID
     let sections: [AppSection]
     let dataSourceDescriptors: [TransitDataSourceDescriptor]
+    let allowsDataSourceSelection: Bool
     let openFavoriteTimetables: @MainActor () -> Void
     let openAppInformation: @MainActor () -> Void
 
@@ -42,6 +43,7 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
         sections: [AppSection] = AppSection.allCases,
         dataSourceSelection: Binding<TransitDataSourceID> = .constant(.idos),
         dataSourceDescriptors: [TransitDataSourceDescriptor] = [.idos],
+        allowsDataSourceSelection: Bool = true,
         openFavoriteTimetables: @escaping @MainActor () -> Void,
         openAppInformation: @escaping @MainActor () -> Void
     ) {
@@ -49,6 +51,7 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
         _dataSourceSelection = dataSourceSelection
         self.sections = sections
         self.dataSourceDescriptors = dataSourceDescriptors
+        self.allowsDataSourceSelection = allowsDataSourceSelection
         self.openFavoriteTimetables = openFavoriteTimetables
         self.openAppInformation = openAppInformation
     }
@@ -59,6 +62,7 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
             sections: sections,
             dataSourceSelection: $dataSourceSelection,
             dataSourceDescriptors: dataSourceDescriptors,
+            allowsDataSourceSelection: allowsDataSourceSelection,
             openFavoriteTimetables: openFavoriteTimetables,
             openAppInformation: openAppInformation
         )
@@ -77,6 +81,7 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
             sections: sections,
             dataSourceSelection: $dataSourceSelection,
             dataSourceDescriptors: dataSourceDescriptors,
+            allowsDataSourceSelection: allowsDataSourceSelection,
             openFavoriteTimetables: openFavoriteTimetables,
             openAppInformation: openAppInformation
         )
@@ -104,6 +109,7 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
         private var sections: [AppSection]
         private var dataSourceSelection: Binding<TransitDataSourceID>
         private var dataSourceDescriptors: [TransitDataSourceDescriptor]
+        private var allowsDataSourceSelection: Bool
         private var openFavoriteTimetables: () -> Void
         private var openAppInformation: () -> Void
         private weak var window: NSWindow?
@@ -125,6 +131,7 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
             sections: [AppSection] = AppSection.allCases,
             dataSourceSelection: Binding<TransitDataSourceID> = .constant(.idos),
             dataSourceDescriptors: [TransitDataSourceDescriptor] = [.idos],
+            allowsDataSourceSelection: Bool = true,
             openFavoriteTimetables: @escaping () -> Void,
             openAppInformation: @escaping () -> Void
         ) {
@@ -132,6 +139,7 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
             self.sections = sections
             self.dataSourceSelection = dataSourceSelection
             self.dataSourceDescriptors = dataSourceDescriptors
+            self.allowsDataSourceSelection = allowsDataSourceSelection
             self.openFavoriteTimetables = openFavoriteTimetables
             self.openAppInformation = openAppInformation
             super.init()
@@ -142,21 +150,24 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
             sections: [AppSection],
             dataSourceSelection: Binding<TransitDataSourceID>,
             dataSourceDescriptors: [TransitDataSourceDescriptor],
+            allowsDataSourceSelection: Bool = true,
             openFavoriteTimetables: @escaping () -> Void,
             openAppInformation: @escaping () -> Void
         ) {
             let sectionsChanged = self.sections != sections
             let descriptorsChanged = self.dataSourceDescriptors != dataSourceDescriptors
+            let availabilityChanged = self.allowsDataSourceSelection != allowsDataSourceSelection
             self.selection = selection
             self.sections = sections
             self.dataSourceSelection = dataSourceSelection
             self.dataSourceDescriptors = dataSourceDescriptors
+            self.allowsDataSourceSelection = allowsDataSourceSelection
             self.openFavoriteTimetables = openFavoriteTimetables
             self.openAppInformation = openAppInformation
             if sectionsChanged {
                 refreshModeItem()
             }
-            if descriptorsChanged {
+            if descriptorsChanged || availabilityChanged {
                 refreshDataSourceItem()
             }
             updateModeControlState()
@@ -358,7 +369,7 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
         }
 
         private var showsDataSourceSelector: Bool {
-            dataSourceDescriptors.count > 1
+            allowsDataSourceSelection && dataSourceDescriptors.count > 1
         }
 
         /// Rebuilds the segmented control when a newly selected provider advertises other modes.

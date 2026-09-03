@@ -102,15 +102,23 @@ struct CommandRunner {
 
             let sourceInvocation = try dataSourceInvocation(arguments)
             arguments = sourceInvocation.arguments
-            let activeRunner = CommandRunner(activeDataSource: sourceInvocation.dataSource, copying: self)
 
             if arguments.contains("--help") || arguments.contains("-h") {
-                return activeRunner.help(localization: localization)
+                guard let dataSource = sourceInvocation.dataSource else {
+                    return help(localization: localization, includesSelectedDataSource: false)
+                }
+                return CommandRunner(activeDataSource: dataSource, copying: self)
+                    .help(localization: localization)
             }
 
             if arguments.contains("--version") {
                 return version
             }
+
+            guard let dataSource = sourceInvocation.dataSource else {
+                throw CommandError.sourceRequired(availableDataSourceIDs)
+            }
+            let activeRunner = CommandRunner(activeDataSource: dataSource, copying: self)
 
             guard let command = arguments.first else {
                 return """
@@ -153,10 +161,13 @@ struct CommandRunner {
         }
     }
 
-    /// Removes the provider selector before command-specific option parsing and resolves its stable ID.
+    /// Removes the provider selector before command-specific parsing and resolves an explicit or sole regular source.
+    ///
+    /// Multiple regular sources intentionally remain unresolved so help and version can work without a selection;
+    /// commands turn that unresolved state into a localized required-source error.
     private func dataSourceInvocation(
         _ arguments: [String]
-    ) throws -> (arguments: [String], dataSource: any TransitDataSource) {
+    ) throws -> (arguments: [String], dataSource: (any TransitDataSource)?) {
         var remaining: [String] = []
         var requestedSourceID: TransitDataSourceID?
         var index = 0
@@ -195,7 +206,10 @@ struct CommandRunner {
         }
 
         guard let requestedSourceID else {
-            return (remaining, dataSourceRegistry.defaultDataSource)
+            let dataSource = dataSourceRegistry.descriptors.count == 1
+                ? dataSourceRegistry.defaultDataSource
+                : nil
+            return (remaining, dataSource)
         }
         guard let dataSource = dataSourceRegistry.dataSource(for: requestedSourceID) else {
             throw CommandError.unknownSource(requestedSourceID.rawValue, availableDataSourceIDs)
@@ -208,15 +222,35 @@ struct CommandRunner {
     }
 
     /// Adds the live registry catalog to localized usage text so provider IDs remain discoverable.
-    private func help(localization: Localization) -> String {
-        let defaultTimetable = dataSource.defaultTimetable
+    private func help(
+        localization: Localization,
+        includesSelectedDataSource: Bool = true
+    ) -> String {
+        let sourceDescription = if dataSourceRegistry.descriptors.count == 1 {
+            localization.text(
+                .helpSourceOptional,
+                availableDataSourceIDs,
+                dataSourceRegistry.defaultDataSourceID.rawValue
+            )
+        } else {
+            localization.text(.helpSourceRequired, availableDataSourceIDs)
+        }
+        let selectedDataSourceDescription: String
+        if includesSelectedDataSource {
+            let defaultTimetable = dataSource.defaultTimetable
+            selectedDataSourceDescription = localization.text(
+                .helpDefaultTimetable,
+                dataSource.descriptor.displayName,
+                localization.timetableName(defaultTimetable),
+                defaultTimetable.identifier
+            ) + "\n"
+        } else {
+            selectedDataSourceDescription = ""
+        }
         return localization.text(
             .help,
-            availableDataSourceIDs,
-            dataSourceRegistry.defaultDataSourceID.rawValue,
-            dataSource.descriptor.displayName,
-            localization.timetableName(defaultTimetable),
-            defaultTimetable.identifier
+            sourceDescription,
+            selectedDataSourceDescription
         )
     }
 
@@ -953,6 +987,7 @@ private enum CommandError: Error {
     case missingLanguage(String)
     case unknownSource(String, String)
     case missingSource(String, String)
+    case sourceRequired(String)
     case unsupportedConnectionOption(String, providerName: String, providerID: String)
     case invalidOutputFormat(String)
     case invalidNonNegativeInteger(name: String, value: String)
@@ -975,6 +1010,8 @@ private enum CommandError: Error {
             return localization.text(.unknownSource, value, available)
         case .missingSource(let option, let available):
             return localization.text(.missingSource, option, available)
+        case .sourceRequired(let available):
+            return localization.text(.sourceRequired, available)
         case .unsupportedConnectionOption(let option, let providerName, let providerID):
             return localization.text(.unsupportedConnectionOption, option, providerName, providerID)
         case .invalidOutputFormat(let value):

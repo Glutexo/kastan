@@ -144,6 +144,8 @@
 "Location access was denied. Allow Kaštan to use your location in System Settings." = "Přístup k poloze byl zamítnut. Povolte Kaštanu používat polohu v Nastavení systému.";
 "Location Services are turned off. Enable them in System Settings to use My location." = "Polohové služby jsou vypnuté. Zapněte je v Nastavení systému, chcete-li použít volbu Moje poloha.";
 "Lockout timetable" = "Výlukový jízdní řád";
+"New Mock Tab" = "Nový mockový panel";
+"New Mock Window" = "Nové mockové okno";
 "New Tab" = "Nový panel";
 "New Window" = "Nové okno";
 "Now" = "Nyní";

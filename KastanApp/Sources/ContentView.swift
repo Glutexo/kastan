@@ -1,3 +1,4 @@
+import AppKit
 import Kastan
 import SwiftUI
 
@@ -273,13 +274,18 @@ final class AppDataSourceSelection: ObservableObject {
     let timetables: [TransitTimetable]
     @Published private(set) var workspace: AppDataSourceWorkspace
 
-    init(registry: TransitDataSourceRegistry) {
+    init(
+        registry: TransitDataSourceRegistry,
+        initialDataSourceID: TransitDataSourceID? = nil
+    ) {
         self.registry = registry
         descriptors = registry.descriptors
         timetables = registry.descriptors.flatMap { descriptor in
             registry.dataSource(for: descriptor.id)?.timetables ?? []
         }
-        workspace = AppDataSourceWorkspace(client: registry.defaultDataSource)
+        let initialDataSource = initialDataSourceID.flatMap(registry.dataSource(for:))
+            ?? registry.defaultDataSource
+        workspace = AppDataSourceWorkspace(client: initialDataSource)
     }
 
     var selectedDataSourceID: TransitDataSourceID {
@@ -287,13 +293,17 @@ final class AppDataSourceSelection: ObservableObject {
     }
 
     var showsSourceSelector: Bool {
-        descriptors.count > 1
+        descriptors.count > 1 && descriptors.contains { $0.id == selectedDataSourceID }
     }
 
-    /// Rejects unknown source IDs and creates fresh search state for every accepted provider change.
+    /// Accepts ordinary picker choices and creates fresh search state for every provider change.
+    ///
+    /// Explicit-only providers can initialize a window after the corresponding special action, but never leak into
+    /// the ordinary toolbar picker.
     @discardableResult
     func selectDataSource(_ id: TransitDataSourceID) -> Bool {
         guard id != selectedDataSourceID,
+              descriptors.contains(where: { $0.id == id }),
               let dataSource = registry.dataSource(for: id)
         else {
             return false
@@ -304,24 +314,106 @@ final class AppDataSourceSelection: ObservableObject {
     }
 }
 
+/// Observes the lifetime of exactly one main AppKit window without conflating view disappearance with closure.
+struct MainWindowCloseObserver: NSViewRepresentable {
+    let onClose: @MainActor () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onClose: onClose)
+    }
+
+    func makeNSView(context: Context) -> AttachmentView {
+        let view = AttachmentView()
+        view.coordinator = context.coordinator
+        return view
+    }
+
+    func updateNSView(_ nsView: AttachmentView, context: Context) {
+        context.coordinator.onClose = onClose
+        nsView.coordinator = context.coordinator
+        context.coordinator.install(on: nsView.window)
+    }
+
+    static func dismantleNSView(_ nsView: AttachmentView, coordinator: Coordinator) {
+        coordinator.uninstall()
+        nsView.coordinator = nil
+    }
+
+    @MainActor
+    final class AttachmentView: NSView {
+        weak var coordinator: Coordinator?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            coordinator?.install(on: window)
+        }
+    }
+
+    @MainActor
+    final class Coordinator: NSObject {
+        var onClose: @MainActor () -> Void
+        private weak var window: NSWindow?
+
+        init(onClose: @escaping @MainActor () -> Void) {
+            self.onClose = onClose
+        }
+
+        func install(on window: NSWindow?) {
+            guard self.window !== window else { return }
+            uninstall()
+            guard let window else { return }
+
+            self.window = window
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(windowWillClose(_:)),
+                name: NSWindow.willCloseNotification,
+                object: window
+            )
+        }
+
+        func uninstall() {
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSWindow.willCloseNotification,
+                object: window
+            )
+            window = nil
+        }
+
+        @objc private func windowWillClose(_ notification: Notification) {
+            onClose()
+        }
+    }
+}
+
 /// Selects one provider per main window while retaining independent state among its search modes.
 struct ContentView: View {
+    @Binding private var sceneValue: MainWindowSceneValue
     @StateObject private var dataSourceSelection: AppDataSourceSelection
+    private let lastClosedDataSource: LastClosedMainWindowDataSource
     private let showsConnectionBadges: Bool
     private let showsItemDetails: Bool
     private let showsServiceInformationText: Bool
     private let showsStopNoteText: Bool
 
     init(
+        sceneValue: Binding<MainWindowSceneValue>,
         dataSources: TransitDataSourceRegistry,
+        lastClosedDataSource: LastClosedMainWindowDataSource,
         showsConnectionBadges: Bool,
         showsItemDetails: Bool,
         showsServiceInformationText: Bool,
         showsStopNoteText: Bool
     ) {
+        _sceneValue = sceneValue
         _dataSourceSelection = StateObject(
-            wrappedValue: AppDataSourceSelection(registry: dataSources)
+            wrappedValue: AppDataSourceSelection(
+                registry: dataSources,
+                initialDataSourceID: sceneValue.wrappedValue.dataSourceID
+            )
         )
+        self.lastClosedDataSource = lastClosedDataSource
         self.showsConnectionBadges = showsConnectionBadges
         self.showsItemDetails = showsItemDetails
         self.showsServiceInformationText = showsServiceInformationText
@@ -334,14 +426,31 @@ struct ContentView: View {
             dataSourceDescriptors: dataSourceSelection.descriptors,
             selectedDataSourceID: Binding(
                 get: { dataSourceSelection.selectedDataSourceID },
-                set: { dataSourceSelection.selectDataSource($0) }
+                set: { dataSourceID in
+                    guard dataSourceSelection.selectDataSource(dataSourceID) else { return }
+                    sceneValue.dataSourceID = dataSourceID
+                }
             ),
+            allowsDataSourceSelection: dataSourceSelection.showsSourceSelector,
             showsConnectionBadges: showsConnectionBadges,
             showsItemDetails: showsItemDetails,
             showsServiceInformationText: showsServiceInformationText,
             showsStopNoteText: showsStopNoteText
         )
         .id(dataSourceSelection.workspace.id)
+        .background {
+            MainWindowCloseObserver {
+                lastClosedDataSource.remember(dataSourceSelection.selectedDataSourceID)
+            }
+            .frame(width: 0, height: 0)
+        }
+        .onAppear {
+            // A restored provider can disappear between app versions. Keep the persisted scene value aligned with
+            // the registry fallback selected by the workspace in that case.
+            if sceneValue.dataSourceID != dataSourceSelection.selectedDataSourceID {
+                sceneValue.dataSourceID = dataSourceSelection.selectedDataSourceID
+            }
+        }
     }
 }
 
@@ -351,6 +460,7 @@ private struct ProviderSearchWorkspaceView: View {
     @ObservedObject var workspace: AppDataSourceWorkspace
     let dataSourceDescriptors: [TransitDataSourceDescriptor]
     @Binding var selectedDataSourceID: TransitDataSourceID
+    let allowsDataSourceSelection: Bool
     let showsConnectionBadges: Bool
     let showsItemDetails: Bool
     let showsServiceInformationText: Bool
@@ -366,6 +476,7 @@ private struct ProviderSearchWorkspaceView: View {
                     sections: workspace.availableSections,
                     dataSourceSelection: $selectedDataSourceID,
                     dataSourceDescriptors: dataSourceDescriptors,
+                    allowsDataSourceSelection: allowsDataSourceSelection,
                     openFavoriteTimetables: { openWindow(id: AppWindow.favoriteTimetables) },
                     openAppInformation: { openWindow(id: AppWindow.information) }
                 )

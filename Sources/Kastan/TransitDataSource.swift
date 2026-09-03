@@ -20,6 +20,9 @@ public struct TransitDataSourceID: RawRepresentable, Codable, Equatable, Hashabl
 
     public static let idos: Self = "idos"
 
+    /// Kaštan's deterministic provider for explicit testing and interface previews.
+    public static let mock: Self = "mock"
+
     public var description: String {
         rawValue
     }
@@ -1001,14 +1004,22 @@ public extension IDOSClienting {
 /// Resolves registered providers by stable source ID without coupling consumers to concrete implementations.
 public struct TransitDataSourceRegistry: Sendable {
     private let dataSources: [TransitDataSourceID: any TransitDataSource]
+    private let regularDataSourceIDs: Set<TransitDataSourceID>
+    private let explicitDataSourceIDs: Set<TransitDataSourceID>
     public let defaultDataSourceID: TransitDataSourceID
 
+    /// Registers ordinary user-facing providers and optional providers that require an explicit testing choice.
+    ///
+    /// Explicit providers remain resolvable by stable ID, but do not affect provider counts, default selection, or
+    /// ordinary provider pickers. The default must always belong to `dataSources` rather than
+    /// `explicitDataSources`.
     public init(
         dataSources: [any TransitDataSource],
-        defaultDataSourceID: TransitDataSourceID
+        defaultDataSourceID: TransitDataSourceID,
+        explicitDataSources: [any TransitDataSource] = []
     ) throws {
         var indexed: [TransitDataSourceID: any TransitDataSource] = [:]
-        for dataSource in dataSources {
+        for dataSource in dataSources + explicitDataSources {
             let id = dataSource.descriptor.id
             guard indexed[id] == nil else {
                 throw TransitDataSourceRegistryError.duplicate(id)
@@ -1047,24 +1058,42 @@ public struct TransitDataSourceRegistry: Sendable {
             }
             indexed[id] = dataSource
         }
-        guard indexed[defaultDataSourceID] != nil else {
+        let regularDataSourceIDs = Set(dataSources.map(\.descriptor.id))
+        guard regularDataSourceIDs.contains(defaultDataSourceID) else {
+            if indexed[defaultDataSourceID] != nil {
+                throw TransitDataSourceRegistryError.defaultDataSourceRequiresExplicitSelection(
+                    defaultDataSourceID
+                )
+            }
             throw TransitDataSourceRegistryError.missingDefault(defaultDataSourceID)
         }
 
         self.dataSources = indexed
+        self.regularDataSourceIDs = regularDataSourceIDs
+        explicitDataSourceIDs = Set(explicitDataSources.map(\.descriptor.id))
         self.defaultDataSourceID = defaultDataSourceID
     }
 
     public static let builtIn: Self = {
         do {
-            return try Self(dataSources: [IDOSDataSource()], defaultDataSourceID: .idos)
+            return try Self(
+                dataSources: [IDOSDataSource()],
+                defaultDataSourceID: .idos,
+                explicitDataSources: [MockTransitDataSource()]
+            )
         } catch {
             preconditionFailure("Invalid built-in data-source registry: \(error.localizedDescription)")
         }
     }()
 
+    /// Ordinary providers offered without a special testing gesture or command-line choice.
     public var descriptors: [TransitDataSourceDescriptor] {
-        dataSources.values.map(\.descriptor).sorted { $0.id.rawValue < $1.id.rawValue }
+        descriptors(for: regularDataSourceIDs)
+    }
+
+    /// Providers available only through an explicit testing choice.
+    public var explicitDataSourceDescriptors: [TransitDataSourceDescriptor] {
+        descriptors(for: explicitDataSourceIDs)
     }
 
     public var defaultDataSource: any TransitDataSource {
@@ -1073,6 +1102,13 @@ public struct TransitDataSourceRegistry: Sendable {
 
     public func dataSource(for id: TransitDataSourceID) -> (any TransitDataSource)? {
         dataSources[id]
+    }
+
+    private func descriptors(
+        for ids: Set<TransitDataSourceID>
+    ) -> [TransitDataSourceDescriptor] {
+        ids.compactMap { dataSources[$0]?.descriptor }
+            .sorted { $0.id.rawValue < $1.id.rawValue }
     }
 }
 
@@ -1087,6 +1123,7 @@ public enum TransitDataSourceRegistryError: LocalizedError, Equatable, Sendable 
     case duplicateTimetableIdentifier(source: TransitDataSourceID, identifier: String)
     case defaultTimetableMissingFromCatalog(source: TransitDataSourceID, identifier: String)
     case missingDefault(TransitDataSourceID)
+    case defaultDataSourceRequiresExplicitSelection(TransitDataSourceID)
     case timetableBelongsToDifferentSource(
         expected: TransitDataSourceID,
         actual: TransitDataSourceID,
@@ -1104,6 +1141,8 @@ public enum TransitDataSourceRegistryError: LocalizedError, Equatable, Sendable 
             return "Default timetable \(identifier) is not present in the catalog for \(source.rawValue)."
         case .missingDefault(let id):
             return "Default data source is not registered: \(id.rawValue)."
+        case .defaultDataSourceRequiresExplicitSelection(let id):
+            return "Default data source requires explicit selection: \(id.rawValue)."
         case .timetableBelongsToDifferentSource(let expected, let actual, let identifier, let role):
             return "The \(role.rawValue) timetable \(identifier) belongs to \(actual.rawValue), not \(expected.rawValue)."
         }

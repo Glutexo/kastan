@@ -19,12 +19,121 @@ enum AppWindow {
     static let serviceDetail = "service-detail"
 }
 
+/// Identifies one independently restorable main window while retaining its provider choice.
+///
+/// The unique identifier keeps two windows that use the same provider distinct when they are opened through
+/// SwiftUI's value-based window API. The provider identifier remains mutable so a regular provider change can be
+/// persisted as part of the scene's restoration value.
+struct MainWindowSceneValue: Codable, Hashable {
+    let id: UUID
+    var dataSourceID: TransitDataSourceID
+
+    init(id: UUID = UUID(), dataSourceID: TransitDataSourceID) {
+        self.id = id
+        self.dataSourceID = dataSourceID
+    }
+}
+
+/// Remembers the provider from the main window that actually closed most recently.
+@MainActor
+final class LastClosedMainWindowDataSource: ObservableObject {
+    static let storageKey = "lastClosedMainWindowDataSourceID"
+
+    @Published private(set) var dataSourceID: TransitDataSourceID?
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        dataSourceID = defaults.string(forKey: Self.storageKey).map { TransitDataSourceID($0) }
+    }
+
+    /// Records regular and explicit-only providers alike because restoration follows the last closed window exactly.
+    func remember(_ dataSourceID: TransitDataSourceID) {
+        guard self.dataSourceID != dataSourceID else { return }
+        self.dataSourceID = dataSourceID
+        defaults.set(dataSourceID.rawValue, forKey: Self.storageKey)
+    }
+
+    /// Rejects stale persisted identifiers after a provider is removed or renamed.
+    func resolvedDataSourceID(in registry: TransitDataSourceRegistry) -> TransitDataSourceID {
+        guard let dataSourceID, registry.dataSource(for: dataSourceID) != nil else {
+            return registry.defaultDataSourceID
+        }
+        return dataSourceID
+    }
+}
+
+/// Describes how the File menu presents provider-specific main-window creation.
+struct AppWindowCommandPolicy {
+    let regularDataSources: [TransitDataSourceDescriptor]
+    let mockDataSource: TransitDataSourceDescriptor?
+    let defaultDataSourceID: TransitDataSourceID
+
+    init(registry: TransitDataSourceRegistry) {
+        regularDataSources = registry.descriptors
+        mockDataSource = registry.explicitDataSourceDescriptors.first { $0.id == .mock }
+        defaultDataSourceID = registry.defaultDataSourceID
+    }
+
+    var usesProviderSubmenus: Bool {
+        regularDataSources.count > 1
+    }
+
+    /// Keeps the familiar shortcuts useful without ever choosing an explicit-only provider implicitly.
+    func preferredRegularDataSourceID(
+        focusedDataSourceID: TransitDataSourceID?,
+        lastClosedDataSourceID: TransitDataSourceID?
+    ) -> TransitDataSourceID {
+        let regularIDs = Set(regularDataSources.map(\.id))
+        if let focusedDataSourceID, regularIDs.contains(focusedDataSourceID) {
+            return focusedDataSourceID
+        }
+        if let lastClosedDataSourceID, regularIDs.contains(lastClosedDataSourceID) {
+            return lastClosedDataSourceID
+        }
+        return defaultDataSourceID
+    }
+}
+
+/// Distinguishes the two native destinations that share provider-selection behavior.
+private enum MainWindowCreationKind {
+    case window
+    case tab
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .window: "New Window"
+        case .tab: "New Tab"
+        }
+    }
+
+    var mockTitle: LocalizedStringKey {
+        switch self {
+        case .window: "New Mock Window"
+        case .tab: "New Mock Tab"
+        }
+    }
+
+    var shortcut: KeyEquivalent {
+        switch self {
+        case .window: "n"
+        case .tab: "t"
+        }
+    }
+}
+
 /// Performs native tab and window operations for the active macOS window.
 @MainActor
 enum AppWindowActions {
     /// Creates a fresh main search window and joins it to the active window as a native tab.
-    static func newTab(openMainWindow: () -> Void) {
-        guard let sourceWindow = NSApplication.shared.keyWindow else { return }
+    static func newTab(
+        sourceWindow: NSWindow? = NSApplication.shared.keyWindow,
+        openMainWindow: () -> Void
+    ) {
+        guard let sourceWindow else {
+            openMainWindow()
+            return
+        }
         let existingWindows = Set(NSApplication.shared.windows.map(ObjectIdentifier.init))
 
         openMainWindow()
@@ -89,12 +198,20 @@ enum AppWindowActions {
 final class ApplicationMainMenu: NSObject {
     static let shared = ApplicationMainMenu()
     private var cleanupScheduled = false
+    private var mockDataSourceDisplayName: String?
 
-    func install() {
+    func install(mockDataSourceDisplayName: String? = nil) {
+        self.mockDataSourceDisplayName = mockDataSourceDisplayName
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(menuDidAddItem(_:)),
             name: NSMenu.didAddItemNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(menuDidBeginTracking(_:)),
+            name: NSMenu.didBeginTrackingNotification,
             object: nil
         )
 
@@ -103,10 +220,19 @@ final class ApplicationMainMenu: NSObject {
 
     @objc private func menuDidAddItem(_ notification: Notification) {
         guard let menu = notification.object as? NSMenu,
-              menu.supermenu === NSApplication.shared.mainMenu
+              Self.menu(menu, belongsTo: NSApplication.shared.mainMenu)
         else { return }
 
         scheduleCleanup()
+    }
+
+    /// Reapplies native alternates synchronously after SwiftUI lazily rebuilds a provider submenu.
+    @objc private func menuDidBeginTracking(_ notification: Notification) {
+        guard let menu = notification.object as? NSMenu,
+              Self.menu(menu, belongsTo: NSApplication.shared.mainMenu)
+        else { return }
+
+        configureMockDataSourceAlternates(in: menu)
     }
 
     private func scheduleCleanup() {
@@ -123,9 +249,58 @@ final class ApplicationMainMenu: NSObject {
                     isWindowsMenu: isWindowsMenu
                 )
                 applyFavoriteTimetablesIcon(to: menu, isWindowsMenu: isWindowsMenu)
+                configureMockDataSourceAlternates(in: menu)
                 removeRedundantSeparators(from: menu)
             }
         }
+    }
+
+    /// Uses AppKit's native alternate-item behavior on every supported macOS version.
+    ///
+    /// SwiftUI exposes modifier-key alternates only on newer systems. The command buttons are deliberately emitted
+    /// beside their regular counterparts and this pass marks the mock actions as native Option alternates.
+    private func configureMockDataSourceAlternates(in menu: NSMenu) {
+        Self.configureMockDataSourceAlternates(
+            in: menu,
+            mockDataSourceDisplayName: mockDataSourceDisplayName
+        )
+    }
+
+    static func configureMockDataSourceAlternates(
+        in menu: NSMenu,
+        mockDataSourceDisplayName: String?
+    ) {
+        let directTitles = [
+            AppLocalization.string("New Mock Window"),
+            AppLocalization.string("New Mock Tab"),
+        ]
+
+        for item in menu.items {
+            if directTitles.contains(item.title) || item.title == mockDataSourceDisplayName {
+                makeOptionAlternate(item)
+            }
+
+            guard let submenu = item.submenu else { continue }
+            configureMockDataSourceAlternates(
+                in: submenu,
+                mockDataSourceDisplayName: mockDataSourceDisplayName
+            )
+        }
+    }
+
+    static func menu(_ menu: NSMenu, belongsTo rootMenu: NSMenu?) -> Bool {
+        guard let rootMenu else { return false }
+        var candidate: NSMenu? = menu
+        while let current = candidate {
+            if current === rootMenu { return true }
+            candidate = current.supermenu
+        }
+        return false
+    }
+
+    private static func makeOptionAlternate(_ item: NSMenuItem) {
+        item.isAlternate = true
+        item.keyEquivalentModifierMask.insert(.option)
     }
 
     private func removeGenericCloseCommands(from menu: NSMenu) {
@@ -186,20 +361,22 @@ final class ApplicationMainMenu: NSObject {
 /// Gives the primary WindowGroup a complete, unambiguous set of File menu commands.
 struct AppWindowCommands: Commands {
     @Environment(\.openWindow) private var openWindow
+    @FocusedValue(\.activeDataSourceDescriptor) private var activeDataSourceDescriptor
+    @ObservedObject private var lastClosedDataSource: LastClosedMainWindowDataSource
+    private let policy: AppWindowCommandPolicy
+
+    init(
+        dataSources: TransitDataSourceRegistry,
+        lastClosedDataSource: LastClosedMainWindowDataSource
+    ) {
+        policy = AppWindowCommandPolicy(registry: dataSources)
+        _lastClosedDataSource = ObservedObject(wrappedValue: lastClosedDataSource)
+    }
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("New Window") {
-                openWindow(id: AppWindow.main)
-            }
-            .keyboardShortcut("n")
-
-            Button("New Tab") {
-                AppWindowActions.newTab {
-                    openWindow(id: AppWindow.main)
-                }
-            }
-            .keyboardShortcut("t")
+            creationCommand(.window)
+            creationCommand(.tab)
 
             Divider()
 
@@ -212,6 +389,75 @@ struct AppWindowCommands: Commands {
                 AppWindowActions.closeWindow()
             }
             .keyboardShortcut("w", modifiers: [.command, .shift])
+        }
+    }
+
+    @ViewBuilder
+    private func creationCommand(_ kind: MainWindowCreationKind) -> some View {
+        if policy.usesProviderSubmenus {
+            Menu(kind.title) {
+                providerChoices(for: kind)
+            }
+        } else if let dataSource = policy.regularDataSources.first {
+            creationButton(kind, dataSource: dataSource, title: kind.title)
+                .keyboardShortcut(kind.shortcut)
+
+            if let mockDataSource = policy.mockDataSource {
+                creationButton(kind, dataSource: mockDataSource, title: kind.mockTitle)
+                    .keyboardShortcut(kind.shortcut, modifiers: [.command, .option])
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func providerChoices(for kind: MainWindowCreationKind) -> some View {
+        let preferredID = policy.preferredRegularDataSourceID(
+            focusedDataSourceID: activeDataSourceDescriptor?.id,
+            lastClosedDataSourceID: lastClosedDataSource.dataSourceID
+        )
+
+        ForEach(policy.regularDataSources, id: \.id) { dataSource in
+            if dataSource.id == preferredID {
+                creationButton(
+                    kind,
+                    dataSource: dataSource,
+                    title: LocalizedStringKey(dataSource.displayName)
+                )
+                .keyboardShortcut(kind.shortcut)
+
+                if let mockDataSource = policy.mockDataSource {
+                    creationButton(
+                        kind,
+                        dataSource: mockDataSource,
+                        title: LocalizedStringKey(mockDataSource.displayName)
+                    )
+                    .keyboardShortcut(kind.shortcut, modifiers: [.command, .option])
+                }
+            } else {
+                creationButton(
+                    kind,
+                    dataSource: dataSource,
+                    title: LocalizedStringKey(dataSource.displayName)
+                )
+            }
+        }
+    }
+
+    private func creationButton(
+        _ kind: MainWindowCreationKind,
+        dataSource: TransitDataSourceDescriptor,
+        title: LocalizedStringKey
+    ) -> some View {
+        Button(title) {
+            let sceneValue = MainWindowSceneValue(dataSourceID: dataSource.id)
+            switch kind {
+            case .window:
+                openWindow(id: AppWindow.main, value: sceneValue)
+            case .tab:
+                AppWindowActions.newTab {
+                    openWindow(id: AppWindow.main, value: sceneValue)
+                }
+            }
         }
     }
 }
@@ -718,16 +964,23 @@ struct KastanApp: App {
     private var showsMunicipalitySuggestions = PlaceSuggestionVisibilityPreference.defaultValue
     /// Registers concrete providers once and routes restorable results back to the source that issued them.
     private let dataSources = TransitDataSourceRegistry.builtIn
+    @StateObject private var lastClosedDataSource = LastClosedMainWindowDataSource()
 
     init() {
         SymbolTextPreference.migrateLegacyValues()
-        ApplicationMainMenu.shared.install()
+        ApplicationMainMenu.shared.install(
+            mockDataSourceDisplayName: dataSources.explicitDataSourceDescriptors
+                .first { $0.id == .mock }?
+                .displayName
+        )
     }
 
     var body: some Scene {
-        WindowGroup(id: AppWindow.main) {
+        WindowGroup(id: AppWindow.main, for: MainWindowSceneValue.self) { sceneValue in
             ContentView(
+                sceneValue: sceneValue,
                 dataSources: dataSources,
+                lastClosedDataSource: lastClosedDataSource,
                 showsConnectionBadges: showsConnectionBadges,
                 showsItemDetails: showsItemDetails,
                 showsServiceInformationText: showsSymbolsAsText,
@@ -743,10 +996,17 @@ struct KastanApp: App {
                     )
                 )
                 .frame(minWidth: Self.minimumMainWindowWidth, minHeight: 520)
+        } defaultValue: {
+            MainWindowSceneValue(
+                dataSourceID: lastClosedDataSource.resolvedDataSourceID(in: dataSources)
+            )
         }
         .defaultSize(width: Self.defaultMainWindowWidth, height: 720)
         .commands {
-            AppWindowCommands()
+            AppWindowCommands(
+                dataSources: dataSources,
+                lastClosedDataSource: lastClosedDataSource
+            )
             ResultDetailCommands()
             AppSectionCommands(
                 showsConnectionBadges: $showsConnectionBadges,

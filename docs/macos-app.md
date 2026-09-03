@@ -3,17 +3,27 @@
 [← Documentation](README.md)
 
 Kaštan includes a native SwiftUI application for macOS 13 or newer. It imports the `Kastan` library directly and
-is composed against `TransitDataSource`; IDOS is currently its only built-in source. The toolbar and View menu show
+is composed against `TransitDataSource`; IDOS is currently its only ordinary built-in source. The toolbar and View menu show
 only search modes advertised by the active source, while result menus and toolbars omit unsupported email, calendar,
 PDF, and service-detail actions. Provider-owned timetable and result identities remain qualified during window
 restoration, favorites, paging, and export.
 
 Each main window owns its selected data source and its complete search workspace. A source picker appears in the
-toolbar only when the app is composed with more than one provider; with the current single built-in provider, IDOS is
-selected directly and the picker stays hidden. Changing the source starts a fresh workspace for that window, so query
-values, results, paging state, and the active search mode never cross provider boundaries. Other main windows retain
-their own selections. Favorite timetables from every registered provider remain available in the shared manager and
-show their source when more than one provider is registered.
+toolbar only when the app is composed with more than one ordinary provider; with the current single ordinary built-in
+provider, IDOS is selected directly and the picker stays hidden. Changing the source starts a fresh workspace for that
+window, so query values, results, paging state, and the active search mode never cross provider boundaries. Other main
+windows retain their own selections. The File menu's New Window and New Tab commands remain direct while one ordinary
+provider is available and become provider submenus when there are more; their Command shortcuts use the focused
+ordinary provider, then the last closed ordinary provider, and finally the registry default. Holding Option reveals
+Kaštan's deterministic mock provider as native alternate New Window and New Tab choices. The mock never appears in an
+ordinary toolbar picker or the favorite-timetable catalog, but an explicitly opened mock window identifies and retains
+that source.
+
+macOS restores every main window and native tab together with its provider choice. If there is no window to restore,
+the initial window uses the provider from the main window that closed most recently, including an explicitly selected
+mock provider. If that provider is no longer registered, the registry default is used. With the current ordinary
+catalog that default remains IDOS. Favorite timetables from every ordinary provider remain available in the shared
+manager and show their source when more than one ordinary provider is registered.
 
 ## Features
 
@@ -170,8 +180,9 @@ show their source when more than one provider is registered.
   results and removes duplicate rows. If connection paging fails after its IDOS session expires, the error banner
   can repeat the unchanged search, replace the stale list with progress, and establish a fresh paging session.
 - Native tabs and windows, including independent favorite-timetable, complete-connection, and resizable
-  service-route windows. The File menu's New Window command always opens a fresh primary search window; supporting
-  detail scenes open only from the related result and never appear as generic new-window choices. A connection opened
+  service-route windows. Every provider-specific File menu action opens a fresh primary search window or tab; even two
+  windows for the same provider retain distinct restorable identities. Supporting detail scenes open only from the
+  related result and never appear as generic new-window choices. A connection opened
   in its own window presents its email, export, and sharing actions as
   individually visible controls in the native toolbar instead of repeating the result-card action menu, and
   each of its services can still open a separate complete route. The active connection or service detail repeats

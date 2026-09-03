@@ -31,6 +31,13 @@ func expectTransitDataSourceContract(
         )
     }
 
+    @Test func explicitMockProvider() {
+        expectTransitDataSourceContract(
+            MockTransitDataSource(),
+            connectionOptions: []
+        )
+    }
+
     @Test func customProviderWithNoImpliedOptions() {
         expectTransitDataSourceContract(
             MunicipalTransitDataSource(),
@@ -277,9 +284,117 @@ func expectTransitDataSourceContract(
 
     #expect(registry.defaultDataSourceID == .idos)
     #expect(registry.descriptors == [.idos])
+    #expect(registry.explicitDataSourceDescriptors == [MockTransitDataSource.descriptor])
     #expect(registry.defaultDataSource.descriptor == .idos)
     #expect(registry.dataSource(for: .idos)?.descriptor == .idos)
+    #expect(registry.dataSource(for: .mock)?.descriptor == MockTransitDataSource.descriptor)
     #expect(registry.dataSource(for: "unregistered") == nil)
+}
+
+/// Keeps every mock response stable and visibly owned by its explicit, network-free provider.
+@Test func mockDataSourceProvidesDeterministicReadOnlyJourneys() async throws {
+    let source = MockTransitDataSource()
+    let timetable = source.defaultTimetable
+
+    #expect(source.descriptor.id == .mock)
+    #expect(source.descriptor.displayName == "Kaštan Mock")
+    #expect(source.descriptor.capabilities == [
+        .timetables,
+        .placeSuggestions,
+        .coordinatePlaceSelection,
+        .stationSearch,
+        .connections,
+        .departures,
+        .stationTimetables,
+        .stationTimetableDepartureResolution,
+        .serviceDetails,
+    ])
+    #expect(!source.descriptor.supports(.connectionPaging))
+    #expect(!source.descriptor.supports(.connectionCalendarExport))
+    #expect(!source.descriptor.supports(.connectionEmail))
+    #expect(timetable == MockTransitDataSource.timetable)
+
+    let suggestions = try await source.suggest(prefix: "mock", limit: 5, timetable: timetable)
+    let repeatedSuggestions = try await source.suggest(prefix: "mock", limit: 5, timetable: timetable)
+    #expect(suggestions == repeatedSuggestions)
+    #expect(suggestions.map(\.text) == ["Mockov"])
+    #expect(suggestions.allSatisfy { $0.dataSourceID == .mock })
+
+    let selection = try source.coordinatePlaceSelection(
+        text: "Mock position",
+        latitude: 50,
+        longitude: 14,
+        timetable: timetable
+    )
+    #expect(selection.dataSourceID == .mock)
+    #expect(selection.timetableIdentifier == timetable.identifier)
+    #expect(selection.isCurrentLocation)
+
+    let connectionRequest = TransitConnectionRequest(
+        timetable: timetable,
+        from: "Mockov",
+        to: "Testov",
+        serviceDate: TransitDate(year: 2026, month: 9, day: 3),
+        serviceTime: TransitTime(hour: 8, minute: 0)
+    )
+    let connections = try await source.findConnections(request: connectionRequest)
+    let repeatedConnections = try await source.findConnections(request: connectionRequest)
+    #expect(connections == repeatedConnections)
+    #expect(connections.first?.dataSourceID == .mock)
+    #expect(connections.first?.timetableIdentifier == timetable.identifier)
+    #expect(connections.first?.legs.first?.id == "mock:service:1")
+
+    let departuresRequest = TransitDeparturesRequest(
+        timetable: timetable,
+        station: "Mockov",
+        serviceDate: TransitDate(year: 2026, month: 9, day: 3),
+        serviceTime: TransitTime(hour: 8, minute: 0)
+    )
+    let departures = try await source.findDepartures(request: departuresRequest)
+    let repeatedDepartures = try await source.findDepartures(request: departuresRequest)
+    #expect(departures == repeatedDepartures)
+    #expect(departures.map(\.time) == ["08:00", "08:30"])
+    #expect(departures.allSatisfy { $0.dataSourceID == .mock })
+
+    let stationTimetableRequest = TransitStationTimetableRequest(
+        timetable: timetable,
+        line: "Mock train M1",
+        from: "Mockov",
+        to: "Testov",
+        serviceDate: TransitDate(year: 2026, month: 9, day: 3)
+    )
+    let stationTimetable = try await source.findStationTimetable(
+        request: stationTimetableRequest,
+        language: .english
+    )
+    let repeatedStationTimetable = try await source.findStationTimetable(
+        request: stationTimetableRequest,
+        language: .english
+    )
+    #expect(stationTimetable == repeatedStationTimetable)
+    let resolutionRequest = TransitStationTimetableDepartureResolutionRequest(
+        stationTimetable: stationTimetable,
+        scheduleIndex: 0,
+        hourIndex: 0,
+        departureIndex: 1,
+        serviceDate: TransitDate(year: 2026, month: 9, day: 3),
+        wholeWeek: false
+    )
+    let resolution = try #require(
+        try await source.resolveStationTimetableDeparture(
+            request: resolutionRequest,
+            language: .english
+        )
+    )
+    #expect(resolution.serviceTime == TransitTime(hour: 8, minute: 30))
+    #expect(resolution.departure.dataSourceID == .mock)
+    #expect(resolution.request.timetable == timetable)
+
+    let service = try await source.serviceDetail(id: "mock:service:1", timetable: timetable)
+    let repeatedService = try await source.serviceDetail(id: "mock:service:1", timetable: timetable)
+    #expect(service == repeatedService)
+    #expect(service.timetable == timetable)
+    #expect(service.stops.map(\.name) == ["Mockov", "Testov"])
 }
 
 /// Routes colliding timetable and result identifiers through the provider selected by stable source identity.
@@ -520,6 +635,70 @@ func expectTransitDataSourceContract(
         Issue.record("Expected duplicate data-source registration to fail.")
     } catch let error as TransitDataSourceRegistryError {
         #expect(error == .duplicate(MunicipalTransitDataSource.sourceID))
+    } catch {
+        Issue.record("Unexpected registry error: \(error)")
+    }
+}
+
+/// Applies provider identity invariants across ordinary and explicit-only registrations.
+@Test func registryRejectsDuplicateProviderIdentifiersAcrossExposureGroups() {
+    do {
+        _ = try TransitDataSourceRegistry(
+            dataSources: [MockTransitDataSource()],
+            defaultDataSourceID: .mock,
+            explicitDataSources: [MockTransitDataSource()]
+        )
+        Issue.record("Expected cross-group duplicate data-source registration to fail.")
+    } catch let error as TransitDataSourceRegistryError {
+        #expect(error == .duplicate(.mock))
+    } catch {
+        Issue.record("Unexpected registry error: \(error)")
+    }
+}
+
+/// Prevents a testing-only provider from becoming an implicit application or command-line default.
+@Test func registryRejectsAnExplicitOnlyDefaultProvider() {
+    do {
+        _ = try TransitDataSourceRegistry(
+            dataSources: [MunicipalTransitDataSource()],
+            defaultDataSourceID: .mock,
+            explicitDataSources: [MockTransitDataSource()]
+        )
+        Issue.record("Expected an explicit-only default data source to fail.")
+    } catch let error as TransitDataSourceRegistryError {
+        #expect(error == .defaultDataSourceRequiresExplicitSelection(.mock))
+    } catch {
+        Issue.record("Unexpected registry error: \(error)")
+    }
+}
+
+/// Validates an explicit-only provider's timetable catalog as strictly as an ordinary provider's catalog.
+@Test func registryRejectsAForeignExplicitProviderTimetable() {
+    let source = MisownedTimetableDataSource(
+        defaultTimetable: TransitTimetable(
+            dataSourceID: "foreign",
+            identifier: "foreign",
+            displayName: "Foreign"
+        ),
+        timetables: []
+    )
+
+    do {
+        _ = try TransitDataSourceRegistry(
+            dataSources: [MunicipalTransitDataSource()],
+            defaultDataSourceID: MunicipalTransitDataSource.sourceID,
+            explicitDataSources: [source]
+        )
+        Issue.record("Expected a foreign explicit-provider timetable to fail registration.")
+    } catch let error as TransitDataSourceRegistryError {
+        #expect(
+            error == .timetableBelongsToDifferentSource(
+                expected: MisownedTimetableDataSource.sourceID,
+                actual: "foreign",
+                identifier: "foreign",
+                role: .defaultTimetable
+            )
+        )
     } catch {
         Issue.record("Unexpected registry error: \(error)")
     }

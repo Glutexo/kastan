@@ -65,7 +65,13 @@ import Testing
         environment: [:]
     )
 
-    let defaultOutput = await runner.output(for: ["timetables", "--format", "json"])
+    let requiredSource = await runner.output(for: ["timetables"])
+    let requiredSourceJSON = await runner.output(
+        for: ["timetables", "--format", "json", "--language", "cs"]
+    )
+    let idosOutput = await runner.output(
+        for: ["--source", "idos", "timetables", "--format", "json"]
+    )
     let sourceBeforeCommand = await runner.output(
         for: ["--source", "alternate", "timetables", "--format", "json"]
     )
@@ -82,20 +88,39 @@ import Testing
     let alternateUnknownCommand = await runner.output(
         for: ["--source=alternate", "unknown", "extra", "arguments"]
     )
+    let genericHelp = await runner.output(for: ["--help"])
+    let genericCzechHelp = await runner.output(for: ["--help", "--language", "cs"])
+    let versionWithoutSource = await runner.output(for: ["--version"])
 
-    #expect(try timetableName(in: defaultOutput) == "IDOS shared timetable")
+    #expect(
+        requiredSource
+            == "❌ Error: More than one data source is available. Select one with --source. Available sources: alternate, idos."
+    )
+    #expect(
+        try jsonDictionary(requiredSourceJSON)["error"] as? String
+            == "Je dostupný více než jeden zdroj dat. Vyberte jeden volbou --source. Dostupné zdroje: alternate, idos."
+    )
+    #expect(try timetableName(in: idosOutput) == "IDOS shared timetable")
     #expect(try timetableName(in: sourceBeforeCommand) == "Alternate shared timetable")
     #expect(try timetableName(in: sourceAfterCommand) == "Alternate shared timetable")
     #expect(try timetableName(in: sourceWithEquals) == "Alternate shared timetable")
     #expect(alternateHelp.contains(
         "Default timetable for Alternate shared timetable is Alternate shared timetable (shared)."
     ))
+    #expect(alternateHelp.contains("Required data source ID (available: alternate, idos)"))
     #expect(alternateCzechHelp.contains(
         "Výchozí jízdní řád zdroje Alternate shared timetable je Alternate shared timetable (shared)."
     ))
     #expect(alternateUnknownCommand.contains(
         "Default timetable for Alternate shared timetable is Alternate shared timetable (shared)."
     ))
+    #expect(genericHelp.contains("Required data source ID (available: alternate, idos)"))
+    #expect(!genericHelp.contains("default: idos"))
+    #expect(!genericHelp.contains("Default timetable for"))
+    #expect(genericCzechHelp.contains("Povinné ID zdroje dat (dostupné: alternate, idos)"))
+    #expect(!genericCzechHelp.contains("výchozí: idos"))
+    #expect(!genericCzechHelp.contains("Výchozí jízdní řád zdroje"))
+    #expect(versionWithoutSource == "0.7.0")
 }
 
 @Test func sourceOptionReportsLocalizedUnknownAndMissingValues() async throws {
@@ -117,6 +142,59 @@ import Testing
 
     #expect(unknown == "❌ Error: Unknown data source: missing. Available sources: alternate, idos.")
     #expect(missing == "❌ Chyba: Chybí hodnota pro --source. Dostupné zdroje: alternate, idos.")
+}
+
+@Test func explicitTestSourceDoesNotChangeTheSoleRegularSourceDefault() async throws {
+    let registry = try TransitDataSourceRegistry(
+        dataSources: [
+            CLIRoutingDataSource(id: .idos, timetableName: "IDOS shared timetable"),
+        ],
+        defaultDataSourceID: .idos,
+        explicitDataSources: [
+            CLIRoutingDataSource(id: "mock", timetableName: "Mock shared timetable"),
+        ]
+    )
+    let runner = CommandRunner(
+        dataSourceRegistry: registry,
+        preferredLanguageIdentifiers: ["en"],
+        environment: [:]
+    )
+
+    let implicitOutput = await runner.output(for: ["timetables", "--format", "json"])
+    let mockOutput = await runner.output(
+        for: ["timetables", "--format", "json", "--source", "mock"]
+    )
+    let help = await runner.output(for: ["--help"])
+    let unknown = await runner.output(for: ["--source", "missing", "timetables"])
+
+    #expect(try timetableName(in: implicitOutput) == "IDOS shared timetable")
+    #expect(try timetableName(in: mockOutput) == "Mock shared timetable")
+    #expect(help.contains("available: idos; default: idos"))
+    #expect(!help.contains("mock"))
+    #expect(unknown == "❌ Error: Unknown data source: missing. Available sources: idos.")
+}
+
+@Test func builtInMockSourceProvidesDeterministicCLIResultsOnlyWhenExplicitlySelected() async throws {
+    let runner = CommandRunner(
+        dataSourceRegistry: .builtIn,
+        preferredLanguageIdentifiers: ["en"],
+        environment: [:]
+    )
+
+    let output = await runner.output(
+        for: ["connections", "Mockov", "Testov", "--source=mock", "--format", "json"]
+    )
+    let ordinaryHelp = await runner.output(for: ["--help"])
+    let help = await runner.output(for: ["--source", "mock", "--help"])
+    let json = try jsonDictionary(output)
+    let connection = try #require((json["connections"] as? [[String: Any]])?.first)
+
+    #expect(connection["id"] as? String == "mock:connection:1")
+    #expect(connection["departureTime"] as? String == "08:00")
+    #expect(connection["arrivalTime"] as? String == "08:42")
+    #expect(ordinaryHelp.contains("available: idos; default: idos"))
+    #expect(!ordinaryHelp.contains("mock"))
+    #expect(help.contains("Default timetable for Kaštan Mock is Mock Network (mock)."))
 }
 
 @Test func connectionOptionsAreRejectedBeforeAnUnsupportedProviderRequest() async throws {

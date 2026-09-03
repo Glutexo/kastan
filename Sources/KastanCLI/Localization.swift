@@ -66,6 +66,7 @@ enum LocalizationKey: String, CaseIterable {
     case missingLanguage = "error.missingLanguage"
     case unknownSource = "error.unknownSource"
     case missingSource = "error.missingSource"
+    case sourceRequired = "error.sourceRequired"
     case unsupportedConnectionOption = "error.unsupportedConnectionOption"
     case invalidOutputFormat = "error.invalidOutputFormat"
     case invalidNonNegativeInteger = "error.invalidNonNegativeInteger"
@@ -202,6 +203,9 @@ enum LocalizationKey: String, CaseIterable {
     case timetableTrainsBuses = "timetable.trainsBuses"
     case timetablePraguePID = "timetable.praguePID"
     case timetableMHD = "timetable.mhd"
+    case helpSourceOptional = "help.sourceOptional"
+    case helpSourceRequired = "help.sourceRequired"
+    case helpDefaultTimetable = "help.defaultTimetable"
 }
 
 /// Provides localized product text without changing command names, option names, or JSON keys.

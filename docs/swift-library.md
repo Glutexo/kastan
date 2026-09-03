@@ -174,9 +174,19 @@ this capability.
 concrete implementations. Registration rejects duplicate provider IDs, case-insensitive duplicate timetable
 identifiers within one provider, a default timetable absent from its catalog, a missing default provider, and any
 default or catalog timetable whose `dataSourceID` differs from its
-provider descriptor. `TransitDataSourceRegistry.builtIn` currently contains one provider, `IDOSDataSource`, with
-`.idos` as the default. `IDOSDataSource` implements all currently advertised capabilities through publicly reachable
-IDOS endpoints.
+provider descriptor. Its ordinary `dataSources` determine source counts, default selection, and provider pickers;
+the optional `explicitDataSources` remain resolvable by ID without participating in any of those implicit choices.
+`descriptors` exposes only ordinary providers, while `explicitDataSourceDescriptors` exposes the second group. A
+default source must always be ordinary, and provider IDs must remain unique across both groups.
+
+`TransitDataSourceRegistry.builtIn` has `IDOSDataSource` as its sole ordinary provider and `.idos` as the default. It
+also registers `MockTransitDataSource` under `.mock` as an explicit-only provider. The mock supplies stable,
+network-free timetable, suggestion, coordinate-selection, connection, departure, station-timetable, departure
+resolution, and service-detail fixtures for CLI tests and deliberate interface previews. It does not advertise
+paging, exports, email, or connection-search options, so consumers exercise the same capability filtering required
+for a partial live provider. Omitting a source therefore still selects IDOS while IDOS is the only ordinary provider;
+the mock is used only when a caller resolves `.mock` explicitly. `IDOSDataSource` implements all currently advertised
+capabilities through publicly reachable IDOS endpoints.
 
 Timetables are provider-owned values. `TransitTimetable.dataSourceID` identifies their source, while `identifier`
 is the provider-neutral spelling of IDOS's historical `slug`. Older encoded timetables without a source ID decode
