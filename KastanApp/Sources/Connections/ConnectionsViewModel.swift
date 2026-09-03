@@ -504,10 +504,9 @@ final class ConnectionsViewModel: ObservableObject {
         }
     }
 
-    /// Keeps the inactive sole via row stable while allowing an active provider-specific row to be removed.
+    /// Keeps the minus action available so the sole supported via row can return to its inactive default.
     func canRemoveJourneyOption(id: JourneyOptionEntry.ID) -> Bool {
-        guard journeyOptions.contains(where: { $0.id == id }) else { return false }
-        return journeyOptions.count > 1 || !client.descriptor.connectionOptions.contains(.via)
+        journeyOptions.contains(where: { $0.id == id })
     }
 
     /// Synchronizes direct-only mode with a visible zero-transfer row and removes transfer-time conditions.

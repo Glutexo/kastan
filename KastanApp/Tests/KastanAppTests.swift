@@ -6916,6 +6916,8 @@ final class KastanAppTests: XCTestCase {
         let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
         let firstID = model.journeyOptions[0].id
 
+        XCTAssertTrue(model.canRemoveJourneyOption(id: firstID))
+
         model.addJourneyOption(after: firstID)
         XCTAssertEqual(model.journeyOptions.count, 2)
 
@@ -6923,6 +6925,7 @@ final class KastanAppTests: XCTestCase {
         model.journeyOptions[1].viaPlace = "Olomouc"
         model.removeJourneyOption(id: firstID)
         XCTAssertEqual(model.viaPlaceNames, ["Olomouc"])
+        XCTAssertTrue(model.canRemoveJourneyOption(id: secondID))
 
         model.removeJourneyOption(id: secondID)
         XCTAssertEqual(model.journeyOptions, [JourneyOptionEntry(id: secondID)])
