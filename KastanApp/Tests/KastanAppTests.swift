@@ -7585,7 +7585,7 @@ final class KastanAppTests: XCTestCase {
                 value: nil,
                 table: nil
             ),
-            "Pro cestující na vozíku (vlaky)"
+            "Pro vozíčkáře (vlaky)"
         )
         XCTAssertEqual(
             czech.localizedString(
@@ -7593,7 +7593,7 @@ final class KastanAppTests: XCTestCase {
                 value: nil,
                 table: nil
             ),
-            "Pro cestující s dětmi (vlaky)"
+            "Pro děti (vlaky)"
         )
         XCTAssertEqual(
             czech.localizedString(
@@ -7601,7 +7601,7 @@ final class KastanAppTests: XCTestCase {
                 value: nil,
                 table: nil
             ),
-            "Pro cestující s kolem (vlaky, autobusy)"
+            "Pro cyklisty (vlaky, autobusy)"
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "With beds/couchettes", value: nil, table: nil),
