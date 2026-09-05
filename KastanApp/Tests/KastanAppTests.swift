@@ -7509,11 +7509,11 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "On foot between stops", value: nil, table: nil),
-            "pěší mezi zastávkami"
+            "Pěší"
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Between stops of the same name", value: nil, table: nil),
-            "mezi zastávkami téhož jména"
+            "Podle jména"
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Also at the beginning/end of journey", value: nil, table: nil),
