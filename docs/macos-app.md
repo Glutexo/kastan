@@ -59,16 +59,18 @@ manager and show their source when more than one ordinary provider is registered
   Connections and Station Timetables share the same borderless 24-point direction-swap control between their fields.
   The condition picker separates the existing controls under Transfers (`Přestupy` in Czech) and the newer IDOS
   controls under Additional parameters (`Další možnosti` in Czech). Transfers contains Via, the repeatable Transfers
-  condition, Maximum distance to walk, Maximum distance to walk when Urban Public Transport is available, and the
-  repeatable Walking transfer (`Přesun`) condition. Each
+  condition, the repeatable Walking distances (`Přesuny`) condition, and the repeatable Walking transfer (`Přesun`)
+  condition. Each
   Transfers row has a subchoice for Maximum number of transfers, Minimum transfer time, or Maximum transfer time, followed
-  by that subchoice's number or duration editor. Each Walking transfer row has a subchoice for On foot between stops or
+  by that subchoice's number or duration editor. Each Walking distances row has a subchoice for Maximum distance to walk
+  or Maximum distance to walk when Urban Public Transport is available, followed by its duration editor. Each Walking
+  transfer row has a subchoice for On foot between stops or
   Between stops of the same name, followed by that subchoice's Boolean value popup. Additional parameters contains the
   repeatable Only connections condition,
   the repeatable Prefer condition, and Bed / Couchette. Each Only connections row has a value popup for Wheelchair
   accessible connections only, Low-floor lines only, Wheelchair accessible connections (trains), Connections for
   passengers with children (trains), or Connections for passengers with bicycles (trains + buses). Each Prefer row
-  offers busy routes or trains instead of buses. All four combined conditions can be repeated to select distinct
+  offers busy routes or trains instead of buses. All five combined conditions can be repeated to select distinct
   subchoices, and each popup omits values already selected in another row as well as values unsupported by the active
   timetable.
   Both group headings use the same non-interactive native treatment as timetable-menu groups, while a separator keeps

@@ -2601,26 +2601,27 @@ final class KastanAppTests: XCTestCase {
         ).contentWidth
         let row = HStack(spacing: JourneyOptionRowLayout.spacing) {
             JourneyOptionKindPicker(
-                selection: .constant(.walkingTransfer),
+                selection: .constant(.walkingDistances),
                 availableKinds: JourneyOptionKind.allCases
             )
             .fixedSize(horizontal: true, vertical: false)
 
-            Picker(selection: .constant(JourneyWalkingTransferPolicy.sameNameWalkingTransfersOnly)) {
-                ForEach(JourneyWalkingTransferPolicy.allCases) { policy in
-                    Text(verbatim: policy.localizedTitle).tag(policy)
+            Picker(selection: .constant(JourneyWalkingDistanceConstraint.maximumCityWalkingTime)) {
+                ForEach(JourneyWalkingDistanceConstraint.allCases) { constraint in
+                    Text(verbatim: constraint.localizedTitle).tag(constraint)
                 }
             } label: {
-                Text(verbatim: JourneyOptionKind.walkingTransfer.localizedTitle)
+                Text(verbatim: JourneyOptionKind.walkingDistances.localizedTitle)
             }
             .labelsHidden()
             .fixedSize()
 
-            Picker(selection: .constant(false)) {
-                Text("Between any stops").tag(false)
-                Text("Only stops of the same name").tag(true)
+            Picker(selection: .constant(60)) {
+                ForEach(JourneyDurationChoice.maximumWalkingTimes) { choice in
+                    Text(verbatim: choice.localizedTitle()).tag(choice.minutes)
+                }
             } label: {
-                Text(verbatim: JourneyWalkingTransferPolicy.sameNameWalkingTransfersOnly.localizedTitle)
+                Text(verbatim: JourneyWalkingDistanceConstraint.maximumCityWalkingTime.localizedTitle)
             }
             .labelsHidden()
             .fixedSize()
@@ -5098,10 +5099,11 @@ final class KastanAppTests: XCTestCase {
         let model = ConnectionsViewModel(client: limited)
         let firstID = model.journeyOptions[0].id
 
-        XCTAssertEqual(model.supportedJourneyOptionKinds, [.via, .maximumWalkingTime])
+        XCTAssertEqual(model.supportedJourneyOptionKinds, [.via, .walkingDistances])
+        XCTAssertEqual(model.supportedWalkingDistanceConstraints, [.maximumWalkingTime])
         XCTAssertEqual(
             model.availableJourneyOptionKinds(for: firstID),
-            [.via, .maximumWalkingTime]
+            [.via, .walkingDistances]
         )
         XCTAssertFalse(model.supportsOnlyDirect)
         model.setOnlyDirect(true)
@@ -5109,6 +5111,11 @@ final class KastanAppTests: XCTestCase {
         model.setJourneyOptionKind(.transfers, for: firstID)
         XCTAssertEqual(model.journeyOptions[0].kind, .via)
         XCTAssertTrue(model.transferLimitLabel.isEmpty)
+        model.setJourneyOptionKind(.walkingDistances, for: firstID)
+        XCTAssertEqual(model.journeyOptions[0].kind, .walkingDistances)
+        XCTAssertEqual(model.journeyOptions[0].walkingDistanceConstraint, .maximumWalkingTime)
+        model.setWalkingDistanceConstraint(.maximumCityWalkingTime, for: firstID)
+        XCTAssertEqual(model.journeyOptions[0].walkingDistanceConstraint, .maximumWalkingTime)
 
         let requirementLimited = AppSourceSelectionTestSource(
             id: "requirements",
@@ -6837,8 +6844,16 @@ final class KastanAppTests: XCTestCase {
                 transferConstraint: .maximumTransferTime,
                 maximumTransferTime: 360
             ),
-            JourneyOptionEntry(kind: .maximumWalkingTime, maximumWalkingTime: 45),
-            JourneyOptionEntry(kind: .maximumCityWalkingTime, maximumCityWalkingTime: 20),
+            JourneyOptionEntry(
+                kind: .walkingDistances,
+                walkingDistanceConstraint: .maximumWalkingTime,
+                maximumWalkingTime: 45
+            ),
+            JourneyOptionEntry(
+                kind: .walkingDistances,
+                walkingDistanceConstraint: .maximumCityWalkingTime,
+                maximumCityWalkingTime: 20
+            ),
             JourneyOptionEntry(
                 kind: .walkingTransfer,
                 walkingTransferPolicy: .walkToNearbyStops,
@@ -7086,14 +7101,14 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertEqual(model.availableJourneyOptionKinds(for: firstID), JourneyOptionKind.allCases)
 
-        model.setJourneyOptionKind(.maximumWalkingTime, for: firstID)
+        model.setJourneyOptionKind(.bedOrCouchettePreference, for: firstID)
         model.addJourneyOption(after: firstID)
         let secondID = model.journeyOptions[1].id
 
         XCTAssertEqual(model.availableJourneyOptionKinds(for: firstID), JourneyOptionKind.allCases)
         XCTAssertEqual(
             model.availableJourneyOptionKinds(for: secondID),
-            JourneyOptionKind.allCases.filter { $0 != .maximumWalkingTime }
+            JourneyOptionKind.allCases.filter { $0 != .bedOrCouchettePreference }
         )
 
         model.removeJourneyOption(id: firstID)
@@ -7164,6 +7179,45 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(model.journeyOptions[0].preference, .trainsOverBuses)
         XCTAssertNil(model.preferBusyRoutes)
         XCTAssertEqual(model.preferTrainsOverBuses, true)
+    }
+
+    func testWalkingDistancesCanRepeatWithDistinctConstraints() {
+        let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
+        let firstID = model.journeyOptions[0].id
+
+        model.setJourneyOptionKind(.walkingDistances, for: firstID)
+        model.addJourneyOption(after: firstID)
+        let secondID = model.journeyOptions[1].id
+        model.setJourneyOptionKind(.walkingDistances, for: secondID)
+
+        XCTAssertEqual(
+            model.journeyOptions.map(\.walkingDistanceConstraint),
+            [.maximumWalkingTime, .maximumCityWalkingTime]
+        )
+        XCTAssertEqual(model.maximumWalkingTime, 60)
+        XCTAssertEqual(model.maximumCityWalkingTime, 10)
+        XCTAssertTrue(model.availableJourneyOptionKinds(for: firstID).contains(.walkingDistances))
+        XCTAssertTrue(model.availableJourneyOptionKinds(for: secondID).contains(.walkingDistances))
+        XCTAssertEqual(
+            model.availableWalkingDistanceConstraints(for: firstID),
+            [.maximumWalkingTime]
+        )
+        XCTAssertEqual(
+            model.availableWalkingDistanceConstraints(for: secondID),
+            [.maximumCityWalkingTime]
+        )
+
+        model.setWalkingDistanceConstraint(.maximumCityWalkingTime, for: firstID)
+        XCTAssertEqual(model.journeyOptions[0].walkingDistanceConstraint, .maximumWalkingTime)
+
+        model.removeJourneyOption(id: secondID)
+        model.setWalkingDistanceConstraint(.maximumCityWalkingTime, for: firstID)
+        XCTAssertEqual(
+            model.journeyOptions[0].walkingDistanceConstraint,
+            .maximumCityWalkingTime
+        )
+        XCTAssertNil(model.maximumWalkingTime)
+        XCTAssertEqual(model.maximumCityWalkingTime, 10)
     }
 
     func testWalkingTransferCanRepeatWithDistinctPolicies() {
@@ -7272,7 +7326,11 @@ final class KastanAppTests: XCTestCase {
             transferConstraint: .maximumTransfers,
             maximumTransfers: 3
         )
-        let walkingOption = JourneyOptionEntry(kind: .maximumWalkingTime, maximumWalkingTime: 45)
+        let walkingOption = JourneyOptionEntry(
+            kind: .walkingDistances,
+            walkingDistanceConstraint: .maximumWalkingTime,
+            maximumWalkingTime: 45
+        )
         model.journeyOptions = [
             viaOption,
             transferOption,
@@ -7404,6 +7462,14 @@ final class KastanAppTests: XCTestCase {
                 table: nil
             ),
             "Nejvyšší délka přesunu (MHD)"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Walking distances", value: nil, table: nil),
+            "Přesuny"
+        )
+        XCTAssertEqual(
+            english.localizedString(forKey: "Walking distances", value: nil, table: nil),
+            "Walking distances"
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Walking transfer", value: nil, table: nil),
@@ -7541,7 +7607,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(czech.localizedString(forKey: "No", value: nil, table: nil), "Ne")
         XCTAssertEqual(
             JourneyOptionKind.allCases.filter { $0.group == .transfers },
-            Array(JourneyOptionKind.allCases.prefix(5))
+            Array(JourneyOptionKind.allCases.prefix(4))
         )
         XCTAssertEqual(
             JourneyOptionKind.allCases.filter { $0.group == .additionalParameters },
@@ -7688,7 +7754,11 @@ final class KastanAppTests: XCTestCase {
                 transferConstraint: .maximumTransferTime,
                 maximumTransferTime: 360
             ),
-            JourneyOptionEntry(kind: .maximumWalkingTime, maximumWalkingTime: 45),
+            JourneyOptionEntry(
+                kind: .walkingDistances,
+                walkingDistanceConstraint: .maximumWalkingTime,
+                maximumWalkingTime: 45
+            ),
         ]
         model.setMaximumTransfers(0, for: transferOption.id)
 

@@ -222,6 +222,12 @@ enum JourneyOptionRowLayout {
         )
     }
 
+    private static var walkingDistanceConstraintCatalogWidth: CGFloat {
+        StableWidthPopUpButton.catalogWidth(
+            for: JourneyWalkingDistanceConstraint.localizedCatalogTitles
+        )
+    }
+
     private static var walkingTransferPolicyCatalogWidth: CGFloat {
         StableWidthPopUpButton.catalogWidth(
             for: JourneyWalkingTransferPolicy.localizedCatalogTitles
@@ -250,18 +256,21 @@ enum JourneyOptionRowLayout {
         let standaloneValueWidth = max(
             minimumFlexibleValueWidth,
             StableWidthPopUpButton.catalogWidth(
-                for: booleanTitles + walkingDurationTitles +
-                    JourneyConnectionRequirement.localizedCatalogTitles +
+                for: JourneyConnectionRequirement.localizedCatalogTitles +
                     JourneyPreference.localizedCatalogTitles + bedOrCouchetteTitles
             )
         )
         let transferValueWidth = StableWidthPopUpButton.catalogWidth(for: transferDurationTitles)
+        let walkingDurationValueWidth = StableWidthPopUpButton.catalogWidth(for: walkingDurationTitles)
         let booleanValueWidth = StableWidthPopUpButton.catalogWidth(for: booleanTitles)
         return max(
             standaloneValueWidth,
             max(
                 transferConstraintCatalogWidth + spacing + transferValueWidth,
-                walkingTransferPolicyCatalogWidth + spacing + booleanValueWidth
+                max(
+                    walkingDistanceConstraintCatalogWidth + spacing + walkingDurationValueWidth,
+                    walkingTransferPolicyCatalogWidth + spacing + booleanValueWidth
+                )
             )
         )
     }
@@ -688,18 +697,16 @@ struct ConnectionsView: View {
                 transferConstraintValue(option: option)
             }
             .fixedSize(horizontal: true, vertical: false)
-        case .maximumWalkingTime:
-            journeyDurationPicker(
-                selection: option.maximumWalkingTime,
-                choices: JourneyDurationChoice.maximumWalkingTimes,
-                label: option.wrappedValue.kind.localizedTitle
-            )
-        case .maximumCityWalkingTime:
-            journeyDurationPicker(
-                selection: option.maximumCityWalkingTime,
-                choices: JourneyDurationChoice.maximumWalkingTimes,
-                label: option.wrappedValue.kind.localizedTitle
-            )
+        case .walkingDistances:
+            HStack(spacing: JourneyOptionRowLayout.spacing) {
+                walkingDistanceConstraintPicker(
+                    selection: walkingDistanceConstraintBinding(for: option),
+                    choices: model.availableWalkingDistanceConstraints(for: option.wrappedValue.id),
+                    label: option.wrappedValue.kind.localizedTitle
+                )
+                walkingDistanceConstraintValue(option: option)
+            }
+            .fixedSize(horizontal: true, vertical: false)
         case .walkingTransfer:
             HStack(spacing: JourneyOptionRowLayout.spacing) {
                 walkingTransferPolicyPicker(
@@ -794,6 +801,57 @@ struct ConnectionsView: View {
                     .maximumTransfers
             },
             set: { model.setTransferConstraint($0, for: optionID) }
+        )
+    }
+
+    /// Keeps both walking-distance limits under one repeatable condition while retaining each duration editor.
+    @ViewBuilder
+    private func walkingDistanceConstraintValue(option: Binding<JourneyOptionEntry>) -> some View {
+        switch option.wrappedValue.walkingDistanceConstraint {
+        case .maximumWalkingTime:
+            journeyDurationPicker(
+                selection: option.maximumWalkingTime,
+                choices: JourneyDurationChoice.maximumWalkingTimes,
+                label: option.wrappedValue.walkingDistanceConstraint.localizedTitle
+            )
+        case .maximumCityWalkingTime:
+            journeyDurationPicker(
+                selection: option.maximumCityWalkingTime,
+                choices: JourneyDurationChoice.maximumWalkingTimes,
+                label: option.wrappedValue.walkingDistanceConstraint.localizedTitle
+            )
+        }
+    }
+
+    /// Presents the supported, currently unused walking-distance limits after the shared condition label.
+    private func walkingDistanceConstraintPicker(
+        selection: Binding<JourneyWalkingDistanceConstraint>,
+        choices: [JourneyWalkingDistanceConstraint],
+        label: String
+    ) -> some View {
+        Picker(selection: selection) {
+            ForEach(choices) { constraint in
+                Text(verbatim: constraint.localizedTitle).tag(constraint)
+            }
+        } label: {
+            Text(verbatim: label)
+        }
+        .labelsHidden()
+        .fixedSize()
+        .accessibilityLabel(Text(verbatim: label))
+    }
+
+    /// Routes popup changes through the model so two rows cannot select the same walking-distance limit.
+    private func walkingDistanceConstraintBinding(
+        for option: Binding<JourneyOptionEntry>
+    ) -> Binding<JourneyWalkingDistanceConstraint> {
+        let optionID = option.wrappedValue.id
+        return Binding(
+            get: {
+                model.journeyOptions.first { $0.id == optionID }?.walkingDistanceConstraint ??
+                    .maximumWalkingTime
+            },
+            set: { model.setWalkingDistanceConstraint($0, for: optionID) }
         )
     }
 
