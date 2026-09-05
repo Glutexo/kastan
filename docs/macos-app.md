@@ -59,18 +59,16 @@ manager and show their source when more than one ordinary provider is registered
   Connections and Station Timetables share the same borderless 24-point direction-swap control between their fields.
   The condition picker separates the existing controls under Transfers (`Přestupy` in Czech) and the newer IDOS
   controls under Additional parameters (`Další možnosti` in Czech). Transfers contains Via, the repeatable Transfers
-  condition, the repeatable Walking distances (`Přesuny`) condition, and the repeatable Walking transfer (`Přesun`)
-  condition. Each
-  Transfers row has the concise, transfer-context subchoices Maximum number, Minimum time, or Maximum time, followed by
-  that subchoice's number or duration editor. Each Walking distances row has a subchoice for Maximum distance to walk
-  or Maximum distance to walk when Urban Public Transport is available, followed by its duration editor. Each Walking
-  transfer row has a subchoice for On foot between stops or
-  Between stops of the same name, followed by that subchoice's Boolean value popup. Additional parameters contains the
+  condition, and the repeatable Walking distances (`Přesuny`) condition. Each Transfers row has the concise,
+  transfer-context subchoices Maximum number, Minimum time, or Maximum time, followed by that subchoice's number or
+  duration editor. Each Walking distances row combines Maximum distance to walk, Maximum distance to walk when Urban
+  Public Transport is available, On foot between stops, and Between stops of the same name in one subchoice popup. The
+  first two use a duration editor and the latter two use a Boolean value popup. Additional parameters contains the
   repeatable Only connections condition,
   the repeatable Prefer condition, and Bed / Couchette. Each Only connections row has a value popup for Wheelchair
   accessible connections only, Low-floor lines only, Wheelchair accessible connections (trains), Connections for
   passengers with children (trains), or Connections for passengers with bicycles (trains + buses). Each Prefer row
-  offers busy routes or trains instead of buses. All five combined conditions can be repeated to select distinct
+  offers busy routes or trains instead of buses. All four combined conditions can be repeated to select distinct
   subchoices, and each popup omits values already selected in another row as well as values unsupported by the active
   timetable.
   Both group headings use the same non-interactive native treatment as timetable-menu groups, while a separator keeps
@@ -82,11 +80,11 @@ manager and show their source when more than one ordinary provider is registered
   5, 10, 20, 30, or 60 minutes; the maximum offers 10, 20, 30, 45, 60, 120, 240, 360, 480, 720, or 1,080 minutes;
   and both walking limits offer 0, 5, 10, 20, 30, 45, or 60 minutes. Whole-hour values are labeled in hours, while
   Czech minute values
-  use their complete grammatically inflected unit names. The two Walking transfer subchoices use compact popups that
-  state both outcomes explicitly. On foot between stops offers also at the beginning/end of journey or only during
-  transfers and defaults to the former; Between stops of the same name offers between any stops or only stops of the
-  same name and defaults to the former. Selecting an Only connections or Prefer value activates its provider option
-  until the row is removed.
+  use their complete grammatically inflected unit names. The two Boolean Walking distances subchoices use compact
+  popups that state both outcomes explicitly. On foot between stops offers also at the beginning/end of journey or
+  only during transfers and defaults to the former; Between stops of the same name offers between any stops or only
+  stops of the same name and defaults to the former. Selecting an Only connections or Prefer value activates its
+  provider option until the row is removed.
   Bed / Couchette uses IDOS's three choices:
   no limitation, use, and don't use. IDOS offers this condition only for All timetables, Trains + Buses + Urban Public
   Transport, Trains, and Trains + Buses, so the app omits it from every other timetable and resets an active row when

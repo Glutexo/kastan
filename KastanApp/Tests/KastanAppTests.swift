@@ -2606,8 +2606,8 @@ final class KastanAppTests: XCTestCase {
             )
             .fixedSize(horizontal: true, vertical: false)
 
-            Picker(selection: .constant(JourneyWalkingDistanceConstraint.maximumCityWalkingTime)) {
-                ForEach(JourneyWalkingDistanceConstraint.allCases) { constraint in
+            Picker(selection: .constant(JourneyWalkingConstraint.maximumCityWalkingTime)) {
+                ForEach(JourneyWalkingConstraint.allCases) { constraint in
                     Text(verbatim: constraint.localizedTitle).tag(constraint)
                 }
             } label: {
@@ -2621,7 +2621,7 @@ final class KastanAppTests: XCTestCase {
                     Text(verbatim: choice.localizedTitle()).tag(choice.minutes)
                 }
             } label: {
-                Text(verbatim: JourneyWalkingDistanceConstraint.maximumCityWalkingTime.localizedTitle)
+                Text(verbatim: JourneyWalkingConstraint.maximumCityWalkingTime.localizedTitle)
             }
             .labelsHidden()
             .fixedSize()
@@ -5100,7 +5100,7 @@ final class KastanAppTests: XCTestCase {
         let firstID = model.journeyOptions[0].id
 
         XCTAssertEqual(model.supportedJourneyOptionKinds, [.via, .walkingDistances])
-        XCTAssertEqual(model.supportedWalkingDistanceConstraints, [.maximumWalkingTime])
+        XCTAssertEqual(model.supportedWalkingConstraints, [.maximumWalkingTime])
         XCTAssertEqual(
             model.availableJourneyOptionKinds(for: firstID),
             [.via, .walkingDistances]
@@ -5113,9 +5113,9 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(model.transferLimitLabel.isEmpty)
         model.setJourneyOptionKind(.walkingDistances, for: firstID)
         XCTAssertEqual(model.journeyOptions[0].kind, .walkingDistances)
-        XCTAssertEqual(model.journeyOptions[0].walkingDistanceConstraint, .maximumWalkingTime)
-        model.setWalkingDistanceConstraint(.maximumCityWalkingTime, for: firstID)
-        XCTAssertEqual(model.journeyOptions[0].walkingDistanceConstraint, .maximumWalkingTime)
+        XCTAssertEqual(model.journeyOptions[0].walkingConstraint, .maximumWalkingTime)
+        model.setWalkingConstraint(.maximumCityWalkingTime, for: firstID)
+        XCTAssertEqual(model.journeyOptions[0].walkingConstraint, .maximumWalkingTime)
 
         let requirementLimited = AppSourceSelectionTestSource(
             id: "requirements",
@@ -5151,21 +5151,21 @@ final class KastanAppTests: XCTestCase {
         )
         let walkingModel = ConnectionsViewModel(client: walkingLimited)
 
-        XCTAssertEqual(walkingModel.supportedJourneyOptionKinds, [.walkingTransfer])
+        XCTAssertEqual(walkingModel.supportedJourneyOptionKinds, [.walkingDistances])
         XCTAssertEqual(
-            walkingModel.supportedWalkingTransferPolicies,
+            walkingModel.supportedWalkingConstraints,
             [.sameNameWalkingTransfersOnly]
         )
         walkingModel.addJourneyOption()
         let walkingID = walkingModel.journeyOptions[0].id
-        XCTAssertEqual(walkingModel.journeyOptions[0].kind, .walkingTransfer)
+        XCTAssertEqual(walkingModel.journeyOptions[0].kind, .walkingDistances)
         XCTAssertEqual(
-            walkingModel.journeyOptions[0].walkingTransferPolicy,
+            walkingModel.journeyOptions[0].walkingConstraint,
             .sameNameWalkingTransfersOnly
         )
-        walkingModel.setWalkingTransferPolicy(.walkToNearbyStops, for: walkingID)
+        walkingModel.setWalkingConstraint(.walkToNearbyStops, for: walkingID)
         XCTAssertEqual(
-            walkingModel.journeyOptions[0].walkingTransferPolicy,
+            walkingModel.journeyOptions[0].walkingConstraint,
             .sameNameWalkingTransfersOnly
         )
 
@@ -6846,22 +6846,22 @@ final class KastanAppTests: XCTestCase {
             ),
             JourneyOptionEntry(
                 kind: .walkingDistances,
-                walkingDistanceConstraint: .maximumWalkingTime,
+                walkingConstraint: .maximumWalkingTime,
                 maximumWalkingTime: 45
             ),
             JourneyOptionEntry(
                 kind: .walkingDistances,
-                walkingDistanceConstraint: .maximumCityWalkingTime,
+                walkingConstraint: .maximumCityWalkingTime,
                 maximumCityWalkingTime: 20
             ),
             JourneyOptionEntry(
-                kind: .walkingTransfer,
-                walkingTransferPolicy: .walkToNearbyStops,
+                kind: .walkingDistances,
+                walkingConstraint: .walkToNearbyStops,
                 walkToNearbyStops: false
             ),
             JourneyOptionEntry(
-                kind: .walkingTransfer,
-                walkingTransferPolicy: .sameNameWalkingTransfersOnly,
+                kind: .walkingDistances,
+                walkingConstraint: .sameNameWalkingTransfersOnly,
                 sameNameWalkingTransfersOnly: true
             ),
             JourneyOptionEntry(
@@ -7181,7 +7181,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(model.preferTrainsOverBuses, true)
     }
 
-    func testWalkingDistancesCanRepeatWithDistinctConstraints() {
+    func testWalkingOptionsShareOneRepeatableConditionWithDistinctSubchoices() {
         let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
         let firstID = model.journeyOptions[0].id
 
@@ -7189,73 +7189,42 @@ final class KastanAppTests: XCTestCase {
         model.addJourneyOption(after: firstID)
         let secondID = model.journeyOptions[1].id
         model.setJourneyOptionKind(.walkingDistances, for: secondID)
+        model.addJourneyOption(after: secondID)
+        let thirdID = model.journeyOptions[2].id
+        model.setJourneyOptionKind(.walkingDistances, for: thirdID)
+        model.addJourneyOption(after: thirdID)
+        let fourthID = model.journeyOptions[3].id
+        model.setJourneyOptionKind(.walkingDistances, for: fourthID)
 
         XCTAssertEqual(
-            model.journeyOptions.map(\.walkingDistanceConstraint),
-            [.maximumWalkingTime, .maximumCityWalkingTime]
+            model.journeyOptions.map(\.kind),
+            Array(repeating: .walkingDistances, count: 4)
+        )
+        XCTAssertEqual(
+            model.journeyOptions.map(\.walkingConstraint),
+            JourneyWalkingConstraint.allCases
         )
         XCTAssertEqual(model.maximumWalkingTime, 60)
         XCTAssertEqual(model.maximumCityWalkingTime, 10)
-        XCTAssertTrue(model.availableJourneyOptionKinds(for: firstID).contains(.walkingDistances))
-        XCTAssertTrue(model.availableJourneyOptionKinds(for: secondID).contains(.walkingDistances))
-        XCTAssertEqual(
-            model.availableWalkingDistanceConstraints(for: firstID),
-            [.maximumWalkingTime]
-        )
-        XCTAssertEqual(
-            model.availableWalkingDistanceConstraints(for: secondID),
-            [.maximumCityWalkingTime]
-        )
-
-        model.setWalkingDistanceConstraint(.maximumCityWalkingTime, for: firstID)
-        XCTAssertEqual(model.journeyOptions[0].walkingDistanceConstraint, .maximumWalkingTime)
-
-        model.removeJourneyOption(id: secondID)
-        model.setWalkingDistanceConstraint(.maximumCityWalkingTime, for: firstID)
-        XCTAssertEqual(
-            model.journeyOptions[0].walkingDistanceConstraint,
-            .maximumCityWalkingTime
-        )
-        XCTAssertNil(model.maximumWalkingTime)
-        XCTAssertEqual(model.maximumCityWalkingTime, 10)
-    }
-
-    func testWalkingTransferCanRepeatWithDistinctPolicies() {
-        let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
-        let firstID = model.journeyOptions[0].id
-
-        model.setJourneyOptionKind(.walkingTransfer, for: firstID)
-        model.addJourneyOption(after: firstID)
-        let secondID = model.journeyOptions[1].id
-        model.setJourneyOptionKind(.walkingTransfer, for: secondID)
-
-        XCTAssertEqual(
-            model.journeyOptions.map(\.walkingTransferPolicy),
-            [.walkToNearbyStops, .sameNameWalkingTransfersOnly]
-        )
         XCTAssertEqual(model.walkToNearbyStops, true)
         XCTAssertEqual(model.sameNameWalkingTransfersOnly, false)
-        XCTAssertTrue(model.availableJourneyOptionKinds(for: firstID).contains(.walkingTransfer))
-        XCTAssertTrue(model.availableJourneyOptionKinds(for: secondID).contains(.walkingTransfer))
-        XCTAssertEqual(
-            model.availableWalkingTransferPolicies(for: firstID),
-            [.walkToNearbyStops]
-        )
-        XCTAssertEqual(
-            model.availableWalkingTransferPolicies(for: secondID),
-            [.sameNameWalkingTransfersOnly]
-        )
+        for (id, constraint) in zip(
+            [firstID, secondID, thirdID, fourthID],
+            JourneyWalkingConstraint.allCases
+        ) {
+            XCTAssertTrue(model.availableJourneyOptionKinds(for: id).contains(.walkingDistances))
+            XCTAssertEqual(model.availableWalkingConstraints(for: id), [constraint])
+        }
 
-        model.setWalkingTransferPolicy(.sameNameWalkingTransfersOnly, for: firstID)
-        XCTAssertEqual(model.journeyOptions[0].walkingTransferPolicy, .walkToNearbyStops)
+        model.setWalkingConstraint(.maximumCityWalkingTime, for: firstID)
+        XCTAssertEqual(model.journeyOptions[0].walkingConstraint, .maximumWalkingTime)
 
-        model.removeJourneyOption(id: secondID)
-        model.setWalkingTransferPolicy(.sameNameWalkingTransfersOnly, for: firstID)
-        XCTAssertEqual(
-            model.journeyOptions[0].walkingTransferPolicy,
-            .sameNameWalkingTransfersOnly
-        )
-        XCTAssertNil(model.walkToNearbyStops)
+        model.removeJourneyOption(id: fourthID)
+        model.setWalkingConstraint(.sameNameWalkingTransfersOnly, for: firstID)
+        XCTAssertEqual(model.journeyOptions[0].walkingConstraint, .sameNameWalkingTransfersOnly)
+        XCTAssertNil(model.maximumWalkingTime)
+        XCTAssertEqual(model.maximumCityWalkingTime, 10)
+        XCTAssertEqual(model.walkToNearbyStops, true)
         XCTAssertEqual(model.sameNameWalkingTransfersOnly, false)
     }
 
@@ -7328,7 +7297,7 @@ final class KastanAppTests: XCTestCase {
         )
         let walkingOption = JourneyOptionEntry(
             kind: .walkingDistances,
-            walkingDistanceConstraint: .maximumWalkingTime,
+            walkingConstraint: .maximumWalkingTime,
             maximumWalkingTime: 45
         )
         model.journeyOptions = [
@@ -7504,12 +7473,15 @@ final class KastanAppTests: XCTestCase {
             "Walking distances"
         )
         XCTAssertEqual(
-            czech.localizedString(forKey: "Walking transfer", value: nil, table: nil),
-            "Přesun"
-        )
-        XCTAssertEqual(
-            english.localizedString(forKey: "Walking transfer", value: nil, table: nil),
-            "Walking transfer"
+            JourneyWalkingConstraint.localizedCatalogTitles,
+            [
+                AppLocalization.string("Maximum distance to walk"),
+                AppLocalization.string(
+                    "Maximum distance to walk, if there is Urban Public Transport available"
+                ),
+                AppLocalization.string("On foot between stops"),
+                AppLocalization.string("Between stops of the same name")
+            ]
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "On foot between stops", value: nil, table: nil),
@@ -7639,7 +7611,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(czech.localizedString(forKey: "No", value: nil, table: nil), "Ne")
         XCTAssertEqual(
             JourneyOptionKind.allCases.filter { $0.group == .transfers },
-            Array(JourneyOptionKind.allCases.prefix(4))
+            [.via, .transfers, .walkingDistances]
         )
         XCTAssertEqual(
             JourneyOptionKind.allCases.filter { $0.group == .additionalParameters },
@@ -7788,7 +7760,7 @@ final class KastanAppTests: XCTestCase {
             ),
             JourneyOptionEntry(
                 kind: .walkingDistances,
-                walkingDistanceConstraint: .maximumWalkingTime,
+                walkingConstraint: .maximumWalkingTime,
                 maximumWalkingTime: 45
             ),
         ]

@@ -222,15 +222,9 @@ enum JourneyOptionRowLayout {
         )
     }
 
-    private static var walkingDistanceConstraintCatalogWidth: CGFloat {
+    private static var walkingConstraintCatalogWidth: CGFloat {
         StableWidthPopUpButton.catalogWidth(
-            for: JourneyWalkingDistanceConstraint.localizedCatalogTitles
-        )
-    }
-
-    private static var walkingTransferPolicyCatalogWidth: CGFloat {
-        StableWidthPopUpButton.catalogWidth(
-            for: JourneyWalkingTransferPolicy.localizedCatalogTitles
+            for: JourneyWalkingConstraint.localizedCatalogTitles
         )
     }
 
@@ -267,10 +261,8 @@ enum JourneyOptionRowLayout {
             standaloneValueWidth,
             max(
                 transferConstraintCatalogWidth + spacing + transferValueWidth,
-                max(
-                    walkingDistanceConstraintCatalogWidth + spacing + walkingDurationValueWidth,
-                    walkingTransferPolicyCatalogWidth + spacing + booleanValueWidth
-                )
+                walkingConstraintCatalogWidth + spacing +
+                    max(walkingDurationValueWidth, booleanValueWidth)
             )
         )
     }
@@ -699,22 +691,12 @@ struct ConnectionsView: View {
             .fixedSize(horizontal: true, vertical: false)
         case .walkingDistances:
             HStack(spacing: JourneyOptionRowLayout.spacing) {
-                walkingDistanceConstraintPicker(
-                    selection: walkingDistanceConstraintBinding(for: option),
-                    choices: model.availableWalkingDistanceConstraints(for: option.wrappedValue.id),
+                walkingConstraintPicker(
+                    selection: walkingConstraintBinding(for: option),
+                    choices: model.availableWalkingConstraints(for: option.wrappedValue.id),
                     label: option.wrappedValue.kind.localizedTitle
                 )
-                walkingDistanceConstraintValue(option: option)
-            }
-            .fixedSize(horizontal: true, vertical: false)
-        case .walkingTransfer:
-            HStack(spacing: JourneyOptionRowLayout.spacing) {
-                walkingTransferPolicyPicker(
-                    selection: walkingTransferPolicyBinding(for: option),
-                    choices: model.availableWalkingTransferPolicies(for: option.wrappedValue.id),
-                    label: option.wrappedValue.kind.localizedTitle
-                )
-                walkingTransferPolicyValue(option: option)
+                walkingConstraintValue(option: option)
             }
             .fixedSize(horizontal: true, vertical: false)
         case .onlyConnections:
@@ -804,29 +786,45 @@ struct ConnectionsView: View {
         )
     }
 
-    /// Keeps both walking-distance limits under one repeatable condition while retaining each duration editor.
+    /// Keeps every walking limit and rule under one repeatable condition with its corresponding value editor.
     @ViewBuilder
-    private func walkingDistanceConstraintValue(option: Binding<JourneyOptionEntry>) -> some View {
-        switch option.wrappedValue.walkingDistanceConstraint {
+    private func walkingConstraintValue(option: Binding<JourneyOptionEntry>) -> some View {
+        switch option.wrappedValue.walkingConstraint {
         case .maximumWalkingTime:
             journeyDurationPicker(
                 selection: option.maximumWalkingTime,
                 choices: JourneyDurationChoice.maximumWalkingTimes,
-                label: option.wrappedValue.walkingDistanceConstraint.localizedTitle
+                label: option.wrappedValue.walkingConstraint.localizedTitle
             )
         case .maximumCityWalkingTime:
             journeyDurationPicker(
                 selection: option.maximumCityWalkingTime,
                 choices: JourneyDurationChoice.maximumWalkingTimes,
-                label: option.wrappedValue.walkingDistanceConstraint.localizedTitle
+                label: option.wrappedValue.walkingConstraint.localizedTitle
+            )
+        case .walkToNearbyStops:
+            journeyBooleanPicker(
+                selection: option.walkToNearbyStops,
+                enabledTitle: AppLocalization.string("Also at the beginning/end of journey"),
+                disabledTitle: AppLocalization.string("Only during transfers"),
+                enabledFirst: true,
+                label: option.wrappedValue.walkingConstraint.localizedTitle
+            )
+        case .sameNameWalkingTransfersOnly:
+            journeyBooleanPicker(
+                selection: option.sameNameWalkingTransfersOnly,
+                enabledTitle: AppLocalization.string("Only stops of the same name"),
+                disabledTitle: AppLocalization.string("Between any stops"),
+                enabledFirst: false,
+                label: option.wrappedValue.walkingConstraint.localizedTitle
             )
         }
     }
 
-    /// Presents the supported, currently unused walking-distance limits after the shared condition label.
-    private func walkingDistanceConstraintPicker(
-        selection: Binding<JourneyWalkingDistanceConstraint>,
-        choices: [JourneyWalkingDistanceConstraint],
+    /// Presents every supported, currently unused walking limit or rule after the shared condition label.
+    private func walkingConstraintPicker(
+        selection: Binding<JourneyWalkingConstraint>,
+        choices: [JourneyWalkingConstraint],
         label: String
     ) -> some View {
         Picker(selection: selection) {
@@ -841,72 +839,17 @@ struct ConnectionsView: View {
         .accessibilityLabel(Text(verbatim: label))
     }
 
-    /// Routes popup changes through the model so two rows cannot select the same walking-distance limit.
-    private func walkingDistanceConstraintBinding(
+    /// Routes popup changes through the model so two rows cannot select the same walking subchoice.
+    private func walkingConstraintBinding(
         for option: Binding<JourneyOptionEntry>
-    ) -> Binding<JourneyWalkingDistanceConstraint> {
+    ) -> Binding<JourneyWalkingConstraint> {
         let optionID = option.wrappedValue.id
         return Binding(
             get: {
-                model.journeyOptions.first { $0.id == optionID }?.walkingDistanceConstraint ??
+                model.journeyOptions.first { $0.id == optionID }?.walkingConstraint ??
                     .maximumWalkingTime
             },
-            set: { model.setWalkingDistanceConstraint($0, for: optionID) }
-        )
-    }
-
-    /// Keeps both walking rules under one repeatable condition while retaining each Boolean value editor.
-    @ViewBuilder
-    private func walkingTransferPolicyValue(option: Binding<JourneyOptionEntry>) -> some View {
-        switch option.wrappedValue.walkingTransferPolicy {
-        case .walkToNearbyStops:
-            journeyBooleanPicker(
-                selection: option.walkToNearbyStops,
-                enabledTitle: AppLocalization.string("Also at the beginning/end of journey"),
-                disabledTitle: AppLocalization.string("Only during transfers"),
-                enabledFirst: true,
-                label: option.wrappedValue.walkingTransferPolicy.localizedTitle
-            )
-        case .sameNameWalkingTransfersOnly:
-            journeyBooleanPicker(
-                selection: option.sameNameWalkingTransfersOnly,
-                enabledTitle: AppLocalization.string("Only stops of the same name"),
-                disabledTitle: AppLocalization.string("Between any stops"),
-                enabledFirst: false,
-                label: option.wrappedValue.walkingTransferPolicy.localizedTitle
-            )
-        }
-    }
-
-    /// Presents the supported, currently unused walking rules after the shared Walking transfer label.
-    private func walkingTransferPolicyPicker(
-        selection: Binding<JourneyWalkingTransferPolicy>,
-        choices: [JourneyWalkingTransferPolicy],
-        label: String
-    ) -> some View {
-        Picker(selection: selection) {
-            ForEach(choices) { policy in
-                Text(verbatim: policy.localizedTitle).tag(policy)
-            }
-        } label: {
-            Text(verbatim: label)
-        }
-        .labelsHidden()
-        .fixedSize()
-        .accessibilityLabel(Text(verbatim: label))
-    }
-
-    /// Routes popup changes through the model so two rows cannot select the same walking rule.
-    private func walkingTransferPolicyBinding(
-        for option: Binding<JourneyOptionEntry>
-    ) -> Binding<JourneyWalkingTransferPolicy> {
-        let optionID = option.wrappedValue.id
-        return Binding(
-            get: {
-                model.journeyOptions.first { $0.id == optionID }?.walkingTransferPolicy ??
-                    .walkToNearbyStops
-            },
-            set: { model.setWalkingTransferPolicy($0, for: optionID) }
+            set: { model.setWalkingConstraint($0, for: optionID) }
         )
     }
 
