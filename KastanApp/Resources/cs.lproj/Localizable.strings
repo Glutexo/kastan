@@ -150,7 +150,7 @@
 "Location access was denied. Allow Kaštan to use your location in System Settings." = "Přístup k poloze byl zamítnut. Povolte Kaštanu používat polohu v Nastavení systému.";
 "Location Services are turned off. Enable them in System Settings to use My location." = "Polohové služby jsou vypnuté. Zapněte je v Nastavení systému, chcete-li použít volbu Moje poloha.";
 "Lockout timetable" = "Výlukový jízdní řád";
-"Low-floor lines only" = "Pouze nízkopodlažní spoje";
+"Low-floor lines only" = "Pouze nízkopodlažní";
 "New Mock Tab" = "Nový mockový panel";
 "New Mock Window" = "Nové mockové okno";
 "New Tab" = "Nový panel";
@@ -278,7 +278,7 @@
 "Urban public transport by city" = "MHD jednotlivých měst";
 "Urban Public Transport %@" = "MHD %@";
 "Wheelchair accessible connections (trains)" = "Pro cestující na vozíku (vlaky)";
-"Wheelchair accessible connections only" = "Pouze bezbariérová spojení";
+"Wheelchair accessible connections only" = "Pouze bezbariérové";
 "Whole week" = "Celý týden";
 "Version %@" = "Verze %@";
 "Via" = "Přes";

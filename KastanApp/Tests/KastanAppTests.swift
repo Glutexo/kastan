@@ -7211,11 +7211,11 @@ final class KastanAppTests: XCTestCase {
                 value: nil,
                 table: nil
             ),
-            "Pouze bezbariérová spojení"
+            "Pouze bezbariérové"
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Low-floor lines only", value: nil, table: nil),
-            "Pouze nízkopodlažní spoje"
+            "Pouze nízkopodlažní"
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Prefer trains instead of buses", value: nil, table: nil),
