@@ -25,7 +25,7 @@
 "bus" = "autobus";
 "Buses" = "Autobusy";
 "buses" = "autobusy";
-"Busy routes" = "frekventované trasy";
+"Busy routes" = "Frekventované trasy";
 "Cancel" = "Zrušit";
 "Check a station board and open complete service routes." = "Prohlédněte si odjezdovou tabuli a otevřete celou trasu spoje.";
 "Choose a different departure or arrival place." = "Zvolte jiné výchozí nebo cílové místo.";
@@ -270,7 +270,7 @@
 "train" = "vlak";
 "Trains" = "Vlaky";
 "trains" = "vlaky";
-"Trains instead of buses" = "vlaky před autobusy";
+"Trains instead of buses" = "Vlaky před autobusy";
 "Trains, buses, and all" = "Vlaky, autobusy a vše";
 "Trains + Buses" = "Vlaky + autobusy";
 "Trains + Buses + Urban Public Transport" = "Vlaky + autobusy + MHD";
