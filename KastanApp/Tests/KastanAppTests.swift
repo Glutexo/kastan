@@ -7444,6 +7444,38 @@ final class KastanAppTests: XCTestCase {
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
 
         XCTAssertEqual(
+            czech.localizedString(forKey: "Maximum number", value: nil, table: nil),
+            "Nejvyšší počet"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Minimum time", value: nil, table: nil),
+            "Nejnižší čas"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Maximum time", value: nil, table: nil),
+            "Nejvyšší čas"
+        )
+        XCTAssertEqual(
+            english.localizedString(forKey: "Maximum number", value: nil, table: nil),
+            "Maximum number"
+        )
+        XCTAssertEqual(
+            english.localizedString(forKey: "Minimum time", value: nil, table: nil),
+            "Minimum time"
+        )
+        XCTAssertEqual(
+            english.localizedString(forKey: "Maximum time", value: nil, table: nil),
+            "Maximum time"
+        )
+        XCTAssertEqual(
+            JourneyTransferConstraint.localizedCatalogTitles,
+            [
+                AppLocalization.string("Maximum number"),
+                AppLocalization.string("Minimum time"),
+                AppLocalization.string("Maximum time")
+            ]
+        )
+        XCTAssertEqual(
             czech.localizedString(forKey: "Maximum transfer time", value: nil, table: nil),
             "Nejvyšší čas na přestup"
         )

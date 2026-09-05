@@ -119,8 +119,11 @@
 "%lld hr" = "%lld hod";
 "Maximum distance to walk" = "Nejvyšší délka přesunu";
 "Maximum distance to walk, if there is Urban Public Transport available" = "Nejvyšší délka přesunu (MHD)";
+"Maximum number" = "Nejvyšší počet";
 "Maximum number of transfers" = "Nejvyšší počet přestupů";
+"Maximum time" = "Nejvyšší čas";
 "Maximum transfer time" = "Nejvyšší čas na přestup";
+"Minimum time" = "Nejnižší čas";
 "Minimum transfer time" = "Nejnižší čas na přestup";
 "Only connections" = "Pouze spojení";
 "Only during transfers" = "pouze při přestupu";

@@ -61,8 +61,8 @@ manager and show their source when more than one ordinary provider is registered
   controls under Additional parameters (`Další možnosti` in Czech). Transfers contains Via, the repeatable Transfers
   condition, the repeatable Walking distances (`Přesuny`) condition, and the repeatable Walking transfer (`Přesun`)
   condition. Each
-  Transfers row has a subchoice for Maximum number of transfers, Minimum transfer time, or Maximum transfer time, followed
-  by that subchoice's number or duration editor. Each Walking distances row has a subchoice for Maximum distance to walk
+  Transfers row has the concise, transfer-context subchoices Maximum number, Minimum time, or Maximum time, followed by
+  that subchoice's number or duration editor. Each Walking distances row has a subchoice for Maximum distance to walk
   or Maximum distance to walk when Urban Public Transport is available, followed by its duration editor. Each Walking
   transfer row has a subchoice for On foot between stops or
   Between stops of the same name, followed by that subchoice's Boolean value popup. Additional parameters contains the

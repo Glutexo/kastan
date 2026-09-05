@@ -119,8 +119,11 @@
 "%lld hr" = "%lld hr";
 "Maximum distance to walk" = "Maximum distance to walk";
 "Maximum distance to walk, if there is Urban Public Transport available" = "Maximum distance to walk, if there is Urban Public Transport available";
+"Maximum number" = "Maximum number";
 "Maximum number of transfers" = "Maximum number of transfers";
+"Maximum time" = "Maximum time";
 "Maximum transfer time" = "Maximum transfer time";
+"Minimum time" = "Minimum time";
 "Minimum transfer time" = "Minimum transfer time";
 "Only connections" = "Only connections";
 "Only during transfers" = "only during transfers";

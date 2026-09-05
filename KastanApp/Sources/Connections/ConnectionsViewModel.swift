@@ -115,15 +115,15 @@ enum JourneyTransferConstraint: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Preserves the wording of each corresponding IDOS transfer control.
+    /// Keeps each subchoice concise because the parent condition already supplies the transfer context.
     var localizedTitle: String {
         switch self {
         case .maximumTransfers:
-            AppLocalization.string("Maximum number of transfers")
+            AppLocalization.string("Maximum number")
         case .minimumTransferTime:
-            AppLocalization.string("Minimum transfer time")
+            AppLocalization.string("Minimum time")
         case .maximumTransferTime:
-            AppLocalization.string("Maximum transfer time")
+            AppLocalization.string("Maximum time")
         }
     }
 
