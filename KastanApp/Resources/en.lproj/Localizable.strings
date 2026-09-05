@@ -27,6 +27,7 @@
 "bus" = "bus";
 "Buses" = "Buses";
 "buses" = "buses";
+"Busy routes" = "busy routes";
 "Cancel" = "Cancel";
 "Check a station board and open complete service routes." = "Check a station board and open complete service routes.";
 "Choose a different departure or arrival place." = "Choose a different departure or arrival place.";
@@ -189,8 +190,7 @@
 "place" = "place";
 "Place suggestions" = "Place suggestions";
 "Powered by public IDOS web data" = "Powered by public IDOS web data";
-"Prefer busy routes" = "Prefer busy routes";
-"Prefer trains instead of buses" = "Prefer trains instead of buses";
+"Prefer" = "Prefer";
 "Preparing email…" = "Preparing email…";
 "Preview is not available." = "Preview is not available.";
 "Preview service" = "Preview service";
@@ -269,6 +269,7 @@
 "train" = "train";
 "Trains" = "Trains";
 "trains" = "trains";
+"Trains instead of buses" = "trains instead of buses";
 "Trains, buses, and all" = "Trains, buses, and all";
 "Trains + Buses" = "Trains + Buses";
 "Trains + Buses + Urban Public Transport" = "Trains + Buses + Urban Public Transport";

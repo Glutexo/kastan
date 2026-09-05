@@ -238,7 +238,8 @@ enum JourneyOptionRowLayout {
             minimumFlexibleValueWidth,
             StableWidthPopUpButton.catalogWidth(
                 for: booleanTitles + durationTitles +
-                    JourneyConnectionRequirement.localizedCatalogTitles + bedOrCouchetteTitles
+                    JourneyConnectionRequirement.localizedCatalogTitles +
+                    JourneyPreference.localizedCatalogTitles + bedOrCouchetteTitles
             )
         )
     }
@@ -717,9 +718,10 @@ struct ConnectionsView: View {
                 choices: model.availableConnectionRequirements(for: option.wrappedValue.id),
                 label: option.wrappedValue.kind.localizedTitle
             )
-        case .preferBusyRoutes:
-            additionalParameterPicker(
-                selection: option.preferBusyRoutes,
+        case .preference:
+            journeyPreferencePicker(
+                selection: journeyPreferenceBinding(for: option),
+                choices: model.availableJourneyPreferences(for: option.wrappedValue.id),
                 label: option.wrappedValue.kind.localizedTitle
             )
         case .bedOrCouchettePreference:
@@ -762,6 +764,37 @@ struct ConnectionsView: View {
         )
     }
 
+    /// Combines compatible IDOS route preferences in one repeatable journey-option kind.
+    private func journeyPreferencePicker(
+        selection: Binding<JourneyPreference>,
+        choices: [JourneyPreference],
+        label: String
+    ) -> some View {
+        Picker(selection: selection) {
+            ForEach(choices) { preference in
+                Text(verbatim: preference.localizedTitle).tag(preference)
+            }
+        } label: {
+            Text(verbatim: label)
+        }
+        .labelsHidden()
+        .fixedSize()
+        .accessibilityLabel(Text(verbatim: label))
+    }
+
+    /// Routes popup changes through the model so two rows cannot select the same preference.
+    private func journeyPreferenceBinding(
+        for option: Binding<JourneyOptionEntry>
+    ) -> Binding<JourneyPreference> {
+        let optionID = option.wrappedValue.id
+        return Binding(
+            get: {
+                model.journeyOptions.first { $0.id == optionID }?.preference ?? .busyRoutes
+            },
+            set: { model.setJourneyPreference($0, for: optionID) }
+        )
+    }
+
     /// Presents every accommodation restriction accepted by IDOS for compatible train timetables.
     private func bedOrCouchettePreferencePicker(
         selection: Binding<TransitBedOrCouchettePreference>,
@@ -777,20 +810,6 @@ struct ConnectionsView: View {
         .labelsHidden()
         .fixedSize()
         .accessibilityLabel(Text(verbatim: label))
-    }
-
-    /// Mirrors IDOS's unchecked defaults while keeping either Boolean outcome directly editable.
-    private func additionalParameterPicker(
-        selection: Binding<Bool>,
-        label: String
-    ) -> some View {
-        journeyBooleanPicker(
-            selection: selection,
-            enabledTitle: AppLocalization.string("Yes"),
-            disabledTitle: AppLocalization.string("No"),
-            enabledFirst: false,
-            label: label
-        )
     }
 
     /// Keeps the app's compact popup values aligned with the discrete durations accepted by IDOS.
