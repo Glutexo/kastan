@@ -108,7 +108,7 @@
 "Invalid timetable: %@." = "Neplatný jízdní řád: %@.";
 "Invalid municipality: %@. Available for %@: %@." = "Neplatná obec: %@. Pro %@ jsou dostupné: %@.";
 "Timetable %@ does not offer a municipality choice." = "Jízdní řád %@ nenabízí výběr obce.";
-"Between stops of the same name" = "mezi zastávkami stejného jména";
+"Between stops of the same name" = "mezi zastávkami téhož jména";
 "Journey options" = "Možnosti cesty";
 "Journey option" = "Možnost cesty";
 "Line" = "Linka";

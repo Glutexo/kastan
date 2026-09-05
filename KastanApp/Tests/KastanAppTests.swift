@@ -7513,7 +7513,7 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Between stops of the same name", value: nil, table: nil),
-            "mezi zastávkami stejného jména"
+            "mezi zastávkami téhož jména"
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Also at the beginning/end of journey", value: nil, table: nil),
