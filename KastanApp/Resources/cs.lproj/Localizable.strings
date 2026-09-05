@@ -122,7 +122,7 @@
 "Maximum transfer time" = "Nejvyšší čas na přestup";
 "Minimum time" = "Nejnižší čas";
 "Minimum transfer time" = "Nejnižší čas na přestup";
-"Only connections" = "Pouze spojení";
+"Only connections" = "Omezit na";
 "Only during transfers" = "pouze při přestupu";
 "Only stops of the same name" = "pouze stejného jména";
 "Matched rule: contains “%@”." = "Použité pravidlo: obsahuje „%@“.";

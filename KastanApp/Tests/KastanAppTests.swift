@@ -7545,7 +7545,7 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Only connections", value: nil, table: nil),
-            "Pouze spojení"
+            "Omezit na"
         )
         XCTAssertEqual(
             english.localizedString(forKey: "Only connections", value: nil, table: nil),
