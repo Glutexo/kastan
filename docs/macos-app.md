@@ -82,13 +82,12 @@ manager and show their source when more than one ordinary provider is registered
   The maximum-transfer subchoice presents a compact, left-aligned number field with native stepper arrows. Time-based
   subchoices use compact popups containing the values accepted by IDOS: the minimum offers Standard or 0, 1, 2, 3, 4,
   5, 10, 20, 30, or 60 minutes; the maximum offers 10, 20, 30, 45, 60, 120, 240, 360, 480, 720, or 1,080 minutes;
-  and both walking limits offer 0, 5, 10, 20, 30, 45, or 60 minutes. Whole-hour values are labeled in hours, while
-  Czech minute values
-  use their complete grammatically inflected unit names. The two Boolean Walking distances subchoices use compact
-  popups that state both outcomes explicitly. On foot between stops offers also at the beginning/end of journey or
-  only during transfers and defaults to the former; Between stops of the same name offers between any stops or only
-  stops of the same name and defaults to the former. Selecting an Only connections or Prefer value activates its
-  provider option until the row is removed.
+  and both walking limits offer 0, 5, 10, 20, 30, 45, or 60 minutes. Whole-hour values are labeled in hours; Czech
+  minute and hour values use their complete grammatically inflected unit names. The two Boolean Walking distances
+  subchoices use compact popups that state both outcomes explicitly. On foot between stops offers also at the
+  beginning/end of journey or only during transfers and defaults to the former; Between stops of the same name offers
+  between any stops or only stops of the same name and defaults to the former. Selecting an Only connections or Prefer
+  value activates its provider option until the row is removed.
   Every editor shares one row height
   and follows a selection-independent condition menu sized from the
   complete localized catalog. Every row retains its minus action; removing the sole condition from a source that
