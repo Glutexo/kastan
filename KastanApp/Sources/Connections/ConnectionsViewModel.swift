@@ -250,10 +250,12 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Places every existing transfer control before the additional IDOS search parameters.
-    var group: JourneyOptionGroup {
+    /// Keeps Via independent because passing through its place does not require a transfer.
+    var group: JourneyOptionGroup? {
         switch self {
-        case .via, .transfers, .walkingDistances:
+        case .via:
+            nil
+        case .transfers, .walkingDistances:
             .transfers
         case .onlyConnections, .preference:
             .additionalParameters
@@ -262,6 +264,7 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
 
     /// Reserves enough native popup width for both section headings and every localized option.
     static var localizedCatalogTitles: [String] {
+        allCases.filter { $0.group == nil }.map(\.localizedTitle) +
         JourneyOptionGroup.allCases.flatMap { group in
             [group.localizedTitle] + allCases.filter { $0.group == group }.map(\.localizedTitle)
         }

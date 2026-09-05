@@ -1094,6 +1094,7 @@ struct JourneyOptionKindPicker: NSViewRepresentable {
         context.coordinator.selection = $selection
         button.sizingTitles = JourneyOptionKind.localizedCatalogTitles
 
+        let ungroupedKinds = availableKinds.filter { $0.group == nil }
         let sections = JourneyOptionGroup.allCases.compactMap { group -> (
             group: JourneyOptionGroup,
             kinds: [JourneyOptionKind]
@@ -1111,6 +1112,21 @@ struct JourneyOptionKindPicker: NSViewRepresentable {
         }
         if representedKinds != availableKinds || groupTitles != sections.map({ $0.group.localizedTitle }) {
             button.removeAllItems()
+
+            for kind in ungroupedKinds {
+                let item = NSMenuItem(
+                    title: kind.localizedTitle,
+                    action: nil,
+                    keyEquivalent: ""
+                )
+                item.representedObject = kind.rawValue
+                button.menu?.addItem(item)
+            }
+
+            if !ungroupedKinds.isEmpty, !sections.isEmpty {
+                button.menu?.addItem(NSMenuItem.separator())
+            }
+
             for (index, section) in sections.enumerated() {
                 if index > 0 {
                     button.menu?.addItem(NSMenuItem.separator())

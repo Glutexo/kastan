@@ -7629,8 +7629,12 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(czech.localizedString(forKey: "Yes", value: nil, table: nil), "Ano")
         XCTAssertEqual(czech.localizedString(forKey: "No", value: nil, table: nil), "Ne")
         XCTAssertEqual(
+            JourneyOptionKind.allCases.filter { $0.group == nil },
+            [.via]
+        )
+        XCTAssertEqual(
             JourneyOptionKind.allCases.filter { $0.group == .transfers },
-            [.via, .transfers, .walkingDistances]
+            [.transfers, .walkingDistances]
         )
         XCTAssertEqual(
             JourneyOptionKind.allCases.filter { $0.group == .additionalParameters },
@@ -7664,7 +7668,7 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testJourneyOptionPickerUsesFullStableCatalogWidthWhenOnlyViaIsAvailable() throws {
+    func testJourneyOptionPickerUsesFullStableCatalogWidthWhenOnlyUngroupedViaIsAvailable() throws {
         let picker = JourneyOptionKindPicker(
             selection: .constant(.via),
             availableKinds: [.via]
@@ -7687,13 +7691,10 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(popupButton.sizingTitles, JourneyOptionKind.localizedCatalogTitles)
         XCTAssertEqual(
             popupButton.itemArray.filter { $0.representedObject == nil }.map(\.title),
-            [JourneyOptionGroup.transfers.localizedTitle]
+            []
         )
-        if #available(macOS 14.0, *) {
-            XCTAssertTrue(popupButton.itemArray[0].isSectionHeader)
-        } else {
-            XCTAssertFalse(popupButton.itemArray[0].isEnabled)
-        }
+        XCTAssertEqual(popupButton.itemArray.filter(\.isSeparatorItem).count, 0)
+        XCTAssertFalse(popupButton.itemArray[0].isSectionHeader)
         XCTAssertEqual(popupButton.selectedItem?.representedObject as? String, JourneyOptionKind.via.rawValue)
         XCTAssertEqual(
             catalogWidth,
@@ -7741,8 +7742,14 @@ final class KastanAppTests: XCTestCase {
             XCTAssertTrue(headings.allSatisfy { !$0.isEnabled })
             XCTAssertTrue(headings.allSatisfy { $0.attributedTitle != nil })
         }
-        XCTAssertEqual(popupButton.itemArray.filter(\.isSeparatorItem).count, 1)
+        XCTAssertEqual(popupButton.itemArray.filter(\.isSeparatorItem).count, 2)
         XCTAssertEqual(representedKinds, JourneyOptionKind.allCases)
+        XCTAssertEqual(
+            popupButton.itemArray.first?.representedObject as? String,
+            JourneyOptionKind.via.rawValue
+        )
+        XCTAssertTrue(popupButton.itemArray[1].isSeparatorItem)
+        XCTAssertEqual(popupButton.itemArray[2].title, JourneyOptionGroup.transfers.localizedTitle)
         XCTAssertEqual(
             popupButton.selectedItem?.representedObject as? String,
             JourneyOptionKind.preference.rawValue

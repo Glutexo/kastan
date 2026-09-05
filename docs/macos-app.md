@@ -57,9 +57,10 @@ manager and show their source when more than one ordinary provider is registered
   unsupported condition instead of assuming that connection search implies the complete IDOS option set. Selecting
   the same exact departure and arrival shows inline guidance and disables Search before any provider request can start.
   Connections and Station Timetables share the same borderless 24-point direction-swap control between their fields.
-  The condition picker separates the existing controls under Transfers (`Přestupy` in Czech) and the newer IDOS
-  controls under Additional parameters (`Další možnosti` in Czech). Transfers contains Via, the repeatable Transfers
-  condition, and the repeatable Walking distances (`Přesuny`) condition. Each Transfers row has the concise,
+  The condition picker keeps Via as an ungrouped route constraint because the connection only needs to pass through its
+  place. It separates the transfer-specific controls under Transfers (`Přestupy` in Czech) and the newer IDOS controls
+  under Additional parameters (`Další možnosti` in Czech). Transfers contains the repeatable Transfers condition and
+  the repeatable Walking distances (`Přesuny`) condition. Each Transfers row has the concise,
   transfer-context subchoices Maximum number, Minimum time, or Maximum time, followed by that subchoice's number or
   duration editor. Each Walking distances row combines Maximum distance to walk, Maximum distance to walk when Urban
   Public Transport is available, On foot between stops, and Between stops of the same name in one subchoice popup. The
@@ -75,9 +76,9 @@ manager and show their source when more than one ordinary provider is registered
   IDOS control; omitting both leaves it unrestricted. IDOS offers them only for All timetables, Trains + Buses + Urban
   Public Transport, Trains, and Trains + Buses, so the app omits them from every other timetable and resets an active row
   when the timetable changes to one that does not support them.
-  Both group headings use the same non-interactive native treatment as timetable-menu groups, while a separator keeps
-  the groups visually distinct. Via presents the same timetable-aware IDOS place suggestions and application-wide
-  place-type filters as the route endpoints,
+  Both group headings use the same non-interactive native treatment as timetable-menu groups, while separators keep
+  ungrouped Via and the groups visually distinct. Via presents the same timetable-aware IDOS place suggestions and
+  application-wide place-type filters as the route endpoints,
   retains the exact selected object, and returns to free-text interpretation after editing or changing the timetable.
   The maximum-transfer subchoice presents a compact, left-aligned number field with native stepper arrows. Time-based
   subchoices use compact popups containing the values accepted by IDOS: the minimum offers Standard or 0, 1, 2, 3, 4,
