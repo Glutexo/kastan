@@ -465,7 +465,7 @@ enum ServiceRouteInitialScroll {
 /// Shows every stop and piece of service information supplied by the selected data source in its own window.
 struct ServiceDetailView: View {
     /// Opens new service routes at the compact width already supported by the adaptive route layout.
-    static let minimumWindowWidth: CGFloat = 400
+    nonisolated static let minimumWindowWidth: CGFloat = 400
     static let defaultWindowWidth = minimumWindowWidth
 
     private static let scrollCoordinateSpace = "service-detail-scroll"

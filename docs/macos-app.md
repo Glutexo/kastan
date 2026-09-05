@@ -260,7 +260,8 @@ manager and show their source when more than one ordinary provider is registered
   than falling through to the enclosing connection. All available detail actions are selectable on the first menu opening;
   the chosen action loads the complete service data only when needed and then continues automatically. The same
   service-specific menu is available on station-board rows. A trackpad Force Click on either kind of service row
-  opens the identical complete-route preview. Double-clicking anywhere across a connection's time or route summary
+  opens the identical compact complete-route preview at the detail view's minimum supported width. Double-clicking
+  anywhere across a connection's time or route summary
   opens that complete connection in an independent window; holding Option reveals the window button in the connection
   header as an alternative. An ordinary service click opens the selected service's detail window, including while
   another service-detail window is already open.

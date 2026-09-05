@@ -1414,7 +1414,7 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertEqual(forceClickPreviewAttachmentCount(in: hostingView), 2)
         XCTAssertEqual(
-            ResultPreviewLayout.stationTimetableServiceSize,
+            ResultPreviewLayout.serviceSize,
             CGSize(width: 400, height: 560)
         )
         let secondPreview = try XCTUnwrap(departures.previewDeparture?(1))
@@ -5362,7 +5362,7 @@ final class KastanAppTests: XCTestCase {
         defer { window.orderOut(nil) }
 
         XCTAssertEqual(forceClickPreviewAttachmentCount(in: hostingView), 1)
-        XCTAssertEqual(ResultPreviewLayout.serviceSize, CGSize(width: 600, height: 560))
+        XCTAssertEqual(ResultPreviewLayout.serviceSize, CGSize(width: 400, height: 560))
     }
 
     func testDoubleClickingAnywhereInConnectionSummaryOpensItsWindow() {

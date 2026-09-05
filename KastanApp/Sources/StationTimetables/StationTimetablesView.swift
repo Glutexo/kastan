@@ -900,7 +900,7 @@ private struct StationTimetableDepartureTime: View {
             }
         }
         .forceClickPreview(
-            size: ResultPreviewLayout.stationTimetableServiceSize,
+            size: ResultPreviewLayout.serviceSize,
             isEnabled: isEnabled && preview != nil,
             suppressesPrimaryAction: $suppressesPrimaryAction,
             isPresented: $isPreviewPresented
