@@ -41,8 +41,8 @@
 "Connection %@ – %@" = "Spojení %@ – %@";
 "Connection detail" = "Detail spojení";
 "Connections" = "Spojení";
-"Connections for passengers with bicycles (trains + buses)" = "Spojení pro cestující s kolem (vlaky + autobusy)";
-"Connections for passengers with children (trains)" = "Spojení pro cestující s dětmi (vlaky)";
+"Connections for passengers with bicycles (trains + buses)" = "Pro cestující s kolem (vlaky, autobusy)";
+"Connections for passengers with children (trains)" = "Pro cestující s dětmi (vlaky)";
 "Date" = "Datum";
 "Date and time" = "Datum a čas";
 "Departure" = "Odjezd";
@@ -277,7 +277,7 @@
 "Prague + PID" = "Praha + PID";
 "Urban public transport by city" = "MHD jednotlivých měst";
 "Urban Public Transport %@" = "MHD %@";
-"Wheelchair accessible connections (trains)" = "Spojení pro cestující na vozíku (vlaky)";
+"Wheelchair accessible connections (trains)" = "Pro cestující na vozíku (vlaky)";
 "Wheelchair accessible connections only" = "Pouze bezbariérová spojení";
 "Whole week" = "Celý týden";
 "Version %@" = "Verze %@";
