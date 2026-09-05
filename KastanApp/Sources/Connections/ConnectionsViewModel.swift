@@ -23,6 +23,8 @@ enum JourneyConnectionRequirement: String, CaseIterable, Identifiable {
     case trainConnectionsForWheelchairPassengers
     case trainConnectionsForPassengersWithChildren
     case connectionsForPassengersWithBicycles
+    case withBedsOrCouchettes
+    case withoutBedsOrCouchettes
 
     var id: Self { self }
 
@@ -39,7 +41,30 @@ enum JourneyConnectionRequirement: String, CaseIterable, Identifiable {
             .trainConnectionsForPassengersWithChildren
         case .connectionsForPassengersWithBicycles:
             .connectionsForPassengersWithBicycles
+        case .withBedsOrCouchettes, .withoutBedsOrCouchettes:
+            .bedOrCouchettePreference
         }
+    }
+
+    /// Converts the two mutually exclusive accommodation requirements to IDOS's shared three-state control.
+    var bedOrCouchettePreference: TransitBedOrCouchettePreference? {
+        switch self {
+        case .withBedsOrCouchettes:
+            .use
+        case .withoutBedsOrCouchettes:
+            .doNotUse
+        case .wheelchairAccessibleConnectionsOnly, .lowFloorConnectionsOnly,
+             .trainConnectionsForWheelchairPassengers,
+             .trainConnectionsForPassengersWithChildren,
+             .connectionsForPassengersWithBicycles:
+            nil
+        }
+    }
+
+    /// Prevents two rows from assigning contradictory values to one provider control.
+    func conflicts(with other: Self) -> Bool {
+        self == other ||
+            (bedOrCouchettePreference != nil && other.bedOrCouchettePreference != nil)
     }
 
     /// Preserves the wording of each corresponding IDOS advanced-search choice.
@@ -55,6 +80,10 @@ enum JourneyConnectionRequirement: String, CaseIterable, Identifiable {
             AppLocalization.string("Connections for passengers with children (trains)")
         case .connectionsForPassengersWithBicycles:
             AppLocalization.string("Connections for passengers with bicycles (trains + buses)")
+        case .withBedsOrCouchettes:
+            AppLocalization.string("With beds/couchettes")
+        case .withoutBedsOrCouchettes:
+            AppLocalization.string("Without beds/couchettes")
         }
     }
 
@@ -186,7 +215,6 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
     case walkingDistances
     case onlyConnections
     case preference
-    case bedOrCouchettePreference
 
     var id: Self { self }
 
@@ -203,8 +231,6 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
             JourneyConnectionRequirement.allCases.map(\.transitConnectionOption)
         case .preference:
             JourneyPreference.allCases.map(\.transitConnectionOption)
-        case .bedOrCouchettePreference:
-            [.bedOrCouchettePreference]
         }
     }
 
@@ -221,8 +247,6 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
             AppLocalization.string("Only connections")
         case .preference:
             AppLocalization.string("Prefer")
-        case .bedOrCouchettePreference:
-            AppLocalization.string("Bed / Couchette")
         }
     }
 
@@ -231,7 +255,7 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
         switch self {
         case .via, .transfers, .walkingDistances:
             .transfers
-        case .onlyConnections, .preference, .bedOrCouchettePreference:
+        case .onlyConnections, .preference:
             .additionalParameters
         }
     }
@@ -255,7 +279,7 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
         case .transfers:
             true
         case .via, .walkingDistances,
-             .onlyConnections, .preference, .bedOrCouchettePreference:
+             .onlyConnections, .preference:
             false
         }
     }
@@ -290,21 +314,6 @@ struct JourneyDurationChoice: Identifiable, Equatable {
     static let maximumWalkingTimes = [0, 5, 10, 20, 30, 45, 60].map(Self.init)
 }
 
-extension TransitBedOrCouchettePreference {
-    /// Uses the same accommodation choices and wording as the selected IDOS control.
-    func localizedTitle(bundle: Bundle = .main) -> String {
-        let key = switch self {
-        case .noLimitation:
-            "(no limitation)"
-        case .use:
-            "use"
-        case .doNotUse:
-            "don't use"
-        }
-        return bundle.localizedString(forKey: key, value: key, table: nil)
-    }
-}
-
 /// Stores one independently editable condition in the journey-options builder.
 struct JourneyOptionEntry: Identifiable, Equatable {
     let id: UUID
@@ -329,7 +338,6 @@ struct JourneyOptionEntry: Identifiable, Equatable {
     var sameNameWalkingTransfersOnly: Bool
     var connectionRequirement: JourneyConnectionRequirement
     var preference: JourneyPreference
-    var bedOrCouchettePreference: TransitBedOrCouchettePreference
 
     /// Distinguishes the two transfer-waiting rows that direct-only mode makes meaningless.
     var isTransferTimeCondition: Bool {
@@ -356,8 +364,7 @@ struct JourneyOptionEntry: Identifiable, Equatable {
         walkToNearbyStops: Bool = true,
         sameNameWalkingTransfersOnly: Bool = false,
         connectionRequirement: JourneyConnectionRequirement = .wheelchairAccessibleConnectionsOnly,
-        preference: JourneyPreference = .busyRoutes,
-        bedOrCouchettePreference: TransitBedOrCouchettePreference = .noLimitation
+        preference: JourneyPreference = .busyRoutes
     ) {
         self.id = id
         self.kind = kind
@@ -374,7 +381,6 @@ struct JourneyOptionEntry: Identifiable, Equatable {
         self.sameNameWalkingTransfersOnly = sameNameWalkingTransfersOnly
         self.connectionRequirement = connectionRequirement
         self.preference = preference
-        self.bedOrCouchettePreference = bedOrCouchettePreference
     }
 }
 
@@ -692,9 +698,10 @@ final class ConnectionsViewModel: ObservableObject {
     }
 
     var bedOrCouchettePreference: TransitBedOrCouchettePreference? {
-        journeyOptions.first {
-            $0.kind == .bedOrCouchettePreference
-        }?.bedOrCouchettePreference
+        journeyOptions.first { option in
+            option.kind == .onlyConnections &&
+                option.connectionRequirement.bedOrCouchettePreference != nil
+        }?.connectionRequirement.bedOrCouchettePreference
     }
 
     /// Presents an active transfer ceiling, retaining only IDOS's established implicit four-transfer default.
@@ -1224,7 +1231,7 @@ final class ConnectionsViewModel: ObservableObject {
         supportedConnectionRequirements.filter { requirement in
             !journeyOptions.contains { option in
                 option.id != id && option.kind == .onlyConnections &&
-                    option.connectionRequirement == requirement
+                    option.connectionRequirement.conflicts(with: requirement)
             }
         }
     }

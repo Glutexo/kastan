@@ -6887,8 +6887,8 @@ final class KastanAppTests: XCTestCase {
             JourneyOptionEntry(kind: .preference, preference: .busyRoutes),
             JourneyOptionEntry(kind: .preference, preference: .trainsOverBuses),
             JourneyOptionEntry(
-                kind: .bedOrCouchettePreference,
-                bedOrCouchettePreference: .use
+                kind: .onlyConnections,
+                connectionRequirement: .withBedsOrCouchettes
             ),
         ]
         model.isArrival = true
@@ -7040,23 +7040,26 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(model.journeyOptions[0].viaSelection)
     }
 
-    func testBedOrCouchetteOptionFollowsTheSelectedTimetable() async {
+    func testBedOrCouchetteRequirementsFollowTheSelectedTimetable() async {
         let client = MockIDOSClient()
         let model = ConnectionsViewModel(
             client: client,
             calendarImporter: RecordingCalendarImporter()
         )
         let option = JourneyOptionEntry(
-            kind: .bedOrCouchettePreference,
-            bedOrCouchettePreference: .use
+            kind: .onlyConnections,
+            connectionRequirement: .withBedsOrCouchettes
         )
         model.journeyOptions = [option]
 
-        XCTAssertTrue(model.supportedJourneyOptionKinds.contains(.bedOrCouchettePreference))
+        XCTAssertTrue(model.supportedConnectionRequirements.contains(.withBedsOrCouchettes))
+        XCTAssertTrue(model.supportedConnectionRequirements.contains(.withoutBedsOrCouchettes))
+        XCTAssertEqual(model.bedOrCouchettePreference, .use)
 
         model.timetable = IDOSTimetable(slug: "autobusy", displayName: "Buses")
 
-        XCTAssertFalse(model.supportedJourneyOptionKinds.contains(.bedOrCouchettePreference))
+        XCTAssertFalse(model.supportedConnectionRequirements.contains(.withBedsOrCouchettes))
+        XCTAssertFalse(model.supportedConnectionRequirements.contains(.withoutBedsOrCouchettes))
         XCTAssertEqual(model.journeyOptions, [JourneyOptionEntry(id: option.id)])
         model.from = "Praha"
         model.to = "Brno"
@@ -7066,7 +7069,16 @@ final class KastanAppTests: XCTestCase {
 
         model.timetable = IDOSTimetable(slug: "vlakyautobusy", displayName: "Trains + Buses")
 
-        XCTAssertTrue(model.supportedJourneyOptionKinds.contains(.bedOrCouchettePreference))
+        XCTAssertTrue(model.supportedConnectionRequirements.contains(.withBedsOrCouchettes))
+        XCTAssertTrue(model.supportedConnectionRequirements.contains(.withoutBedsOrCouchettes))
+        model.journeyOptions = [JourneyOptionEntry(
+            id: option.id,
+            kind: .onlyConnections,
+            connectionRequirement: .withoutBedsOrCouchettes
+        )]
+        await model.search()
+        let negativeRequest = await client.lastConnectionRequest
+        XCTAssertEqual(negativeRequest?.bedOrCouchettePreference, .doNotUse)
     }
 
     func testJourneyOptionRowsCanBeAddedAndRemovedWithoutDroppingTheLastField() {
@@ -7095,25 +7107,37 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(model.canRemoveJourneyOption(id: secondID))
     }
 
-    func testJourneyOptionPickerKeepsSingletonConditionsUnique() {
+    func testBedOrCouchetteRequirementsAreMutuallyExclusiveAcrossRows() {
         let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
         let firstID = model.journeyOptions[0].id
 
-        XCTAssertEqual(model.availableJourneyOptionKinds(for: firstID), JourneyOptionKind.allCases)
-
-        model.setJourneyOptionKind(.bedOrCouchettePreference, for: firstID)
+        model.setJourneyOptionKind(.onlyConnections, for: firstID)
+        model.setConnectionRequirement(.withBedsOrCouchettes, for: firstID)
         model.addJourneyOption(after: firstID)
         let secondID = model.journeyOptions[1].id
+        model.setJourneyOptionKind(.onlyConnections, for: secondID)
 
-        XCTAssertEqual(model.availableJourneyOptionKinds(for: firstID), JourneyOptionKind.allCases)
-        XCTAssertEqual(
-            model.availableJourneyOptionKinds(for: secondID),
-            JourneyOptionKind.allCases.filter { $0 != .bedOrCouchettePreference }
+        XCTAssertEqual(model.bedOrCouchettePreference, .use)
+        XCTAssertTrue(
+            model.availableConnectionRequirements(for: firstID).contains(.withBedsOrCouchettes)
+        )
+        XCTAssertTrue(
+            model.availableConnectionRequirements(for: firstID).contains(.withoutBedsOrCouchettes)
+        )
+        XCTAssertFalse(
+            model.availableConnectionRequirements(for: secondID).contains(.withBedsOrCouchettes)
+        )
+        XCTAssertFalse(
+            model.availableConnectionRequirements(for: secondID).contains(.withoutBedsOrCouchettes)
         )
 
-        model.removeJourneyOption(id: firstID)
+        let secondRequirement = model.journeyOptions[1].connectionRequirement
+        model.setConnectionRequirement(.withoutBedsOrCouchettes, for: secondID)
+        XCTAssertEqual(model.journeyOptions[1].connectionRequirement, secondRequirement)
 
-        XCTAssertEqual(model.availableJourneyOptionKinds(for: secondID), JourneyOptionKind.allCases)
+        model.setConnectionRequirement(.withoutBedsOrCouchettes, for: firstID)
+        XCTAssertEqual(model.journeyOptions[0].connectionRequirement, .withoutBedsOrCouchettes)
+        XCTAssertEqual(model.bedOrCouchettePreference, .doNotUse)
     }
 
     func testOnlyConnectionsCanRepeatWithDistinctRequirements() {
@@ -7580,32 +7604,20 @@ final class KastanAppTests: XCTestCase {
             "Pro cestující s kolem (vlaky, autobusy)"
         )
         XCTAssertEqual(
-            czech.localizedString(forKey: "Bed / Couchette", value: nil, table: nil),
-            "Lůžka/Lehátka"
+            czech.localizedString(forKey: "With beds/couchettes", value: nil, table: nil),
+            "s lůžky/lehátky"
         )
         XCTAssertEqual(
-            TransitBedOrCouchettePreference.noLimitation.localizedTitle(bundle: czech),
-            "(bez omezení)"
+            czech.localizedString(forKey: "Without beds/couchettes", value: nil, table: nil),
+            "bez lůžek/lehátek"
         )
         XCTAssertEqual(
-            TransitBedOrCouchettePreference.use.localizedTitle(bundle: czech),
-            "použít"
+            english.localizedString(forKey: "With beds/couchettes", value: nil, table: nil),
+            "with beds/couchettes"
         )
         XCTAssertEqual(
-            TransitBedOrCouchettePreference.doNotUse.localizedTitle(bundle: czech),
-            "nepoužít"
-        )
-        XCTAssertEqual(
-            TransitBedOrCouchettePreference.noLimitation.localizedTitle(bundle: english),
-            "(no limitation)"
-        )
-        XCTAssertEqual(
-            TransitBedOrCouchettePreference.use.localizedTitle(bundle: english),
-            "use"
-        )
-        XCTAssertEqual(
-            TransitBedOrCouchettePreference.doNotUse.localizedTitle(bundle: english),
-            "don't use"
+            english.localizedString(forKey: "Without beds/couchettes", value: nil, table: nil),
+            "without beds/couchettes"
         )
         XCTAssertEqual(czech.localizedString(forKey: "Yes", value: nil, table: nil), "Ano")
         XCTAssertEqual(czech.localizedString(forKey: "No", value: nil, table: nil), "Ne")
@@ -7615,7 +7627,7 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             JourneyOptionKind.allCases.filter { $0.group == .additionalParameters },
-            Array(JourneyOptionKind.allCases.suffix(3))
+            [.onlyConnections, .preference]
         )
         XCTAssertEqual(
             Set(JourneyOptionKind.allCases.flatMap(\.transitConnectionOptions)).union([.onlyDirect]),

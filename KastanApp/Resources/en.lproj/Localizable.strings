@@ -1,4 +1,3 @@
-"(no limitation)" = "(no limitation)";
 "About Kaštan" = "About Kaštan";
 "Add to Calendar" = "Add to Calendar";
 "Additionally runs %@" = "Additionally runs %@";
@@ -19,7 +18,6 @@
 "Arrival tends to be delayed" = "Arrival tends to be delayed";
 "Arrival tends to be on time" = "Arrival tends to be on time";
 "Attachments" = "Attachments";
-"Bed / Couchette" = "Bed / Couchette";
 "Between any stops" = "between any stops";
 "Board type" = "Board type";
 "borough" = "borough";
@@ -56,7 +54,6 @@
 "Direct connection" = "Direct";
 "Direct connections only" = "Direct connections only";
 "Direct only" = "Direct only";
-"don't use" = "don't use";
 "Download Attachment" = "Download Attachment";
 "Download attachment %@" = "Download attachment %@";
 "Download ICS File" = "Download ICS File";
@@ -286,6 +283,8 @@
 "Wheelchair accessible connections (trains)" = "Wheelchair accessible connections (trains)";
 "Wheelchair accessible connections only" = "Wheelchair accessible connections only";
 "Whole week" = "Whole week";
+"With beds/couchettes" = "with beds/couchettes";
+"Without beds/couchettes" = "without beds/couchettes";
 "Version %@" = "Version %@";
 "Via" = "Via";
 "Via place" = "Via place";
@@ -294,6 +293,5 @@
 "Your current location could not be determined. Try again." = "Your current location could not be determined. Try again.";
 "Yes" = "Yes";
 "using the Kaštan app %@" = "using the Kaštan app %@";
-"use" = "use";
 "via %@" = "via %@";
 "→ %@" = "→ %@";

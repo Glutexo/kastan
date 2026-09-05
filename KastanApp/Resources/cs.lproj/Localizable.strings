@@ -1,4 +1,3 @@
-"(no limitation)" = "(bez omezení)";
 "About Kaštan" = "O aplikaci Kaštan";
 "Add to Calendar" = "Přidat do Kalendáře";
 "Additionally runs %@" = "Navíc jede %@";
@@ -19,7 +18,6 @@
 "Arrival tends to be delayed" = "Příjezd bývá zpožděn";
 "Arrival tends to be on time" = "Příjezd bývá včas";
 "Attachments" = "Přílohy";
-"Bed / Couchette" = "Lůžka/Lehátka";
 "Between any stops" = "mezi libovolnými";
 "Board type" = "Typ tabule";
 "borough" = "městská část";
@@ -56,7 +54,6 @@
 "Direct connection" = "Přímý";
 "Direct connections only" = "Pouze přímá spojení";
 "Direct only" = "Jen přímé";
-"don't use" = "nepoužít";
 "Download Attachment" = "Stáhnout přílohu";
 "Download attachment %@" = "Stáhnout přílohu %@";
 "Download ICS File" = "Stáhnout soubor ICS";
@@ -286,6 +283,8 @@
 "Wheelchair accessible connections (trains)" = "Pro cestující na vozíku (vlaky)";
 "Wheelchair accessible connections only" = "Bezbariérové";
 "Whole week" = "Celý týden";
+"With beds/couchettes" = "s lůžky/lehátky";
+"Without beds/couchettes" = "bez lůžek/lehátek";
 "Version %@" = "Verze %@";
 "Via" = "Přes";
 "Via place" = "Místo přes";
@@ -294,6 +293,5 @@
 "Your current location could not be determined. Try again." = "Aktuální polohu se nepodařilo zjistit. Zkuste to znovu.";
 "Yes" = "Ano";
 "using the Kaštan app %@" = "pomocí aplikace Kaštan %@";
-"use" = "použít";
 "via %@" = "přes %@";
 "→ %@" = "→ %@";

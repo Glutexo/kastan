@@ -243,15 +243,11 @@ enum JourneyOptionRowLayout {
         let walkingDurationTitles = JourneyDurationChoice.maximumWalkingTimes.map {
             $0.localizedTitle()
         }
-        let bedOrCouchetteTitles = TransitBedOrCouchettePreference.allCases.map {
-            $0.localizedTitle()
-        }
-
         let standaloneValueWidth = max(
             minimumFlexibleValueWidth,
             StableWidthPopUpButton.catalogWidth(
                 for: JourneyConnectionRequirement.localizedCatalogTitles +
-                    JourneyPreference.localizedCatalogTitles + bedOrCouchetteTitles
+                    JourneyPreference.localizedCatalogTitles
             )
         )
         let transferValueWidth = StableWidthPopUpButton.catalogWidth(for: transferDurationTitles)
@@ -711,11 +707,6 @@ struct ConnectionsView: View {
                 choices: model.availableJourneyPreferences(for: option.wrappedValue.id),
                 label: option.wrappedValue.kind.localizedTitle
             )
-        case .bedOrCouchettePreference:
-            bedOrCouchettePreferencePicker(
-                selection: option.bedOrCouchettePreference,
-                label: option.wrappedValue.kind.localizedTitle
-            )
         }
     }
 
@@ -914,23 +905,6 @@ struct ConnectionsView: View {
             },
             set: { model.setJourneyPreference($0, for: optionID) }
         )
-    }
-
-    /// Presents every accommodation restriction accepted by IDOS for compatible train timetables.
-    private func bedOrCouchettePreferencePicker(
-        selection: Binding<TransitBedOrCouchettePreference>,
-        label: String
-    ) -> some View {
-        Picker(selection: selection) {
-            ForEach(TransitBedOrCouchettePreference.allCases, id: \.self) { preference in
-                Text(verbatim: preference.localizedTitle()).tag(preference)
-            }
-        } label: {
-            Text(verbatim: label)
-        }
-        .labelsHidden()
-        .fixedSize()
-        .accessibilityLabel(Text(verbatim: label))
     }
 
     /// Keeps the app's compact popup values aligned with the discrete durations accepted by IDOS.

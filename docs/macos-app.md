@@ -64,13 +64,17 @@ manager and show their source when more than one ordinary provider is registered
   duration editor. Each Walking distances row combines Maximum distance to walk, Maximum distance to walk when Urban
   Public Transport is available, On foot between stops, and Between stops of the same name in one subchoice popup. The
   first two use a duration editor and the latter two use a Boolean value popup. Additional parameters contains the
-  repeatable Only connections condition,
-  the repeatable Prefer condition, and Bed / Couchette. Each Only connections row has a value popup for Wheelchair
+  repeatable Only connections condition and the repeatable Prefer condition. Each Only connections row has a value popup
+  for Wheelchair
   accessible connections only, Low-floor lines only, Wheelchair accessible connections (trains), Connections for
-  passengers with children (trains), or Connections for passengers with bicycles (trains + buses). Each Prefer row
+  passengers with children (trains), Connections for passengers with bicycles (trains + buses), with beds/couchettes,
+  or without beds/couchettes. Each Prefer row
   offers busy routes or trains instead of buses. All four combined conditions can be repeated to select distinct
   subchoices, and each popup omits values already selected in another row as well as values unsupported by the active
-  timetable.
+  timetable. The two accommodation subchoices are mutually exclusive because they configure opposite values of the same
+  IDOS control; omitting both leaves it unrestricted. IDOS offers them only for All timetables, Trains + Buses + Urban
+  Public Transport, Trains, and Trains + Buses, so the app omits them from every other timetable and resets an active row
+  when the timetable changes to one that does not support them.
   Both group headings use the same non-interactive native treatment as timetable-menu groups, while a separator keeps
   the groups visually distinct. Via presents the same timetable-aware IDOS place suggestions and application-wide
   place-type filters as the route endpoints,
@@ -85,10 +89,7 @@ manager and show their source when more than one ordinary provider is registered
   only during transfers and defaults to the former; Between stops of the same name offers between any stops or only
   stops of the same name and defaults to the former. Selecting an Only connections or Prefer value activates its
   provider option until the row is removed.
-  Bed / Couchette uses IDOS's three choices:
-  no limitation, use, and don't use. IDOS offers this condition only for All timetables, Trains + Buses + Urban Public
-  Transport, Trains, and Trains + Buses, so the app omits it from every other timetable and resets an active row when
-  the timetable changes to one that does not support it. Every editor shares one row height
+  Every editor shares one row height
   and follows a selection-independent condition menu sized from the
   complete localized catalog. Every row retains its minus action; removing the sole condition from a source that
   supports Via resets that row to an empty, inactive Via field instead of removing it, then disables the minus action
