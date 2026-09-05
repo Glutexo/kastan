@@ -89,7 +89,7 @@ extension FocusedValues {
 
 /// Converts the detail column's measured width into stable responsive layout decisions.
 struct DetailLayout {
-    private static let compactPaddingBreakpoint: CGFloat = 600
+    private static let compactPaddingBreakpoint: CGFloat = 650
     private static let stackedSearchBreakpoint: CGFloat = 820
     private static let compactHorizontalPadding: CGFloat = 16
     private static let regularHorizontalPadding: CGFloat = 24

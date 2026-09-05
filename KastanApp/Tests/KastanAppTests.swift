@@ -2511,6 +2511,12 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(layout.usesStackedSearchControls)
     }
 
+    func testDetailLayoutKeepsCompactPaddingThroughNarrowMainWindowWidths() {
+        XCTAssertEqual(DetailLayout(availableWidth: 625).horizontalPadding, 16)
+        XCTAssertEqual(DetailLayout(availableWidth: 649).horizontalPadding, 16)
+        XCTAssertEqual(DetailLayout(availableWidth: 650).horizontalPadding, 24)
+    }
+
     func testStationTimetableResultLayoutSplitsWideResultsInHalf() {
         let layout = StationTimetableResultLayout(availableWidth: 1_218)
 
@@ -2606,7 +2612,7 @@ final class KastanAppTests: XCTestCase {
             )
             .fixedSize(horizontal: true, vertical: false)
 
-            Picker(selection: .constant(JourneyWalkingConstraint.maximumCityWalkingTime)) {
+            Picker(selection: .constant(JourneyWalkingConstraint.walkToNearbyStops)) {
                 ForEach(JourneyWalkingConstraint.allCases) { constraint in
                     Text(verbatim: constraint.localizedTitle).tag(constraint)
                 }
@@ -2616,12 +2622,13 @@ final class KastanAppTests: XCTestCase {
             .labelsHidden()
             .fixedSize()
 
-            Picker(selection: .constant(60)) {
-                ForEach(JourneyDurationChoice.maximumWalkingTimes) { choice in
-                    Text(verbatim: choice.localizedTitle()).tag(choice.minutes)
-                }
+            Picker(selection: .constant(true)) {
+                Text(verbatim: AppLocalization.string("Also at the beginning/end of journey"))
+                    .tag(true)
+                Text(verbatim: AppLocalization.string("Only during transfers"))
+                    .tag(false)
             } label: {
-                Text(verbatim: JourneyWalkingConstraint.maximumCityWalkingTime.localizedTitle)
+                Text(verbatim: JourneyWalkingConstraint.walkToNearbyStops.localizedTitle)
             }
             .labelsHidden()
             .fixedSize()
