@@ -305,7 +305,8 @@ passenger filters, while `connectionsForPassengersWithBicycles` applies to train
 `bedOrCouchettePreference` accepts `.noLimitation`, `.use`, or `.doNotUse` and is available only when
 `supportsConnectionOption(.bedOrCouchettePreference, for: timetable)` returns `true`. Leave any optional value as `nil`
 to retain the corresponding IDOS default; an explicit `false` or `.noLimitation` is still sent when the caller needs
-to preserve an active condition.
+to preserve an active condition. The preference's raw and Codable values are the stable English strings
+`noLimitation`, `use`, and `doNotUse`; the library translates them to IDOS's private numeric form values internally.
 
 ```swift
 let trainTimetable = try dataSource.resolveTimetable("vlaky")

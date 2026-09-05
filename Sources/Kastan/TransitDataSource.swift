@@ -150,13 +150,13 @@ public enum TransitConnectionOption: String, CaseIterable, Codable, Equatable, H
 }
 
 /// Selects how a connection search should treat services offering beds or couchettes.
-public enum TransitBedOrCouchettePreference: Int, CaseIterable, Codable, Equatable, Hashable, Sendable {
+public enum TransitBedOrCouchettePreference: String, CaseIterable, Codable, Equatable, Hashable, Sendable {
     /// Applies no accommodation restriction.
-    case noLimitation = 0
+    case noLimitation
     /// Requires the journey to use bed or couchette accommodation.
-    case use = 1
+    case use
     /// Requires the journey not to use bed or couchette accommodation.
-    case doNotUse = 2
+    case doNotUse
 }
 
 /// Identifies one provider and advertises only the product operations that it can fulfill.

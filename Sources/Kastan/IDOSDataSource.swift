@@ -130,6 +130,20 @@ private let idosBedOrCouchetteTimetableIdentifiers: Set<String> = [
     "vlakyautobusy",
 ]
 
+private extension TransitBedOrCouchettePreference {
+    /// Translates the provider-neutral choice into the numeric value expected by the IDOS advanced form.
+    var idosFormValue: Int {
+        switch self {
+        case .noLimitation:
+            0
+        case .use:
+            1
+        case .doNotUse:
+            2
+        }
+    }
+}
+
 public extension IDOSClienting {
     /// Mirrors the accommodation control that IDOS publishes only for its four train-containing general catalogs.
     func supportsConnectionOption(
@@ -2396,7 +2410,7 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
             if let bedOrCouchettePreference {
                 items.append(URLQueryItem(
                     name: "AdvancedForm.UseBeds",
-                    value: String(bedOrCouchettePreference.rawValue)
+                    value: String(bedOrCouchettePreference.idosFormValue)
                 ))
             }
 

@@ -33,6 +33,19 @@ import Testing
     #expect(output.contains("--verbose"))
     #expect(output.contains("--max-transfers"))
     #expect(output.contains("--min-transfer-time"))
+    #expect(output.contains("--max-transfer-time"))
+    #expect(output.contains("--max-walking-time"))
+    #expect(output.contains("--max-city-walking-time"))
+    #expect(output.contains("--walk-to-nearby-stops"))
+    #expect(output.contains("--same-name-walking-transfers-only"))
+    #expect(output.contains("--wheelchair-accessible-connections-only"))
+    #expect(output.contains("--low-floor-connections-only"))
+    #expect(output.contains("--prefer-trains-over-buses"))
+    #expect(output.contains("--train-connections-for-wheelchair-passengers"))
+    #expect(output.contains("--train-connections-for-passengers-with-children"))
+    #expect(output.contains("--connections-for-passengers-with-bicycles"))
+    #expect(output.contains("--prefer-busy-routes"))
+    #expect(output.contains("--bed-or-couchette-preference"))
     #expect(output.contains("--format"))
     #expect(output.contains("-T, --timetable"))
     #expect(output.contains("-o, --format"))
@@ -48,6 +61,17 @@ import Testing
     #expect(output.contains("Timetable identifier supplied by the selected data source"))
     #expect(output.contains("Default timetable for IDOS is All timetables (vlakyautobusymhdvse)."))
     #expect(!output.contains("IDOS URL slug"))
+}
+
+@Test func cliMapsEveryLibraryConnectionOptionToDistinctEnglishNames() {
+    let names = TransitConnectionOption.allCases.flatMap(\.connectionCommandNames)
+
+    #expect(TransitConnectionOption.allCases.allSatisfy { !$0.connectionCommandNames.isEmpty })
+    #expect(Set(names).count == names.count)
+    #expect(
+        TransitConnectionOption.allCases.filter(\.connectionCommandTakesValue)
+            == Array(TransitConnectionOption.allCases.dropFirst())
+    )
 }
 
 @Test func sourceOptionRoutesCollidingTimetablesAcrossGlobalArgumentPositions() async throws {
@@ -880,6 +904,62 @@ import Testing
     #expect(connection?["isShortest"] as? Bool == true)
 }
 
+@Test func connectionCommandPassesAndPrintsEveryAdditionalJourneyOption() async throws {
+    let output = await englishCommandRunner(
+        client: MockIDOSClient(
+            expectedMinimumTransferTime: -1,
+            expectedMaximumTransferTime: 360,
+            expectedMaximumWalkingTime: 45,
+            expectedMaximumCityWalkingTime: 20,
+            expectedWalkToNearbyStops: true,
+            expectedSameNameWalkingTransfersOnly: false,
+            expectedWheelchairAccessibleConnectionsOnly: true,
+            expectedLowFloorConnectionsOnly: false,
+            expectedPreferTrainsOverBuses: true,
+            expectedTrainConnectionsForWheelchairPassengers: false,
+            expectedTrainConnectionsForPassengersWithChildren: true,
+            expectedConnectionsForPassengersWithBicycles: false,
+            expectedPreferBusyRoutes: true,
+            expectedBedOrCouchettePreference: .use
+        )
+    ).output(
+        for: [
+            "connections", "Praha", "Brno", "--timetable", "vlaky",
+            "--min-transfer-time", "-1",
+            "--max-transfer-time", "360",
+            "--max-walking-time", "45",
+            "--max-city-walking-time", "20",
+            "--walk-to-nearby-stops", "true",
+            "--same-name-walking-transfers-only", "false",
+            "--wheelchair-accessible-connections-only", "true",
+            "--low-floor-connections-only", "false",
+            "--prefer-trains-over-buses", "true",
+            "--train-connections-for-wheelchair-passengers", "false",
+            "--train-connections-for-passengers-with-children", "true",
+            "--connections-for-passengers-with-bicycles", "false",
+            "--prefer-busy-routes", "true",
+            "--bed-or-couchette-preference", "use",
+            "--format", "json", "--limit", "1",
+        ]
+    )
+    let request = try #require(jsonDictionary(output)["request"] as? [String: Any])
+
+    #expect(request["minimumTransferTime"] as? Int == -1)
+    #expect(request["maximumTransferTime"] as? Int == 360)
+    #expect(request["maximumWalkingTime"] as? Int == 45)
+    #expect(request["maximumCityWalkingTime"] as? Int == 20)
+    #expect(request["walkToNearbyStops"] as? Bool == true)
+    #expect(request["sameNameWalkingTransfersOnly"] as? Bool == false)
+    #expect(request["wheelchairAccessibleConnectionsOnly"] as? Bool == true)
+    #expect(request["lowFloorConnectionsOnly"] as? Bool == false)
+    #expect(request["preferTrainsOverBuses"] as? Bool == true)
+    #expect(request["trainConnectionsForWheelchairPassengers"] as? Bool == false)
+    #expect(request["trainConnectionsForPassengersWithChildren"] as? Bool == true)
+    #expect(request["connectionsForPassengersWithBicycles"] as? Bool == false)
+    #expect(request["preferBusyRoutes"] as? Bool == true)
+    #expect(request["bedOrCouchettePreference"] as? String == "use")
+}
+
 @Test func connectionCommandPrintsIDOSCalendar() async {
     let output = await englishCommandRunner(client: MockIDOSClient()).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--format", "ics"]
@@ -1061,12 +1141,57 @@ import Testing
     #expect(output.contains("❌ Error: Invalid -X: -1. Use a non-negative integer."))
 }
 
-@Test func connectionCommandRejectsNegativeMinimumTransferTime() async {
-    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+@Test func connectionCommandAcceptsStandardMinimumTransferTime() async {
+    let output = await englishCommandRunner(
+        client: MockIDOSClient(expectedMinimumTransferTime: -1)
+    ).output(
         for: ["connections", "--from", "Praha", "--to", "Brno", "--timetable", "vlaky", "--min-transfer-time", "-1"]
     )
 
-    #expect(output.contains("❌ Error: Invalid --min-transfer-time: -1. Use a non-negative integer."))
+    #expect(output.contains("🧭 Connections Praha → Brno (Trains)"))
+}
+
+@Test func connectionCommandRejectsMinimumTransferTimeBelowStandard() async {
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+        for: ["connections", "Praha", "Brno", "--timetable", "vlaky", "--min-transfer-time", "-2"]
+    )
+
+    #expect(output.contains("❌ Error: Invalid --min-transfer-time: -2. Use an integer of at least -1."))
+}
+
+@Test func connectionCommandRejectsInvalidBooleanJourneyOption() async {
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+        for: ["connections", "Praha", "Brno", "--prefer-busy-routes", "yes"]
+    )
+
+    #expect(output == "❌ Error: Invalid --prefer-busy-routes: yes. Use one of: true, false.")
+}
+
+@Test func connectionCommandRejectsInvalidBedOrCouchettePreference() async {
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+        for: ["connections", "Praha", "Brno", "--bed-or-couchette-preference", "sometimes"]
+    )
+
+    #expect(
+        output
+            == "❌ Error: Invalid --bed-or-couchette-preference: sometimes. Use one of: no-limitation, use, do-not-use."
+    )
+}
+
+@Test func connectionCommandRejectsBedOrCouchetteForIncompatibleTimetable() async {
+    let output = await englishCommandRunner(
+        client: MockIDOSClient(expectedConnectionTimetable: "autobusy")
+    ).output(
+        for: [
+            "connections", "Praha", "Brno", "--timetable", "autobusy",
+            "--bed-or-couchette-preference", "use",
+        ]
+    )
+
+    #expect(
+        output
+            == "❌ Error: Option --bed-or-couchette-preference is not supported for timetable Buses (autobusy)."
+    )
 }
 
 @Test func departuresCommandPrintsDepartures() async {
@@ -1932,6 +2057,12 @@ import Testing
 }
 
 @Test func connectionRequestUsesIDOSBedOrCouchettePreference() {
+    let formValues: [TransitBedOrCouchettePreference: String] = [
+        .noLimitation: "0",
+        .use: "1",
+        .doNotUse: "2",
+    ]
+
     for preference in TransitBedOrCouchettePreference.allCases {
         let request = IDOSConnectionRequest(
             from: "Praha",
@@ -1941,7 +2072,7 @@ import Testing
 
         #expect(request.formItems.contains(URLQueryItem(
             name: "AdvancedForm.UseBeds",
-            value: String(preference.rawValue)
+            value: formValues[preference]
         )))
         #expect(request.formItems.contains(URLQueryItem(
             name: "AdvancedForm.AdvancedFormIsOpen",
@@ -3214,6 +3345,19 @@ private struct MockIDOSClient: IDOSClienting {
     var expectedVia: [String] = []
     var expectedMaxTransfers: Int? = nil
     var expectedMinimumTransferTime: Int? = nil
+    var expectedMaximumTransferTime: Int? = nil
+    var expectedMaximumWalkingTime: Int? = nil
+    var expectedMaximumCityWalkingTime: Int? = nil
+    var expectedWalkToNearbyStops: Bool? = nil
+    var expectedSameNameWalkingTransfersOnly: Bool? = nil
+    var expectedWheelchairAccessibleConnectionsOnly: Bool? = nil
+    var expectedLowFloorConnectionsOnly: Bool? = nil
+    var expectedPreferTrainsOverBuses: Bool? = nil
+    var expectedTrainConnectionsForWheelchairPassengers: Bool? = nil
+    var expectedTrainConnectionsForPassengersWithChildren: Bool? = nil
+    var expectedConnectionsForPassengersWithBicycles: Bool? = nil
+    var expectedPreferBusyRoutes: Bool? = nil
+    var expectedBedOrCouchettePreference: TransitBedOrCouchettePreference? = nil
     var expectedConnectionResultLimit: Int? = nil
     var validatesConnectionResultLimit = false
     var failConnectionsWithNetworkError = false
@@ -3276,6 +3420,31 @@ private struct MockIDOSClient: IDOSClienting {
         #expect(request.via == expectedVia)
         #expect(request.maxTransfers == expectedMaxTransfers)
         #expect(request.minimumTransferTime == expectedMinimumTransferTime)
+        #expect(request.maximumTransferTime == expectedMaximumTransferTime)
+        #expect(request.maximumWalkingTime == expectedMaximumWalkingTime)
+        #expect(request.maximumCityWalkingTime == expectedMaximumCityWalkingTime)
+        #expect(request.walkToNearbyStops == expectedWalkToNearbyStops)
+        #expect(request.sameNameWalkingTransfersOnly == expectedSameNameWalkingTransfersOnly)
+        #expect(
+            request.wheelchairAccessibleConnectionsOnly
+                == expectedWheelchairAccessibleConnectionsOnly
+        )
+        #expect(request.lowFloorConnectionsOnly == expectedLowFloorConnectionsOnly)
+        #expect(request.preferTrainsOverBuses == expectedPreferTrainsOverBuses)
+        #expect(
+            request.trainConnectionsForWheelchairPassengers
+                == expectedTrainConnectionsForWheelchairPassengers
+        )
+        #expect(
+            request.trainConnectionsForPassengersWithChildren
+                == expectedTrainConnectionsForPassengersWithChildren
+        )
+        #expect(
+            request.connectionsForPassengersWithBicycles
+                == expectedConnectionsForPassengersWithBicycles
+        )
+        #expect(request.preferBusyRoutes == expectedPreferBusyRoutes)
+        #expect(request.bedOrCouchettePreference == expectedBedOrCouchettePreference)
         if validatesConnectionResultLimit {
             #expect(request.resultLimit == expectedConnectionResultLimit)
         }

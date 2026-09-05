@@ -76,9 +76,55 @@ enum KastanMCPServer {
     }
 }
 
+extension TransitConnectionOption {
+    /// Names the matching public `find_connections` argument without exposing provider form fields.
+    var mcpArgumentName: String {
+        switch self {
+        case .onlyDirect:
+            "onlyDirect"
+        case .via:
+            "via"
+        case .maximumTransfers:
+            "maxTransfers"
+        case .minimumTransferTime:
+            "minimumTransferTime"
+        case .maximumTransferTime:
+            "maximumTransferTime"
+        case .maximumWalkingTime:
+            "maximumWalkingTime"
+        case .maximumCityWalkingTime:
+            "maximumCityWalkingTime"
+        case .walkToNearbyStops:
+            "walkToNearbyStops"
+        case .sameNameWalkingTransfersOnly:
+            "sameNameWalkingTransfersOnly"
+        case .wheelchairAccessibleConnectionsOnly:
+            "wheelchairAccessibleConnectionsOnly"
+        case .lowFloorConnectionsOnly:
+            "lowFloorConnectionsOnly"
+        case .preferTrainsOverBuses:
+            "preferTrainsOverBuses"
+        case .trainConnectionsForWheelchairPassengers:
+            "trainConnectionsForWheelchairPassengers"
+        case .trainConnectionsForPassengersWithChildren:
+            "trainConnectionsForPassengersWithChildren"
+        case .connectionsForPassengersWithBicycles:
+            "connectionsForPassengersWithBicycles"
+        case .preferBusyRoutes:
+            "preferBusyRoutes"
+        case .bedOrCouchettePreference:
+            "bedOrCouchettePreference"
+        }
+    }
+}
+
 /// Exposes the stable Kaštan library operations as read-only MCP tools.
 struct KastanMCPTools: Sendable {
     let dataSource: any IDOSClienting
+
+    private static let connectionOptionArgumentNames = Set(
+        TransitConnectionOption.allCases.map(\.mcpArgumentName)
+    )
 
     static let definitions: [Tool] = [
         Tool(
@@ -159,7 +205,23 @@ struct KastanMCPTools: Sendable {
                     "onlyDirect": booleanSchema("When true, return direct connections only."),
                     "via": stringArraySchema("Optional ordered places that the connection must travel via."),
                     "maxTransfers": integerSchema("Maximum permitted number of transfers, including 0.", minimum: 0),
-                    "minimumTransferTime": integerSchema("Minimum transfer time in minutes, including 0.", minimum: 0),
+                    "minimumTransferTime": integerSchema("Minimum transfer time in minutes; -1 selects the timetable standard.", minimum: -1),
+                    "maximumTransferTime": integerSchema("Maximum transfer time in minutes, including 0.", minimum: 0),
+                    "maximumWalkingTime": integerSchema("Maximum walking-transfer duration in minutes, including 0.", minimum: 0),
+                    "maximumCityWalkingTime": integerSchema("Maximum walking-transfer duration in minutes where Urban Public Transport is available, including 0.", minimum: 0),
+                    "walkToNearbyStops": booleanSchema("Whether the journey may begin or end at a nearby stop reached on foot."),
+                    "sameNameWalkingTransfersOnly": booleanSchema("Whether walking transfers are limited to stops with the same name."),
+                    "wheelchairAccessibleConnectionsOnly": booleanSchema("Whether results are limited to connections advertised as wheelchair accessible."),
+                    "lowFloorConnectionsOnly": booleanSchema("Whether results are limited to connections served by low-floor vehicles."),
+                    "preferTrainsOverBuses": booleanSchema("Whether train connections are preferred over bus alternatives."),
+                    "trainConnectionsForWheelchairPassengers": booleanSchema("Whether train results are limited to connections suitable for wheelchair passengers."),
+                    "trainConnectionsForPassengersWithChildren": booleanSchema("Whether train results are limited to connections suitable for passengers with children."),
+                    "connectionsForPassengersWithBicycles": booleanSchema("Whether train and bus results are limited to connections that carry bicycles."),
+                    "preferBusyRoutes": booleanSchema("Whether routes served more frequently are preferred."),
+                    "bedOrCouchettePreference": stringEnumSchema(
+                        "Whether journeys should use, avoid, or place no restriction on bed and couchette accommodation. Available only for compatible train timetables.",
+                        values: TransitBedOrCouchettePreference.allCases.map(\.rawValue)
+                    ),
                     "limit": integerSchema("Maximum number of connections to return. Defaults to 5.", minimum: 1, maximum: 20),
                 ],
                 required: ["from", "to"]
@@ -350,12 +412,11 @@ struct KastanMCPTools: Sendable {
     private func findConnections(_ values: [String: Value]) async throws -> ConnectionsOutput {
         let arguments = try ToolArguments(
             values,
-            allowed: [
-                "from", "to", "timetable", "date", "time", "isArrival", "onlyDirect", "via",
-                "maxTransfers", "minimumTransferTime", "limit",
-            ]
+            allowed: Set(["from", "to", "timetable", "date", "time", "isArrival", "limit"])
+                .union(Self.connectionOptionArgumentNames)
         )
         let timetable = try dataSource.resolveTimetable(arguments.optionalString("timetable"))
+        try validateConnectionOptions(in: values, timetable: timetable)
         let request = TransitConnectionRequest(
             timetable: timetable,
             from: try arguments.requiredString("from"),
@@ -366,11 +427,52 @@ struct KastanMCPTools: Sendable {
             onlyDirect: try arguments.boolean("onlyDirect", default: false),
             via: try arguments.stringArray("via", default: []),
             maxTransfers: try arguments.optionalInteger("maxTransfers", minimum: 0),
-            minimumTransferTime: try arguments.optionalInteger("minimumTransferTime", minimum: 0),
+            minimumTransferTime: try arguments.optionalInteger("minimumTransferTime", minimum: -1),
+            maximumTransferTime: try arguments.optionalInteger("maximumTransferTime", minimum: 0),
+            maximumWalkingTime: try arguments.optionalInteger("maximumWalkingTime", minimum: 0),
+            maximumCityWalkingTime: try arguments.optionalInteger("maximumCityWalkingTime", minimum: 0),
+            walkToNearbyStops: try arguments.optionalBoolean("walkToNearbyStops"),
+            sameNameWalkingTransfersOnly: try arguments.optionalBoolean("sameNameWalkingTransfersOnly"),
+            wheelchairAccessibleConnectionsOnly: try arguments.optionalBoolean(
+                "wheelchairAccessibleConnectionsOnly"
+            ),
+            lowFloorConnectionsOnly: try arguments.optionalBoolean("lowFloorConnectionsOnly"),
+            preferTrainsOverBuses: try arguments.optionalBoolean("preferTrainsOverBuses"),
+            trainConnectionsForWheelchairPassengers: try arguments.optionalBoolean(
+                "trainConnectionsForWheelchairPassengers"
+            ),
+            trainConnectionsForPassengersWithChildren: try arguments.optionalBoolean(
+                "trainConnectionsForPassengersWithChildren"
+            ),
+            connectionsForPassengersWithBicycles: try arguments.optionalBoolean(
+                "connectionsForPassengersWithBicycles"
+            ),
+            preferBusyRoutes: try arguments.optionalBoolean("preferBusyRoutes"),
+            bedOrCouchettePreference: try arguments.bedOrCouchettePreference(
+                "bedOrCouchettePreference"
+            ),
             resultLimit: try arguments.integer("limit", default: 5, range: 1...20)
         )
         let connections = try await dataSource.findConnections(request: request)
         return ConnectionsOutput(request: request, connections: connections)
+    }
+
+    /// Rejects timetable-specific controls before any IDOS request is sent.
+    private func validateConnectionOptions(
+        in values: [String: Value],
+        timetable: TransitTimetable
+    ) throws {
+        for option in TransitConnectionOption.allCases {
+            let argumentName = option.mcpArgumentName
+            guard let value = values[argumentName], !value.isNull else { continue }
+            guard dataSource.supportsConnectionOption(option, for: timetable) else {
+                throw MCPToolError.unsupportedConnectionOption(
+                    name: argumentName,
+                    timetableName: timetable.displayName,
+                    timetableIdentifier: timetable.identifier
+                )
+            }
+        }
     }
 
     private func findDepartures(_ values: [String: Value]) async throws -> DeparturesOutput {
@@ -467,6 +569,14 @@ struct KastanMCPTools: Sendable {
 
     private static func stringSchema(_ description: String) -> Value {
         .object(["type": "string", "description": .string(description), "minLength": 1])
+    }
+
+    private static func stringEnumSchema(_ description: String, values: [String]) -> Value {
+        .object([
+            "type": "string",
+            "description": .string(description),
+            "enum": .array(values.map(Value.string)),
+        ])
     }
 
     private static func integerSchema(_ description: String, minimum: Int, maximum: Int? = nil) -> Value {

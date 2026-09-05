@@ -141,17 +141,45 @@ swift run kastan connections "Praha → Brno"
 swift run kastan Praha→Brno
 ```
 
-Connection searches support direct journeys, one or more via places, arrival or departure time, maximum
-transfers including zero, and a minimum transfer time:
+Connection searches support the complete library journey-option contract. For example:
 
 ```sh
 swift run kastan connections Praha Brno --direct
 swift run kastan connections Praha Brno --via Pardubice --via Olomouc
 swift run kastan connections Praha Brno --time 15:00 --arrival
 swift run kastan connections Praha Brno --max-transfers 0
-swift run kastan connections Praha Brno --min-transfer-time 10
+swift run kastan connections Praha Brno --min-transfer-time -1 --max-transfer-time 360
+swift run kastan connections Praha Brno --wheelchair-accessible-connections-only true
+swift run kastan connections Praha Košice --timetable vlaky --bed-or-couchette-preference use
 swift run kastan connections Praha Brno --limit 3
 ```
+
+Every library option has a stable English CLI spelling:
+
+| CLI option | Value and behavior |
+| --- | --- |
+| `--direct`, `--only-direct`, `-x` | Flag that returns direct connections only. |
+| `--via`, `-V` | Via place; repeat the option to preserve an ordered list. |
+| `--max-transfers`, `-X` | Non-negative maximum number of transfers, including zero. |
+| `--min-transfer-time`, `-M` | Minimum transfer time in minutes; `-1` selects the timetable standard. |
+| `--max-transfer-time` | Non-negative maximum transfer time in minutes. |
+| `--max-walking-time` | Non-negative walking-transfer limit in minutes. |
+| `--max-city-walking-time` | Separate non-negative walking-transfer limit where Urban Public Transport is available. |
+| `--walk-to-nearby-stops` | `true` or `false`; controls walking to a nearby stop at the beginning or end. |
+| `--same-name-walking-transfers-only` | `true` or `false`; limits walking transfers to stops with the same name. |
+| `--wheelchair-accessible-connections-only` | `true` or `false`; limits results to wheelchair-accessible connections. |
+| `--low-floor-connections-only` | `true` or `false`; limits results to low-floor connections. |
+| `--prefer-trains-over-buses` | `true` or `false`; prefers trains over bus alternatives. |
+| `--train-connections-for-wheelchair-passengers` | `true` or `false`; applies the train-only wheelchair-passenger filter. |
+| `--train-connections-for-passengers-with-children` | `true` or `false`; applies the train-only passengers-with-children filter. |
+| `--connections-for-passengers-with-bicycles` | `true` or `false`; applies the bicycle filter to trains and buses. |
+| `--prefer-busy-routes` | `true` or `false`; prefers routes served more frequently. |
+| `--bed-or-couchette-preference` | `no-limitation`, `use`, or `do-not-use`; available only for compatible train timetables. |
+
+Omitting a value-backed option preserves the IDOS default, while an explicit `false` or `no-limitation` preserves
+an active negative or unrestricted condition. IDOS offers Bed / Couchette only for All timetables, Trains + Buses +
+Urban Public Transport, Trains, and Trains + Buses. Kaštan rejects it for other timetables before making an IDOS
+request.
 
 Kaštan asks IDOS for later connections until the requested limit is reached or no more results are available.
 
@@ -270,6 +298,7 @@ Common short switches are `-f` (`--from`), `-t` (`--to`), `-s` (`--station`), `-
 (`--departure`), `-V` (`--via`), `-x` (`--direct`),
 `-c` (`--add-to-calendar`), `-v` (`--verbose`), `-X` (`--max-transfers`), `-M`
 (`--min-transfer-time`), `-o` (`--format`), and `-l` (`--limit`).
+The remaining connection-search controls are long-only and are listed in [Connections](#connections).
 
 Short flags can be combined. For example, `-vx` is the same as `-v -x`; an option with a value can end the
 group, as in `-vxT odis`.
@@ -351,9 +380,10 @@ swift run kastan --source mock timetables --format json
 ```
 
 An unknown ID or a missing option value produces a localized error that lists the regular provider IDs.
-Connection-specific flags such as `--direct`, `--via`, `--max-transfers`, and `--min-transfer-time` are accepted only
-when the selected provider advertises the corresponding `TransitConnectionOption`; otherwise Kaštan reports a
-localized error before making a provider request.
+Every connection-specific option is accepted only when the selected provider advertises the corresponding
+`TransitConnectionOption` for the selected timetable; otherwise Kaštan reports a localized error before making a
+provider request. The exhaustive CLI-to-library mapping is checked by tests so adding a future library option cannot
+silently leave the command-line interface incomplete.
 
 `CommandRunner` depends on the provider-neutral `TransitDataSourceRegistry`, resolves timetables from the selected
 provider's catalog, and checks the capability required by a command or native export. This composition boundary lets

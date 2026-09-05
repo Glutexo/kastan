@@ -52,6 +52,16 @@ struct ToolArguments {
         return boolean
     }
 
+    func optionalBoolean(_ name: String) throws -> Bool? {
+        guard let value = values[name], !value.isNull else {
+            return nil
+        }
+        guard let boolean = value.boolValue else {
+            throw MCPToolError.invalidType(name: name, expected: "a boolean")
+        }
+        return boolean
+    }
+
     func integer(_ name: String, default defaultValue: Int, range: ClosedRange<Int>) throws -> Int {
         guard let value = values[name] else {
             return defaultValue
@@ -107,6 +117,21 @@ struct ToolArguments {
         }
         return language
     }
+
+    /// Resolves the stable provider-neutral values published in the connection tool schema.
+    func bedOrCouchettePreference(_ name: String) throws -> TransitBedOrCouchettePreference? {
+        guard let value = try optionalString(name) else {
+            return nil
+        }
+        guard let preference = TransitBedOrCouchettePreference(rawValue: value) else {
+            throw MCPToolError.invalidValue(
+                name: name,
+                value: value,
+                allowed: TransitBedOrCouchettePreference.allCases.map(\.rawValue)
+            )
+        }
+        return preference
+    }
 }
 
 /// Presents actionable product errors to MCP clients instead of protocol-level failures.
@@ -117,6 +142,11 @@ enum MCPToolError: LocalizedError {
     case emptyString(String)
     case invalidType(name: String, expected: String)
     case invalidValue(name: String, value: String, allowed: [String])
+    case unsupportedConnectionOption(
+        name: String,
+        timetableName: String,
+        timetableIdentifier: String
+    )
     case outOfRange(name: String, range: ClosedRange<Int>)
     case minimum(name: String, value: Int)
     case cannotEncodeResult
@@ -135,6 +165,8 @@ enum MCPToolError: LocalizedError {
             "Argument '\(name)' must be \(expected)."
         case .invalidValue(let name, let value, let allowed):
             "Invalid value '\(value)' for argument '\(name)'. Use \(allowed.joined(separator: " or "))."
+        case .unsupportedConnectionOption(let name, let timetableName, let timetableIdentifier):
+            "Argument '\(name)' is not supported for timetable \(timetableName) (\(timetableIdentifier))."
         case .outOfRange(let name, let range):
             "Argument '\(name)' must be between \(range.lowerBound) and \(range.upperBound)."
         case .minimum(let name, let value):
@@ -495,6 +527,19 @@ enum MCPOutputSchemas {
             "via": stringArraySchema,
             "maxTransfers": integerSchema,
             "minimumTransferTime": integerSchema,
+            "maximumTransferTime": integerSchema,
+            "maximumWalkingTime": integerSchema,
+            "maximumCityWalkingTime": integerSchema,
+            "walkToNearbyStops": booleanSchema,
+            "sameNameWalkingTransfersOnly": booleanSchema,
+            "wheelchairAccessibleConnectionsOnly": booleanSchema,
+            "lowFloorConnectionsOnly": booleanSchema,
+            "preferTrainsOverBuses": booleanSchema,
+            "trainConnectionsForWheelchairPassengers": booleanSchema,
+            "trainConnectionsForPassengersWithChildren": booleanSchema,
+            "connectionsForPassengersWithBicycles": booleanSchema,
+            "preferBusyRoutes": booleanSchema,
+            "bedOrCouchettePreference": bedOrCouchettePreferenceSchema,
             "resultLimit": integerSchema,
         ],
         required: ["timetable", "from", "to", "isArrival", "onlyDirect", "via", "resultLimit"]
@@ -670,6 +715,11 @@ enum MCPOutputSchemas {
     private static let transportModeSchema: Value = .object([
         "type": "string",
         "enum": ["train", "bus", "tram", "metro", "trolleybus", "ferry", "cableCar", "plane", "walk"],
+    ])
+
+    private static let bedOrCouchettePreferenceSchema: Value = .object([
+        "type": "string",
+        "enum": .array(TransitBedOrCouchettePreference.allCases.map { .string($0.rawValue) }),
     ])
 
     private static let stringSchema: Value = .object(["type": "string"])

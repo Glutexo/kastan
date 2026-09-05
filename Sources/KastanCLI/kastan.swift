@@ -4,6 +4,53 @@ import Kastan
 import FoundationNetworking
 #endif
 
+extension TransitConnectionOption {
+    /// Maps every provider-neutral journey option to the stable English spellings accepted by `connections`.
+    var connectionCommandNames: Set<String> {
+        switch self {
+        case .onlyDirect:
+            ["--direct", "--only-direct", "-x"]
+        case .via:
+            ["--via", "-V"]
+        case .maximumTransfers:
+            ["--max-transfers", "-X"]
+        case .minimumTransferTime:
+            ["--min-transfer-time", "-M"]
+        case .maximumTransferTime:
+            ["--max-transfer-time"]
+        case .maximumWalkingTime:
+            ["--max-walking-time"]
+        case .maximumCityWalkingTime:
+            ["--max-city-walking-time"]
+        case .walkToNearbyStops:
+            ["--walk-to-nearby-stops"]
+        case .sameNameWalkingTransfersOnly:
+            ["--same-name-walking-transfers-only"]
+        case .wheelchairAccessibleConnectionsOnly:
+            ["--wheelchair-accessible-connections-only"]
+        case .lowFloorConnectionsOnly:
+            ["--low-floor-connections-only"]
+        case .preferTrainsOverBuses:
+            ["--prefer-trains-over-buses"]
+        case .trainConnectionsForWheelchairPassengers:
+            ["--train-connections-for-wheelchair-passengers"]
+        case .trainConnectionsForPassengersWithChildren:
+            ["--train-connections-for-passengers-with-children"]
+        case .connectionsForPassengersWithBicycles:
+            ["--connections-for-passengers-with-bicycles"]
+        case .preferBusyRoutes:
+            ["--prefer-busy-routes"]
+        case .bedOrCouchettePreference:
+            ["--bed-or-couchette-preference"]
+        }
+    }
+
+    /// Direct-only is the sole flag; every other option carries a value and preserves its full library domain.
+    var connectionCommandTakesValue: Bool {
+        self != .onlyDirect
+    }
+}
+
 @main
 struct KastanApp {
     static func main() async {
@@ -21,6 +68,17 @@ struct CommandRunner {
     let calendarImporter: CalendarImporting
     let preferredLanguageIdentifiers: [String]
     let environment: [String: String]
+
+    private static let connectionOptionFlags = Set(
+        TransitConnectionOption.allCases
+            .filter { !$0.connectionCommandTakesValue }
+            .flatMap(\.connectionCommandNames)
+    )
+    private static let connectionOptionValueOptions = Set(
+        TransitConnectionOption.allCases
+            .filter(\.connectionCommandTakesValue)
+            .flatMap(\.connectionCommandNames)
+    )
 
     init(
         dataSource: any TransitDataSource = IDOSDataSource(),
@@ -427,27 +485,14 @@ struct CommandRunner {
         try requireCapability(.connections)
         let options = CommandOptions(arguments)
         try options.rejectUnknownOptions(
-            allowedFlags: ["--arrival", "-a", "--departure", "-p", "--direct", "--only-direct", "-x", "--add-to-calendar", "-c", "--verbose", "-v"],
-            allowedValueOptions: [
-                "--from", "-f", "--to", "-t", "--via", "-V", "--timetable", "-T", "--date", "-d", "--time", "-m",
-                "--max-transfers", "-X", "--min-transfer-time", "-M", "--format", "-o", "--limit", "-l",
-            ]
-        )
-        try requireConnectionOption(
-            .onlyDirect,
-            usedAs: options.firstOption(named: ["--direct", "--only-direct", "-x"])
-        )
-        try requireConnectionOption(
-            .via,
-            usedAs: options.firstOption(named: ["--via", "-V"])
-        )
-        try requireConnectionOption(
-            .maximumTransfers,
-            usedAs: options.firstOption(named: ["--max-transfers", "-X"])
-        )
-        try requireConnectionOption(
-            .minimumTransferTime,
-            usedAs: options.firstOption(named: ["--min-transfer-time", "-M"])
+            allowedFlags: Set([
+                "--arrival", "-a", "--departure", "-p", "--add-to-calendar", "-c",
+                "--verbose", "-v",
+            ]).union(Self.connectionOptionFlags),
+            allowedValueOptions: Set([
+                "--from", "-f", "--to", "-t", "--timetable", "-T", "--date", "-d",
+                "--time", "-m", "--format", "-o", "--limit", "-l",
+            ]).union(Self.connectionOptionValueOptions)
         )
         let format = try options.outputFormat()
         let addToCalendar = options.contains("--add-to-calendar", short: "-c")
@@ -475,6 +520,38 @@ struct CommandRunner {
             explicitValue: options.value(for: "--timetable", short: "-T"),
             aliases: ([fromPlace, toPlace] + viaPlaces).compactMap(\.alias)
         )
+        let maxTransfers = try options.nonNegativeIntegerValue(for: "--max-transfers", short: "-X")
+        let minimumTransferTime = try options.integerValue(
+            for: "--min-transfer-time",
+            short: "-M",
+            minimum: -1
+        )
+        let maximumTransferTime = try options.nonNegativeIntegerValue(for: "--max-transfer-time")
+        let maximumWalkingTime = try options.nonNegativeIntegerValue(for: "--max-walking-time")
+        let maximumCityWalkingTime = try options.nonNegativeIntegerValue(for: "--max-city-walking-time")
+        let walkToNearbyStops = try options.booleanValue(for: "--walk-to-nearby-stops")
+        let sameNameWalkingTransfersOnly = try options.booleanValue(
+            for: "--same-name-walking-transfers-only"
+        )
+        let wheelchairAccessibleConnectionsOnly = try options.booleanValue(
+            for: "--wheelchair-accessible-connections-only"
+        )
+        let lowFloorConnectionsOnly = try options.booleanValue(for: "--low-floor-connections-only")
+        let preferTrainsOverBuses = try options.booleanValue(for: "--prefer-trains-over-buses")
+        let trainConnectionsForWheelchairPassengers = try options.booleanValue(
+            for: "--train-connections-for-wheelchair-passengers"
+        )
+        let trainConnectionsForPassengersWithChildren = try options.booleanValue(
+            for: "--train-connections-for-passengers-with-children"
+        )
+        let connectionsForPassengersWithBicycles = try options.booleanValue(
+            for: "--connections-for-passengers-with-bicycles"
+        )
+        let preferBusyRoutes = try options.booleanValue(for: "--prefer-busy-routes")
+        let bedOrCouchettePreference = try options.bedOrCouchettePreferenceValue(
+            for: "--bed-or-couchette-preference"
+        )
+        try requireConnectionOptions(in: options, timetable: timetable)
         try await rejectAmbiguousPlaces(
             [fromPlace, toPlace] + viaPlaces,
             timetable: timetable,
@@ -494,8 +571,21 @@ struct CommandRunner {
             isArrival: try options.isArrivalTimeMode(),
             onlyDirect: options.contains("--direct", short: "-x") || options.contains("--only-direct"),
             via: viaPlaces.map(\.station),
-            maxTransfers: try options.nonNegativeIntegerValue(for: "--max-transfers", short: "-X"),
-            minimumTransferTime: try options.nonNegativeIntegerValue(for: "--min-transfer-time", short: "-M"),
+            maxTransfers: maxTransfers,
+            minimumTransferTime: minimumTransferTime,
+            maximumTransferTime: maximumTransferTime,
+            maximumWalkingTime: maximumWalkingTime,
+            maximumCityWalkingTime: maximumCityWalkingTime,
+            walkToNearbyStops: walkToNearbyStops,
+            sameNameWalkingTransfersOnly: sameNameWalkingTransfersOnly,
+            wheelchairAccessibleConnectionsOnly: wheelchairAccessibleConnectionsOnly,
+            lowFloorConnectionsOnly: lowFloorConnectionsOnly,
+            preferTrainsOverBuses: preferTrainsOverBuses,
+            trainConnectionsForWheelchairPassengers: trainConnectionsForWheelchairPassengers,
+            trainConnectionsForPassengersWithChildren: trainConnectionsForPassengersWithChildren,
+            connectionsForPassengersWithBicycles: connectionsForPassengersWithBicycles,
+            preferBusyRoutes: preferBusyRoutes,
+            bedOrCouchettePreference: bedOrCouchettePreference,
             resultLimit: format == .ics || addToCalendar ? 1 : requestedLimit
         )
         let connections = try await dataSource.findConnections(request: request)
@@ -824,18 +914,29 @@ struct CommandRunner {
         }
     }
 
-    /// Rejects a provider-specific journey control before sending a request that cannot honor it.
-    private func requireConnectionOption(
-        _ option: TransitConnectionOption,
-        usedAs commandLineOption: String?
+    /// Rejects every supplied journey control that the provider or selected timetable cannot honor.
+    private func requireConnectionOptions(
+        in options: CommandOptions,
+        timetable: TransitTimetable
     ) throws {
-        guard let commandLineOption else { return }
-        guard dataSource.descriptor.supports(option) else {
-            throw CommandError.unsupportedConnectionOption(
-                commandLineOption,
-                providerName: dataSource.descriptor.displayName,
-                providerID: dataSource.descriptor.id.rawValue
-            )
+        for option in TransitConnectionOption.allCases {
+            guard let commandLineOption = options.firstOption(named: option.connectionCommandNames) else {
+                continue
+            }
+            guard dataSource.descriptor.supports(option) else {
+                throw CommandError.unsupportedConnectionOption(
+                    commandLineOption,
+                    providerName: dataSource.descriptor.displayName,
+                    providerID: dataSource.descriptor.id.rawValue
+                )
+            }
+            guard dataSource.supportsConnectionOption(option, for: timetable) else {
+                throw CommandError.unsupportedConnectionOptionForTimetable(
+                    commandLineOption,
+                    timetableName: timetable.displayName,
+                    timetableIdentifier: timetable.identifier
+                )
+            }
         }
     }
 
@@ -942,11 +1043,11 @@ struct CommandRunner {
     }
 
     private func positionalValues(in options: CommandOptions) -> [String] {
-        positionalValues(options.positional(valueOptions: [
+        positionalValues(options.positional(valueOptions: Set([
             "--from", "-f", "--to", "-t", "--via", "-V", "--station", "-s", "--timetable", "-T",
             "--date", "-d", "--time", "-m", "--max-transfers", "-X", "--min-transfer-time", "-M",
             "--format", "-o", "--limit", "-l",
-        ]))
+        ]).union(Self.connectionOptionValueOptions)))
     }
 
     private func positionalValues(_ values: [String]) -> [String] {
@@ -989,8 +1090,15 @@ private enum CommandError: Error {
     case missingSource(String, String)
     case sourceRequired(String)
     case unsupportedConnectionOption(String, providerName: String, providerID: String)
+    case unsupportedConnectionOptionForTimetable(
+        String,
+        timetableName: String,
+        timetableIdentifier: String
+    )
     case invalidOutputFormat(String)
     case invalidNonNegativeInteger(name: String, value: String)
+    case invalidIntegerMinimum(name: String, value: String, minimum: Int)
+    case invalidOptionValue(name: String, value: String, allowed: [String])
     case conflictingOptions(String, String)
     case aliasTimetableMismatch(alias: String, aliasTimetable: TransitTimetable, requestedTimetable: TransitTimetable)
     case conflictingAliasTimetables(TransitTimetable, TransitTimetable)
@@ -1014,10 +1122,25 @@ private enum CommandError: Error {
             return localization.text(.sourceRequired, available)
         case .unsupportedConnectionOption(let option, let providerName, let providerID):
             return localization.text(.unsupportedConnectionOption, option, providerName, providerID)
+        case .unsupportedConnectionOptionForTimetable(
+            let option,
+            let timetableName,
+            let timetableIdentifier
+        ):
+            return localization.text(
+                .unsupportedConnectionOptionForTimetable,
+                option,
+                timetableName,
+                timetableIdentifier
+            )
         case .invalidOutputFormat(let value):
             return localization.text(.invalidOutputFormat, value)
         case .invalidNonNegativeInteger(let name, let value):
             return localization.text(.invalidNonNegativeInteger, name, value)
+        case .invalidIntegerMinimum(let name, let value, let minimum):
+            return localization.text(.invalidIntegerMinimum, name, value, String(minimum))
+        case .invalidOptionValue(let name, let value, let allowed):
+            return localization.text(.invalidOptionValue, name, value, allowed.joined(separator: ", "))
         case .conflictingOptions(let first, let second):
             return localization.text(.conflictingOptions, first, second)
         case .aliasTimetableMismatch(let alias, let aliasTimetable, let requestedTimetable):
@@ -2966,6 +3089,66 @@ private struct CommandOptions {
         }
 
         return integer
+    }
+
+    func integerValue(
+        for name: String,
+        short shortName: String? = nil,
+        minimum: Int
+    ) throws -> Int? {
+        guard let match = optionValue(for: name, short: shortName) else {
+            return nil
+        }
+
+        let (option, value) = match
+        guard let integer = Int(value), integer >= minimum else {
+            throw CommandError.invalidIntegerMinimum(name: option, value: value, minimum: minimum)
+        }
+
+        return integer
+    }
+
+    func booleanValue(for name: String, short shortName: String? = nil) throws -> Bool? {
+        guard let match = optionValue(for: name, short: shortName) else {
+            return nil
+        }
+
+        let (option, value) = match
+        switch value.lowercased() {
+        case "true":
+            return true
+        case "false":
+            return false
+        default:
+            throw CommandError.invalidOptionValue(
+                name: option,
+                value: value,
+                allowed: ["true", "false"]
+            )
+        }
+    }
+
+    /// Resolves CLI-style values into the provider-neutral accommodation preference.
+    func bedOrCouchettePreferenceValue(for name: String) throws -> TransitBedOrCouchettePreference? {
+        guard let match = optionValue(for: name) else {
+            return nil
+        }
+
+        let (option, value) = match
+        switch value.lowercased() {
+        case "no-limitation":
+            return .noLimitation
+        case "use":
+            return .use
+        case "do-not-use":
+            return .doNotUse
+        default:
+            throw CommandError.invalidOptionValue(
+                name: option,
+                value: value,
+                allowed: ["no-limitation", "use", "do-not-use"]
+            )
+        }
     }
 
     func contains(_ name: String, short shortName: String? = nil) -> Bool {

@@ -96,6 +96,15 @@ func expectTransitDataSourceContract(
     #expect(legacy.connectionOptions.isEmpty)
 }
 
+/// Keeps the provider-neutral accommodation values descriptive in encoded requests and public integrations.
+@Test func bedOrCouchettePreferencesUseStablePublicValues() {
+    #expect(TransitBedOrCouchettePreference.allCases.map(\.rawValue) == [
+        "noLimitation",
+        "use",
+        "doNotUse",
+    ])
+}
+
 /// Mirrors the timetable-specific visibility of IDOS's bed and couchette control.
 @Test func bedOrCouchetteOptionIsLimitedToCompatibleIDOSTimetables() {
     let source: any TransitDataSource = IDOSDataSource()

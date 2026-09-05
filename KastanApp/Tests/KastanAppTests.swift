@@ -7287,6 +7287,10 @@ final class KastanAppTests: XCTestCase {
             JourneyOptionKind.allCases.filter { $0.group == .additionalParameters },
             Array(JourneyOptionKind.allCases.suffix(8))
         )
+        XCTAssertEqual(
+            Set(JourneyOptionKind.allCases.map(\.transitConnectionOption)).union([.onlyDirect]),
+            Set(TransitConnectionOption.allCases)
+        )
         XCTAssertEqual(JourneyDurationChoice(minutes: -1).localizedTitle(bundle: czech), "Standardní")
         XCTAssertEqual(JourneyDurationChoice(minutes: 0).localizedTitle(bundle: czech), "0 minut")
         XCTAssertEqual(JourneyDurationChoice(minutes: 1).localizedTitle(bundle: czech), "1 minuta")

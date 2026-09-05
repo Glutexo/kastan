@@ -170,11 +170,34 @@ final Station Timetable request when searching ODIS, IREDO, or IDOL.
 - `date` uses the IDOS `d.M.yyyy` format; omission lets IDOS use the current date.
 - `time` uses the IDOS `H:mm` format; omission lets IDOS use the current time.
 - `isArrival` interprets the requested time as arrival rather than departure when `true`.
+- `limit` defaults to 5 and accepts values from 1 through 20.
+
+Its journey options mirror the complete `TransitConnectionRequest` library contract:
+
 - `onlyDirect` returns only direct connections when `true`.
 - `via` is an ordered array of places through which the connection must travel.
 - `maxTransfers` sets a non-negative maximum number of transfers, including zero.
-- `minimumTransferTime` sets a non-negative minimum transfer time in minutes.
-- `limit` defaults to 5 and accepts values from 1 through 20.
+- `minimumTransferTime` sets the minimum transfer time in minutes; `-1` selects the timetable standard.
+- `maximumTransferTime` sets a non-negative maximum transfer time in minutes.
+- `maximumWalkingTime` sets a non-negative walking-transfer limit in minutes.
+- `maximumCityWalkingTime` sets a separate non-negative walking-transfer limit where Urban Public Transport is
+  available.
+- `walkToNearbyStops` controls walking to a nearby stop at the beginning or end of the journey.
+- `sameNameWalkingTransfersOnly` limits walking transfers to stops with the same name.
+- `wheelchairAccessibleConnectionsOnly` limits results to connections advertised as wheelchair accessible.
+- `lowFloorConnectionsOnly` limits results to connections served by low-floor vehicles.
+- `preferTrainsOverBuses` prefers trains over bus alternatives.
+- `trainConnectionsForWheelchairPassengers` applies the train-only wheelchair-passenger filter.
+- `trainConnectionsForPassengersWithChildren` applies the train-only passengers-with-children filter.
+- `connectionsForPassengersWithBicycles` applies the bicycle filter to trains and buses.
+- `preferBusyRoutes` prefers routes served more frequently.
+- `bedOrCouchettePreference` accepts `noLimitation`, `use`, or `doNotUse`. IDOS offers it only for All timetables,
+  Trains + Buses + Urban Public Transport, Trains, and Trains + Buses.
+
+Boolean journey options accept both `true` and `false`; omission preserves the IDOS default, while an explicit
+`false` preserves an active negative condition. Kaštan rejects an option unavailable for the selected timetable
+before making an IDOS request. The validated request returned with every result contains the same field names and
+stable values, so another MCP client can reproduce the search without translating an IDOS form.
 
 Kaštan asks IDOS for later connections until it reaches the requested limit or no more results are available.
 Returned legs include the opaque service IDs accepted by `get_service_detail` and any ordered service-information

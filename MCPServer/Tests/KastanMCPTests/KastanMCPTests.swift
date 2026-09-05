@@ -33,6 +33,19 @@ import Testing
     })
     #expect(tools.first { $0.name == "find_connections" }?.inputSchema.objectValue?["required"] == ["from", "to"])
     #expect(tools.first { $0.name == "find_connections" }?.outputSchema?.objectValue?["required"] == ["request", "connections"])
+    let connectionProperties = try #require(
+        tools.first { $0.name == "find_connections" }?
+            .inputSchema.objectValue?["properties"]?.objectValue
+    )
+    #expect(Set(connectionProperties.keys) == Set([
+        "from", "to", "timetable", "date", "time", "isArrival", "limit",
+    ] + TransitConnectionOption.allCases.map(\.mcpArgumentName)))
+    #expect(TransitConnectionOption.allCases.map(\.mcpArgumentName).count == 17)
+    #expect(connectionProperties["minimumTransferTime"]?.objectValue?["minimum"] == -1)
+    #expect(
+        connectionProperties["bedOrCouchettePreference"]?.objectValue?["enum"]
+            == ["noLimitation", "use", "doNotUse"]
+    )
     #expect(
         tools.first { $0.name == "find_station_timetable" }?
             .inputSchema.objectValue?["required"] == ["line", "from", "to"]
@@ -85,7 +98,20 @@ import Testing
             "onlyDirect": true,
             "via": ["Pardubice", "Olomouc"],
             "maxTransfers": 1,
-            "minimumTransferTime": 10,
+            "minimumTransferTime": -1,
+            "maximumTransferTime": 360,
+            "maximumWalkingTime": 45,
+            "maximumCityWalkingTime": 20,
+            "walkToNearbyStops": true,
+            "sameNameWalkingTransfersOnly": false,
+            "wheelchairAccessibleConnectionsOnly": true,
+            "lowFloorConnectionsOnly": false,
+            "preferTrainsOverBuses": true,
+            "trainConnectionsForWheelchairPassengers": false,
+            "trainConnectionsForPassengersWithChildren": true,
+            "connectionsForPassengersWithBicycles": false,
+            "preferBusyRoutes": true,
+            "bedOrCouchettePreference": "use",
             "limit": 7,
         ]
     )
@@ -110,8 +136,55 @@ import Testing
     #expect(request?.onlyDirect == true)
     #expect(request?.via == ["Pardubice", "Olomouc"])
     #expect(request?.maxTransfers == 1)
-    #expect(request?.minimumTransferTime == 10)
+    #expect(request?.minimumTransferTime == -1)
+    #expect(request?.maximumTransferTime == 360)
+    #expect(request?.maximumWalkingTime == 45)
+    #expect(request?.maximumCityWalkingTime == 20)
+    #expect(request?.walkToNearbyStops == true)
+    #expect(request?.sameNameWalkingTransfersOnly == false)
+    #expect(request?.wheelchairAccessibleConnectionsOnly == true)
+    #expect(request?.lowFloorConnectionsOnly == false)
+    #expect(request?.preferTrainsOverBuses == true)
+    #expect(request?.trainConnectionsForWheelchairPassengers == false)
+    #expect(request?.trainConnectionsForPassengersWithChildren == true)
+    #expect(request?.connectionsForPassengersWithBicycles == false)
+    #expect(request?.preferBusyRoutes == true)
+    #expect(request?.bedOrCouchettePreference == .use)
     #expect(request?.resultLimit == 7)
+    #expect(
+        result.structuredContent?.objectValue?["request"]?
+            .objectValue?["bedOrCouchettePreference"] == "use"
+    )
+    let outputSchema = try #require(
+        KastanMCPTools.definitions.first { $0.name == "find_connections" }?.outputSchema
+    )
+    #expect(
+        schemaValidationErrors(
+            for: try #require(result.structuredContent),
+            schema: outputSchema
+        ).isEmpty
+    )
+}
+
+@Test func connectionToolRejectsTimetableSpecificOptionBeforeCallingIDOS() async {
+    let mock = MockIDOSClient()
+    let tools = KastanMCPTools(dataSource: mock)
+    let result = await tools.call(
+        name: "find_connections",
+        arguments: [
+            "from": "Praha",
+            "to": "Brno",
+            "timetable": "autobusy",
+            "bedOrCouchettePreference": "use",
+        ]
+    )
+
+    #expect(result.isError == true)
+    #expect(
+        text(from: result.content)
+            == "Error: Argument 'bedOrCouchettePreference' is not supported for timetable Buses (autobusy)."
+    )
+    #expect(await mock.lastConnectionRequest == nil)
 }
 
 /// Keeps the public IDOS MCP schema stable when library models retain internal timetable routing metadata.
@@ -367,6 +440,18 @@ import Testing
             "timetable": "pid", "municipality": "Ostrava",
         ]
     )
+    let invalidBoolean = await tools.call(
+        name: "find_connections",
+        arguments: ["from": "Praha", "to": "Brno", "preferBusyRoutes": "yes"]
+    )
+    let invalidMinimumTransferTime = await tools.call(
+        name: "find_connections",
+        arguments: ["from": "Praha", "to": "Brno", "minimumTransferTime": -2]
+    )
+    let invalidBedOrCouchette = await tools.call(
+        name: "find_connections",
+        arguments: ["from": "Praha", "to": "Brno", "bedOrCouchettePreference": "sometimes"]
+    )
 
     #expect(missing.isError == true)
     #expect(text(from: missing.content) == "Error: Missing required argument 'to'.")
@@ -380,6 +465,21 @@ import Testing
     #expect(
         text(from: invalidMunicipality.content) ==
             "Error: Timetable Prague + PID does not offer a municipality choice."
+    )
+    #expect(invalidBoolean.isError == true)
+    #expect(
+        text(from: invalidBoolean.content)
+            == "Error: Argument 'preferBusyRoutes' must be a boolean."
+    )
+    #expect(invalidMinimumTransferTime.isError == true)
+    #expect(
+        text(from: invalidMinimumTransferTime.content)
+            == "Error: Argument 'minimumTransferTime' must be at least -1."
+    )
+    #expect(invalidBedOrCouchette.isError == true)
+    #expect(
+        text(from: invalidBedOrCouchette.content)
+            == "Error: Invalid value 'sometimes' for argument 'bedOrCouchettePreference'. Use noLimitation or use or doNotUse."
     )
     #expect(await mock.lastConnectionRequest == nil)
     #expect(await mock.lastDeparturesRequest == nil)
