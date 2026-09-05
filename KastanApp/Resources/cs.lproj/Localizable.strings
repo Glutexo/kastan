@@ -121,6 +121,7 @@
 "Maximum number of transfers" = "Nejvyšší počet přestupů";
 "Maximum transfer time" = "Nejvyšší čas na přestup";
 "Minimum transfer time" = "Nejnižší čas na přestup";
+"Only connections" = "Pouze spojení";
 "Only during transfers" = "pouze při přestupu";
 "Only stops of the same name" = "pouze stejného jména";
 "Matched rule: contains “%@”." = "Použité pravidlo: obsahuje „%@“.";

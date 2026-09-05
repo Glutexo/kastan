@@ -2606,13 +2606,12 @@ final class KastanAppTests: XCTestCase {
             )
             .fixedSize(horizontal: true, vertical: false)
 
-            Picker(selection: .constant(true)) {
-                Text(verbatim: AppLocalization.string("Also at the beginning/end of journey"))
-                    .tag(true)
-                Text(verbatim: AppLocalization.string("Only during transfers"))
-                    .tag(false)
+            Picker(selection: .constant(JourneyConnectionRequirement.connectionsForPassengersWithBicycles)) {
+                ForEach(JourneyConnectionRequirement.allCases) { requirement in
+                    Text(verbatim: requirement.localizedTitle).tag(requirement)
+                }
             } label: {
-                Text(verbatim: JourneyOptionKind.walkToNearbyStops.localizedTitle)
+                Text(verbatim: JourneyOptionKind.onlyConnections.localizedTitle)
             }
             .labelsHidden()
             .fixedSize()
@@ -5102,6 +5101,24 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(model.journeyOptions[0].kind, .via)
         XCTAssertTrue(model.transferLimitLabel.isEmpty)
 
+        let requirementLimited = AppSourceSelectionTestSource(
+            id: "requirements",
+            name: "Requirements",
+            timetableIdentifier: "network",
+            capabilities: [.timetables, .connections],
+            connectionOptions: [.lowFloorConnectionsOnly, .preferBusyRoutes]
+        )
+        let requirementModel = ConnectionsViewModel(client: requirementLimited)
+
+        XCTAssertEqual(requirementModel.supportedJourneyOptionKinds, [.onlyConnections, .preferBusyRoutes])
+        XCTAssertEqual(requirementModel.supportedConnectionRequirements, [.lowFloorConnectionsOnly])
+        requirementModel.addJourneyOption()
+        let requirementID = requirementModel.journeyOptions[0].id
+        XCTAssertEqual(requirementModel.journeyOptions[0].kind, .onlyConnections)
+        XCTAssertEqual(requirementModel.journeyOptions[0].connectionRequirement, .lowFloorConnectionsOnly)
+        requirementModel.setConnectionRequirement(.preferTrainsOverBuses, for: requirementID)
+        XCTAssertEqual(requirementModel.journeyOptions[0].connectionRequirement, .lowFloorConnectionsOnly)
+
         let unavailable = AppSourceSelectionTestSource(
             id: "plain",
             name: "Plain",
@@ -6771,22 +6788,28 @@ final class KastanAppTests: XCTestCase {
                 sameNameWalkingTransfersOnly: true
             ),
             JourneyOptionEntry(
-                kind: .wheelchairAccessibleConnectionsOnly,
-                wheelchairAccessibleConnectionsOnly: true
-            ),
-            JourneyOptionEntry(kind: .lowFloorConnectionsOnly, lowFloorConnectionsOnly: false),
-            JourneyOptionEntry(kind: .preferTrainsOverBuses, preferTrainsOverBuses: true),
-            JourneyOptionEntry(
-                kind: .trainConnectionsForWheelchairPassengers,
-                trainConnectionsForWheelchairPassengers: false
+                kind: .onlyConnections,
+                connectionRequirement: .wheelchairAccessibleConnectionsOnly
             ),
             JourneyOptionEntry(
-                kind: .trainConnectionsForPassengersWithChildren,
-                trainConnectionsForPassengersWithChildren: true
+                kind: .onlyConnections,
+                connectionRequirement: .lowFloorConnectionsOnly
             ),
             JourneyOptionEntry(
-                kind: .connectionsForPassengersWithBicycles,
-                connectionsForPassengersWithBicycles: false
+                kind: .onlyConnections,
+                connectionRequirement: .preferTrainsOverBuses
+            ),
+            JourneyOptionEntry(
+                kind: .onlyConnections,
+                connectionRequirement: .trainConnectionsForWheelchairPassengers
+            ),
+            JourneyOptionEntry(
+                kind: .onlyConnections,
+                connectionRequirement: .trainConnectionsForPassengersWithChildren
+            ),
+            JourneyOptionEntry(
+                kind: .onlyConnections,
+                connectionRequirement: .connectionsForPassengersWithBicycles
             ),
             JourneyOptionEntry(kind: .preferBusyRoutes, preferBusyRoutes: true),
             JourneyOptionEntry(
@@ -6821,11 +6844,11 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(request?.walkToNearbyStops, false)
         XCTAssertEqual(request?.sameNameWalkingTransfersOnly, true)
         XCTAssertEqual(request?.wheelchairAccessibleConnectionsOnly, true)
-        XCTAssertEqual(request?.lowFloorConnectionsOnly, false)
+        XCTAssertEqual(request?.lowFloorConnectionsOnly, true)
         XCTAssertEqual(request?.preferTrainsOverBuses, true)
-        XCTAssertEqual(request?.trainConnectionsForWheelchairPassengers, false)
+        XCTAssertEqual(request?.trainConnectionsForWheelchairPassengers, true)
         XCTAssertEqual(request?.trainConnectionsForPassengersWithChildren, true)
-        XCTAssertEqual(request?.connectionsForPassengersWithBicycles, false)
+        XCTAssertEqual(request?.connectionsForPassengersWithBicycles, true)
         XCTAssertEqual(request?.preferBusyRoutes, true)
         XCTAssertEqual(request?.bedOrCouchettePreference, .use)
         XCTAssertEqual(request?.resultLimit, 10)
@@ -7019,6 +7042,43 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(model.availableJourneyOptionKinds(for: secondID), JourneyOptionKind.allCases)
     }
 
+    func testOnlyConnectionsCanRepeatWithDistinctRequirements() {
+        let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
+        let firstID = model.journeyOptions[0].id
+
+        model.setJourneyOptionKind(.onlyConnections, for: firstID)
+        model.addJourneyOption(after: firstID)
+        let secondID = model.journeyOptions[1].id
+        model.setJourneyOptionKind(.onlyConnections, for: secondID)
+
+        XCTAssertEqual(model.journeyOptions[0].connectionRequirement, .wheelchairAccessibleConnectionsOnly)
+        XCTAssertEqual(model.journeyOptions[1].connectionRequirement, .lowFloorConnectionsOnly)
+        XCTAssertTrue(model.availableJourneyOptionKinds(for: firstID).contains(.onlyConnections))
+        XCTAssertTrue(model.availableJourneyOptionKinds(for: secondID).contains(.onlyConnections))
+        XCTAssertTrue(
+            model.availableConnectionRequirements(for: firstID)
+                .contains(.wheelchairAccessibleConnectionsOnly)
+        )
+        XCTAssertFalse(
+            model.availableConnectionRequirements(for: firstID)
+                .contains(.lowFloorConnectionsOnly)
+        )
+
+        model.setConnectionRequirement(.lowFloorConnectionsOnly, for: firstID)
+        XCTAssertEqual(model.journeyOptions[0].connectionRequirement, .wheelchairAccessibleConnectionsOnly)
+
+        model.setConnectionRequirement(.preferTrainsOverBuses, for: firstID)
+        XCTAssertEqual(model.journeyOptions[0].connectionRequirement, .preferTrainsOverBuses)
+        XCTAssertTrue(
+            model.availableConnectionRequirements(for: secondID)
+                .contains(.wheelchairAccessibleConnectionsOnly)
+        )
+        XCTAssertFalse(
+            model.availableConnectionRequirements(for: secondID)
+                .contains(.preferTrainsOverBuses)
+        )
+    }
+
     func testDirectOnlyShortcutAddsVisibleZeroTransferCondition() {
         let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
         let placeholder = model.journeyOptions[0]
@@ -7206,6 +7266,14 @@ final class KastanAppTests: XCTestCase {
             "Další možnosti"
         )
         XCTAssertEqual(
+            czech.localizedString(forKey: "Only connections", value: nil, table: nil),
+            "Pouze spojení"
+        )
+        XCTAssertEqual(
+            english.localizedString(forKey: "Only connections", value: nil, table: nil),
+            "Only connections"
+        )
+        XCTAssertEqual(
             czech.localizedString(
                 forKey: "Wheelchair accessible connections only",
                 value: nil,
@@ -7285,10 +7353,10 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             JourneyOptionKind.allCases.filter { $0.group == .additionalParameters },
-            Array(JourneyOptionKind.allCases.suffix(8))
+            Array(JourneyOptionKind.allCases.suffix(3))
         )
         XCTAssertEqual(
-            Set(JourneyOptionKind.allCases.map(\.transitConnectionOption)).union([.onlyDirect]),
+            Set(JourneyOptionKind.allCases.flatMap(\.transitConnectionOptions)).union([.onlyDirect]),
             Set(TransitConnectionOption.allCases)
         )
         XCTAssertEqual(JourneyDurationChoice(minutes: -1).localizedTitle(bundle: czech), "Standardní")

@@ -16,46 +16,20 @@ enum JourneyOptionGroup: CaseIterable {
     }
 }
 
-/// Identifies the value editor shown by one extensible journey-option row.
-enum JourneyOptionKind: String, CaseIterable, Identifiable {
-    case via
-    case maximumTransfers
-    case minimumTransferTime
-    case maximumTransferTime
-    case maximumWalkingTime
-    case maximumCityWalkingTime
-    case walkToNearbyStops
-    case sameNameWalkingTransfersOnly
+/// Identifies one connection requirement that can be combined with other requirements in the journey builder.
+enum JourneyConnectionRequirement: String, CaseIterable, Identifiable {
     case wheelchairAccessibleConnectionsOnly
     case lowFloorConnectionsOnly
     case preferTrainsOverBuses
     case trainConnectionsForWheelchairPassengers
     case trainConnectionsForPassengersWithChildren
     case connectionsForPassengersWithBicycles
-    case preferBusyRoutes
-    case bedOrCouchettePreference
 
     var id: Self { self }
 
-    /// Maps one product editor to the provider-neutral option advertised by a data source.
+    /// Maps the compact product choice to the independent provider-neutral request option.
     var transitConnectionOption: TransitConnectionOption {
         switch self {
-        case .via:
-            .via
-        case .maximumTransfers:
-            .maximumTransfers
-        case .minimumTransferTime:
-            .minimumTransferTime
-        case .maximumTransferTime:
-            .maximumTransferTime
-        case .maximumWalkingTime:
-            .maximumWalkingTime
-        case .maximumCityWalkingTime:
-            .maximumCityWalkingTime
-        case .walkToNearbyStops:
-            .walkToNearbyStops
-        case .sameNameWalkingTransfersOnly:
-            .sameNameWalkingTransfersOnly
         case .wheelchairAccessibleConnectionsOnly:
             .wheelchairAccessibleConnectionsOnly
         case .lowFloorConnectionsOnly:
@@ -68,10 +42,73 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
             .trainConnectionsForPassengersWithChildren
         case .connectionsForPassengersWithBicycles:
             .connectionsForPassengersWithBicycles
+        }
+    }
+
+    /// Preserves the wording of each corresponding IDOS advanced-search choice.
+    var localizedTitle: String {
+        switch self {
+        case .wheelchairAccessibleConnectionsOnly:
+            AppLocalization.string("Wheelchair accessible connections only")
+        case .lowFloorConnectionsOnly:
+            AppLocalization.string("Low-floor lines only")
+        case .preferTrainsOverBuses:
+            AppLocalization.string("Prefer trains instead of buses")
+        case .trainConnectionsForWheelchairPassengers:
+            AppLocalization.string("Wheelchair accessible connections (trains)")
+        case .trainConnectionsForPassengersWithChildren:
+            AppLocalization.string("Connections for passengers with children (trains)")
+        case .connectionsForPassengersWithBicycles:
+            AppLocalization.string("Connections for passengers with bicycles (trains + buses)")
+        }
+    }
+
+    static var localizedCatalogTitles: [String] {
+        allCases.map(\.localizedTitle)
+    }
+}
+
+/// Identifies the value editor shown by one extensible journey-option row.
+enum JourneyOptionKind: String, CaseIterable, Identifiable {
+    case via
+    case maximumTransfers
+    case minimumTransferTime
+    case maximumTransferTime
+    case maximumWalkingTime
+    case maximumCityWalkingTime
+    case walkToNearbyStops
+    case sameNameWalkingTransfersOnly
+    case onlyConnections
+    case preferBusyRoutes
+    case bedOrCouchettePreference
+
+    var id: Self { self }
+
+    /// Maps one product editor to every provider-neutral option that it can configure.
+    var transitConnectionOptions: [TransitConnectionOption] {
+        switch self {
+        case .via:
+            [.via]
+        case .maximumTransfers:
+            [.maximumTransfers]
+        case .minimumTransferTime:
+            [.minimumTransferTime]
+        case .maximumTransferTime:
+            [.maximumTransferTime]
+        case .maximumWalkingTime:
+            [.maximumWalkingTime]
+        case .maximumCityWalkingTime:
+            [.maximumCityWalkingTime]
+        case .walkToNearbyStops:
+            [.walkToNearbyStops]
+        case .sameNameWalkingTransfersOnly:
+            [.sameNameWalkingTransfersOnly]
+        case .onlyConnections:
+            JourneyConnectionRequirement.allCases.map(\.transitConnectionOption)
         case .preferBusyRoutes:
-            .preferBusyRoutes
+            [.preferBusyRoutes]
         case .bedOrCouchettePreference:
-            .bedOrCouchettePreference
+            [.bedOrCouchettePreference]
         }
     }
 
@@ -94,18 +131,8 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
             AppLocalization.string("Walk to a nearby stop at the beginning/end of journey")
         case .sameNameWalkingTransfersOnly:
             AppLocalization.string("Use transfers only between stops of the same name")
-        case .wheelchairAccessibleConnectionsOnly:
-            AppLocalization.string("Wheelchair accessible connections only")
-        case .lowFloorConnectionsOnly:
-            AppLocalization.string("Low-floor lines only")
-        case .preferTrainsOverBuses:
-            AppLocalization.string("Prefer trains instead of buses")
-        case .trainConnectionsForWheelchairPassengers:
-            AppLocalization.string("Wheelchair accessible connections (trains)")
-        case .trainConnectionsForPassengersWithChildren:
-            AppLocalization.string("Connections for passengers with children (trains)")
-        case .connectionsForPassengersWithBicycles:
-            AppLocalization.string("Connections for passengers with bicycles (trains + buses)")
+        case .onlyConnections:
+            AppLocalization.string("Only connections")
         case .preferBusyRoutes:
             AppLocalization.string("Prefer busy routes")
         case .bedOrCouchettePreference:
@@ -120,11 +147,7 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
              .maximumWalkingTime, .maximumCityWalkingTime, .walkToNearbyStops,
              .sameNameWalkingTransfersOnly:
             .transfers
-        case .wheelchairAccessibleConnectionsOnly, .lowFloorConnectionsOnly,
-             .preferTrainsOverBuses, .trainConnectionsForWheelchairPassengers,
-             .trainConnectionsForPassengersWithChildren,
-             .connectionsForPassengersWithBicycles, .preferBusyRoutes,
-             .bedOrCouchettePreference:
+        case .onlyConnections, .preferBusyRoutes, .bedOrCouchettePreference:
             .additionalParameters
         }
     }
@@ -136,9 +159,9 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Intermediate places can form an ordered route, while every IDOS transfer control is unique.
+    /// Intermediate places and distinct connection requirements can both form repeatable rows.
     var allowsMultiple: Bool {
-        self == .via
+        self == .via || self == .onlyConnections
     }
 
     /// Identifies conditions whose previous value should survive a temporary direct-only search.
@@ -148,11 +171,7 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
             true
         case .via, .maximumWalkingTime, .maximumCityWalkingTime,
              .walkToNearbyStops, .sameNameWalkingTransfersOnly,
-             .wheelchairAccessibleConnectionsOnly, .lowFloorConnectionsOnly,
-             .preferTrainsOverBuses, .trainConnectionsForWheelchairPassengers,
-             .trainConnectionsForPassengersWithChildren,
-             .connectionsForPassengersWithBicycles, .preferBusyRoutes,
-             .bedOrCouchettePreference:
+             .onlyConnections, .preferBusyRoutes, .bedOrCouchettePreference:
             false
         }
     }
@@ -226,12 +245,7 @@ struct JourneyOptionEntry: Identifiable, Equatable {
     var maximumCityWalkingTime: Int
     var walkToNearbyStops: Bool
     var sameNameWalkingTransfersOnly: Bool
-    var wheelchairAccessibleConnectionsOnly: Bool
-    var lowFloorConnectionsOnly: Bool
-    var preferTrainsOverBuses: Bool
-    var trainConnectionsForWheelchairPassengers: Bool
-    var trainConnectionsForPassengersWithChildren: Bool
-    var connectionsForPassengersWithBicycles: Bool
+    var connectionRequirement: JourneyConnectionRequirement
     var preferBusyRoutes: Bool
     var bedOrCouchettePreference: TransitBedOrCouchettePreference
 
@@ -247,12 +261,7 @@ struct JourneyOptionEntry: Identifiable, Equatable {
         maximumCityWalkingTime: Int = 10,
         walkToNearbyStops: Bool = true,
         sameNameWalkingTransfersOnly: Bool = false,
-        wheelchairAccessibleConnectionsOnly: Bool = false,
-        lowFloorConnectionsOnly: Bool = false,
-        preferTrainsOverBuses: Bool = false,
-        trainConnectionsForWheelchairPassengers: Bool = false,
-        trainConnectionsForPassengersWithChildren: Bool = false,
-        connectionsForPassengersWithBicycles: Bool = false,
+        connectionRequirement: JourneyConnectionRequirement = .wheelchairAccessibleConnectionsOnly,
         preferBusyRoutes: Bool = false,
         bedOrCouchettePreference: TransitBedOrCouchettePreference = .noLimitation
     ) {
@@ -267,12 +276,7 @@ struct JourneyOptionEntry: Identifiable, Equatable {
         self.maximumCityWalkingTime = maximumCityWalkingTime
         self.walkToNearbyStops = walkToNearbyStops
         self.sameNameWalkingTransfersOnly = sameNameWalkingTransfersOnly
-        self.wheelchairAccessibleConnectionsOnly = wheelchairAccessibleConnectionsOnly
-        self.lowFloorConnectionsOnly = lowFloorConnectionsOnly
-        self.preferTrainsOverBuses = preferTrainsOverBuses
-        self.trainConnectionsForWheelchairPassengers = trainConnectionsForWheelchairPassengers
-        self.trainConnectionsForPassengersWithChildren = trainConnectionsForPassengersWithChildren
-        self.connectionsForPassengersWithBicycles = connectionsForPassengersWithBicycles
+        self.connectionRequirement = connectionRequirement
         self.preferBusyRoutes = preferBusyRoutes
         self.bedOrCouchettePreference = bedOrCouchettePreference
     }
@@ -394,7 +398,14 @@ final class ConnectionsViewModel: ObservableObject {
 
     /// Limits the extensible editor to fields the provider promises to interpret for the selected timetable.
     var supportedJourneyOptionKinds: [JourneyOptionKind] {
-        JourneyOptionKind.allCases.filter {
+        JourneyOptionKind.allCases.filter { kind in
+            kind.transitConnectionOptions.contains(where: supportsConnectionOption)
+        }
+    }
+
+    /// Limits the combined requirement popup to choices interpreted by the selected timetable.
+    var supportedConnectionRequirements: [JourneyConnectionRequirement] {
+        JourneyConnectionRequirement.allCases.filter {
             supportsConnectionOption($0.transitConnectionOption)
         }
     }
@@ -519,35 +530,27 @@ final class ConnectionsViewModel: ObservableObject {
     }
 
     var wheelchairAccessibleConnectionsOnly: Bool? {
-        journeyOptions.first {
-            $0.kind == .wheelchairAccessibleConnectionsOnly
-        }?.wheelchairAccessibleConnectionsOnly
+        connectionRequirementIsSelected(.wheelchairAccessibleConnectionsOnly)
     }
 
     var lowFloorConnectionsOnly: Bool? {
-        journeyOptions.first { $0.kind == .lowFloorConnectionsOnly }?.lowFloorConnectionsOnly
+        connectionRequirementIsSelected(.lowFloorConnectionsOnly)
     }
 
     var preferTrainsOverBuses: Bool? {
-        journeyOptions.first { $0.kind == .preferTrainsOverBuses }?.preferTrainsOverBuses
+        connectionRequirementIsSelected(.preferTrainsOverBuses)
     }
 
     var trainConnectionsForWheelchairPassengers: Bool? {
-        journeyOptions.first {
-            $0.kind == .trainConnectionsForWheelchairPassengers
-        }?.trainConnectionsForWheelchairPassengers
+        connectionRequirementIsSelected(.trainConnectionsForWheelchairPassengers)
     }
 
     var trainConnectionsForPassengersWithChildren: Bool? {
-        journeyOptions.first {
-            $0.kind == .trainConnectionsForPassengersWithChildren
-        }?.trainConnectionsForPassengersWithChildren
+        connectionRequirementIsSelected(.trainConnectionsForPassengersWithChildren)
     }
 
     var connectionsForPassengersWithBicycles: Bool? {
-        journeyOptions.first {
-            $0.kind == .connectionsForPassengersWithBicycles
-        }?.connectionsForPassengersWithBicycles
+        connectionRequirementIsSelected(.connectionsForPassengersWithBicycles)
     }
 
     var preferBusyRoutes: Bool? {
@@ -596,21 +599,37 @@ final class ConnectionsViewModel: ObservableObject {
         _ = await resolveCurrentLocation(for: [endpoint])
     }
 
-    /// Keeps each picker limited to repeatable conditions and currently unused singleton conditions.
+    /// Keeps each picker limited to repeatable conditions with a free value and currently unused singletons.
     func availableJourneyOptionKinds(for id: JourneyOptionEntry.ID) -> [JourneyOptionKind] {
         supportedJourneyOptionKinds.filter { kind in
             (!hasNoTransfers || !kind.isTransferTimeCondition) &&
-                (kind.allowsMultiple || !journeyOptions.contains { option in
-                    option.id != id && option.kind == kind
-                })
+                canUseJourneyOptionKind(kind, excluding: id)
         }
+    }
+
+    /// Offers the row's current requirement and every supported requirement not already selected elsewhere.
+    func availableConnectionRequirements(
+        for id: JourneyOptionEntry.ID
+    ) -> [JourneyConnectionRequirement] {
+        availableConnectionRequirements(excluding: id)
     }
 
     /// Applies a selected condition kind and restores the last value removed for transfer-related conditions.
     func setJourneyOptionKind(_ kind: JourneyOptionKind, for id: JourneyOptionEntry.ID) {
-        guard supportedJourneyOptionKinds.contains(kind) else { return }
+        guard availableJourneyOptionKinds(for: id).contains(kind) else { return }
         guard let currentOption = journeyOptions.first(where: { $0.id == id }) else { return }
         guard currentOption.kind != kind else { return }
+
+        let connectionRequirement: JourneyConnectionRequirement?
+        if kind == .onlyConnections {
+            let availableRequirements = availableConnectionRequirements(excluding: id)
+            connectionRequirement = availableRequirements.contains(currentOption.connectionRequirement)
+                ? currentOption.connectionRequirement
+                : availableRequirements.first
+            guard connectionRequirement != nil else { return }
+        } else {
+            connectionRequirement = nil
+        }
 
         if onlyDirect,
            currentOption.kind == .maximumTransfers,
@@ -624,9 +643,26 @@ final class ConnectionsViewModel: ObservableObject {
 
         rememberTransferValue(from: currentOption)
         journeyOptions[index].kind = kind
+        if let connectionRequirement {
+            journeyOptions[index].connectionRequirement = connectionRequirement
+        }
         if kind.usesRememberedTransferValue {
             restoreRememberedTransferValues(at: index)
         }
+    }
+
+    /// Applies one supported, distinct requirement to an existing combined-condition row.
+    func setConnectionRequirement(
+        _ requirement: JourneyConnectionRequirement,
+        for id: JourneyOptionEntry.ID
+    ) {
+        guard availableConnectionRequirements(excluding: id).contains(requirement),
+              let index = journeyOptions.firstIndex(where: { $0.id == id }),
+              journeyOptions[index].kind == .onlyConnections
+        else {
+            return
+        }
+        journeyOptions[index].connectionRequirement = requirement
     }
 
     /// Inserts a new, immediately editable condition directly after the selected row.
@@ -854,20 +890,58 @@ final class ConnectionsViewModel: ObservableObject {
         id: JourneyOptionEntry.ID = UUID(),
         kind: JourneyOptionKind = .via
     ) -> JourneyOptionEntry {
-        JourneyOptionEntry(
+        var option = JourneyOptionEntry(
             id: id,
             kind: kind,
             maximumTransfers: rememberedTransferValues.maximumTransfers,
             minimumTransferTime: rememberedTransferValues.minimumTransferTime,
             maximumTransferTime: rememberedTransferValues.maximumTransferTime
         )
+        if kind == .onlyConnections,
+           let requirement = availableConnectionRequirements(excluding: nil).first {
+            option.connectionRequirement = requirement
+        }
+        return option
     }
 
     private var availableJourneyOptionKindsForNewRow: JourneyOptionKind? {
         supportedJourneyOptionKinds.first { kind in
             (!hasNoTransfers || !kind.isTransferTimeCondition) &&
-                (kind.allowsMultiple || !journeyOptions.contains { $0.kind == kind })
+                canUseJourneyOptionKind(kind, excluding: nil)
         }
+    }
+
+    /// Treats each connection requirement as a unique value even though its parent row kind is repeatable.
+    private func canUseJourneyOptionKind(
+        _ kind: JourneyOptionKind,
+        excluding id: JourneyOptionEntry.ID?
+    ) -> Bool {
+        if kind == .onlyConnections {
+            return !availableConnectionRequirements(excluding: id).isEmpty
+        }
+        return kind.allowsMultiple || !journeyOptions.contains { option in
+            option.id != id && option.kind == kind
+        }
+    }
+
+    private func availableConnectionRequirements(
+        excluding id: JourneyOptionEntry.ID?
+    ) -> [JourneyConnectionRequirement] {
+        supportedConnectionRequirements.filter { requirement in
+            !journeyOptions.contains { option in
+                option.id != id && option.kind == .onlyConnections &&
+                    option.connectionRequirement == requirement
+            }
+        }
+    }
+
+    /// A combined requirement row activates its selected provider flag; absence leaves that flag unspecified.
+    private func connectionRequirementIsSelected(
+        _ requirement: JourneyConnectionRequirement
+    ) -> Bool? {
+        journeyOptions.contains { option in
+            option.kind == .onlyConnections && option.connectionRequirement == requirement
+        } ? true : nil
     }
 
     /// Captures only a row's active transfer value so unrelated hidden defaults cannot overwrite remembered choices.
@@ -883,11 +957,7 @@ final class ConnectionsViewModel: ObservableObject {
             rememberedTransferValues.maximumTransferTime = option.maximumTransferTime
         case .via, .maximumWalkingTime, .maximumCityWalkingTime,
              .walkToNearbyStops, .sameNameWalkingTransfersOnly,
-             .wheelchairAccessibleConnectionsOnly, .lowFloorConnectionsOnly,
-             .preferTrainsOverBuses, .trainConnectionsForWheelchairPassengers,
-             .trainConnectionsForPassengersWithChildren,
-             .connectionsForPassengersWithBicycles, .preferBusyRoutes,
-             .bedOrCouchettePreference:
+             .onlyConnections, .preferBusyRoutes, .bedOrCouchettePreference:
             break
         }
     }
@@ -909,12 +979,19 @@ final class ConnectionsViewModel: ObservableObject {
     /// Removes conditions that IDOS does not publish for the newly selected timetable.
     private func removeJourneyOptionsUnavailableForCurrentTimetable() {
         let unavailableOptionIDs = journeyOptions.compactMap { option in
-            supportsConnectionOption(option.kind.transitConnectionOption) ? nil : option.id
+            supportsJourneyOption(option) ? nil : option.id
         }
         unavailableOptionIDs.forEach { removeJourneyOption(id: $0) }
         if !supportsOnlyDirect {
             onlyDirect = false
         }
+    }
+
+    private func supportsJourneyOption(_ option: JourneyOptionEntry) -> Bool {
+        if option.kind == .onlyConnections {
+            return supportsConnectionOption(option.connectionRequirement.transitConnectionOption)
+        }
+        return option.kind.transitConnectionOptions.contains(where: supportsConnectionOption)
     }
 
     /// Resolves provider support against the timetable currently represented by this form.

@@ -121,6 +121,7 @@
 "Maximum number of transfers" = "Maximum number of transfers";
 "Maximum transfer time" = "Maximum transfer time";
 "Minimum transfer time" = "Minimum transfer time";
+"Only connections" = "Only connections";
 "Only during transfers" = "only during transfers";
 "Only stops of the same name" = "only stops of the same name";
 "Matched rule: contains “%@”." = "Matched rule: contains “%@”.";

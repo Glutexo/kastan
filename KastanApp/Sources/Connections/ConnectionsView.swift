@@ -237,7 +237,8 @@ enum JourneyOptionRowLayout {
         return max(
             minimumFlexibleValueWidth,
             StableWidthPopUpButton.catalogWidth(
-                for: booleanTitles + durationTitles + bedOrCouchetteTitles
+                for: booleanTitles + durationTitles +
+                    JourneyConnectionRequirement.localizedCatalogTitles + bedOrCouchetteTitles
             )
         )
     }
@@ -710,34 +711,10 @@ struct ConnectionsView: View {
                 enabledFirst: false,
                 label: option.wrappedValue.kind.localizedTitle
             )
-        case .wheelchairAccessibleConnectionsOnly:
-            additionalParameterPicker(
-                selection: option.wheelchairAccessibleConnectionsOnly,
-                label: option.wrappedValue.kind.localizedTitle
-            )
-        case .lowFloorConnectionsOnly:
-            additionalParameterPicker(
-                selection: option.lowFloorConnectionsOnly,
-                label: option.wrappedValue.kind.localizedTitle
-            )
-        case .preferTrainsOverBuses:
-            additionalParameterPicker(
-                selection: option.preferTrainsOverBuses,
-                label: option.wrappedValue.kind.localizedTitle
-            )
-        case .trainConnectionsForWheelchairPassengers:
-            additionalParameterPicker(
-                selection: option.trainConnectionsForWheelchairPassengers,
-                label: option.wrappedValue.kind.localizedTitle
-            )
-        case .trainConnectionsForPassengersWithChildren:
-            additionalParameterPicker(
-                selection: option.trainConnectionsForPassengersWithChildren,
-                label: option.wrappedValue.kind.localizedTitle
-            )
-        case .connectionsForPassengersWithBicycles:
-            additionalParameterPicker(
-                selection: option.connectionsForPassengersWithBicycles,
+        case .onlyConnections:
+            connectionRequirementPicker(
+                selection: connectionRequirementBinding(for: option),
+                choices: model.availableConnectionRequirements(for: option.wrappedValue.id),
                 label: option.wrappedValue.kind.localizedTitle
             )
         case .preferBusyRoutes:
@@ -751,6 +728,38 @@ struct ConnectionsView: View {
                 label: option.wrappedValue.kind.localizedTitle
             )
         }
+    }
+
+    /// Combines compatible IDOS connection restrictions in one repeatable journey-option kind.
+    private func connectionRequirementPicker(
+        selection: Binding<JourneyConnectionRequirement>,
+        choices: [JourneyConnectionRequirement],
+        label: String
+    ) -> some View {
+        Picker(selection: selection) {
+            ForEach(choices) { requirement in
+                Text(verbatim: requirement.localizedTitle).tag(requirement)
+            }
+        } label: {
+            Text(verbatim: label)
+        }
+        .labelsHidden()
+        .fixedSize()
+        .accessibilityLabel(Text(verbatim: label))
+    }
+
+    /// Routes popup changes through the model so two rows cannot select the same requirement.
+    private func connectionRequirementBinding(
+        for option: Binding<JourneyOptionEntry>
+    ) -> Binding<JourneyConnectionRequirement> {
+        let optionID = option.wrappedValue.id
+        return Binding(
+            get: {
+                model.journeyOptions.first { $0.id == optionID }?.connectionRequirement ??
+                    .wheelchairAccessibleConnectionsOnly
+            },
+            set: { model.setConnectionRequirement($0, for: optionID) }
+        )
     }
 
     /// Presents every accommodation restriction accepted by IDOS for compatible train timetables.

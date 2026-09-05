@@ -61,10 +61,12 @@ manager and show their source when more than one ordinary provider is registered
   controls under Additional parameters (`Další možnosti` in Czech). Transfers contains Via, Maximum number of
   transfers, Minimum transfer time, Maximum transfer time, Maximum distance to walk, Maximum distance to walk when
   Urban Public Transport is available, walking to a nearby stop at the beginning or end of the journey, and restricting
-  walking transfers to stops of the same name. Additional parameters contains Wheelchair accessible connections only,
-  Low-floor lines only, Prefer trains instead of buses, Wheelchair accessible connections (trains), Connections for
-  passengers with children (trains), Connections for passengers with bicycles (trains + buses), Prefer busy routes,
-  and Bed / Couchette.
+  walking transfers to stops of the same name. Additional parameters contains the repeatable Only connections condition,
+  Prefer busy routes, and Bed / Couchette. Each Only connections row has a value popup for Wheelchair accessible
+  connections only, Low-floor lines only, Prefer trains instead of buses, Wheelchair accessible connections (trains),
+  Connections for passengers with children (trains), or Connections for passengers with bicycles (trains + buses).
+  The condition can be repeated to combine distinct requirements, and each popup omits requirements already selected
+  in another row as well as requirements unsupported by the active timetable.
   Both names use the same non-interactive native section-heading treatment as timetable-menu groups, while a separator
   keeps the groups visually distinct. Via presents the same timetable-aware IDOS place suggestions and application-wide
   place-type filters as the route endpoints,
@@ -76,8 +78,9 @@ manager and show their source when more than one ordinary provider is registered
   use their complete grammatically inflected unit names. The two Boolean conditions use compact popups that state both
   outcomes explicitly. Walking between stops offers also at the beginning/end of journey or only during transfers and
   defaults to the former; Walking by stop name offers between any stops or only stops of the same name and defaults to
-  the former. The seven additional Boolean conditions use localized Yes/No popups and initially show No, matching the
-  unchecked IDOS controls; they are sent only while their row is present. Bed / Couchette uses IDOS's three choices:
+  the former. Selecting an Only connections value activates that requirement until its row is removed. The separate
+  Prefer busy routes condition uses a localized Yes/No popup and initially shows No, matching the unchecked IDOS
+  control; it is sent only while its row is present. Bed / Couchette uses IDOS's three choices:
   no limitation, use, and don't use. IDOS offers this condition only for All timetables, Trains + Buses + Urban Public
   Transport, Trains, and Trains + Buses, so the app omits it from every other timetable and resets an active row when
   the timetable changes to one that does not support it. Every editor shares one row height
