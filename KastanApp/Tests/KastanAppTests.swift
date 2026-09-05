@@ -2601,27 +2601,26 @@ final class KastanAppTests: XCTestCase {
         ).contentWidth
         let row = HStack(spacing: JourneyOptionRowLayout.spacing) {
             JourneyOptionKindPicker(
-                selection: .constant(.transfers),
+                selection: .constant(.walkingTransfer),
                 availableKinds: JourneyOptionKind.allCases
             )
             .fixedSize(horizontal: true, vertical: false)
 
-            Picker(selection: .constant(JourneyTransferConstraint.maximumTransferTime)) {
-                ForEach(JourneyTransferConstraint.allCases) { constraint in
-                    Text(verbatim: constraint.localizedTitle).tag(constraint)
+            Picker(selection: .constant(JourneyWalkingTransferPolicy.sameNameWalkingTransfersOnly)) {
+                ForEach(JourneyWalkingTransferPolicy.allCases) { policy in
+                    Text(verbatim: policy.localizedTitle).tag(policy)
                 }
             } label: {
-                Text(verbatim: JourneyOptionKind.transfers.localizedTitle)
+                Text(verbatim: JourneyOptionKind.walkingTransfer.localizedTitle)
             }
             .labelsHidden()
             .fixedSize()
 
-            Picker(selection: .constant(1_080)) {
-                ForEach(JourneyDurationChoice.maximumTransferTimes) { choice in
-                    Text(verbatim: choice.localizedTitle()).tag(choice.minutes)
-                }
+            Picker(selection: .constant(false)) {
+                Text("Between any stops").tag(false)
+                Text("Only stops of the same name").tag(true)
             } label: {
-                Text(verbatim: JourneyTransferConstraint.maximumTransferTime.localizedTitle)
+                Text(verbatim: JourneyWalkingTransferPolicy.sameNameWalkingTransfersOnly.localizedTitle)
             }
             .labelsHidden()
             .fixedSize()
@@ -5136,6 +5135,33 @@ final class KastanAppTests: XCTestCase {
         requirementModel.setJourneyPreference(.trainsOverBuses, for: preferenceID)
         XCTAssertEqual(requirementModel.journeyOptions[1].preference, .busyRoutes)
 
+        let walkingLimited = AppSourceSelectionTestSource(
+            id: "walking",
+            name: "Walking",
+            timetableIdentifier: "network",
+            capabilities: [.timetables, .connections],
+            connectionOptions: [.sameNameWalkingTransfersOnly]
+        )
+        let walkingModel = ConnectionsViewModel(client: walkingLimited)
+
+        XCTAssertEqual(walkingModel.supportedJourneyOptionKinds, [.walkingTransfer])
+        XCTAssertEqual(
+            walkingModel.supportedWalkingTransferPolicies,
+            [.sameNameWalkingTransfersOnly]
+        )
+        walkingModel.addJourneyOption()
+        let walkingID = walkingModel.journeyOptions[0].id
+        XCTAssertEqual(walkingModel.journeyOptions[0].kind, .walkingTransfer)
+        XCTAssertEqual(
+            walkingModel.journeyOptions[0].walkingTransferPolicy,
+            .sameNameWalkingTransfersOnly
+        )
+        walkingModel.setWalkingTransferPolicy(.walkToNearbyStops, for: walkingID)
+        XCTAssertEqual(
+            walkingModel.journeyOptions[0].walkingTransferPolicy,
+            .sameNameWalkingTransfersOnly
+        )
+
         let unavailable = AppSourceSelectionTestSource(
             id: "plain",
             name: "Plain",
@@ -6813,9 +6839,14 @@ final class KastanAppTests: XCTestCase {
             ),
             JourneyOptionEntry(kind: .maximumWalkingTime, maximumWalkingTime: 45),
             JourneyOptionEntry(kind: .maximumCityWalkingTime, maximumCityWalkingTime: 20),
-            JourneyOptionEntry(kind: .walkToNearbyStops, walkToNearbyStops: false),
             JourneyOptionEntry(
-                kind: .sameNameWalkingTransfersOnly,
+                kind: .walkingTransfer,
+                walkingTransferPolicy: .walkToNearbyStops,
+                walkToNearbyStops: false
+            ),
+            JourneyOptionEntry(
+                kind: .walkingTransfer,
+                walkingTransferPolicy: .sameNameWalkingTransfersOnly,
                 sameNameWalkingTransfersOnly: true
             ),
             JourneyOptionEntry(
@@ -7135,6 +7166,45 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(model.preferTrainsOverBuses, true)
     }
 
+    func testWalkingTransferCanRepeatWithDistinctPolicies() {
+        let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
+        let firstID = model.journeyOptions[0].id
+
+        model.setJourneyOptionKind(.walkingTransfer, for: firstID)
+        model.addJourneyOption(after: firstID)
+        let secondID = model.journeyOptions[1].id
+        model.setJourneyOptionKind(.walkingTransfer, for: secondID)
+
+        XCTAssertEqual(
+            model.journeyOptions.map(\.walkingTransferPolicy),
+            [.walkToNearbyStops, .sameNameWalkingTransfersOnly]
+        )
+        XCTAssertEqual(model.walkToNearbyStops, true)
+        XCTAssertEqual(model.sameNameWalkingTransfersOnly, false)
+        XCTAssertTrue(model.availableJourneyOptionKinds(for: firstID).contains(.walkingTransfer))
+        XCTAssertTrue(model.availableJourneyOptionKinds(for: secondID).contains(.walkingTransfer))
+        XCTAssertEqual(
+            model.availableWalkingTransferPolicies(for: firstID),
+            [.walkToNearbyStops]
+        )
+        XCTAssertEqual(
+            model.availableWalkingTransferPolicies(for: secondID),
+            [.sameNameWalkingTransfersOnly]
+        )
+
+        model.setWalkingTransferPolicy(.sameNameWalkingTransfersOnly, for: firstID)
+        XCTAssertEqual(model.journeyOptions[0].walkingTransferPolicy, .walkToNearbyStops)
+
+        model.removeJourneyOption(id: secondID)
+        model.setWalkingTransferPolicy(.sameNameWalkingTransfersOnly, for: firstID)
+        XCTAssertEqual(
+            model.journeyOptions[0].walkingTransferPolicy,
+            .sameNameWalkingTransfersOnly
+        )
+        XCTAssertNil(model.walkToNearbyStops)
+        XCTAssertEqual(model.sameNameWalkingTransfersOnly, false)
+    }
+
     func testTransfersCanRepeatWithDistinctConstraints() {
         let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
         let firstID = model.journeyOptions[0].id
@@ -7336,20 +7406,20 @@ final class KastanAppTests: XCTestCase {
             "Nejvyšší délka přesunu (MHD)"
         )
         XCTAssertEqual(
-            czech.localizedString(
-                forKey: "Walk to a nearby stop at the beginning/end of journey",
-                value: nil,
-                table: nil
-            ),
-            "Pěší přesun mezi zastávkami"
+            czech.localizedString(forKey: "Walking transfer", value: nil, table: nil),
+            "Přesun"
         )
         XCTAssertEqual(
-            czech.localizedString(
-                forKey: "Use transfers only between stops of the same name",
-                value: nil,
-                table: nil
-            ),
-            "Přesun dle jména zastávky"
+            english.localizedString(forKey: "Walking transfer", value: nil, table: nil),
+            "Walking transfer"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "On foot between stops", value: nil, table: nil),
+            "pěší mezi zastávkami"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Between stops of the same name", value: nil, table: nil),
+            "mezi zastávkami stejného jména"
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Also at the beginning/end of journey", value: nil, table: nil),
@@ -7471,7 +7541,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(czech.localizedString(forKey: "No", value: nil, table: nil), "Ne")
         XCTAssertEqual(
             JourneyOptionKind.allCases.filter { $0.group == .transfers },
-            Array(JourneyOptionKind.allCases.prefix(6))
+            Array(JourneyOptionKind.allCases.prefix(5))
         )
         XCTAssertEqual(
             JourneyOptionKind.allCases.filter { $0.group == .additionalParameters },

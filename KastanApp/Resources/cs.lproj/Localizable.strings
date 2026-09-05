@@ -111,7 +111,7 @@
 "Invalid timetable: %@." = "Neplatný jízdní řád: %@.";
 "Invalid municipality: %@. Available for %@: %@." = "Neplatná obec: %@. Pro %@ jsou dostupné: %@.";
 "Timetable %@ does not offer a municipality choice." = "Jízdní řád %@ nenabízí výběr obce.";
-"Use transfers only between stops of the same name" = "Přesun dle jména zastávky";
+"Between stops of the same name" = "mezi zastávkami stejného jména";
 "Journey options" = "Možnosti cesty";
 "Journey option" = "Možnost cesty";
 "Line" = "Linka";
@@ -256,7 +256,8 @@
 "The connection was sent to %@." = "Spojení bylo odesláno na %@.";
 "The email could not be prepared in Mail." = "E-mail se nepodařilo připravit v Mailu.";
 "The selected data source does not provide a search mode supported by this app." = "Vybraný zdroj dat neposkytuje žádný režim vyhledávání podporovaný touto aplikací.";
-"Walk to a nearby stop at the beginning/end of journey" = "Pěší přesun mezi zastávkami";
+"On foot between stops" = "pěší mezi zastávkami";
+"Walking transfer" = "Přesun";
 "Time" = "Čas";
 "Time means" = "Význam času";
 "Timetable" = "Jízdní řád";

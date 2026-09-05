@@ -222,6 +222,12 @@ enum JourneyOptionRowLayout {
         )
     }
 
+    private static var walkingTransferPolicyCatalogWidth: CGFloat {
+        StableWidthPopUpButton.catalogWidth(
+            for: JourneyWalkingTransferPolicy.localizedCatalogTitles
+        )
+    }
+
     private static var maximumFixedValueWidth: CGFloat {
         let booleanTitles = [
             AppLocalization.string("Also at the beginning/end of journey"),
@@ -250,9 +256,13 @@ enum JourneyOptionRowLayout {
             )
         )
         let transferValueWidth = StableWidthPopUpButton.catalogWidth(for: transferDurationTitles)
+        let booleanValueWidth = StableWidthPopUpButton.catalogWidth(for: booleanTitles)
         return max(
             standaloneValueWidth,
-            transferConstraintCatalogWidth + spacing + transferValueWidth
+            max(
+                transferConstraintCatalogWidth + spacing + transferValueWidth,
+                walkingTransferPolicyCatalogWidth + spacing + booleanValueWidth
+            )
         )
     }
 }
@@ -690,22 +700,16 @@ struct ConnectionsView: View {
                 choices: JourneyDurationChoice.maximumWalkingTimes,
                 label: option.wrappedValue.kind.localizedTitle
             )
-        case .walkToNearbyStops:
-            journeyBooleanPicker(
-                selection: option.walkToNearbyStops,
-                enabledTitle: AppLocalization.string("Also at the beginning/end of journey"),
-                disabledTitle: AppLocalization.string("Only during transfers"),
-                enabledFirst: true,
-                label: option.wrappedValue.kind.localizedTitle
-            )
-        case .sameNameWalkingTransfersOnly:
-            journeyBooleanPicker(
-                selection: option.sameNameWalkingTransfersOnly,
-                enabledTitle: AppLocalization.string("Only stops of the same name"),
-                disabledTitle: AppLocalization.string("Between any stops"),
-                enabledFirst: false,
-                label: option.wrappedValue.kind.localizedTitle
-            )
+        case .walkingTransfer:
+            HStack(spacing: JourneyOptionRowLayout.spacing) {
+                walkingTransferPolicyPicker(
+                    selection: walkingTransferPolicyBinding(for: option),
+                    choices: model.availableWalkingTransferPolicies(for: option.wrappedValue.id),
+                    label: option.wrappedValue.kind.localizedTitle
+                )
+                walkingTransferPolicyValue(option: option)
+            }
+            .fixedSize(horizontal: true, vertical: false)
         case .onlyConnections:
             connectionRequirementPicker(
                 selection: connectionRequirementBinding(for: option),
@@ -790,6 +794,61 @@ struct ConnectionsView: View {
                     .maximumTransfers
             },
             set: { model.setTransferConstraint($0, for: optionID) }
+        )
+    }
+
+    /// Keeps both walking rules under one repeatable condition while retaining each Boolean value editor.
+    @ViewBuilder
+    private func walkingTransferPolicyValue(option: Binding<JourneyOptionEntry>) -> some View {
+        switch option.wrappedValue.walkingTransferPolicy {
+        case .walkToNearbyStops:
+            journeyBooleanPicker(
+                selection: option.walkToNearbyStops,
+                enabledTitle: AppLocalization.string("Also at the beginning/end of journey"),
+                disabledTitle: AppLocalization.string("Only during transfers"),
+                enabledFirst: true,
+                label: option.wrappedValue.walkingTransferPolicy.localizedTitle
+            )
+        case .sameNameWalkingTransfersOnly:
+            journeyBooleanPicker(
+                selection: option.sameNameWalkingTransfersOnly,
+                enabledTitle: AppLocalization.string("Only stops of the same name"),
+                disabledTitle: AppLocalization.string("Between any stops"),
+                enabledFirst: false,
+                label: option.wrappedValue.walkingTransferPolicy.localizedTitle
+            )
+        }
+    }
+
+    /// Presents the supported, currently unused walking rules after the shared Walking transfer label.
+    private func walkingTransferPolicyPicker(
+        selection: Binding<JourneyWalkingTransferPolicy>,
+        choices: [JourneyWalkingTransferPolicy],
+        label: String
+    ) -> some View {
+        Picker(selection: selection) {
+            ForEach(choices) { policy in
+                Text(verbatim: policy.localizedTitle).tag(policy)
+            }
+        } label: {
+            Text(verbatim: label)
+        }
+        .labelsHidden()
+        .fixedSize()
+        .accessibilityLabel(Text(verbatim: label))
+    }
+
+    /// Routes popup changes through the model so two rows cannot select the same walking rule.
+    private func walkingTransferPolicyBinding(
+        for option: Binding<JourneyOptionEntry>
+    ) -> Binding<JourneyWalkingTransferPolicy> {
+        let optionID = option.wrappedValue.id
+        return Binding(
+            get: {
+                model.journeyOptions.first { $0.id == optionID }?.walkingTransferPolicy ??
+                    .walkToNearbyStops
+            },
+            set: { model.setWalkingTransferPolicy($0, for: optionID) }
         )
     }
 

@@ -111,7 +111,7 @@
 "Invalid timetable: %@." = "Invalid timetable: %@.";
 "Invalid municipality: %@. Available for %@: %@." = "Invalid municipality: %@. Available for %@: %@.";
 "Timetable %@ does not offer a municipality choice." = "Timetable %@ does not offer a municipality choice.";
-"Use transfers only between stops of the same name" = "Use transfers only between stops of the same name";
+"Between stops of the same name" = "between stops of the same name";
 "Journey options" = "Journey options";
 "Journey option" = "Journey option";
 "Line" = "Line";
@@ -256,7 +256,8 @@
 "The connection was sent to %@." = "The connection was sent to %@.";
 "The email could not be prepared in Mail." = "The email could not be prepared in Mail.";
 "The selected data source does not provide a search mode supported by this app." = "The selected data source does not provide a search mode supported by this app.";
-"Walk to a nearby stop at the beginning/end of journey" = "Walk to a nearby stop at the beginning/end of journey";
+"On foot between stops" = "on foot between stops";
+"Walking transfer" = "Walking transfer";
 "Time" = "Time";
 "Time means" = "Time means";
 "Timetable" = "Timetable";

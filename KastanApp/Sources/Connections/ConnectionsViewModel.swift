@@ -137,14 +137,45 @@ enum JourneyTransferConstraint: String, CaseIterable, Identifiable {
     }
 }
 
+/// Identifies one independently repeatable walking-transfer rule inside the shared Walking transfer condition.
+enum JourneyWalkingTransferPolicy: String, CaseIterable, Identifiable {
+    case walkToNearbyStops
+    case sameNameWalkingTransfersOnly
+
+    var id: Self { self }
+
+    /// Maps the compact subchoice to the provider-neutral request option it configures.
+    var transitConnectionOption: TransitConnectionOption {
+        switch self {
+        case .walkToNearbyStops:
+            .walkToNearbyStops
+        case .sameNameWalkingTransfersOnly:
+            .sameNameWalkingTransfersOnly
+        }
+    }
+
+    /// Names only the selected rule because the shared row label already identifies it as a walking transfer.
+    var localizedTitle: String {
+        switch self {
+        case .walkToNearbyStops:
+            AppLocalization.string("On foot between stops")
+        case .sameNameWalkingTransfersOnly:
+            AppLocalization.string("Between stops of the same name")
+        }
+    }
+
+    static var localizedCatalogTitles: [String] {
+        allCases.map(\.localizedTitle)
+    }
+}
+
 /// Identifies the value editor shown by one extensible journey-option row.
 enum JourneyOptionKind: String, CaseIterable, Identifiable {
     case via
     case transfers
     case maximumWalkingTime
     case maximumCityWalkingTime
-    case walkToNearbyStops
-    case sameNameWalkingTransfersOnly
+    case walkingTransfer
     case onlyConnections
     case preference
     case bedOrCouchettePreference
@@ -162,10 +193,8 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
             [.maximumWalkingTime]
         case .maximumCityWalkingTime:
             [.maximumCityWalkingTime]
-        case .walkToNearbyStops:
-            [.walkToNearbyStops]
-        case .sameNameWalkingTransfersOnly:
-            [.sameNameWalkingTransfersOnly]
+        case .walkingTransfer:
+            JourneyWalkingTransferPolicy.allCases.map(\.transitConnectionOption)
         case .onlyConnections:
             JourneyConnectionRequirement.allCases.map(\.transitConnectionOption)
         case .preference:
@@ -186,10 +215,8 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
             AppLocalization.string("Maximum distance to walk")
         case .maximumCityWalkingTime:
             AppLocalization.string("Maximum distance to walk, if there is Urban Public Transport available")
-        case .walkToNearbyStops:
-            AppLocalization.string("Walk to a nearby stop at the beginning/end of journey")
-        case .sameNameWalkingTransfersOnly:
-            AppLocalization.string("Use transfers only between stops of the same name")
+        case .walkingTransfer:
+            AppLocalization.string("Walking transfer")
         case .onlyConnections:
             AppLocalization.string("Only connections")
         case .preference:
@@ -202,8 +229,7 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
     /// Places every existing transfer control before the additional IDOS search parameters.
     var group: JourneyOptionGroup {
         switch self {
-        case .via, .transfers, .maximumWalkingTime, .maximumCityWalkingTime, .walkToNearbyStops,
-             .sameNameWalkingTransfersOnly:
+        case .via, .transfers, .maximumWalkingTime, .maximumCityWalkingTime, .walkingTransfer:
             .transfers
         case .onlyConnections, .preference, .bedOrCouchettePreference:
             .additionalParameters
@@ -219,7 +245,8 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
 
     /// Intermediate places and combined choices can form repeatable rows with distinct subchoices.
     var allowsMultiple: Bool {
-        self == .via || self == .transfers || self == .onlyConnections || self == .preference
+        self == .via || self == .transfers || self == .walkingTransfer ||
+            self == .onlyConnections || self == .preference
     }
 
     /// Identifies conditions whose previous value should survive a temporary direct-only search.
@@ -227,8 +254,7 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
         switch self {
         case .transfers:
             true
-        case .via, .maximumWalkingTime, .maximumCityWalkingTime,
-             .walkToNearbyStops, .sameNameWalkingTransfersOnly,
+        case .via, .maximumWalkingTime, .maximumCityWalkingTime, .walkingTransfer,
              .onlyConnections, .preference, .bedOrCouchettePreference:
             false
         }
@@ -293,6 +319,7 @@ struct JourneyOptionEntry: Identifiable, Equatable {
     /// Retains an exact IDOS place only while its visible via-place text remains unchanged.
     var viaSelection: PlaceFieldSelection?
     var transferConstraint: JourneyTransferConstraint
+    var walkingTransferPolicy: JourneyWalkingTransferPolicy
     var maximumTransfers: Int
     var minimumTransferTime: Int
     var maximumTransferTime: Int
@@ -320,6 +347,7 @@ struct JourneyOptionEntry: Identifiable, Equatable {
         viaPlace: String = "",
         viaSelection: PlaceFieldSelection? = nil,
         transferConstraint: JourneyTransferConstraint = .maximumTransfers,
+        walkingTransferPolicy: JourneyWalkingTransferPolicy = .walkToNearbyStops,
         maximumTransfers: Int = 4,
         minimumTransferTime: Int = -1,
         maximumTransferTime: Int = 240,
@@ -336,6 +364,7 @@ struct JourneyOptionEntry: Identifiable, Equatable {
         self.viaPlace = viaPlace
         self.viaSelection = viaSelection
         self.transferConstraint = transferConstraint
+        self.walkingTransferPolicy = walkingTransferPolicy
         self.maximumTransfers = maximumTransfers
         self.minimumTransferTime = minimumTransferTime
         self.maximumTransferTime = maximumTransferTime
@@ -477,6 +506,13 @@ final class ConnectionsViewModel: ObservableObject {
         }
     }
 
+    /// Limits the shared Walking transfer popup to subchoices interpreted by the selected timetable.
+    var supportedWalkingTransferPolicies: [JourneyWalkingTransferPolicy] {
+        JourneyWalkingTransferPolicy.allCases.filter {
+            supportsConnectionOption($0.transitConnectionOption)
+        }
+    }
+
     /// Limits the combined requirement popup to choices interpreted by the selected timetable.
     var supportedConnectionRequirements: [JourneyConnectionRequirement] {
         JourneyConnectionRequirement.allCases.filter {
@@ -609,11 +645,16 @@ final class ConnectionsViewModel: ObservableObject {
     }
 
     var walkToNearbyStops: Bool? {
-        journeyOptions.first { $0.kind == .walkToNearbyStops }?.walkToNearbyStops
+        journeyOptions.first {
+            $0.kind == .walkingTransfer && $0.walkingTransferPolicy == .walkToNearbyStops
+        }?.walkToNearbyStops
     }
 
     var sameNameWalkingTransfersOnly: Bool? {
-        journeyOptions.first { $0.kind == .sameNameWalkingTransfersOnly }?.sameNameWalkingTransfersOnly
+        journeyOptions.first {
+            $0.kind == .walkingTransfer &&
+                $0.walkingTransferPolicy == .sameNameWalkingTransfersOnly
+        }?.sameNameWalkingTransfersOnly
     }
 
     var wheelchairAccessibleConnectionsOnly: Bool? {
@@ -700,6 +741,13 @@ final class ConnectionsViewModel: ObservableObject {
         availableTransferConstraints(excluding: id)
     }
 
+    /// Offers the row's current walking-transfer rule and every supported rule not selected elsewhere.
+    func availableWalkingTransferPolicies(
+        for id: JourneyOptionEntry.ID
+    ) -> [JourneyWalkingTransferPolicy] {
+        availableWalkingTransferPolicies(excluding: id)
+    }
+
     /// Offers the row's current requirement and every supported requirement not already selected elsewhere.
     func availableConnectionRequirements(
         for id: JourneyOptionEntry.ID
@@ -721,15 +769,26 @@ final class ConnectionsViewModel: ObservableObject {
         let connectionRequirement: JourneyConnectionRequirement?
         let preference: JourneyPreference?
         let transferConstraint: JourneyTransferConstraint?
+        let walkingTransferPolicy: JourneyWalkingTransferPolicy?
         switch kind {
         case .transfers:
             let availableConstraints = availableTransferConstraints(excluding: id)
             transferConstraint = availableConstraints.contains(currentOption.transferConstraint)
                 ? currentOption.transferConstraint
                 : availableConstraints.first
+            walkingTransferPolicy = nil
             connectionRequirement = nil
             preference = nil
             guard transferConstraint != nil else { return }
+        case .walkingTransfer:
+            let availablePolicies = availableWalkingTransferPolicies(excluding: id)
+            walkingTransferPolicy = availablePolicies.contains(currentOption.walkingTransferPolicy)
+                ? currentOption.walkingTransferPolicy
+                : availablePolicies.first
+            transferConstraint = nil
+            connectionRequirement = nil
+            preference = nil
+            guard walkingTransferPolicy != nil else { return }
         case .onlyConnections:
             let availableRequirements = availableConnectionRequirements(excluding: id)
             connectionRequirement = availableRequirements.contains(currentOption.connectionRequirement)
@@ -737,6 +796,7 @@ final class ConnectionsViewModel: ObservableObject {
                 : availableRequirements.first
             preference = nil
             transferConstraint = nil
+            walkingTransferPolicy = nil
             guard connectionRequirement != nil else { return }
         case .preference:
             let availablePreferences = availableJourneyPreferences(excluding: id)
@@ -745,11 +805,13 @@ final class ConnectionsViewModel: ObservableObject {
                 : availablePreferences.first
             connectionRequirement = nil
             transferConstraint = nil
+            walkingTransferPolicy = nil
             guard preference != nil else { return }
         default:
             connectionRequirement = nil
             preference = nil
             transferConstraint = nil
+            walkingTransferPolicy = nil
         }
 
         if onlyDirect, currentOption.isZeroTransferLimit {
@@ -762,6 +824,9 @@ final class ConnectionsViewModel: ObservableObject {
         journeyOptions[index].kind = kind
         if let transferConstraint {
             journeyOptions[index].transferConstraint = transferConstraint
+        }
+        if let walkingTransferPolicy {
+            journeyOptions[index].walkingTransferPolicy = walkingTransferPolicy
         }
         if let connectionRequirement {
             journeyOptions[index].connectionRequirement = connectionRequirement
@@ -794,6 +859,20 @@ final class ConnectionsViewModel: ObservableObject {
         rememberTransferValue(from: currentOption)
         journeyOptions[index].transferConstraint = constraint
         restoreRememberedTransferValues(at: index)
+    }
+
+    /// Applies one supported, distinct walking-transfer rule to an existing shared Walking transfer row.
+    func setWalkingTransferPolicy(
+        _ policy: JourneyWalkingTransferPolicy,
+        for id: JourneyOptionEntry.ID
+    ) {
+        guard availableWalkingTransferPolicies(excluding: id).contains(policy),
+              let index = journeyOptions.firstIndex(where: { $0.id == id }),
+              journeyOptions[index].kind == .walkingTransfer
+        else {
+            return
+        }
+        journeyOptions[index].walkingTransferPolicy = policy
     }
 
     /// Applies one supported, distinct requirement to an existing combined-condition row.
@@ -1057,6 +1136,10 @@ final class ConnectionsViewModel: ObservableObject {
            let constraint = availableTransferConstraints(excluding: nil).first {
             option.transferConstraint = constraint
         }
+        if kind == .walkingTransfer,
+           let policy = availableWalkingTransferPolicies(excluding: nil).first {
+            option.walkingTransferPolicy = policy
+        }
         if kind == .onlyConnections,
            let requirement = availableConnectionRequirements(excluding: nil).first {
             option.connectionRequirement = requirement
@@ -1082,6 +1165,9 @@ final class ConnectionsViewModel: ObservableObject {
         if kind == .transfers {
             return !availableTransferConstraints(excluding: id).isEmpty
         }
+        if kind == .walkingTransfer {
+            return !availableWalkingTransferPolicies(excluding: id).isEmpty
+        }
         if kind == .onlyConnections {
             return !availableConnectionRequirements(excluding: id).isEmpty
         }
@@ -1102,6 +1188,17 @@ final class ConnectionsViewModel: ObservableObject {
                     option.id != id && option.kind == .transfers &&
                         option.transferConstraint == constraint
                 }
+        }
+    }
+
+    private func availableWalkingTransferPolicies(
+        excluding id: JourneyOptionEntry.ID?
+    ) -> [JourneyWalkingTransferPolicy] {
+        supportedWalkingTransferPolicies.filter { policy in
+            !journeyOptions.contains { option in
+                option.id != id && option.kind == .walkingTransfer &&
+                    option.walkingTransferPolicy == policy
+            }
         }
     }
 
@@ -1185,6 +1282,9 @@ final class ConnectionsViewModel: ObservableObject {
     private func supportsJourneyOption(_ option: JourneyOptionEntry) -> Bool {
         if option.kind == .transfers {
             return supportsConnectionOption(option.transferConstraint.transitConnectionOption)
+        }
+        if option.kind == .walkingTransfer {
+            return supportsConnectionOption(option.walkingTransferPolicy.transitConnectionOption)
         }
         if option.kind == .onlyConnections {
             return supportsConnectionOption(option.connectionRequirement.transitConnectionOption)
