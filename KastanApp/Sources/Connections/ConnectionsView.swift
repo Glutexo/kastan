@@ -199,14 +199,12 @@ enum JourneyOptionRowLayout {
     static let actionButtonWidth: CGFloat = 36
     static let minimumFlexibleValueWidth: CGFloat = 160
     private static let fixedItemSpacingCount: CGFloat = 4
-    private static let horizontalSafetyMargin: CGFloat = 2
 
     static var minimumContentWidth: CGFloat {
         ceil(
             conditionCatalogWidth + maximumFixedValueWidth +
                 (2 * actionButtonWidth) +
-                (fixedItemSpacingCount * spacing) +
-                horizontalSafetyMargin
+                (fixedItemSpacingCount * spacing)
         )
     }
 

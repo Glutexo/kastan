@@ -2697,6 +2697,9 @@ final class KastanAppTests: XCTestCase {
                 accuracy: 0.5
             )
         }
+        let addAction = try XCTUnwrap(actionProbes.last)
+        let addActionFrame = hostingView.convert(addAction.bounds, from: addAction)
+        XCTAssertEqual(addActionFrame.maxX, contentWidth, accuracy: 0.5)
     }
 
     func testCompactConnectionFormKeepsNativeControlsInsideWindow() {

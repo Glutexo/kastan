@@ -93,7 +93,7 @@ manager and show their source when more than one ordinary provider is registered
   and follows a selection-independent condition menu sized from the
   complete localized catalog. Every row retains its minus action; removing the sole condition from a source that
   supports Via resets that row to an empty, inactive Via field instead of removing it, then disables the minus action
-  until the row becomes active again or another row is added. The main-window minimum follows the widest complete
+  until the row becomes active again or another row is added. The main-window minimum exactly follows the widest complete
   condition/value pair, including both fixed row actions, and uses compact search insets at that width so labels remain
   unabridged and controls stay inside the content edges. Summaries retain
   locale-aware transfer wording. Departure/Arrival
