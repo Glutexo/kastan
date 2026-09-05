@@ -7485,7 +7485,7 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Maximum distance to walk", value: nil, table: nil),
-            "Nejvyšší délka přesunu"
+            "Nejdelší přesun"
         )
         XCTAssertEqual(
             czech.localizedString(
@@ -7493,7 +7493,7 @@ final class KastanAppTests: XCTestCase {
                 value: nil,
                 table: nil
             ),
-            "Nejvyšší délka přesunu (MHD)"
+            "Nejdelší přesun (MHD)"
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Walking distances", value: nil, table: nil),
