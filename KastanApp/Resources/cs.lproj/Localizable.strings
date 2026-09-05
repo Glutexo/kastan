@@ -124,7 +124,7 @@
 "Minimum transfer time" = "Nejnižší čas na přestup";
 "Only connections" = "Omezit na";
 "Only during transfers" = "jen při přestupu";
-"Only stops of the same name" = "pouze stejného jména";
+"Only stops of the same name" = "jen stejného jména";
 "Matched rule: contains “%@”." = "Použité pravidlo: obsahuje „%@“.";
 "Matched rule: %@." = "Použité pravidlo: %@.";
 "No specific service-information rule matched; the supplied fallback was used." = "Žádné konkrétní pravidlo pro informace o spoji neuspělo; byla použita předaná záložní hodnota.";

@@ -88,7 +88,8 @@ manager and show their source when more than one ordinary provider is registered
   subchoices use compact popups that state both outcomes explicitly. On foot between stops offers also at the
   beginning/end or only during transfers and defaults to the former; its Czech values are the concise
   `i na začátku/konci` and `jen při přestupu`. Between stops of the same name offers
-  between any stops or only stops of the same name and defaults to the former. Selecting an Only connections or Prefer
+  between any stops or only stops of the same name and defaults to the former; the corresponding Czech values are
+  `mezi libovolnými` and `jen stejného jména`. Selecting an Only connections or Prefer
   value activates its provider option until the row is removed.
   Every editor shares one row height
   and follows a selection-independent condition menu sized from the

@@ -7539,7 +7539,7 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Only stops of the same name", value: nil, table: nil),
-            "pouze stejného jména"
+            "jen stejného jména"
         )
         XCTAssertEqual(
             english.localizedString(forKey: "Only during transfers", value: nil, table: nil),
