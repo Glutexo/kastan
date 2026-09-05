@@ -67,8 +67,8 @@ manager and show their source when more than one ordinary provider is registered
   repeatable Only connections condition and the repeatable Prefer condition. Each Only connections row has a value popup
   for Wheelchair
   accessible connections only, Low-floor lines only, Wheelchair accessible connections (trains), Connections for
-  passengers with children (trains), Connections for passengers with bicycles (trains + buses), with beds/couchettes,
-  or without beds/couchettes. Each Prefer row
+  passengers with children (trains), Connections for passengers with bicycles (trains + buses), With beds/couchettes,
+  or Without beds/couchettes. Each Prefer row
   offers busy routes or trains instead of buses. All four combined conditions can be repeated to select distinct
   subchoices, and each popup omits values already selected in another row as well as values unsupported by the active
   timetable. The two accommodation subchoices are mutually exclusive because they configure opposite values of the same

@@ -7605,19 +7605,19 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "With beds/couchettes", value: nil, table: nil),
-            "s lůžky/lehátky"
+            "S lůžky/lehátky"
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Without beds/couchettes", value: nil, table: nil),
-            "bez lůžek/lehátek"
+            "Bez lůžek/lehátek"
         )
         XCTAssertEqual(
             english.localizedString(forKey: "With beds/couchettes", value: nil, table: nil),
-            "with beds/couchettes"
+            "With beds/couchettes"
         )
         XCTAssertEqual(
             english.localizedString(forKey: "Without beds/couchettes", value: nil, table: nil),
-            "without beds/couchettes"
+            "Without beds/couchettes"
         )
         XCTAssertEqual(czech.localizedString(forKey: "Yes", value: nil, table: nil), "Ano")
         XCTAssertEqual(czech.localizedString(forKey: "No", value: nil, table: nil), "Ne")
