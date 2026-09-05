@@ -7338,7 +7338,11 @@ final class KastanAppTests: XCTestCase {
             popupButton.itemArray.filter { $0.representedObject == nil }.map(\.title),
             [JourneyOptionGroup.transfers.localizedTitle]
         )
-        XCTAssertFalse(popupButton.itemArray[0].isEnabled)
+        if #available(macOS 14.0, *) {
+            XCTAssertTrue(popupButton.itemArray[0].isSectionHeader)
+        } else {
+            XCTAssertFalse(popupButton.itemArray[0].isEnabled)
+        }
         XCTAssertEqual(popupButton.selectedItem?.representedObject as? String, JourneyOptionKind.via.rawValue)
         XCTAssertEqual(
             catalogWidth,
@@ -7376,7 +7380,12 @@ final class KastanAppTests: XCTestCase {
             headings.map(\.title),
             JourneyOptionGroup.allCases.map(\.localizedTitle)
         )
-        XCTAssertTrue(headings.allSatisfy { !$0.isEnabled })
+        if #available(macOS 14.0, *) {
+            XCTAssertTrue(headings.allSatisfy(\.isSectionHeader))
+        } else {
+            XCTAssertTrue(headings.allSatisfy { !$0.isEnabled })
+            XCTAssertTrue(headings.allSatisfy { $0.attributedTitle != nil })
+        }
         XCTAssertEqual(popupButton.itemArray.filter(\.isSeparatorItem).count, 1)
         XCTAssertEqual(representedKinds, JourneyOptionKind.allCases)
         XCTAssertEqual(

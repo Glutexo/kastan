@@ -993,12 +993,28 @@ struct JourneyOptionKindPicker: NSViewRepresentable {
                     button.menu?.addItem(NSMenuItem.separator())
                 }
 
-                let heading = NSMenuItem(
-                    title: section.group.localizedTitle,
-                    action: nil,
-                    keyEquivalent: ""
-                )
-                heading.isEnabled = false
+                // Matches timetable-picker groups while keeping the heading distinct and inert on macOS 13.
+                let heading: NSMenuItem
+                if #available(macOS 14.0, *) {
+                    heading = .sectionHeader(title: section.group.localizedTitle)
+                } else {
+                    heading = NSMenuItem(
+                        title: section.group.localizedTitle,
+                        action: nil,
+                        keyEquivalent: ""
+                    )
+                    heading.isEnabled = false
+                    heading.attributedTitle = NSAttributedString(
+                        string: section.group.localizedTitle,
+                        attributes: [
+                            .font: NSFont.systemFont(
+                                ofSize: NSFont.smallSystemFontSize,
+                                weight: .semibold
+                            ),
+                            .foregroundColor: NSColor.secondaryLabelColor,
+                        ]
+                    )
+                }
                 button.menu?.addItem(heading)
 
                 for kind in section.kinds {

@@ -65,8 +65,9 @@ manager and show their source when more than one ordinary provider is registered
   Low-floor lines only, Prefer trains instead of buses, Wheelchair accessible connections (trains), Connections for
   passengers with children (trains), Connections for passengers with bicycles (trains + buses), Prefer busy routes,
   and Bed / Couchette.
-  Section headings are disabled menu labels and a separator keeps both groups visually distinct. Via presents
-  the same timetable-aware IDOS place suggestions and application-wide place-type filters as the route endpoints,
+  Both names use the same non-interactive native section-heading treatment as timetable-menu groups, while a separator
+  keeps the groups visually distinct. Via presents the same timetable-aware IDOS place suggestions and application-wide
+  place-type filters as the route endpoints,
   retains the exact selected object, and returns to free-text interpretation after editing or changing the timetable.
   The transfer ceiling presents a compact, left-aligned number field with native stepper arrows. Time-based conditions
   use compact popups containing the values accepted by IDOS: the minimum offers Standard or 0, 1, 2, 3, 4, 5, 10, 20,
