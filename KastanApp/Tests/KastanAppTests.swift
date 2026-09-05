@@ -2612,7 +2612,7 @@ final class KastanAppTests: XCTestCase {
             )
             .fixedSize(horizontal: true, vertical: false)
 
-            Picker(selection: .constant(JourneyWalkingConstraint.walkToNearbyStops)) {
+            Picker(selection: .constant(JourneyWalkingConstraint.sameNameWalkingTransfersOnly)) {
                 ForEach(JourneyWalkingConstraint.allCases) { constraint in
                     Text(verbatim: constraint.localizedTitle).tag(constraint)
                 }
@@ -2622,13 +2622,13 @@ final class KastanAppTests: XCTestCase {
             .labelsHidden()
             .fixedSize()
 
-            Picker(selection: .constant(true)) {
-                Text(verbatim: AppLocalization.string("Also at the beginning/end of journey"))
-                    .tag(true)
-                Text(verbatim: AppLocalization.string("Only during transfers"))
+            Picker(selection: .constant(false)) {
+                Text(verbatim: AppLocalization.string("Between any stops"))
                     .tag(false)
+                Text(verbatim: AppLocalization.string("Only stops of the same name"))
+                    .tag(true)
             } label: {
-                Text(verbatim: JourneyWalkingConstraint.walkToNearbyStops.localizedTitle)
+                Text(verbatim: JourneyWalkingConstraint.sameNameWalkingTransfersOnly.localizedTitle)
             }
             .labelsHidden()
             .fixedSize()
@@ -7527,11 +7527,11 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Also at the beginning/end of journey", value: nil, table: nil),
-            "i na začátku/konci cesty"
+            "i na začátku/konci"
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Only during transfers", value: nil, table: nil),
-            "pouze při přestupu"
+            "jen při přestupu"
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Between any stops", value: nil, table: nil),

@@ -8,7 +8,7 @@
 "address" = "adresa";
 "Addresses" = "Adresy";
 "All timetables" = "Všechny jízdní řády";
-"Also at the beginning/end of journey" = "i na začátku/konci cesty";
+"Also at the beginning/end of journey" = "i na začátku/konci";
 "Applies" = "Platí";
 "Applies on days %@ throughout timetable validity" = "Platí ve dnech %@ po celou platnost jízdního řádu";
 "Availability and accuracy are not guaranteed. Confirm important journey details with the carrier." = "Dostupnost ani přesnost dat nejsou zaručeny. Důležité údaje o cestě si ověřte u dopravce.";
@@ -123,7 +123,7 @@
 "Minimum time" = "Nejnižší čas";
 "Minimum transfer time" = "Nejnižší čas na přestup";
 "Only connections" = "Omezit na";
-"Only during transfers" = "pouze při přestupu";
+"Only during transfers" = "jen při přestupu";
 "Only stops of the same name" = "pouze stejného jména";
 "Matched rule: contains “%@”." = "Použité pravidlo: obsahuje „%@“.";
 "Matched rule: %@." = "Použité pravidlo: %@.";
