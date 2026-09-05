@@ -95,12 +95,52 @@ enum JourneyPreference: String, CaseIterable, Identifiable {
     }
 }
 
-/// Identifies the value editor shown by one extensible journey-option row.
-enum JourneyOptionKind: String, CaseIterable, Identifiable {
-    case via
+/// Identifies one independently repeatable transfer constraint inside the shared Transfers condition.
+enum JourneyTransferConstraint: String, CaseIterable, Identifiable {
     case maximumTransfers
     case minimumTransferTime
     case maximumTransferTime
+
+    var id: Self { self }
+
+    /// Maps the compact subchoice to the provider-neutral request option it configures.
+    var transitConnectionOption: TransitConnectionOption {
+        switch self {
+        case .maximumTransfers:
+            .maximumTransfers
+        case .minimumTransferTime:
+            .minimumTransferTime
+        case .maximumTransferTime:
+            .maximumTransferTime
+        }
+    }
+
+    /// Preserves the wording of each corresponding IDOS transfer control.
+    var localizedTitle: String {
+        switch self {
+        case .maximumTransfers:
+            AppLocalization.string("Maximum number of transfers")
+        case .minimumTransferTime:
+            AppLocalization.string("Minimum transfer time")
+        case .maximumTransferTime:
+            AppLocalization.string("Maximum transfer time")
+        }
+    }
+
+    static var localizedCatalogTitles: [String] {
+        allCases.map(\.localizedTitle)
+    }
+
+    /// Direct journeys have no transfer whose waiting time could be constrained.
+    var isTransferTimeConstraint: Bool {
+        self == .minimumTransferTime || self == .maximumTransferTime
+    }
+}
+
+/// Identifies the value editor shown by one extensible journey-option row.
+enum JourneyOptionKind: String, CaseIterable, Identifiable {
+    case via
+    case transfers
     case maximumWalkingTime
     case maximumCityWalkingTime
     case walkToNearbyStops
@@ -116,12 +156,8 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
         switch self {
         case .via:
             [.via]
-        case .maximumTransfers:
-            [.maximumTransfers]
-        case .minimumTransferTime:
-            [.minimumTransferTime]
-        case .maximumTransferTime:
-            [.maximumTransferTime]
+        case .transfers:
+            JourneyTransferConstraint.allCases.map(\.transitConnectionOption)
         case .maximumWalkingTime:
             [.maximumWalkingTime]
         case .maximumCityWalkingTime:
@@ -144,12 +180,8 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
         switch self {
         case .via:
             AppLocalization.string("Via")
-        case .maximumTransfers:
-            AppLocalization.string("Maximum number of transfers")
-        case .minimumTransferTime:
-            AppLocalization.string("Minimum transfer time")
-        case .maximumTransferTime:
-            AppLocalization.string("Maximum transfer time")
+        case .transfers:
+            AppLocalization.string("Transfers")
         case .maximumWalkingTime:
             AppLocalization.string("Maximum distance to walk")
         case .maximumCityWalkingTime:
@@ -170,8 +202,7 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
     /// Places every existing transfer control before the additional IDOS search parameters.
     var group: JourneyOptionGroup {
         switch self {
-        case .via, .maximumTransfers, .minimumTransferTime, .maximumTransferTime,
-             .maximumWalkingTime, .maximumCityWalkingTime, .walkToNearbyStops,
+        case .via, .transfers, .maximumWalkingTime, .maximumCityWalkingTime, .walkToNearbyStops,
              .sameNameWalkingTransfersOnly:
             .transfers
         case .onlyConnections, .preference, .bedOrCouchettePreference:
@@ -186,15 +217,15 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Intermediate places, connection requirements, and route preferences can form repeatable rows.
+    /// Intermediate places and combined choices can form repeatable rows with distinct subchoices.
     var allowsMultiple: Bool {
-        self == .via || self == .onlyConnections || self == .preference
+        self == .via || self == .transfers || self == .onlyConnections || self == .preference
     }
 
     /// Identifies conditions whose previous value should survive a temporary direct-only search.
     var usesRememberedTransferValue: Bool {
         switch self {
-        case .maximumTransfers, .minimumTransferTime, .maximumTransferTime:
+        case .transfers:
             true
         case .via, .maximumWalkingTime, .maximumCityWalkingTime,
              .walkToNearbyStops, .sameNameWalkingTransfersOnly,
@@ -203,10 +234,6 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Direct journeys have no transfer whose waiting time could be constrained.
-    var isTransferTimeCondition: Bool {
-        self == .minimumTransferTime || self == .maximumTransferTime
-    }
 }
 
 /// Presents each minute value supported by the corresponding IDOS transfer control.
@@ -265,6 +292,7 @@ struct JourneyOptionEntry: Identifiable, Equatable {
     }
     /// Retains an exact IDOS place only while its visible via-place text remains unchanged.
     var viaSelection: PlaceFieldSelection?
+    var transferConstraint: JourneyTransferConstraint
     var maximumTransfers: Int
     var minimumTransferTime: Int
     var maximumTransferTime: Int
@@ -276,11 +304,22 @@ struct JourneyOptionEntry: Identifiable, Equatable {
     var preference: JourneyPreference
     var bedOrCouchettePreference: TransitBedOrCouchettePreference
 
+    /// Distinguishes the two transfer-waiting rows that direct-only mode makes meaningless.
+    var isTransferTimeCondition: Bool {
+        kind == .transfers && transferConstraint.isTransferTimeConstraint
+    }
+
+    /// Connects the direct-only shortcut to its visible zero-transfer representation.
+    var isZeroTransferLimit: Bool {
+        kind == .transfers && transferConstraint == .maximumTransfers && maximumTransfers == 0
+    }
+
     init(
         id: UUID = UUID(),
         kind: JourneyOptionKind = .via,
         viaPlace: String = "",
         viaSelection: PlaceFieldSelection? = nil,
+        transferConstraint: JourneyTransferConstraint = .maximumTransfers,
         maximumTransfers: Int = 4,
         minimumTransferTime: Int = -1,
         maximumTransferTime: Int = 240,
@@ -296,6 +335,7 @@ struct JourneyOptionEntry: Identifiable, Equatable {
         self.kind = kind
         self.viaPlace = viaPlace
         self.viaSelection = viaSelection
+        self.transferConstraint = transferConstraint
         self.maximumTransfers = maximumTransfers
         self.minimumTransferTime = minimumTransferTime
         self.maximumTransferTime = maximumTransferTime
@@ -430,6 +470,13 @@ final class ConnectionsViewModel: ObservableObject {
         }
     }
 
+    /// Limits the shared Transfers popup to subchoices interpreted by the selected timetable.
+    var supportedTransferConstraints: [JourneyTransferConstraint] {
+        JourneyTransferConstraint.allCases.filter {
+            supportsConnectionOption($0.transitConnectionOption)
+        }
+    }
+
     /// Limits the combined requirement popup to choices interpreted by the selected timetable.
     var supportedConnectionRequirements: [JourneyConnectionRequirement] {
         JourneyConnectionRequirement.allCases.filter {
@@ -535,16 +582,22 @@ final class ConnectionsViewModel: ObservableObject {
 
     /// Returns the single visible transfer ceiling, including the zero that represents direct-only mode.
     var maximumTransfers: Int? {
-        return journeyOptions.first { $0.kind == .maximumTransfers }?.maximumTransfers
+        journeyOptions.first {
+            $0.kind == .transfers && $0.transferConstraint == .maximumTransfers
+        }?.maximumTransfers
     }
 
     /// Returns each optional IDOS transfer control only while its row remains visible.
     var minimumTransferTime: Int? {
-        journeyOptions.first { $0.kind == .minimumTransferTime }?.minimumTransferTime
+        journeyOptions.first {
+            $0.kind == .transfers && $0.transferConstraint == .minimumTransferTime
+        }?.minimumTransferTime
     }
 
     var maximumTransferTime: Int? {
-        journeyOptions.first { $0.kind == .maximumTransferTime }?.maximumTransferTime
+        journeyOptions.first {
+            $0.kind == .transfers && $0.transferConstraint == .maximumTransferTime
+        }?.maximumTransferTime
     }
 
     var maximumWalkingTime: Int? {
@@ -636,9 +689,15 @@ final class ConnectionsViewModel: ObservableObject {
     /// Keeps each picker limited to repeatable conditions with a free value and currently unused singletons.
     func availableJourneyOptionKinds(for id: JourneyOptionEntry.ID) -> [JourneyOptionKind] {
         supportedJourneyOptionKinds.filter { kind in
-            (!hasNoTransfers || !kind.isTransferTimeCondition) &&
-                canUseJourneyOptionKind(kind, excluding: id)
+            canUseJourneyOptionKind(kind, excluding: id)
         }
+    }
+
+    /// Offers the row's current transfer subchoice and every supported subchoice not selected elsewhere.
+    func availableTransferConstraints(
+        for id: JourneyOptionEntry.ID
+    ) -> [JourneyTransferConstraint] {
+        availableTransferConstraints(excluding: id)
     }
 
     /// Offers the row's current requirement and every supported requirement not already selected elsewhere.
@@ -661,13 +720,23 @@ final class ConnectionsViewModel: ObservableObject {
 
         let connectionRequirement: JourneyConnectionRequirement?
         let preference: JourneyPreference?
+        let transferConstraint: JourneyTransferConstraint?
         switch kind {
+        case .transfers:
+            let availableConstraints = availableTransferConstraints(excluding: id)
+            transferConstraint = availableConstraints.contains(currentOption.transferConstraint)
+                ? currentOption.transferConstraint
+                : availableConstraints.first
+            connectionRequirement = nil
+            preference = nil
+            guard transferConstraint != nil else { return }
         case .onlyConnections:
             let availableRequirements = availableConnectionRequirements(excluding: id)
             connectionRequirement = availableRequirements.contains(currentOption.connectionRequirement)
                 ? currentOption.connectionRequirement
                 : availableRequirements.first
             preference = nil
+            transferConstraint = nil
             guard connectionRequirement != nil else { return }
         case .preference:
             let availablePreferences = availableJourneyPreferences(excluding: id)
@@ -675,24 +744,25 @@ final class ConnectionsViewModel: ObservableObject {
                 ? currentOption.preference
                 : availablePreferences.first
             connectionRequirement = nil
+            transferConstraint = nil
             guard preference != nil else { return }
         default:
             connectionRequirement = nil
             preference = nil
+            transferConstraint = nil
         }
 
-        if onlyDirect,
-           currentOption.kind == .maximumTransfers,
-           currentOption.maximumTransfers == 0 {
+        if onlyDirect, currentOption.isZeroTransferLimit {
             onlyDirect = false
-        } else if onlyDirect, kind.isTransferTimeCondition {
-            setOnlyDirect(false)
         }
 
         guard let index = journeyOptions.firstIndex(where: { $0.id == id }) else { return }
 
         rememberTransferValue(from: currentOption)
         journeyOptions[index].kind = kind
+        if let transferConstraint {
+            journeyOptions[index].transferConstraint = transferConstraint
+        }
         if let connectionRequirement {
             journeyOptions[index].connectionRequirement = connectionRequirement
         }
@@ -702,6 +772,28 @@ final class ConnectionsViewModel: ObservableObject {
         if kind.usesRememberedTransferValue {
             restoreRememberedTransferValues(at: index)
         }
+    }
+
+    /// Applies one supported, distinct transfer constraint to an existing shared Transfers row.
+    func setTransferConstraint(
+        _ constraint: JourneyTransferConstraint,
+        for id: JourneyOptionEntry.ID
+    ) {
+        guard availableTransferConstraints(excluding: id).contains(constraint),
+              let index = journeyOptions.firstIndex(where: { $0.id == id }),
+              journeyOptions[index].kind == .transfers,
+              journeyOptions[index].transferConstraint != constraint
+        else {
+            return
+        }
+
+        let currentOption = journeyOptions[index]
+        if onlyDirect, currentOption.isZeroTransferLimit {
+            onlyDirect = false
+        }
+        rememberTransferValue(from: currentOption)
+        journeyOptions[index].transferConstraint = constraint
+        restoreRememberedTransferValues(at: index)
     }
 
     /// Applies one supported, distinct requirement to an existing combined-condition row.
@@ -754,9 +846,7 @@ final class ConnectionsViewModel: ObservableObject {
         guard let index = journeyOptions.firstIndex(where: { $0.id == id }) else { return }
         let removedOption = journeyOptions[index]
         rememberTransferValue(from: removedOption)
-        if onlyDirect,
-           removedOption.kind == .maximumTransfers,
-           removedOption.maximumTransfers == 0 {
+        if onlyDirect, removedOption.isZeroTransferLimit {
             onlyDirect = false
         }
         if journeyOptions.count == 1 {
@@ -787,17 +877,18 @@ final class ConnectionsViewModel: ObservableObject {
         if onlyDirect {
             removeTransferTimeConditions()
             guard supportsConnectionOption(.maximumTransfers) else { return }
-            if let index = journeyOptions.firstIndex(where: { $0.kind == .maximumTransfers }) {
+            if let index = journeyOptions.firstIndex(where: {
+                $0.kind == .transfers && $0.transferConstraint == .maximumTransfers
+            }) {
                 rememberTransferValue(from: journeyOptions[index])
                 journeyOptions[index].maximumTransfers = 0
             } else {
-                var directOption = makeJourneyOptionEntry(kind: .maximumTransfers)
+                var directOption = makeJourneyOptionEntry(kind: .transfers)
+                directOption.transferConstraint = .maximumTransfers
                 directOption.maximumTransfers = 0
                 journeyOptions.append(directOption)
             }
-        } else if let directOption = journeyOptions.first(where: {
-            $0.kind == .maximumTransfers && $0.maximumTransfers == 0
-        }) {
+        } else if let directOption = journeyOptions.first(where: \.isZeroTransferLimit) {
             removeJourneyOption(id: directOption.id)
         }
     }
@@ -806,7 +897,8 @@ final class ConnectionsViewModel: ObservableObject {
     func setMaximumTransfers(_ value: Int, for id: JourneyOptionEntry.ID) {
         guard supportsConnectionOption(.maximumTransfers),
               let index = journeyOptions.firstIndex(where: { $0.id == id }),
-              journeyOptions[index].kind == .maximumTransfers
+              journeyOptions[index].kind == .transfers,
+              journeyOptions[index].transferConstraint == .maximumTransfers
         else {
             return
         }
@@ -961,6 +1053,10 @@ final class ConnectionsViewModel: ObservableObject {
             minimumTransferTime: rememberedTransferValues.minimumTransferTime,
             maximumTransferTime: rememberedTransferValues.maximumTransferTime
         )
+        if kind == .transfers,
+           let constraint = availableTransferConstraints(excluding: nil).first {
+            option.transferConstraint = constraint
+        }
         if kind == .onlyConnections,
            let requirement = availableConnectionRequirements(excluding: nil).first {
             option.connectionRequirement = requirement
@@ -974,16 +1070,18 @@ final class ConnectionsViewModel: ObservableObject {
 
     private var availableJourneyOptionKindsForNewRow: JourneyOptionKind? {
         supportedJourneyOptionKinds.first { kind in
-            (!hasNoTransfers || !kind.isTransferTimeCondition) &&
-                canUseJourneyOptionKind(kind, excluding: nil)
+            canUseJourneyOptionKind(kind, excluding: nil)
         }
     }
 
-    /// Treats each connection requirement as a unique value even though its parent row kind is repeatable.
+    /// Treats each combined subchoice as unique even though its parent row kind is repeatable.
     private func canUseJourneyOptionKind(
         _ kind: JourneyOptionKind,
         excluding id: JourneyOptionEntry.ID?
     ) -> Bool {
+        if kind == .transfers {
+            return !availableTransferConstraints(excluding: id).isEmpty
+        }
         if kind == .onlyConnections {
             return !availableConnectionRequirements(excluding: id).isEmpty
         }
@@ -992,6 +1090,18 @@ final class ConnectionsViewModel: ObservableObject {
         }
         return kind.allowsMultiple || !journeyOptions.contains { option in
             option.id != id && option.kind == kind
+        }
+    }
+
+    private func availableTransferConstraints(
+        excluding id: JourneyOptionEntry.ID?
+    ) -> [JourneyTransferConstraint] {
+        supportedTransferConstraints.filter { constraint in
+            (!hasNoTransfers || !constraint.isTransferTimeConstraint) &&
+                !journeyOptions.contains { option in
+                    option.id != id && option.kind == .transfers &&
+                        option.transferConstraint == constraint
+                }
         }
     }
 
@@ -1034,7 +1144,8 @@ final class ConnectionsViewModel: ObservableObject {
 
     /// Captures only a row's active transfer value so unrelated hidden defaults cannot overwrite remembered choices.
     private func rememberTransferValue(from option: JourneyOptionEntry) {
-        switch option.kind {
+        guard option.kind == .transfers else { return }
+        switch option.transferConstraint {
         case .maximumTransfers:
             if option.maximumTransfers > 0 {
                 rememberedTransferValues.maximumTransfers = option.maximumTransfers
@@ -1043,10 +1154,6 @@ final class ConnectionsViewModel: ObservableObject {
             rememberedTransferValues.minimumTransferTime = option.minimumTransferTime
         case .maximumTransferTime:
             rememberedTransferValues.maximumTransferTime = option.maximumTransferTime
-        case .via, .maximumWalkingTime, .maximumCityWalkingTime,
-             .walkToNearbyStops, .sameNameWalkingTransfersOnly,
-             .onlyConnections, .preference, .bedOrCouchettePreference:
-            break
         }
     }
 
@@ -1059,9 +1166,9 @@ final class ConnectionsViewModel: ObservableObject {
 
     /// Removes both transfer-time conditions made meaningless by direct-only mode without forgetting their values.
     private func removeTransferTimeConditions() {
-        let removedOptions = journeyOptions.filter { $0.kind.isTransferTimeCondition }
+        let removedOptions = journeyOptions.filter(\.isTransferTimeCondition)
         removedOptions.forEach(rememberTransferValue)
-        journeyOptions.removeAll { $0.kind.isTransferTimeCondition }
+        journeyOptions.removeAll(where: \.isTransferTimeCondition)
     }
 
     /// Removes conditions that IDOS does not publish for the newly selected timetable.
@@ -1076,6 +1183,9 @@ final class ConnectionsViewModel: ObservableObject {
     }
 
     private func supportsJourneyOption(_ option: JourneyOptionEntry) -> Bool {
+        if option.kind == .transfers {
+            return supportsConnectionOption(option.transferConstraint.transitConnectionOption)
+        }
         if option.kind == .onlyConnections {
             return supportsConnectionOption(option.connectionRequirement.transitConnectionOption)
         }

@@ -58,23 +58,26 @@ manager and show their source when more than one ordinary provider is registered
   the same exact departure and arrival shows inline guidance and disables Search before any provider request can start.
   Connections and Station Timetables share the same borderless 24-point direction-swap control between their fields.
   The condition picker separates the existing controls under Transfers (`Přestupy` in Czech) and the newer IDOS
-  controls under Additional parameters (`Další možnosti` in Czech). Transfers contains Via, Maximum number of
-  transfers, Minimum transfer time, Maximum transfer time, Maximum distance to walk, Maximum distance to walk when
-  Urban Public Transport is available, walking to a nearby stop at the beginning or end of the journey, and restricting
-  walking transfers to stops of the same name. Additional parameters contains the repeatable Only connections condition,
+  controls under Additional parameters (`Další možnosti` in Czech). Transfers contains Via, the repeatable Transfers
+  condition, Maximum distance to walk, Maximum distance to walk when Urban Public Transport is available, walking to a
+  nearby stop at the beginning or end of the journey, and restricting walking transfers to stops of the same name. Each
+  Transfers row has a subchoice for Maximum number of transfers, Minimum transfer time, or Maximum transfer time, followed
+  by that subchoice's number or duration editor. Additional parameters contains the repeatable Only connections condition,
   the repeatable Prefer condition, and Bed / Couchette. Each Only connections row has a value popup for Wheelchair
   accessible connections only, Low-floor lines only, Wheelchair accessible connections (trains), Connections for
   passengers with children (trains), or Connections for passengers with bicycles (trains + buses). Each Prefer row
-  offers busy routes or trains instead of buses. Both conditions can be repeated to combine distinct values, and each
-  popup omits values already selected in another row as well as values unsupported by the active timetable.
-  Both names use the same non-interactive native section-heading treatment as timetable-menu groups, while a separator
-  keeps the groups visually distinct. Via presents the same timetable-aware IDOS place suggestions and application-wide
+  offers busy routes or trains instead of buses. All three combined conditions can be repeated to select distinct
+  subchoices, and each popup omits values already selected in another row as well as values unsupported by the active
+  timetable.
+  Both group headings use the same non-interactive native treatment as timetable-menu groups, while a separator keeps
+  the groups visually distinct. Via presents the same timetable-aware IDOS place suggestions and application-wide
   place-type filters as the route endpoints,
   retains the exact selected object, and returns to free-text interpretation after editing or changing the timetable.
-  The transfer ceiling presents a compact, left-aligned number field with native stepper arrows. Time-based conditions
-  use compact popups containing the values accepted by IDOS: the minimum offers Standard or 0, 1, 2, 3, 4, 5, 10, 20,
-  30, or 60 minutes; the maximum offers 10, 20, 30, 45, 60, 120, 240, 360, 480, 720, or 1,080 minutes; and both walking
-  limits offer 0, 5, 10, 20, 30, 45, or 60 minutes. Whole-hour values are labeled in hours, while Czech minute values
+  The maximum-transfer subchoice presents a compact, left-aligned number field with native stepper arrows. Time-based
+  subchoices use compact popups containing the values accepted by IDOS: the minimum offers Standard or 0, 1, 2, 3, 4,
+  5, 10, 20, 30, or 60 minutes; the maximum offers 10, 20, 30, 45, 60, 120, 240, 360, 480, 720, or 1,080 minutes;
+  and both walking limits offer 0, 5, 10, 20, 30, 45, or 60 minutes. Whole-hour values are labeled in hours, while
+  Czech minute values
   use their complete grammatically inflected unit names. The two Boolean conditions use compact popups that state both
   outcomes explicitly. Walking between stops offers also at the beginning/end of journey or only during transfers and
   defaults to the former; Walking by stop name offers between any stops or only stops of the same name and defaults to
@@ -100,7 +103,7 @@ manager and show their source when more than one ordinary provider is registered
   transfer-time conditions. Selecting the checkbox, or entering zero as the maximum number of transfers, enables
   direct-only mode, keeps or adds the zero-transfer row, and removes both transfer-time rows. Clearing direct-only mode
   removes the zero-transfer row. The previous positive transfer count and both time values remain remembered; manually
-  adding any of these conditions later restores its last value instead of its default. A source that advertises Direct
+  adding any of these subchoices later restores its last value instead of its default. A source that advertises Direct
   connections only without the maximum-transfer option still gets the checkbox, without an unsupported synthetic row.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable

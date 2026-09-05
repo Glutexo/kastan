@@ -216,6 +216,12 @@ enum JourneyOptionRowLayout {
         )
     }
 
+    private static var transferConstraintCatalogWidth: CGFloat {
+        StableWidthPopUpButton.catalogWidth(
+            for: JourneyTransferConstraint.localizedCatalogTitles
+        )
+    }
+
     private static var maximumFixedValueWidth: CGFloat {
         let booleanTitles = [
             AppLocalization.string("Also at the beginning/end of journey"),
@@ -225,22 +231,28 @@ enum JourneyOptionRowLayout {
             AppLocalization.string("Yes"),
             AppLocalization.string("No"),
         ]
-        let durationTitles = (
-            JourneyDurationChoice.minimumTransferTimes +
-                JourneyDurationChoice.maximumTransferTimes +
-                JourneyDurationChoice.maximumWalkingTimes
+        let transferDurationTitles = (
+            JourneyDurationChoice.minimumTransferTimes + JourneyDurationChoice.maximumTransferTimes
         ).map { $0.localizedTitle() }
+        let walkingDurationTitles = JourneyDurationChoice.maximumWalkingTimes.map {
+            $0.localizedTitle()
+        }
         let bedOrCouchetteTitles = TransitBedOrCouchettePreference.allCases.map {
             $0.localizedTitle()
         }
 
-        return max(
+        let standaloneValueWidth = max(
             minimumFlexibleValueWidth,
             StableWidthPopUpButton.catalogWidth(
-                for: booleanTitles + durationTitles +
+                for: booleanTitles + walkingDurationTitles +
                     JourneyConnectionRequirement.localizedCatalogTitles +
                     JourneyPreference.localizedCatalogTitles + bedOrCouchetteTitles
             )
+        )
+        let transferValueWidth = StableWidthPopUpButton.catalogWidth(for: transferDurationTitles)
+        return max(
+            standaloneValueWidth,
+            transferConstraintCatalogWidth + spacing + transferValueWidth
         )
     }
 }
@@ -656,34 +668,16 @@ struct ConnectionsView: View {
             )
                 .frame(minWidth: 160, maxWidth: 520)
                 .layoutPriority(1)
-        case .maximumTransfers:
-            Stepper(
-                value: maximumTransfersBinding(for: option),
-                in: ConnectionsViewModel.maximumTransferRange
-            ) {
-                TextField(
-                    "Maximum number of transfers",
-                    value: maximumTransfersBinding(for: option),
-                    format: .number
+        case .transfers:
+            HStack(spacing: JourneyOptionRowLayout.spacing) {
+                transferConstraintPicker(
+                    selection: transferConstraintBinding(for: option),
+                    choices: model.availableTransferConstraints(for: option.wrappedValue.id),
+                    label: option.wrappedValue.kind.localizedTitle
                 )
-                .textFieldStyle(.roundedBorder)
-                .multilineTextAlignment(.leading)
-                .frame(width: 40)
+                transferConstraintValue(option: option)
             }
-            .fixedSize()
-            .accessibilityLabel("Maximum number of transfers")
-        case .minimumTransferTime:
-            journeyDurationPicker(
-                selection: option.minimumTransferTime,
-                choices: JourneyDurationChoice.minimumTransferTimes,
-                label: option.wrappedValue.kind.localizedTitle
-            )
-        case .maximumTransferTime:
-            journeyDurationPicker(
-                selection: option.maximumTransferTime,
-                choices: JourneyDurationChoice.maximumTransferTimes,
-                label: option.wrappedValue.kind.localizedTitle
-            )
+            .fixedSize(horizontal: true, vertical: false)
         case .maximumWalkingTime:
             journeyDurationPicker(
                 selection: option.maximumWalkingTime,
@@ -730,6 +724,73 @@ struct ConnectionsView: View {
                 label: option.wrappedValue.kind.localizedTitle
             )
         }
+    }
+
+    /// Keeps all transfer limits under one repeatable condition while retaining each value editor.
+    @ViewBuilder
+    private func transferConstraintValue(option: Binding<JourneyOptionEntry>) -> some View {
+        switch option.wrappedValue.transferConstraint {
+        case .maximumTransfers:
+            Stepper(
+                value: maximumTransfersBinding(for: option),
+                in: ConnectionsViewModel.maximumTransferRange
+            ) {
+                TextField(
+                    "Maximum number of transfers",
+                    value: maximumTransfersBinding(for: option),
+                    format: .number
+                )
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.leading)
+                .frame(width: 40)
+            }
+            .fixedSize()
+            .accessibilityLabel("Maximum number of transfers")
+        case .minimumTransferTime:
+            journeyDurationPicker(
+                selection: option.minimumTransferTime,
+                choices: JourneyDurationChoice.minimumTransferTimes,
+                label: option.wrappedValue.transferConstraint.localizedTitle
+            )
+        case .maximumTransferTime:
+            journeyDurationPicker(
+                selection: option.maximumTransferTime,
+                choices: JourneyDurationChoice.maximumTransferTimes,
+                label: option.wrappedValue.transferConstraint.localizedTitle
+            )
+        }
+    }
+
+    /// Presents the supported, currently unused transfer limits after the shared Transfers label.
+    private func transferConstraintPicker(
+        selection: Binding<JourneyTransferConstraint>,
+        choices: [JourneyTransferConstraint],
+        label: String
+    ) -> some View {
+        Picker(selection: selection) {
+            ForEach(choices) { constraint in
+                Text(verbatim: constraint.localizedTitle).tag(constraint)
+            }
+        } label: {
+            Text(verbatim: label)
+        }
+        .labelsHidden()
+        .fixedSize()
+        .accessibilityLabel(Text(verbatim: label))
+    }
+
+    /// Routes subchoice changes through the model so two rows cannot select the same transfer limit.
+    private func transferConstraintBinding(
+        for option: Binding<JourneyOptionEntry>
+    ) -> Binding<JourneyTransferConstraint> {
+        let optionID = option.wrappedValue.id
+        return Binding(
+            get: {
+                model.journeyOptions.first { $0.id == optionID }?.transferConstraint ??
+                    .maximumTransfers
+            },
+            set: { model.setTransferConstraint($0, for: optionID) }
+        )
     }
 
     /// Combines compatible IDOS connection restrictions in one repeatable journey-option kind.
@@ -1046,8 +1107,15 @@ struct JourneyOptionKindPicker: NSViewRepresentable {
                 button.menu?.addItem(heading)
 
                 for kind in section.kinds {
-                    button.addItem(withTitle: kind.localizedTitle)
-                    button.lastItem?.representedObject = kind.rawValue
+                    // Add directly to the menu so a selectable Transfers item can coexist with
+                    // the identically titled Transfers section heading.
+                    let item = NSMenuItem(
+                        title: kind.localizedTitle,
+                        action: nil,
+                        keyEquivalent: ""
+                    )
+                    item.representedObject = kind.rawValue
+                    button.menu?.addItem(item)
                 }
             }
         }

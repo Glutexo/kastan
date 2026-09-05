@@ -2601,17 +2601,27 @@ final class KastanAppTests: XCTestCase {
         ).contentWidth
         let row = HStack(spacing: JourneyOptionRowLayout.spacing) {
             JourneyOptionKindPicker(
-                selection: .constant(.maximumCityWalkingTime),
+                selection: .constant(.transfers),
                 availableKinds: JourneyOptionKind.allCases
             )
             .fixedSize(horizontal: true, vertical: false)
 
-            Picker(selection: .constant(JourneyConnectionRequirement.connectionsForPassengersWithBicycles)) {
-                ForEach(JourneyConnectionRequirement.allCases) { requirement in
-                    Text(verbatim: requirement.localizedTitle).tag(requirement)
+            Picker(selection: .constant(JourneyTransferConstraint.maximumTransferTime)) {
+                ForEach(JourneyTransferConstraint.allCases) { constraint in
+                    Text(verbatim: constraint.localizedTitle).tag(constraint)
                 }
             } label: {
-                Text(verbatim: JourneyOptionKind.onlyConnections.localizedTitle)
+                Text(verbatim: JourneyOptionKind.transfers.localizedTitle)
+            }
+            .labelsHidden()
+            .fixedSize()
+
+            Picker(selection: .constant(1_080)) {
+                ForEach(JourneyDurationChoice.maximumTransferTimes) { choice in
+                    Text(verbatim: choice.localizedTitle()).tag(choice.minutes)
+                }
+            } label: {
+                Text(verbatim: JourneyTransferConstraint.maximumTransferTime.localizedTitle)
             }
             .labelsHidden()
             .fixedSize()
@@ -2660,7 +2670,7 @@ final class KastanAppTests: XCTestCase {
             try XCTUnwrap(probes.first { $0.name == name })
         }
 
-        XCTAssertEqual(popupButtons.count, 2)
+        XCTAssertEqual(popupButtons.count, 3)
         for control in visibleControls {
             let frame = hostingView.convert(control.bounds, from: control)
             XCTAssertGreaterThanOrEqual(frame.minX, -1)
@@ -5097,7 +5107,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(model.supportsOnlyDirect)
         model.setOnlyDirect(true)
         XCTAssertFalse(model.onlyDirect)
-        model.setJourneyOptionKind(.maximumTransfers, for: firstID)
+        model.setJourneyOptionKind(.transfers, for: firstID)
         XCTAssertEqual(model.journeyOptions[0].kind, .via)
         XCTAssertTrue(model.transferLimitLabel.isEmpty)
 
@@ -5162,7 +5172,8 @@ final class KastanAppTests: XCTestCase {
 
         model.addJourneyOption()
         let option = try XCTUnwrap(model.journeyOptions.first)
-        XCTAssertEqual(option.kind, .maximumTransfers)
+        XCTAssertEqual(option.kind, .transfers)
+        XCTAssertEqual(option.transferConstraint, .maximumTransfers)
         XCTAssertEqual(option.maximumTransfers, 4)
         XCTAssertTrue(model.canRemoveJourneyOption(id: option.id))
         model.removeJourneyOption(id: option.id)
@@ -5240,10 +5251,11 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertTrue(model.hasNoTransfers)
         XCTAssertFalse(model.onlyDirect)
-        XCTAssertEqual(model.journeyOptions.map(\.kind), [.maximumTransfers])
+        XCTAssertEqual(model.journeyOptions.map(\.kind), [.transfers])
+        XCTAssertEqual(model.journeyOptions.map(\.transferConstraint), [.maximumTransfers])
         XCTAssertFalse(model.canAddJourneyOption)
         XCTAssertFalse(
-            model.availableJourneyOptionKinds(for: maximumTransfers.id).contains(.minimumTransferTime)
+            model.availableTransferConstraints(for: maximumTransfers.id).contains(.minimumTransferTime)
         )
 
         await model.search()
@@ -6784,9 +6796,21 @@ final class KastanAppTests: XCTestCase {
             JourneyOptionEntry(viaPlace: " Pardubice ", viaSelection: viaSelection),
             JourneyOptionEntry(viaPlace: ""),
             JourneyOptionEntry(viaPlace: "Olomouc"),
-            JourneyOptionEntry(kind: .maximumTransfers, maximumTransfers: 2),
-            JourneyOptionEntry(kind: .minimumTransferTime, minimumTransferTime: 5),
-            JourneyOptionEntry(kind: .maximumTransferTime, maximumTransferTime: 360),
+            JourneyOptionEntry(
+                kind: .transfers,
+                transferConstraint: .maximumTransfers,
+                maximumTransfers: 2
+            ),
+            JourneyOptionEntry(
+                kind: .transfers,
+                transferConstraint: .minimumTransferTime,
+                minimumTransferTime: 5
+            ),
+            JourneyOptionEntry(
+                kind: .transfers,
+                transferConstraint: .maximumTransferTime,
+                maximumTransferTime: 360
+            ),
             JourneyOptionEntry(kind: .maximumWalkingTime, maximumWalkingTime: 45),
             JourneyOptionEntry(kind: .maximumCityWalkingTime, maximumCityWalkingTime: 20),
             JourneyOptionEntry(kind: .walkToNearbyStops, walkToNearbyStops: false),
@@ -7031,14 +7055,14 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertEqual(model.availableJourneyOptionKinds(for: firstID), JourneyOptionKind.allCases)
 
-        model.setJourneyOptionKind(.maximumTransfers, for: firstID)
+        model.setJourneyOptionKind(.maximumWalkingTime, for: firstID)
         model.addJourneyOption(after: firstID)
         let secondID = model.journeyOptions[1].id
 
         XCTAssertEqual(model.availableJourneyOptionKinds(for: firstID), JourneyOptionKind.allCases)
         XCTAssertEqual(
             model.availableJourneyOptionKinds(for: secondID),
-            JourneyOptionKind.allCases.filter { $0 != .maximumTransfers }
+            JourneyOptionKind.allCases.filter { $0 != .maximumWalkingTime }
         )
 
         model.removeJourneyOption(id: firstID)
@@ -7111,6 +7135,37 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(model.preferTrainsOverBuses, true)
     }
 
+    func testTransfersCanRepeatWithDistinctConstraints() {
+        let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
+        let firstID = model.journeyOptions[0].id
+
+        model.setJourneyOptionKind(.transfers, for: firstID)
+        model.addJourneyOption(after: firstID)
+        let secondID = model.journeyOptions[1].id
+        model.setJourneyOptionKind(.transfers, for: secondID)
+        model.addJourneyOption(after: secondID)
+        let thirdID = model.journeyOptions[2].id
+        model.setJourneyOptionKind(.transfers, for: thirdID)
+
+        XCTAssertEqual(
+            model.journeyOptions.map(\.transferConstraint),
+            [.maximumTransfers, .minimumTransferTime, .maximumTransferTime]
+        )
+        XCTAssertTrue(model.availableJourneyOptionKinds(for: firstID).contains(.transfers))
+        XCTAssertEqual(model.availableTransferConstraints(for: firstID), [.maximumTransfers])
+        XCTAssertEqual(model.availableTransferConstraints(for: secondID), [.minimumTransferTime])
+        XCTAssertEqual(model.availableTransferConstraints(for: thirdID), [.maximumTransferTime])
+
+        model.setTransferConstraint(.minimumTransferTime, for: firstID)
+        XCTAssertEqual(model.journeyOptions[0].transferConstraint, .maximumTransfers)
+
+        model.removeJourneyOption(id: secondID)
+        model.setTransferConstraint(.minimumTransferTime, for: firstID)
+        XCTAssertEqual(model.journeyOptions[0].transferConstraint, .minimumTransferTime)
+        XCTAssertNil(model.maximumTransfers)
+        XCTAssertEqual(model.minimumTransferTime, -1)
+    }
+
     func testDirectOnlyShortcutAddsVisibleZeroTransferCondition() {
         let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
         let placeholder = model.journeyOptions[0]
@@ -7120,7 +7175,8 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(model.onlyDirect)
         XCTAssertEqual(model.journeyOptions.count, 2)
         XCTAssertEqual(model.journeyOptions[0], placeholder)
-        XCTAssertEqual(model.journeyOptions[1].kind, .maximumTransfers)
+        XCTAssertEqual(model.journeyOptions[1].kind, .transfers)
+        XCTAssertEqual(model.journeyOptions[1].transferConstraint, .maximumTransfers)
         XCTAssertEqual(model.journeyOptions[1].maximumTransfers, 0)
 
         model.setOnlyDirect(false)
@@ -7133,20 +7189,33 @@ final class KastanAppTests: XCTestCase {
         model.setMaximumTransfers(1, for: directOptionID)
 
         XCTAssertFalse(model.onlyDirect)
-        XCTAssertEqual(model.journeyOptions[1].kind, .maximumTransfers)
+        XCTAssertEqual(model.journeyOptions[1].kind, .transfers)
+        XCTAssertEqual(model.journeyOptions[1].transferConstraint, .maximumTransfers)
         XCTAssertEqual(model.journeyOptions[1].maximumTransfers, 1)
     }
 
     func testDirectOnlyShortcutRemovesOnlyTransferTimeConditions() {
         let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
         let viaOption = JourneyOptionEntry(viaPlace: "Pardubice")
-        let transferOption = JourneyOptionEntry(kind: .maximumTransfers, maximumTransfers: 3)
+        let transferOption = JourneyOptionEntry(
+            kind: .transfers,
+            transferConstraint: .maximumTransfers,
+            maximumTransfers: 3
+        )
         let walkingOption = JourneyOptionEntry(kind: .maximumWalkingTime, maximumWalkingTime: 45)
         model.journeyOptions = [
             viaOption,
             transferOption,
-            JourneyOptionEntry(kind: .minimumTransferTime, minimumTransferTime: 5),
-            JourneyOptionEntry(kind: .maximumTransferTime, maximumTransferTime: 360),
+            JourneyOptionEntry(
+                kind: .transfers,
+                transferConstraint: .minimumTransferTime,
+                minimumTransferTime: 5
+            ),
+            JourneyOptionEntry(
+                kind: .transfers,
+                transferConstraint: .maximumTransferTime,
+                maximumTransferTime: 360
+            ),
             walkingOption,
         ]
 
@@ -7162,31 +7231,41 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(model.minimumTransferTime)
         XCTAssertNil(model.maximumTransferTime)
         XCTAssertEqual(model.maximumWalkingTime, 45)
-        XCTAssertFalse(
-            model.availableJourneyOptionKinds(for: transferOption.id).contains { $0.isTransferTimeCondition }
-        )
-        XCTAssertTrue(model.availableJourneyOptionKinds(for: transferOption.id).contains(.maximumTransfers))
+        XCTAssertEqual(model.availableTransferConstraints(for: transferOption.id), [.maximumTransfers])
+        XCTAssertTrue(model.availableJourneyOptionKinds(for: transferOption.id).contains(.transfers))
 
         model.setOnlyDirect(false)
 
         XCTAssertFalse(model.onlyDirect)
         XCTAssertEqual(model.journeyOptions.map(\.id), [viaOption.id, walkingOption.id])
         XCTAssertTrue(
-            model.availableJourneyOptionKinds(for: viaOption.id).contains(.maximumTransfers)
+            model.availableJourneyOptionKinds(for: viaOption.id).contains(.transfers)
         )
-        model.setJourneyOptionKind(.maximumTransfers, for: viaOption.id)
+        model.setJourneyOptionKind(.transfers, for: viaOption.id)
         XCTAssertEqual(model.journeyOptions[0].maximumTransfers, 3)
-        model.setJourneyOptionKind(.minimumTransferTime, for: viaOption.id)
+        model.setTransferConstraint(.minimumTransferTime, for: viaOption.id)
         XCTAssertEqual(model.journeyOptions[0].minimumTransferTime, 5)
     }
 
     func testZeroTransfersEnablesDirectOnlyAndRestoresRemovedTransferValuesWhenReadded() {
         let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
-        let transferOption = JourneyOptionEntry(kind: .maximumTransfers, maximumTransfers: 3)
+        let transferOption = JourneyOptionEntry(
+            kind: .transfers,
+            transferConstraint: .maximumTransfers,
+            maximumTransfers: 3
+        )
         model.journeyOptions = [
             transferOption,
-            JourneyOptionEntry(kind: .minimumTransferTime, minimumTransferTime: 5),
-            JourneyOptionEntry(kind: .maximumTransferTime, maximumTransferTime: 360),
+            JourneyOptionEntry(
+                kind: .transfers,
+                transferConstraint: .minimumTransferTime,
+                minimumTransferTime: 5
+            ),
+            JourneyOptionEntry(
+                kind: .transfers,
+                transferConstraint: .maximumTransferTime,
+                maximumTransferTime: 360
+            ),
         ]
 
         model.setMaximumTransfers(0, for: transferOption.id)
@@ -7194,22 +7273,25 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(model.onlyDirect)
         XCTAssertEqual(model.journeyOptions.count, 1)
         XCTAssertEqual(model.journeyOptions[0].id, transferOption.id)
-        XCTAssertEqual(model.journeyOptions[0].kind, .maximumTransfers)
+        XCTAssertEqual(model.journeyOptions[0].kind, .transfers)
+        XCTAssertEqual(model.journeyOptions[0].transferConstraint, .maximumTransfers)
         XCTAssertEqual(model.journeyOptions[0].maximumTransfers, 0)
 
         model.setOnlyDirect(false)
         XCTAssertEqual(model.journeyOptions[0].kind, .via)
-        model.setJourneyOptionKind(.maximumTransfers, for: transferOption.id)
+        model.setJourneyOptionKind(.transfers, for: transferOption.id)
         XCTAssertEqual(model.journeyOptions[0].maximumTransfers, 3)
 
         model.addJourneyOption(after: transferOption.id)
         let minimumTimeID = model.journeyOptions[1].id
-        model.setJourneyOptionKind(.minimumTransferTime, for: minimumTimeID)
+        model.setJourneyOptionKind(.transfers, for: minimumTimeID)
+        XCTAssertEqual(model.journeyOptions[1].transferConstraint, .minimumTransferTime)
         XCTAssertEqual(model.journeyOptions[1].minimumTransferTime, 5)
 
         model.addJourneyOption(after: minimumTimeID)
         let maximumTimeID = model.journeyOptions[2].id
-        model.setJourneyOptionKind(.maximumTransferTime, for: maximumTimeID)
+        model.setJourneyOptionKind(.transfers, for: maximumTimeID)
+        XCTAssertEqual(model.journeyOptions[2].transferConstraint, .maximumTransferTime)
         XCTAssertEqual(model.journeyOptions[2].maximumTransferTime, 360)
     }
 
@@ -7389,7 +7471,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(czech.localizedString(forKey: "No", value: nil, table: nil), "Ne")
         XCTAssertEqual(
             JourneyOptionKind.allCases.filter { $0.group == .transfers },
-            Array(JourneyOptionKind.allCases.prefix(8))
+            Array(JourneyOptionKind.allCases.prefix(6))
         )
         XCTAssertEqual(
             JourneyOptionKind.allCases.filter { $0.group == .additionalParameters },
@@ -7464,8 +7546,12 @@ final class KastanAppTests: XCTestCase {
     }
 
     func testJourneyOptionPickerGroupsExistingAndNewConditions() throws {
+        var selection = JourneyOptionKind.preference
         let picker = JourneyOptionKindPicker(
-            selection: .constant(.preference),
+            selection: Binding(
+                get: { selection },
+                set: { selection = $0 }
+            ),
             availableKinds: JourneyOptionKind.allCases
         )
         let hostingView = NSHostingView(rootView: picker)
@@ -7500,6 +7586,14 @@ final class KastanAppTests: XCTestCase {
             popupButton.selectedItem?.representedObject as? String,
             JourneyOptionKind.preference.rawValue
         )
+
+        let transfersItem = try XCTUnwrap(popupButton.itemArray.first {
+            $0.representedObject as? String == JourneyOptionKind.transfers.rawValue
+        })
+        popupButton.select(transfersItem)
+        popupButton.sendAction(popupButton.action, to: popupButton.target)
+
+        XCTAssertEqual(selection, .transfers)
     }
 
     func testDirectOnlyRequestSetsZeroTransfersAndOmitsTransferTimes() async {
@@ -7507,11 +7601,23 @@ final class KastanAppTests: XCTestCase {
         let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())
         model.from = "Praha"
         model.to = "Brno"
-        let transferOption = JourneyOptionEntry(kind: .maximumTransfers, maximumTransfers: 2)
+        let transferOption = JourneyOptionEntry(
+            kind: .transfers,
+            transferConstraint: .maximumTransfers,
+            maximumTransfers: 2
+        )
         model.journeyOptions = [
             transferOption,
-            JourneyOptionEntry(kind: .minimumTransferTime, minimumTransferTime: 5),
-            JourneyOptionEntry(kind: .maximumTransferTime, maximumTransferTime: 360),
+            JourneyOptionEntry(
+                kind: .transfers,
+                transferConstraint: .minimumTransferTime,
+                minimumTransferTime: 5
+            ),
+            JourneyOptionEntry(
+                kind: .transfers,
+                transferConstraint: .maximumTransferTime,
+                maximumTransferTime: 360
+            ),
             JourneyOptionEntry(kind: .maximumWalkingTime, maximumWalkingTime: 45),
         ]
         model.setMaximumTransfers(0, for: transferOption.id)
