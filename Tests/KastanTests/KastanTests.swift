@@ -1880,6 +1880,57 @@ import Testing
     ))
 }
 
+@Test func connectionRequestUsesIDOSAdditionalParameters() {
+    let customizedRequest = IDOSConnectionRequest(
+        from: "Praha",
+        to: "Brno",
+        wheelchairAccessibleConnectionsOnly: true,
+        lowFloorConnectionsOnly: false,
+        preferTrainsOverBuses: true,
+        trainConnectionsForWheelchairPassengers: false,
+        trainConnectionsForPassengersWithChildren: true,
+        connectionsForPassengersWithBicycles: false,
+        preferBusyRoutes: true
+    )
+    let normalRequest = IDOSConnectionRequest(from: "Praha", to: "Brno")
+
+    #expect(customizedRequest.formItems.contains(
+        URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "True")
+    ))
+    #expect(customizedRequest.formItems.contains(
+        URLQueryItem(name: "AdvancedForm.LowDeckConn", value: "true")
+    ))
+    #expect(customizedRequest.formItems.contains(
+        URLQueryItem(name: "AdvancedForm.LowDeckConnTr", value: "false")
+    ))
+    #expect(customizedRequest.formItems.contains(
+        URLQueryItem(name: "AdvancedForm.PrefereTrains", value: "true")
+    ))
+    #expect(customizedRequest.formItems.contains(
+        URLQueryItem(name: "AdvancedForm.WheelChair", value: "false")
+    ))
+    #expect(customizedRequest.formItems.contains(
+        URLQueryItem(name: "AdvancedForm.Children", value: "true")
+    ))
+    #expect(customizedRequest.formItems.contains(
+        URLQueryItem(name: "AdvancedForm.Bicycle", value: "false")
+    ))
+    #expect(customizedRequest.formItems.contains(
+        URLQueryItem(name: "AdvancedForm.AutoStrategy", value: "true")
+    ))
+    #expect(!normalRequest.formItems.contains { item in
+        [
+            "AdvancedForm.LowDeckConn",
+            "AdvancedForm.LowDeckConnTr",
+            "AdvancedForm.PrefereTrains",
+            "AdvancedForm.WheelChair",
+            "AdvancedForm.Children",
+            "AdvancedForm.Bicycle",
+            "AdvancedForm.AutoStrategy",
+        ].contains(item.name)
+    })
+}
+
 @Test func connectionRequestUsesIDOSViaParameters() throws {
     let selectedVia = try #require(IDOSPlaceSelection(suggestion: IDOSSuggestion(
         selectedText: "Pardubice hl.n.",

@@ -80,6 +80,13 @@ func expectTransitDataSourceContract(
         .maximumCityWalkingTime,
         .walkToNearbyStops,
         .sameNameWalkingTransfersOnly,
+        .wheelchairAccessibleConnectionsOnly,
+        .lowFloorConnectionsOnly,
+        .preferTrainsOverBuses,
+        .trainConnectionsForWheelchairPassengers,
+        .trainConnectionsForPassengersWithChildren,
+        .connectionsForPassengersWithBicycles,
+        .preferBusyRoutes,
     ])
     #expect(TransitConnectionOption.allCases.allSatisfy(TransitDataSourceDescriptor.idos.supports))
     #expect(custom.supports(.connections))

@@ -1,6 +1,7 @@
 "About Kaštan" = "About Kaštan";
 "Add to Calendar" = "Add to Calendar";
 "Additionally runs %@" = "Additionally runs %@";
+"Additional parameters" = "Additional parameters";
 "Add timetable to favorites" = "Add timetable to favorites";
 "Add journey option" = "Add journey option";
 "Add via place" = "Add via place";
@@ -38,6 +39,8 @@
 "Connection %@ – %@" = "Connection %@ – %@";
 "Connection detail" = "Connection detail";
 "Connections" = "Connections";
+"Connections for passengers with bicycles (trains + buses)" = "Connections for passengers with bicycles (trains + buses)";
+"Connections for passengers with children (trains)" = "Connections for passengers with children (trains)";
 "Date" = "Date";
 "Date and time" = "Date and time";
 "Departure" = "Departure";
@@ -144,6 +147,7 @@
 "Location access was denied. Allow Kaštan to use your location in System Settings." = "Location access was denied. Allow Kaštan to use your location in System Settings.";
 "Location Services are turned off. Enable them in System Settings to use My location." = "Location Services are turned off. Enable them in System Settings to use My location.";
 "Lockout timetable" = "Lockout timetable";
+"Low-floor lines only" = "Low-floor lines only";
 "New Mock Tab" = "New Mock Tab";
 "New Mock Window" = "New Mock Window";
 "New Tab" = "New Tab";
@@ -154,6 +158,7 @@
 "Municipalities" = "Municipalities";
 "name@example.com" = "name@example.com";
 "My location" = "My location";
+"No" = "No";
 "No application could open the attachment." = "No application could open the attachment.";
 "No application could open the calendar event." = "No application could open the calendar event.";
 "No connections found" = "No connections found";
@@ -180,6 +185,8 @@
 "place" = "place";
 "Place suggestions" = "Place suggestions";
 "Powered by public IDOS web data" = "Powered by public IDOS web data";
+"Prefer busy routes" = "Prefer busy routes";
+"Prefer trains instead of buses" = "Prefer trains instead of buses";
 "Preparing email…" = "Preparing email…";
 "Preview is not available." = "Preview is not available.";
 "Preview service" = "Preview service";
@@ -261,11 +268,14 @@
 "Trains, buses, and all" = "Trains, buses, and all";
 "Trains + Buses" = "Trains + Buses";
 "Trains + Buses + Urban Public Transport" = "Trains + Buses + Urban Public Transport";
+"Transfers" = "Transfers";
 "Try a different time, route, or timetable." = "Try a different time, route, or timetable.";
 "Try Again" = "Try Again";
 "Prague + PID" = "Prague + PID";
 "Urban public transport by city" = "Urban public transport by city";
 "Urban Public Transport %@" = "Urban Public Transport %@";
+"Wheelchair accessible connections (trains)" = "Wheelchair accessible connections (trains)";
+"Wheelchair accessible connections only" = "Wheelchair accessible connections only";
 "Whole week" = "Whole week";
 "Version %@" = "Version %@";
 "Via" = "Via";
@@ -273,6 +283,7 @@
 "Zone %@" = "Zone %@";
 "Zones %@" = "Zones %@";
 "Your current location could not be determined. Try again." = "Your current location could not be determined. Try again.";
+"Yes" = "Yes";
 "using the Kaštan app %@" = "using the Kaštan app %@";
 "via %@" = "via %@";
 "→ %@" = "→ %@";

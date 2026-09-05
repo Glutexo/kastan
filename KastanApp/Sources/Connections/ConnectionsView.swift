@@ -212,7 +212,7 @@ enum JourneyOptionRowLayout {
 
     private static var conditionCatalogWidth: CGFloat {
         StableWidthPopUpButton.catalogWidth(
-            for: JourneyOptionKind.allCases.map(\.localizedTitle)
+            for: JourneyOptionKind.localizedCatalogTitles
         )
     }
 
@@ -222,6 +222,8 @@ enum JourneyOptionRowLayout {
             AppLocalization.string("Only during transfers"),
             AppLocalization.string("Between any stops"),
             AppLocalization.string("Only stops of the same name"),
+            AppLocalization.string("Yes"),
+            AppLocalization.string("No"),
         ]
         let durationTitles = (
             JourneyDurationChoice.minimumTransferTimes +
@@ -703,7 +705,56 @@ struct ConnectionsView: View {
                 enabledFirst: false,
                 label: option.wrappedValue.kind.localizedTitle
             )
+        case .wheelchairAccessibleConnectionsOnly:
+            additionalParameterPicker(
+                selection: option.wheelchairAccessibleConnectionsOnly,
+                label: option.wrappedValue.kind.localizedTitle
+            )
+        case .lowFloorConnectionsOnly:
+            additionalParameterPicker(
+                selection: option.lowFloorConnectionsOnly,
+                label: option.wrappedValue.kind.localizedTitle
+            )
+        case .preferTrainsOverBuses:
+            additionalParameterPicker(
+                selection: option.preferTrainsOverBuses,
+                label: option.wrappedValue.kind.localizedTitle
+            )
+        case .trainConnectionsForWheelchairPassengers:
+            additionalParameterPicker(
+                selection: option.trainConnectionsForWheelchairPassengers,
+                label: option.wrappedValue.kind.localizedTitle
+            )
+        case .trainConnectionsForPassengersWithChildren:
+            additionalParameterPicker(
+                selection: option.trainConnectionsForPassengersWithChildren,
+                label: option.wrappedValue.kind.localizedTitle
+            )
+        case .connectionsForPassengersWithBicycles:
+            additionalParameterPicker(
+                selection: option.connectionsForPassengersWithBicycles,
+                label: option.wrappedValue.kind.localizedTitle
+            )
+        case .preferBusyRoutes:
+            additionalParameterPicker(
+                selection: option.preferBusyRoutes,
+                label: option.wrappedValue.kind.localizedTitle
+            )
         }
+    }
+
+    /// Mirrors IDOS's unchecked defaults while keeping either Boolean outcome directly editable.
+    private func additionalParameterPicker(
+        selection: Binding<Bool>,
+        label: String
+    ) -> some View {
+        journeyBooleanPicker(
+            selection: selection,
+            enabledTitle: AppLocalization.string("Yes"),
+            disabledTitle: AppLocalization.string("No"),
+            enabledFirst: false,
+            label: label
+        )
     }
 
     /// Keeps the app's compact popup values aligned with the discrete durations accepted by IDOS.
@@ -891,21 +942,47 @@ struct JourneyOptionKindPicker: NSViewRepresentable {
 
     func updateNSView(_ button: StableWidthPopUpButton, context: Context) {
         context.coordinator.selection = $selection
-        button.sizingTitles = JourneyOptionKind.allCases.map(\.localizedTitle)
+        button.sizingTitles = JourneyOptionKind.localizedCatalogTitles
+
+        let sections = JourneyOptionGroup.allCases.compactMap { group -> (
+            group: JourneyOptionGroup,
+            kinds: [JourneyOptionKind]
+        )? in
+            let kinds = availableKinds.filter { $0.group == group }
+            return kinds.isEmpty ? nil : (group, kinds)
+        }
 
         let representedKinds = button.itemArray.compactMap { item in
             (item.representedObject as? String).flatMap(JourneyOptionKind.init(rawValue:))
         }
-        if representedKinds != availableKinds {
+        let groupTitles = button.itemArray.compactMap { item -> String? in
+            guard !item.isSeparatorItem, item.representedObject == nil else { return nil }
+            return item.title
+        }
+        if representedKinds != availableKinds || groupTitles != sections.map({ $0.group.localizedTitle }) {
             button.removeAllItems()
-            for kind in availableKinds {
-                button.addItem(withTitle: kind.localizedTitle)
-                button.lastItem?.representedObject = kind.rawValue
+            for (index, section) in sections.enumerated() {
+                if index > 0 {
+                    button.menu?.addItem(NSMenuItem.separator())
+                }
+
+                let heading = NSMenuItem(
+                    title: section.group.localizedTitle,
+                    action: nil,
+                    keyEquivalent: ""
+                )
+                heading.isEnabled = false
+                button.menu?.addItem(heading)
+
+                for kind in section.kinds {
+                    button.addItem(withTitle: kind.localizedTitle)
+                    button.lastItem?.representedObject = kind.rawValue
+                }
             }
         }
 
-        if let index = availableKinds.firstIndex(of: selection) {
-            button.selectItem(at: index)
+        if let item = button.itemArray.first(where: { $0.representedObject as? String == selection.rawValue }) {
+            button.select(item)
         }
         button.setAccessibilityValue(selection.localizedTitle)
         button.invalidateIntrinsicContentSize()

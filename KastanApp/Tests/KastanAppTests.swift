@@ -6770,6 +6770,25 @@ final class KastanAppTests: XCTestCase {
                 kind: .sameNameWalkingTransfersOnly,
                 sameNameWalkingTransfersOnly: true
             ),
+            JourneyOptionEntry(
+                kind: .wheelchairAccessibleConnectionsOnly,
+                wheelchairAccessibleConnectionsOnly: true
+            ),
+            JourneyOptionEntry(kind: .lowFloorConnectionsOnly, lowFloorConnectionsOnly: false),
+            JourneyOptionEntry(kind: .preferTrainsOverBuses, preferTrainsOverBuses: true),
+            JourneyOptionEntry(
+                kind: .trainConnectionsForWheelchairPassengers,
+                trainConnectionsForWheelchairPassengers: false
+            ),
+            JourneyOptionEntry(
+                kind: .trainConnectionsForPassengersWithChildren,
+                trainConnectionsForPassengersWithChildren: true
+            ),
+            JourneyOptionEntry(
+                kind: .connectionsForPassengersWithBicycles,
+                connectionsForPassengersWithBicycles: false
+            ),
+            JourneyOptionEntry(kind: .preferBusyRoutes, preferBusyRoutes: true),
         ]
         model.isArrival = true
 
@@ -6797,6 +6816,13 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(request?.maximumCityWalkingTime, 20)
         XCTAssertEqual(request?.walkToNearbyStops, false)
         XCTAssertEqual(request?.sameNameWalkingTransfersOnly, true)
+        XCTAssertEqual(request?.wheelchairAccessibleConnectionsOnly, true)
+        XCTAssertEqual(request?.lowFloorConnectionsOnly, false)
+        XCTAssertEqual(request?.preferTrainsOverBuses, true)
+        XCTAssertEqual(request?.trainConnectionsForWheelchairPassengers, false)
+        XCTAssertEqual(request?.trainConnectionsForPassengersWithChildren, true)
+        XCTAssertEqual(request?.connectionsForPassengersWithBicycles, false)
+        XCTAssertEqual(request?.preferBusyRoutes, true)
         XCTAssertEqual(request?.resultLimit, 10)
         let searchLanguage = await client.lastConnectionSearchLanguage
         XCTAssertEqual(searchLanguage, AppLanguagePreference.idosLanguage)
@@ -7137,6 +7163,68 @@ final class KastanAppTests: XCTestCase {
             english.localizedString(forKey: "Only during transfers", value: nil, table: nil),
             "only during transfers"
         )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Transfers", value: nil, table: nil),
+            "Přestupy"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Additional parameters", value: nil, table: nil),
+            "Další možnosti"
+        )
+        XCTAssertEqual(
+            czech.localizedString(
+                forKey: "Wheelchair accessible connections only",
+                value: nil,
+                table: nil
+            ),
+            "Pouze bezbariérová spojení"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Low-floor lines only", value: nil, table: nil),
+            "Pouze nízkopodlažní spoje"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Prefer trains instead of buses", value: nil, table: nil),
+            "Preferovat vlaky před autobusy"
+        )
+        XCTAssertEqual(
+            czech.localizedString(
+                forKey: "Wheelchair accessible connections (trains)",
+                value: nil,
+                table: nil
+            ),
+            "Spojení pro cestující na vozíku (vlaky)"
+        )
+        XCTAssertEqual(
+            czech.localizedString(
+                forKey: "Connections for passengers with children (trains)",
+                value: nil,
+                table: nil
+            ),
+            "Spojení pro cestující s dětmi (vlaky)"
+        )
+        XCTAssertEqual(
+            czech.localizedString(
+                forKey: "Connections for passengers with bicycles (trains + buses)",
+                value: nil,
+                table: nil
+            ),
+            "Spojení pro cestující s kolem (vlaky + autobusy)"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Prefer busy routes", value: nil, table: nil),
+            "Preferovat frekventované trasy"
+        )
+        XCTAssertEqual(czech.localizedString(forKey: "Yes", value: nil, table: nil), "Ano")
+        XCTAssertEqual(czech.localizedString(forKey: "No", value: nil, table: nil), "Ne")
+        XCTAssertEqual(
+            JourneyOptionKind.allCases.filter { $0.group == .transfers },
+            Array(JourneyOptionKind.allCases.prefix(8))
+        )
+        XCTAssertEqual(
+            JourneyOptionKind.allCases.filter { $0.group == .additionalParameters },
+            Array(JourneyOptionKind.allCases.suffix(7))
+        )
         XCTAssertEqual(JourneyDurationChoice(minutes: -1).localizedTitle(bundle: czech), "Standardní")
         XCTAssertEqual(JourneyDurationChoice(minutes: 0).localizedTitle(bundle: czech), "0 minut")
         XCTAssertEqual(JourneyDurationChoice(minutes: 1).localizedTitle(bundle: czech), "1 minuta")
@@ -7177,9 +7265,15 @@ final class KastanAppTests: XCTestCase {
         let catalogWidth = popupButton.intrinsicContentSize.width
         let nativeCatalogButton = NSPopUpButton(frame: .zero, pullsDown: false)
         nativeCatalogButton.controlSize = .regular
-        nativeCatalogButton.addItems(withTitles: JourneyOptionKind.allCases.map(\.localizedTitle))
+        nativeCatalogButton.addItems(withTitles: JourneyOptionKind.localizedCatalogTitles)
 
-        XCTAssertEqual(popupButton.sizingTitles, JourneyOptionKind.allCases.map(\.localizedTitle))
+        XCTAssertEqual(popupButton.sizingTitles, JourneyOptionKind.localizedCatalogTitles)
+        XCTAssertEqual(
+            popupButton.itemArray.filter { $0.representedObject == nil }.map(\.title),
+            [JourneyOptionGroup.transfers.localizedTitle]
+        )
+        XCTAssertFalse(popupButton.itemArray[0].isEnabled)
+        XCTAssertEqual(popupButton.selectedItem?.representedObject as? String, JourneyOptionKind.via.rawValue)
         XCTAssertEqual(
             catalogWidth,
             nativeCatalogButton.intrinsicContentSize.width,
@@ -7189,6 +7283,40 @@ final class KastanAppTests: XCTestCase {
 
         popupButton.sizingTitles = [JourneyOptionKind.via.localizedTitle]
         XCTAssertGreaterThan(catalogWidth, popupButton.intrinsicContentSize.width)
+    }
+
+    func testJourneyOptionPickerGroupsExistingAndNewConditions() throws {
+        let picker = JourneyOptionKindPicker(
+            selection: .constant(.preferBusyRoutes),
+            availableKinds: JourneyOptionKind.allCases
+        )
+        let hostingView = NSHostingView(rootView: picker)
+        hostingView.frame = NSRect(x: 0, y: 0, width: 1_000, height: 30)
+        hostingView.layoutSubtreeIfNeeded()
+
+        let popupButton = try XCTUnwrap(
+            ([hostingView] + hostingView.allDescendantViews)
+                .compactMap { $0 as? StableWidthPopUpButton }
+                .first
+        )
+        let headings = popupButton.itemArray.filter {
+            !$0.isSeparatorItem && $0.representedObject == nil
+        }
+        let representedKinds = popupButton.itemArray.compactMap { item in
+            (item.representedObject as? String).flatMap(JourneyOptionKind.init(rawValue:))
+        }
+
+        XCTAssertEqual(
+            headings.map(\.title),
+            JourneyOptionGroup.allCases.map(\.localizedTitle)
+        )
+        XCTAssertTrue(headings.allSatisfy { !$0.isEnabled })
+        XCTAssertEqual(popupButton.itemArray.filter(\.isSeparatorItem).count, 1)
+        XCTAssertEqual(representedKinds, JourneyOptionKind.allCases)
+        XCTAssertEqual(
+            popupButton.selectedItem?.representedObject as? String,
+            JourneyOptionKind.preferBusyRoutes.rawValue
+        )
     }
 
     func testDirectOnlyRequestSetsZeroTransfersAndOmitsTransferTimes() async {

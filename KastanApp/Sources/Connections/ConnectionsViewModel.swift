@@ -1,6 +1,21 @@
 import Foundation
 import Kastan
 
+/// Groups the extensible journey-option catalog using the corresponding IDOS advanced-form sections.
+enum JourneyOptionGroup: CaseIterable {
+    case transfers
+    case additionalParameters
+
+    var localizedTitle: String {
+        switch self {
+        case .transfers:
+            AppLocalization.string("Transfers")
+        case .additionalParameters:
+            AppLocalization.string("Additional parameters")
+        }
+    }
+}
+
 /// Identifies the value editor shown by one extensible journey-option row.
 enum JourneyOptionKind: String, CaseIterable, Identifiable {
     case via
@@ -11,6 +26,13 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
     case maximumCityWalkingTime
     case walkToNearbyStops
     case sameNameWalkingTransfersOnly
+    case wheelchairAccessibleConnectionsOnly
+    case lowFloorConnectionsOnly
+    case preferTrainsOverBuses
+    case trainConnectionsForWheelchairPassengers
+    case trainConnectionsForPassengersWithChildren
+    case connectionsForPassengersWithBicycles
+    case preferBusyRoutes
 
     var id: Self { self }
 
@@ -33,6 +55,20 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
             .walkToNearbyStops
         case .sameNameWalkingTransfersOnly:
             .sameNameWalkingTransfersOnly
+        case .wheelchairAccessibleConnectionsOnly:
+            .wheelchairAccessibleConnectionsOnly
+        case .lowFloorConnectionsOnly:
+            .lowFloorConnectionsOnly
+        case .preferTrainsOverBuses:
+            .preferTrainsOverBuses
+        case .trainConnectionsForWheelchairPassengers:
+            .trainConnectionsForWheelchairPassengers
+        case .trainConnectionsForPassengersWithChildren:
+            .trainConnectionsForPassengersWithChildren
+        case .connectionsForPassengersWithBicycles:
+            .connectionsForPassengersWithBicycles
+        case .preferBusyRoutes:
+            .preferBusyRoutes
         }
     }
 
@@ -55,6 +91,42 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
             AppLocalization.string("Walk to a nearby stop at the beginning/end of journey")
         case .sameNameWalkingTransfersOnly:
             AppLocalization.string("Use transfers only between stops of the same name")
+        case .wheelchairAccessibleConnectionsOnly:
+            AppLocalization.string("Wheelchair accessible connections only")
+        case .lowFloorConnectionsOnly:
+            AppLocalization.string("Low-floor lines only")
+        case .preferTrainsOverBuses:
+            AppLocalization.string("Prefer trains instead of buses")
+        case .trainConnectionsForWheelchairPassengers:
+            AppLocalization.string("Wheelchair accessible connections (trains)")
+        case .trainConnectionsForPassengersWithChildren:
+            AppLocalization.string("Connections for passengers with children (trains)")
+        case .connectionsForPassengersWithBicycles:
+            AppLocalization.string("Connections for passengers with bicycles (trains + buses)")
+        case .preferBusyRoutes:
+            AppLocalization.string("Prefer busy routes")
+        }
+    }
+
+    /// Places every existing transfer control before the additional IDOS search parameters.
+    var group: JourneyOptionGroup {
+        switch self {
+        case .via, .maximumTransfers, .minimumTransferTime, .maximumTransferTime,
+             .maximumWalkingTime, .maximumCityWalkingTime, .walkToNearbyStops,
+             .sameNameWalkingTransfersOnly:
+            .transfers
+        case .wheelchairAccessibleConnectionsOnly, .lowFloorConnectionsOnly,
+             .preferTrainsOverBuses, .trainConnectionsForWheelchairPassengers,
+             .trainConnectionsForPassengersWithChildren,
+             .connectionsForPassengersWithBicycles, .preferBusyRoutes:
+            .additionalParameters
+        }
+    }
+
+    /// Reserves enough native popup width for both section headings and every localized option.
+    static var localizedCatalogTitles: [String] {
+        JourneyOptionGroup.allCases.flatMap { group in
+            [group.localizedTitle] + allCases.filter { $0.group == group }.map(\.localizedTitle)
         }
     }
 
@@ -69,7 +141,11 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
         case .maximumTransfers, .minimumTransferTime, .maximumTransferTime:
             true
         case .via, .maximumWalkingTime, .maximumCityWalkingTime,
-             .walkToNearbyStops, .sameNameWalkingTransfersOnly:
+             .walkToNearbyStops, .sameNameWalkingTransfersOnly,
+             .wheelchairAccessibleConnectionsOnly, .lowFloorConnectionsOnly,
+             .preferTrainsOverBuses, .trainConnectionsForWheelchairPassengers,
+             .trainConnectionsForPassengersWithChildren,
+             .connectionsForPassengersWithBicycles, .preferBusyRoutes:
             false
         }
     }
@@ -128,6 +204,13 @@ struct JourneyOptionEntry: Identifiable, Equatable {
     var maximumCityWalkingTime: Int
     var walkToNearbyStops: Bool
     var sameNameWalkingTransfersOnly: Bool
+    var wheelchairAccessibleConnectionsOnly: Bool
+    var lowFloorConnectionsOnly: Bool
+    var preferTrainsOverBuses: Bool
+    var trainConnectionsForWheelchairPassengers: Bool
+    var trainConnectionsForPassengersWithChildren: Bool
+    var connectionsForPassengersWithBicycles: Bool
+    var preferBusyRoutes: Bool
 
     init(
         id: UUID = UUID(),
@@ -140,7 +223,14 @@ struct JourneyOptionEntry: Identifiable, Equatable {
         maximumWalkingTime: Int = 60,
         maximumCityWalkingTime: Int = 10,
         walkToNearbyStops: Bool = true,
-        sameNameWalkingTransfersOnly: Bool = false
+        sameNameWalkingTransfersOnly: Bool = false,
+        wheelchairAccessibleConnectionsOnly: Bool = false,
+        lowFloorConnectionsOnly: Bool = false,
+        preferTrainsOverBuses: Bool = false,
+        trainConnectionsForWheelchairPassengers: Bool = false,
+        trainConnectionsForPassengersWithChildren: Bool = false,
+        connectionsForPassengersWithBicycles: Bool = false,
+        preferBusyRoutes: Bool = false
     ) {
         self.id = id
         self.kind = kind
@@ -153,6 +243,13 @@ struct JourneyOptionEntry: Identifiable, Equatable {
         self.maximumCityWalkingTime = maximumCityWalkingTime
         self.walkToNearbyStops = walkToNearbyStops
         self.sameNameWalkingTransfersOnly = sameNameWalkingTransfersOnly
+        self.wheelchairAccessibleConnectionsOnly = wheelchairAccessibleConnectionsOnly
+        self.lowFloorConnectionsOnly = lowFloorConnectionsOnly
+        self.preferTrainsOverBuses = preferTrainsOverBuses
+        self.trainConnectionsForWheelchairPassengers = trainConnectionsForWheelchairPassengers
+        self.trainConnectionsForPassengersWithChildren = trainConnectionsForPassengersWithChildren
+        self.connectionsForPassengersWithBicycles = connectionsForPassengersWithBicycles
+        self.preferBusyRoutes = preferBusyRoutes
     }
 }
 
@@ -392,6 +489,42 @@ final class ConnectionsViewModel: ObservableObject {
 
     var sameNameWalkingTransfersOnly: Bool? {
         journeyOptions.first { $0.kind == .sameNameWalkingTransfersOnly }?.sameNameWalkingTransfersOnly
+    }
+
+    var wheelchairAccessibleConnectionsOnly: Bool? {
+        journeyOptions.first {
+            $0.kind == .wheelchairAccessibleConnectionsOnly
+        }?.wheelchairAccessibleConnectionsOnly
+    }
+
+    var lowFloorConnectionsOnly: Bool? {
+        journeyOptions.first { $0.kind == .lowFloorConnectionsOnly }?.lowFloorConnectionsOnly
+    }
+
+    var preferTrainsOverBuses: Bool? {
+        journeyOptions.first { $0.kind == .preferTrainsOverBuses }?.preferTrainsOverBuses
+    }
+
+    var trainConnectionsForWheelchairPassengers: Bool? {
+        journeyOptions.first {
+            $0.kind == .trainConnectionsForWheelchairPassengers
+        }?.trainConnectionsForWheelchairPassengers
+    }
+
+    var trainConnectionsForPassengersWithChildren: Bool? {
+        journeyOptions.first {
+            $0.kind == .trainConnectionsForPassengersWithChildren
+        }?.trainConnectionsForPassengersWithChildren
+    }
+
+    var connectionsForPassengersWithBicycles: Bool? {
+        journeyOptions.first {
+            $0.kind == .connectionsForPassengersWithBicycles
+        }?.connectionsForPassengersWithBicycles
+    }
+
+    var preferBusyRoutes: Bool? {
+        journeyOptions.first { $0.kind == .preferBusyRoutes }?.preferBusyRoutes
     }
 
     /// Presents an active transfer ceiling, retaining only IDOS's established implicit four-transfer default.
@@ -646,6 +779,24 @@ final class ConnectionsViewModel: ObservableObject {
             sameNameWalkingTransfersOnly: client.descriptor.connectionOptions
                 .contains(.sameNameWalkingTransfersOnly)
                 ? sameNameWalkingTransfersOnly : nil,
+            wheelchairAccessibleConnectionsOnly: client.descriptor.connectionOptions
+                .contains(.wheelchairAccessibleConnectionsOnly)
+                ? wheelchairAccessibleConnectionsOnly : nil,
+            lowFloorConnectionsOnly: client.descriptor.connectionOptions.contains(.lowFloorConnectionsOnly)
+                ? lowFloorConnectionsOnly : nil,
+            preferTrainsOverBuses: client.descriptor.connectionOptions.contains(.preferTrainsOverBuses)
+                ? preferTrainsOverBuses : nil,
+            trainConnectionsForWheelchairPassengers: client.descriptor.connectionOptions
+                .contains(.trainConnectionsForWheelchairPassengers)
+                ? trainConnectionsForWheelchairPassengers : nil,
+            trainConnectionsForPassengersWithChildren: client.descriptor.connectionOptions
+                .contains(.trainConnectionsForPassengersWithChildren)
+                ? trainConnectionsForPassengersWithChildren : nil,
+            connectionsForPassengersWithBicycles: client.descriptor.connectionOptions
+                .contains(.connectionsForPassengersWithBicycles)
+                ? connectionsForPassengersWithBicycles : nil,
+            preferBusyRoutes: client.descriptor.connectionOptions.contains(.preferBusyRoutes)
+                ? preferBusyRoutes : nil,
             resultLimit: 10
         )
 
@@ -695,7 +846,11 @@ final class ConnectionsViewModel: ObservableObject {
         case .maximumTransferTime:
             rememberedTransferValues.maximumTransferTime = option.maximumTransferTime
         case .via, .maximumWalkingTime, .maximumCityWalkingTime,
-             .walkToNearbyStops, .sameNameWalkingTransfersOnly:
+             .walkToNearbyStops, .sameNameWalkingTransfersOnly,
+             .wheelchairAccessibleConnectionsOnly, .lowFloorConnectionsOnly,
+             .preferTrainsOverBuses, .trainConnectionsForWheelchairPassengers,
+             .trainConnectionsForPassengersWithChildren,
+             .connectionsForPassengersWithBicycles, .preferBusyRoutes:
             break
         }
     }

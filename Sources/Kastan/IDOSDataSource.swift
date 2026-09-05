@@ -2170,6 +2170,20 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
     public var walkToNearbyStops: Bool?
     /// Whether walking transfers are limited to stops with the same name.
     public var sameNameWalkingTransfersOnly: Bool?
+    /// Whether results are limited to connections advertised as wheelchair accessible.
+    public var wheelchairAccessibleConnectionsOnly: Bool?
+    /// Whether results are limited to connections served by low-floor vehicles.
+    public var lowFloorConnectionsOnly: Bool?
+    /// Whether train connections are preferred over bus alternatives.
+    public var preferTrainsOverBuses: Bool?
+    /// Whether train results are limited to connections suitable for wheelchair passengers.
+    public var trainConnectionsForWheelchairPassengers: Bool?
+    /// Whether train results are limited to connections suitable for passengers with children.
+    public var trainConnectionsForPassengersWithChildren: Bool?
+    /// Whether train and bus results are limited to connections that carry bicycles.
+    public var connectionsForPassengersWithBicycles: Bool?
+    /// Whether routes served more frequently are preferred.
+    public var preferBusyRoutes: Bool?
     public var resultLimit: Int?
 
     public init(
@@ -2193,6 +2207,13 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
         maximumCityWalkingTime: Int? = nil,
         walkToNearbyStops: Bool? = nil,
         sameNameWalkingTransfersOnly: Bool? = nil,
+        wheelchairAccessibleConnectionsOnly: Bool? = nil,
+        lowFloorConnectionsOnly: Bool? = nil,
+        preferTrainsOverBuses: Bool? = nil,
+        trainConnectionsForWheelchairPassengers: Bool? = nil,
+        trainConnectionsForPassengersWithChildren: Bool? = nil,
+        connectionsForPassengersWithBicycles: Bool? = nil,
+        preferBusyRoutes: Bool? = nil,
         resultLimit: Int? = nil
     ) {
         self.timetable = timetable
@@ -2215,6 +2236,13 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
         self.maximumCityWalkingTime = maximumCityWalkingTime
         self.walkToNearbyStops = walkToNearbyStops
         self.sameNameWalkingTransfersOnly = sameNameWalkingTransfersOnly
+        self.wheelchairAccessibleConnectionsOnly = wheelchairAccessibleConnectionsOnly
+        self.lowFloorConnectionsOnly = lowFloorConnectionsOnly
+        self.preferTrainsOverBuses = preferTrainsOverBuses
+        self.trainConnectionsForWheelchairPassengers = trainConnectionsForWheelchairPassengers
+        self.trainConnectionsForPassengersWithChildren = trainConnectionsForPassengersWithChildren
+        self.connectionsForPassengersWithBicycles = connectionsForPassengersWithBicycles
+        self.preferBusyRoutes = preferBusyRoutes
         self.resultLimit = resultLimit
     }
 
@@ -2288,6 +2316,55 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
                 ))
             }
 
+            if let wheelchairAccessibleConnectionsOnly {
+                items.append(URLQueryItem(
+                    name: "AdvancedForm.LowDeckConn",
+                    value: String(wheelchairAccessibleConnectionsOnly)
+                ))
+            }
+
+            if let lowFloorConnectionsOnly {
+                items.append(URLQueryItem(
+                    name: "AdvancedForm.LowDeckConnTr",
+                    value: String(lowFloorConnectionsOnly)
+                ))
+            }
+
+            if let preferTrainsOverBuses {
+                items.append(URLQueryItem(
+                    name: "AdvancedForm.PrefereTrains",
+                    value: String(preferTrainsOverBuses)
+                ))
+            }
+
+            if let trainConnectionsForWheelchairPassengers {
+                items.append(URLQueryItem(
+                    name: "AdvancedForm.WheelChair",
+                    value: String(trainConnectionsForWheelchairPassengers)
+                ))
+            }
+
+            if let trainConnectionsForPassengersWithChildren {
+                items.append(URLQueryItem(
+                    name: "AdvancedForm.Children",
+                    value: String(trainConnectionsForPassengersWithChildren)
+                ))
+            }
+
+            if let connectionsForPassengersWithBicycles {
+                items.append(URLQueryItem(
+                    name: "AdvancedForm.Bicycle",
+                    value: String(connectionsForPassengersWithBicycles)
+                ))
+            }
+
+            if let preferBusyRoutes {
+                items.append(URLQueryItem(
+                    name: "AdvancedForm.AutoStrategy",
+                    value: String(preferBusyRoutes)
+                ))
+            }
+
             for transportTypeID in Self.defaultTransportTypeIDs {
                 let value = String(transportTypeID)
                 items.append(URLQueryItem(name: "trTypeId[\(value)]", value: value))
@@ -2302,7 +2379,12 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
         !via.isEmpty || maxTransfers != nil || minimumTransferTime != nil ||
             maximumTransferTime != nil || maximumWalkingTime != nil ||
             maximumCityWalkingTime != nil || walkToNearbyStops != nil ||
-            sameNameWalkingTransfersOnly != nil
+            sameNameWalkingTransfersOnly != nil ||
+            wheelchairAccessibleConnectionsOnly != nil ||
+            lowFloorConnectionsOnly != nil || preferTrainsOverBuses != nil ||
+            trainConnectionsForWheelchairPassengers != nil ||
+            trainConnectionsForPassengersWithChildren != nil ||
+            connectionsForPassengersWithBicycles != nil || preferBusyRoutes != nil
     }
 }
 

@@ -59,6 +59,13 @@ let request = TransitConnectionRequest(
     maximumCityWalkingTime: 20,
     walkToNearbyStops: true,
     sameNameWalkingTransfersOnly: false,
+    wheelchairAccessibleConnectionsOnly: true,
+    lowFloorConnectionsOnly: true,
+    preferTrainsOverBuses: true,
+    trainConnectionsForWheelchairPassengers: true,
+    trainConnectionsForPassengersWithChildren: true,
+    connectionsForPassengersWithBicycles: true,
+    preferBusyRoutes: true,
     resultLimit: 8
 )
 
@@ -155,7 +162,8 @@ presenting a capability.
 
 Connection-search controls use a second, fine-grained contract. A descriptor lists its supported
 `TransitConnectionOption` values in `connectionOptions`, covering Direct connections only, Via, transfer-count and
-transfer-time limits, walking limits, and the two walking-transfer policies independently. Advertising
+transfer-time limits, walking limits, the two walking-transfer policies, wheelchair-accessible and low-floor-only
+results, train preference, the three passenger-needs filters, and busy-route preference independently. Advertising
 `TransitDataSourceCapability.connections` does not imply support for any of these request options. Interfaces should
 therefore check `descriptor.supports(_:)` for the individual option before presenting its control or accepting its
 value. IDOS declares the complete set; descriptors created without `connectionOptions`, including descriptors decoded
@@ -282,11 +290,17 @@ IDOS JSON continues to omit that default identifier, while another provider's zo
 round trip. `TransitDataSourceDescribing.serviceTimeZone` supplies the same zone to presentation that needs to
 interpret provider text without an accompanying calendar model.
 
-Connection requests expose the complete IDOS transfer panel. `maxTransfers` includes zero, while
+Connection requests expose the supported IDOS transfer and additional-parameter panels. `maxTransfers` includes
+zero, while
 `minimumTransferTime` accepts minute values or `-1` for the timetable's standard. `maximumTransferTime`,
 `maximumWalkingTime`, and `maximumCityWalkingTime` use minutes. `walkToNearbyStops` controls whether the journey may
 start or end at a stop reached on foot, and `sameNameWalkingTransfersOnly` restricts walking transfers to stops with
-the same name. Leave any of these values as `nil` to retain the corresponding IDOS default.
+the same name. `wheelchairAccessibleConnectionsOnly` and `lowFloorConnectionsOnly` restrict result accessibility;
+`preferTrainsOverBuses` and `preferBusyRoutes` select the corresponding routing strategies.
+`trainConnectionsForWheelchairPassengers` and `trainConnectionsForPassengersWithChildren` apply the two train-only
+passenger filters, while `connectionsForPassengersWithBicycles` applies to trains and buses. Leave any optional value
+as `nil` to retain the corresponding IDOS default; an explicit `false` is still sent when the caller needs to preserve
+an active Boolean condition.
 
 For a connection endpoint obtained from a device's WGS-84 coordinates, first check the source's
 `coordinatePlaceSelection` capability. Then call

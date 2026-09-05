@@ -131,6 +131,20 @@ public enum TransitConnectionOption: String, CaseIterable, Codable, Equatable, H
     case walkToNearbyStops
     /// Restricts walking transfers to stops that share the same name.
     case sameNameWalkingTransfersOnly
+    /// Limits results to connections advertised as wheelchair accessible.
+    case wheelchairAccessibleConnectionsOnly
+    /// Limits results to connections served by low-floor vehicles.
+    case lowFloorConnectionsOnly
+    /// Prefers train connections when a bus alternative is also available.
+    case preferTrainsOverBuses
+    /// Limits train results to connections suitable for wheelchair passengers.
+    case trainConnectionsForWheelchairPassengers
+    /// Limits train results to connections suitable for passengers with children.
+    case trainConnectionsForPassengersWithChildren
+    /// Limits train and bus results to connections that carry bicycles.
+    case connectionsForPassengersWithBicycles
+    /// Prefers routes served more frequently.
+    case preferBusyRoutes
 }
 
 /// Identifies one provider and advertises only the product operations that it can fulfill.
