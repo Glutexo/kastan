@@ -2607,31 +2607,26 @@ final class KastanAppTests: XCTestCase {
         ).contentWidth
         let row = HStack(spacing: JourneyOptionRowLayout.spacing) {
             JourneyOptionKindPicker(
-                selection: .constant(.walkingDistances),
+                selection: .constant(.transportMode),
                 availableKinds: JourneyOptionKind.allCases
             )
             .fixedSize(horizontal: true, vertical: false)
 
-            Picker(selection: .constant(JourneyWalkingConstraint.sameNameWalkingTransfersOnly)) {
-                ForEach(JourneyWalkingConstraint.allCases) { constraint in
-                    Text(verbatim: constraint.localizedTitle).tag(constraint)
+            Picker(selection: .constant(TransitConnectionTransportModeFilterOperation.only)) {
+                ForEach(TransitConnectionTransportModeFilterOperation.allCases, id: \.self) { operation in
+                    Text(verbatim: operation.localizedTitle).tag(operation)
                 }
             } label: {
-                Text(verbatim: JourneyOptionKind.walkingDistances.localizedTitle)
+                Text(verbatim: JourneyOptionKind.transportMode.localizedTitle)
             }
             .labelsHidden()
             .fixedSize()
 
-            Picker(selection: .constant(false)) {
-                Text(verbatim: AppLocalization.string("Between any stops"))
-                    .tag(false)
-                Text(verbatim: AppLocalization.string("Only stops of the same name"))
-                    .tag(true)
-            } label: {
-                Text(verbatim: JourneyWalkingConstraint.sameNameWalkingTransfersOnly.localizedTitle)
-            }
-            .labelsHidden()
-            .fixedSize()
+            JourneyTransportModePicker(
+                selection: .constant(.highestQualityTrain),
+                availableModes: TransitConnectionTransportMode.allCases
+            )
+            .fixedSize(horizontal: true, vertical: false)
 
             Spacer(minLength: 0)
 
@@ -5179,6 +5174,27 @@ final class KastanAppTests: XCTestCase {
             .sameNameWalkingTransfersOnly
         )
 
+        let transportLimited = AppSourceSelectionTestSource(
+            id: "transport",
+            name: "Transport",
+            timetableIdentifier: "network",
+            capabilities: [.timetables, .connections],
+            connectionOptions: [.transportModeFilters]
+        )
+        let transportModel = ConnectionsViewModel(client: transportLimited)
+
+        XCTAssertEqual(transportModel.supportedJourneyOptionKinds, [.transportMode])
+        XCTAssertEqual(
+            transportModel.supportedTransportModes,
+            TransitConnectionTransportMode.allCases
+        )
+        transportModel.addJourneyOption()
+        XCTAssertEqual(transportModel.journeyOptions[0].kind, .transportMode)
+        XCTAssertEqual(
+            transportModel.journeyOptions[0].transportMode,
+            .highestQualityTrain
+        )
+
         let unavailable = AppSourceSelectionTestSource(
             id: "plain",
             name: "Plain",
@@ -6840,6 +6856,16 @@ final class KastanAppTests: XCTestCase {
             JourneyOptionEntry(viaPlace: ""),
             JourneyOptionEntry(viaPlace: "Olomouc"),
             JourneyOptionEntry(
+                kind: .transportMode,
+                transportModeFilterOperation: .only,
+                transportMode: .regionalTrain
+            ),
+            JourneyOptionEntry(
+                kind: .transportMode,
+                transportModeFilterOperation: .exclude,
+                transportMode: .cityTrolleybus
+            ),
+            JourneyOptionEntry(
                 kind: .transfers,
                 transferConstraint: .maximumTransfers,
                 maximumTransfers: 2
@@ -6914,6 +6940,10 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(request?.viaSelections?.count, 2)
         XCTAssertEqual(request?.viaSelections?[0], viaSelection.idosSelection)
         XCTAssertNil(request?.viaSelections?[1])
+        XCTAssertEqual(request?.transportModeFilters, [
+            .init(operation: .only, mode: .regionalTrain),
+            .init(operation: .exclude, mode: .cityTrolleybus),
+        ])
         XCTAssertEqual(request?.timetable.slug, "vlaky")
         XCTAssertNil(request?.date)
         XCTAssertNil(request?.time)
@@ -7213,6 +7243,42 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(model.journeyOptions[0].preference, .trainsOverBuses)
         XCTAssertNil(model.preferBusyRoutes)
         XCTAssertEqual(model.preferTrainsOverBuses, true)
+    }
+
+    func testTransportModeCanRepeatWithDistinctGroupedChoicesAndEitherOperation() {
+        let model = ConnectionsViewModel(
+            client: MockIDOSClient(),
+            calendarImporter: RecordingCalendarImporter()
+        )
+        let firstID = model.journeyOptions[0].id
+
+        model.setJourneyOptionKind(.transportMode, for: firstID)
+        model.addJourneyOption(after: firstID)
+        let secondID = model.journeyOptions[1].id
+        model.setJourneyOptionKind(.transportMode, for: secondID)
+        model.setTransportMode(.cityBus, for: secondID)
+        model.setTransportModeFilterOperation(.exclude, for: secondID)
+
+        XCTAssertEqual(model.journeyOptions.map(\.kind), [.transportMode, .transportMode])
+        XCTAssertEqual(model.journeyOptions[0].transportMode, .highestQualityTrain)
+        XCTAssertEqual(model.journeyOptions[0].transportModeFilterOperation, .only)
+        XCTAssertEqual(model.journeyOptions[1].transportMode, .cityBus)
+        XCTAssertEqual(model.journeyOptions[1].transportModeFilterOperation, .exclude)
+        XCTAssertEqual(model.transportModeFilters, [
+            .init(operation: .only, mode: .highestQualityTrain),
+            .init(operation: .exclude, mode: .cityBus),
+        ])
+        XCTAssertFalse(model.availableTransportModes(for: firstID).contains(.cityBus))
+        XCTAssertFalse(
+            model.availableTransportModes(for: secondID).contains(.highestQualityTrain)
+        )
+
+        model.setTransportMode(.cityBus, for: firstID)
+        XCTAssertEqual(model.journeyOptions[0].transportMode, .highestQualityTrain)
+
+        model.removeJourneyOption(id: secondID)
+        model.setTransportMode(.cityBus, for: firstID)
+        XCTAssertEqual(model.journeyOptions[0].transportMode, .cityBus)
     }
 
     func testWalkingOptionsShareOneRepeatableConditionWithDistinctSubchoices() {
@@ -7632,8 +7698,56 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(czech.localizedString(forKey: "Yes", value: nil, table: nil), "Ano")
         XCTAssertEqual(czech.localizedString(forKey: "No", value: nil, table: nil), "Ne")
         XCTAssertEqual(
+            czech.localizedString(forKey: "Means of transport", value: nil, table: nil),
+            "Dopravní prostředek"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Only transport mode", value: nil, table: nil),
+            "pouze"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Exclude transport mode", value: nil, table: nil),
+            "vynechat"
+        )
+        XCTAssertEqual(
+            TransitConnectionTransportModeGroup.allCases.map(\.localizedTitle),
+            [
+                AppLocalization.string("Trains"),
+                AppLocalization.string("Buses"),
+                AppLocalization.string("City transport"),
+            ]
+        )
+        XCTAssertEqual(
+            TransitConnectionTransportModeFilterOperation.localizedCatalogTitles,
+            [
+                AppLocalization.string("Only transport mode"),
+                AppLocalization.string("Exclude transport mode"),
+            ]
+        )
+        XCTAssertEqual(
+            czech.localizedString(
+                forKey: "Highest quality train (SC, ICE, …)",
+                value: nil,
+                table: nil
+            ),
+            "vlak nejvyšší kvality (SC, ICE, …)"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Local bus", value: nil, table: nil),
+            "místní autobus"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Cableway", value: nil, table: nil),
+            "lanová dráha"
+        )
+        XCTAssertEqual(
+            TransitConnectionTransportMode.localizedCatalogTitles.count,
+            TransitConnectionTransportMode.allCases.count +
+                TransitConnectionTransportModeGroup.allCases.count
+        )
+        XCTAssertEqual(
             JourneyOptionKind.allCases.filter { $0.group == nil },
-            [.via]
+            [.via, .transportMode]
         )
         XCTAssertEqual(
             JourneyOptionKind.allCases.filter { $0.group == .transfers },
@@ -7751,8 +7865,12 @@ final class KastanAppTests: XCTestCase {
             popupButton.itemArray.first?.representedObject as? String,
             JourneyOptionKind.via.rawValue
         )
-        XCTAssertTrue(popupButton.itemArray[1].isSeparatorItem)
-        XCTAssertEqual(popupButton.itemArray[2].title, JourneyOptionGroup.transfers.localizedTitle)
+        XCTAssertEqual(
+            popupButton.itemArray[1].representedObject as? String,
+            JourneyOptionKind.transportMode.rawValue
+        )
+        XCTAssertTrue(popupButton.itemArray[2].isSeparatorItem)
+        XCTAssertEqual(popupButton.itemArray[3].title, JourneyOptionGroup.transfers.localizedTitle)
         XCTAssertEqual(
             popupButton.selectedItem?.representedObject as? String,
             JourneyOptionKind.preference.rawValue
@@ -7765,6 +7883,62 @@ final class KastanAppTests: XCTestCase {
         popupButton.sendAction(popupButton.action, to: popupButton.target)
 
         XCTAssertEqual(selection, .transfers)
+    }
+
+    func testTransportModePickerUsesThreeInertCatalogGroupsAndEveryMode() throws {
+        var selection = TransitConnectionTransportMode.cityBus
+        let picker = JourneyTransportModePicker(
+            selection: Binding(
+                get: { selection },
+                set: { selection = $0 }
+            ),
+            availableModes: TransitConnectionTransportMode.allCases
+        )
+        let hostingView = NSHostingView(rootView: picker)
+        hostingView.frame = NSRect(x: 0, y: 0, width: 1_000, height: 30)
+        hostingView.layoutSubtreeIfNeeded()
+
+        let popupButton = try XCTUnwrap(
+            ([hostingView] + hostingView.allDescendantViews)
+                .compactMap { $0 as? StableWidthPopUpButton }
+                .first
+        )
+        let headings = popupButton.itemArray.filter {
+            !$0.isSeparatorItem && $0.representedObject == nil
+        }
+        let representedModes = popupButton.itemArray.compactMap { item in
+            (item.representedObject as? String).flatMap(
+                TransitConnectionTransportMode.init(rawValue:)
+            )
+        }
+
+        XCTAssertEqual(
+            headings.map(\.title),
+            TransitConnectionTransportModeGroup.allCases.map(\.localizedTitle)
+        )
+        if #available(macOS 14.0, *) {
+            XCTAssertTrue(headings.allSatisfy(\.isSectionHeader))
+        } else {
+            XCTAssertTrue(headings.allSatisfy { !$0.isEnabled })
+        }
+        XCTAssertEqual(popupButton.itemArray.filter(\.isSeparatorItem).count, 2)
+        XCTAssertEqual(representedModes, TransitConnectionTransportMode.allCases)
+        XCTAssertEqual(
+            popupButton.selectedItem?.representedObject as? String,
+            TransitConnectionTransportMode.cityBus.rawValue
+        )
+        XCTAssertEqual(
+            popupButton.sizingTitles,
+            TransitConnectionTransportMode.localizedCatalogTitles
+        )
+
+        let cablewayItem = try XCTUnwrap(popupButton.itemArray.first {
+            $0.representedObject as? String == TransitConnectionTransportMode.cityCableway.rawValue
+        })
+        popupButton.select(cablewayItem)
+        popupButton.sendAction(popupButton.action, to: popupButton.target)
+
+        XCTAssertEqual(selection, .cityCableway)
     }
 
     func testDirectOnlyRequestSetsZeroTransfersAndOmitsTransferTimes() async {

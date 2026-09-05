@@ -144,6 +144,28 @@ private extension TransitBedOrCouchettePreference {
     }
 }
 
+private extension TransitConnectionTransportMode {
+    /// Translates the stable product case into the checkbox identifier published by the IDOS advanced form.
+    var idosFormID: Int {
+        switch self {
+        case .highestQualityTrain: 150
+        case .higherQualityTrain: 151
+        case .interregionalTrain: 152
+        case .regionalTrain: 153
+        case .trainBus: 154
+        case .trainShip: 155
+        case .trainOther: 156
+        case .localBus: 200
+        case .longDistanceBus: 201
+        case .internationalBus: 202
+        case .cityTram: 300
+        case .cityBus: 301
+        case .cityCableway: 303
+        case .cityTrolleybus: 306
+        }
+    }
+}
+
 public extension IDOSClienting {
     /// Mirrors the accommodation control that IDOS publishes only for its four train-containing general catalogs.
     func supportsConnectionOption(
@@ -2168,12 +2190,6 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
     private static let defaultMaximumTransferTime = 240
     private static let defaultMaximumWalkingTime = 60
     private static let defaultMaximumCityWalkingTime = 10
-    private static let defaultTransportTypeIDs = [
-        150, 151, 152, 153, 154, 155, 156,
-        200, 201, 202,
-        300, 301, 303, 306,
-    ]
-
     public var timetable: TransitTimetable
     public var from: String
     public var to: String
@@ -2194,6 +2210,11 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
     public var via: [String]
     /// Exact autocomplete choices aligned with `via`, with `nil` entries retaining free-text interpretation.
     public var viaSelections: [TransitPlaceSelection?]?
+    /// Repeatable rules that retain selected transport modes or omit them from the IDOS default catalog.
+    ///
+    /// Multiple `only` rules form a union. `exclude` rules are then removed from that union, or from the complete
+    /// catalog when no `only` rule is present. `nil` and an empty array both retain every default transport mode.
+    public var transportModeFilters: [TransitConnectionTransportModeFilter]?
     /// The maximum number of transfers permitted, including zero, or `nil` for the IDOS default.
     public var maxTransfers: Int?
     /// The minimum transfer time in minutes, with `-1` selecting the timetable's standard transfer time.
@@ -2240,6 +2261,7 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
         onlyDirect: Bool = false,
         via: [String] = [],
         viaSelections: [TransitPlaceSelection?]? = nil,
+        transportModeFilters: [TransitConnectionTransportModeFilter]? = nil,
         maxTransfers: Int? = nil,
         minimumTransferTime: Int? = nil,
         maximumTransferTime: Int? = nil,
@@ -2270,6 +2292,7 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
         self.onlyDirect = onlyDirect
         self.via = via
         self.viaSelections = viaSelections
+        self.transportModeFilters = transportModeFilters
         self.maxTransfers = maxTransfers
         self.minimumTransferTime = minimumTransferTime
         self.maximumTransferTime = maximumTransferTime
@@ -2414,8 +2437,8 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
                 ))
             }
 
-            for transportTypeID in Self.defaultTransportTypeIDs {
-                let value = String(transportTypeID)
+            for transportMode in selectedTransportModes {
+                let value = String(transportMode.idosFormID)
                 items.append(URLQueryItem(name: "trTypeId[\(value)]", value: value))
             }
         }
@@ -2425,7 +2448,8 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
     }
 
     private var hasAdvancedOptions: Bool {
-        !via.isEmpty || maxTransfers != nil || minimumTransferTime != nil ||
+        !via.isEmpty || transportModeFilters?.isEmpty == false ||
+            maxTransfers != nil || minimumTransferTime != nil ||
             maximumTransferTime != nil || maximumWalkingTime != nil ||
             maximumCityWalkingTime != nil || walkToNearbyStops != nil ||
             sameNameWalkingTransfersOnly != nil ||
@@ -2435,6 +2459,19 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
             trainConnectionsForPassengersWithChildren != nil ||
             connectionsForPassengersWithBicycles != nil || preferBusyRoutes != nil ||
             bedOrCouchettePreference != nil
+    }
+
+    /// Resolves repeatable product rules to the checkbox set expected by the IDOS form.
+    private var selectedTransportModes: [TransitConnectionTransportMode] {
+        let filters = transportModeFilters ?? []
+        let onlyModes = Set(filters.lazy.filter { $0.operation == .only }.map(\.mode))
+        let excludedModes = Set(filters.lazy.filter { $0.operation == .exclude }.map(\.mode))
+        let candidates = onlyModes.isEmpty
+            ? Set(TransitConnectionTransportMode.allCases)
+            : onlyModes
+        return TransitConnectionTransportMode.allCases.filter {
+            candidates.contains($0) && !excludedModes.contains($0)
+        }
     }
 }
 

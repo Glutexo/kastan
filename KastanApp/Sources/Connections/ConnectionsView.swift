@@ -226,6 +226,14 @@ enum JourneyOptionRowLayout {
         )
     }
 
+    private static var transportModeValueWidth: CGFloat {
+        StableWidthPopUpButton.catalogWidth(
+            for: TransitConnectionTransportModeFilterOperation.localizedCatalogTitles
+        ) + spacing + StableWidthPopUpButton.catalogWidth(
+            for: TransitConnectionTransportMode.localizedCatalogTitles
+        )
+    }
+
     private static var maximumFixedValueWidth: CGFloat {
         let booleanTitles = [
             AppLocalization.string("Also at the beginning/end of journey"),
@@ -254,9 +262,12 @@ enum JourneyOptionRowLayout {
         return max(
             standaloneValueWidth,
             max(
-                transferConstraintCatalogWidth + spacing + transferValueWidth,
-                walkingConstraintCatalogWidth + spacing +
-                    max(walkingDurationValueWidth, booleanValueWidth)
+                transportModeValueWidth,
+                max(
+                    transferConstraintCatalogWidth + spacing + transferValueWidth,
+                    walkingConstraintCatalogWidth + spacing +
+                        max(walkingDurationValueWidth, booleanValueWidth)
+                )
             )
         )
     }
@@ -673,6 +684,15 @@ struct ConnectionsView: View {
             )
                 .frame(minWidth: 160, maxWidth: 520)
                 .layoutPriority(1)
+        case .transportMode:
+            HStack(spacing: JourneyOptionRowLayout.spacing) {
+                transportModeFilterOperationPicker(option: option)
+                JourneyTransportModePicker(
+                    selection: transportModeBinding(for: option),
+                    availableModes: model.availableTransportModes(for: option.wrappedValue.id)
+                )
+            }
+            .fixedSize(horizontal: true, vertical: false)
         case .transfers:
             HStack(spacing: JourneyOptionRowLayout.spacing) {
                 transferConstraintPicker(
@@ -706,6 +726,50 @@ struct ConnectionsView: View {
                 label: option.wrappedValue.kind.localizedTitle
             )
         }
+    }
+
+    /// Presents the two explicit transport-filter operations before the grouped mode catalog.
+    private func transportModeFilterOperationPicker(
+        option: Binding<JourneyOptionEntry>
+    ) -> some View {
+        Picker(selection: transportModeFilterOperationBinding(for: option)) {
+            ForEach(TransitConnectionTransportModeFilterOperation.allCases, id: \.self) { operation in
+                Text(verbatim: operation.localizedTitle).tag(operation)
+            }
+        } label: {
+            Text(verbatim: option.wrappedValue.kind.localizedTitle)
+        }
+        .labelsHidden()
+        .fixedSize()
+        .accessibilityLabel(Text(verbatim: option.wrappedValue.kind.localizedTitle))
+    }
+
+    /// Routes operation changes through the model while retaining the selected means of transport.
+    private func transportModeFilterOperationBinding(
+        for option: Binding<JourneyOptionEntry>
+    ) -> Binding<TransitConnectionTransportModeFilterOperation> {
+        let optionID = option.wrappedValue.id
+        return Binding(
+            get: {
+                model.journeyOptions.first { $0.id == optionID }?.transportModeFilterOperation ??
+                    .only
+            },
+            set: { model.setTransportModeFilterOperation($0, for: optionID) }
+        )
+    }
+
+    /// Routes grouped transport selections through the model so each mode remains unique across rows.
+    private func transportModeBinding(
+        for option: Binding<JourneyOptionEntry>
+    ) -> Binding<TransitConnectionTransportMode> {
+        let optionID = option.wrappedValue.id
+        return Binding(
+            get: {
+                model.journeyOptions.first { $0.id == optionID }?.transportMode ??
+                    .highestQualityTrain
+            },
+            set: { model.setTransportMode($0, for: optionID) }
+        )
     }
 
     /// Keeps all transfer limits under one repeatable condition while retaining each value editor.
@@ -1198,6 +1262,128 @@ struct JourneyOptionKindPicker: NSViewRepresentable {
             else { return }
 
             selection.wrappedValue = kind
+        }
+    }
+}
+
+/// Bridges the detailed means-of-transport selector to a native popup with inert group headings.
+struct JourneyTransportModePicker: NSViewRepresentable {
+    @Binding var selection: TransitConnectionTransportMode
+    let availableModes: [TransitConnectionTransportMode]
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(selection: $selection)
+    }
+
+    func makeNSView(context: Context) -> StableWidthPopUpButton {
+        let button = StableWidthPopUpButton(frame: .zero, pullsDown: false)
+        button.controlSize = .regular
+        button.setContentHuggingPriority(.required, for: .horizontal)
+        button.setContentCompressionResistancePriority(.required, for: .horizontal)
+        button.target = context.coordinator
+        button.action = #selector(Coordinator.selectMode(_:))
+        button.setAccessibilityLabel(AppLocalization.string("Means of transport"))
+        return button
+    }
+
+    func updateNSView(_ button: StableWidthPopUpButton, context: Context) {
+        context.coordinator.selection = $selection
+        button.sizingTitles = TransitConnectionTransportMode.localizedCatalogTitles
+
+        let sections = TransitConnectionTransportModeGroup.allCases.compactMap { group -> (
+            group: TransitConnectionTransportModeGroup,
+            modes: [TransitConnectionTransportMode]
+        )? in
+            let modes = availableModes.filter { $0.group == group }
+            return modes.isEmpty ? nil : (group, modes)
+        }
+        let representedModes = button.itemArray.compactMap { item in
+            (item.representedObject as? String).flatMap(
+                TransitConnectionTransportMode.init(rawValue:)
+            )
+        }
+        let groupTitles = button.itemArray.compactMap { item -> String? in
+            guard !item.isSeparatorItem, item.representedObject == nil else { return nil }
+            return item.title
+        }
+
+        if representedModes != availableModes ||
+            groupTitles != sections.map({ $0.group.localizedTitle }) {
+            button.removeAllItems()
+
+            for (index, section) in sections.enumerated() {
+                if index > 0 {
+                    button.menu?.addItem(NSMenuItem.separator())
+                }
+
+                let heading: NSMenuItem
+                if #available(macOS 14.0, *) {
+                    heading = .sectionHeader(title: section.group.localizedTitle)
+                } else {
+                    heading = NSMenuItem(
+                        title: section.group.localizedTitle,
+                        action: nil,
+                        keyEquivalent: ""
+                    )
+                    heading.isEnabled = false
+                    heading.attributedTitle = NSAttributedString(
+                        string: section.group.localizedTitle,
+                        attributes: [
+                            .font: NSFont.systemFont(
+                                ofSize: NSFont.smallSystemFontSize,
+                                weight: .semibold
+                            ),
+                            .foregroundColor: NSColor.secondaryLabelColor,
+                        ]
+                    )
+                }
+                button.menu?.addItem(heading)
+
+                for mode in section.modes {
+                    let item = NSMenuItem(
+                        title: mode.localizedTitle,
+                        action: nil,
+                        keyEquivalent: ""
+                    )
+                    item.representedObject = mode.rawValue
+                    button.menu?.addItem(item)
+                }
+            }
+        }
+
+        if let item = button.itemArray.first(where: {
+            $0.representedObject as? String == selection.rawValue
+        }) {
+            button.select(item)
+        }
+        button.setAccessibilityValue(selection.localizedTitle)
+        button.invalidateIntrinsicContentSize()
+    }
+
+    func sizeThatFits(
+        _ proposal: ProposedViewSize,
+        nsView button: StableWidthPopUpButton,
+        context: Context
+    ) -> CGSize? {
+        button.intrinsicContentSize
+    }
+
+    /// Passes the selected detailed mode back into the SwiftUI journey-option row.
+    @MainActor
+    final class Coordinator: NSObject {
+        var selection: Binding<TransitConnectionTransportMode>
+
+        init(selection: Binding<TransitConnectionTransportMode>) {
+            self.selection = selection
+        }
+
+        @objc func selectMode(_ sender: NSPopUpButton) {
+            guard let rawValue = sender.selectedItem?.representedObject as? String,
+                  let mode = TransitConnectionTransportMode(rawValue: rawValue)
+            else {
+                return
+            }
+            selection.wrappedValue = mode
         }
     }
 }

@@ -149,6 +149,7 @@ swift run kastan connections Praha Brno --via Pardubice --via Olomouc
 swift run kastan connections Praha Brno --time 15:00 --arrival
 swift run kastan connections Praha Brno --max-transfers 0
 swift run kastan connections Praha Brno --min-transfer-time -1 --max-transfer-time 360
+swift run kastan connections Praha Brno --transport-mode only:regional-train --transport-mode exclude:city-trolleybus
 swift run kastan connections Praha Brno --wheelchair-accessible-connections-only true
 swift run kastan connections Praha Košice --timetable vlaky --bed-or-couchette-preference use
 swift run kastan connections Praha Brno --limit 3
@@ -160,6 +161,7 @@ Every library option has a stable English CLI spelling:
 | --- | --- |
 | `--direct`, `--only-direct`, `-x` | Flag that returns direct connections only. |
 | `--via`, `-V` | Via place; repeat the option to preserve an ordered list. |
+| `--transport-mode` | `only:<mode>` or `exclude:<mode>`; repeat it to combine detailed means-of-transport rules. |
 | `--max-transfers`, `-X` | Non-negative maximum number of transfers, including zero. |
 | `--min-transfer-time`, `-M` | Minimum transfer time in minutes; `-1` selects the timetable standard. |
 | `--max-transfer-time` | Non-negative maximum transfer time in minutes. |
@@ -175,6 +177,14 @@ Every library option has a stable English CLI spelling:
 | `--connections-for-passengers-with-bicycles` | `true` or `false`; applies the bicycle filter to trains and buses. |
 | `--prefer-busy-routes` | `true` or `false`; prefers routes served more frequently. |
 | `--bed-or-couchette-preference` | `no-limitation`, `use`, or `do-not-use`; available only for compatible train timetables. |
+
+Multiple `only` transport-mode rules form a union. Every `exclude` rule is removed from that union, or from the full
+catalog when no `only` rule is present. The grouped mode values are:
+
+- Trains: `highest-quality-train`, `higher-quality-train`, `interregional-train`, `regional-train`, `train-bus`,
+  `train-ship`, and `train-other`.
+- Buses: `local-bus`, `long-distance-bus`, and `international-bus`.
+- City transport: `city-tram`, `city-bus`, `city-cableway`, and `city-trolleybus`.
 
 Omitting a value-backed option preserves the IDOS default, while an explicit `false` or `no-limitation` preserves
 an active negative or unrestricted condition. IDOS offers Bed / Couchette only for All timetables, Trains + Buses +

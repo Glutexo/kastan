@@ -12,6 +12,8 @@ extension TransitConnectionOption {
             ["--direct", "--only-direct", "-x"]
         case .via:
             ["--via", "-V"]
+        case .transportModeFilters:
+            ["--transport-mode"]
         case .maximumTransfers:
             ["--max-transfers", "-X"]
         case .minimumTransferTime:
@@ -48,6 +50,33 @@ extension TransitConnectionOption {
     /// Direct-only is the sole flag; every other option carries a value and preserves its full library domain.
     var connectionCommandTakesValue: Bool {
         self != .onlyDirect
+    }
+}
+
+extension TransitConnectionTransportMode {
+    /// Supplies an unambiguous kebab-case value for the repeatable CLI transport-mode option.
+    var connectionCommandValue: String {
+        switch self {
+        case .highestQualityTrain: "highest-quality-train"
+        case .higherQualityTrain: "higher-quality-train"
+        case .interregionalTrain: "interregional-train"
+        case .regionalTrain: "regional-train"
+        case .trainBus: "train-bus"
+        case .trainShip: "train-ship"
+        case .trainOther: "train-other"
+        case .localBus: "local-bus"
+        case .longDistanceBus: "long-distance-bus"
+        case .internationalBus: "international-bus"
+        case .cityTram: "city-tram"
+        case .cityBus: "city-bus"
+        case .cityCableway: "city-cableway"
+        case .cityTrolleybus: "city-trolleybus"
+        }
+    }
+
+    /// Resolves one documented CLI spelling without accepting private provider values.
+    static func connectionCommandMode(for value: String) -> Self? {
+        allCases.first { $0.connectionCommandValue == value.lowercased() }
     }
 }
 
@@ -305,10 +334,15 @@ struct CommandRunner {
         } else {
             selectedDataSourceDescription = ""
         }
-        return localization.text(
+        let help = localization.text(
             .help,
             sourceDescription,
             selectedDataSourceDescription
+        )
+        let transferOptionsMarker = "  -X, --max-transfers"
+        return help.replacingOccurrences(
+            of: transferOptionsMarker,
+            with: localization.text(.helpTransportMode) + transferOptionsMarker
         )
     }
 
@@ -516,6 +550,7 @@ struct CommandRunner {
         let fromPlace = resolvePlace(endpoints.from, in: aliasDatabase)
         let toPlace = resolvePlace(endpoints.to, in: aliasDatabase)
         let viaPlaces = options.values(for: "--via", short: "-V").map { resolvePlace($0, in: aliasDatabase) }
+        let transportModeFilters = try options.transportModeFilters(for: "--transport-mode")
         let timetable = try resolveTimetable(
             explicitValue: options.value(for: "--timetable", short: "-T"),
             aliases: ([fromPlace, toPlace] + viaPlaces).compactMap(\.alias)
@@ -571,6 +606,7 @@ struct CommandRunner {
             isArrival: try options.isArrivalTimeMode(),
             onlyDirect: options.contains("--direct", short: "-x") || options.contains("--only-direct"),
             via: viaPlaces.map(\.station),
+            transportModeFilters: transportModeFilters,
             maxTransfers: maxTransfers,
             minimumTransferTime: minimumTransferTime,
             maximumTransferTime: maximumTransferTime,
@@ -3148,6 +3184,34 @@ private struct CommandOptions {
                 value: value,
                 allowed: ["no-limitation", "use", "do-not-use"]
             )
+        }
+    }
+
+    /// Parses each `only:mode` or `exclude:mode` value without exposing IDOS checkbox identifiers.
+    func transportModeFilters(for name: String) throws -> [TransitConnectionTransportModeFilter]? {
+        let values = values(for: name)
+        guard !values.isEmpty else { return nil }
+
+        let allowed = TransitConnectionTransportModeFilterOperation.allCases.flatMap { operation in
+            TransitConnectionTransportMode.allCases.map {
+                "\(operation.rawValue):\($0.connectionCommandValue)"
+            }
+        }
+        return try values.map { value in
+            let components = value.split(separator: ":", maxSplits: 1).map(String.init)
+            guard components.count == 2,
+                  let operation = TransitConnectionTransportModeFilterOperation(
+                    rawValue: components[0].lowercased()
+                  ),
+                  let mode = TransitConnectionTransportMode.connectionCommandMode(for: components[1])
+            else {
+                throw CommandError.invalidOptionValue(
+                    name: name,
+                    value: value,
+                    allowed: allowed
+                )
+            }
+            return TransitConnectionTransportModeFilter(operation: operation, mode: mode)
         }
     }
 

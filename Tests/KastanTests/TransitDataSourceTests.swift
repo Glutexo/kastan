@@ -73,6 +73,7 @@ func expectTransitDataSourceContract(
     #expect(TransitConnectionOption.allCases == [
         .onlyDirect,
         .via,
+        .transportModeFilters,
         .maximumTransfers,
         .minimumTransferTime,
         .maximumTransferTime,
@@ -94,6 +95,49 @@ func expectTransitDataSourceContract(
     #expect(custom.connectionOptions.isEmpty)
     #expect(legacy.supports(.connections))
     #expect(legacy.connectionOptions.isEmpty)
+}
+
+/// Keeps every detailed mode and its IDOS-facing group available to all product interfaces without numeric IDs.
+@Test func connectionTransportModesUseStablePublicValuesAndGroups() {
+    #expect(TransitConnectionTransportMode.allCases == [
+        .highestQualityTrain,
+        .higherQualityTrain,
+        .interregionalTrain,
+        .regionalTrain,
+        .trainBus,
+        .trainShip,
+        .trainOther,
+        .localBus,
+        .longDistanceBus,
+        .internationalBus,
+        .cityTram,
+        .cityBus,
+        .cityCableway,
+        .cityTrolleybus,
+    ])
+    #expect(
+        TransitConnectionTransportMode.allCases.filter { $0.group == .trains }
+            == Array(TransitConnectionTransportMode.allCases[0...6])
+    )
+    #expect(
+        TransitConnectionTransportMode.allCases.filter { $0.group == .buses }
+            == Array(TransitConnectionTransportMode.allCases[7...9])
+    )
+    #expect(
+        TransitConnectionTransportMode.allCases.filter { $0.group == .cityTransport }
+            == Array(TransitConnectionTransportMode.allCases[10...13])
+    )
+    #expect(TransitConnectionTransportModeFilterOperation.allCases == [.only, .exclude])
+
+    let filter = TransitConnectionTransportModeFilter(
+        operation: .exclude,
+        mode: .cityTrolleybus
+    )
+    let decodedFilter = try? JSONDecoder().decode(
+        TransitConnectionTransportModeFilter.self,
+        from: JSONEncoder().encode(filter)
+    )
+    #expect(decodedFilter == filter)
 }
 
 /// Keeps the provider-neutral accommodation values descriptive in encoded requests and public integrations.

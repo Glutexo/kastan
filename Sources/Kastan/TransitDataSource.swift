@@ -108,6 +108,89 @@ public enum TransitDataSourceCapability: String, CaseIterable, Codable, Equatabl
     case connectionEmail
 }
 
+/// Groups the detailed connection-search transport modes exactly as journey planners present them.
+public enum TransitConnectionTransportModeGroup: String, CaseIterable, Codable, Equatable, Hashable, Sendable {
+    /// Train classes and the adjacent general bus, ship, and other choices.
+    case trains
+    /// Local, long-distance, and international bus choices.
+    case buses
+    /// Tram, bus, cableway, and trolleybus choices within city transport.
+    case cityTransport
+}
+
+/// Identifies one detailed means-of-transport choice that a connection search may retain or omit.
+///
+/// The train group includes the bus, ship, and other categories exposed beside train quality classes by IDOS.
+/// Bus and city-transport cases remain distinct even when their visible labels match.
+public enum TransitConnectionTransportMode: String, CaseIterable, Codable, Equatable, Hashable, Sendable {
+    /// A highest-quality train such as SC or ICE.
+    case highestQualityTrain
+    /// A higher-quality train such as EC or IC.
+    case higherQualityTrain
+    /// An interregional train such as R.
+    case interregionalTrain
+    /// A regional train such as Os or Sp.
+    case regionalTrain
+    /// The general bus choice presented within the train group.
+    case trainBus
+    /// The ship choice presented within the train group.
+    case trainShip
+    /// The other-transport choice presented within the train group.
+    case trainOther
+    /// A local bus.
+    case localBus
+    /// A long-distance bus.
+    case longDistanceBus
+    /// An international bus.
+    case internationalBus
+    /// A city tram.
+    case cityTram
+    /// A city bus.
+    case cityBus
+    /// A city cableway.
+    case cityCableway
+    /// A city trolleybus.
+    case cityTrolleybus
+
+    /// Locates the choice under its stable presentation group.
+    public var group: TransitConnectionTransportModeGroup {
+        switch self {
+        case .highestQualityTrain, .higherQualityTrain, .interregionalTrain, .regionalTrain,
+             .trainBus, .trainShip, .trainOther:
+            .trains
+        case .localBus, .longDistanceBus, .internationalBus:
+            .buses
+        case .cityTram, .cityBus, .cityCableway, .cityTrolleybus:
+            .cityTransport
+        }
+    }
+}
+
+/// Selects whether one detailed transport mode is retained exclusively or omitted from a connection search.
+public enum TransitConnectionTransportModeFilterOperation: String, CaseIterable, Codable, Equatable, Hashable, Sendable {
+    /// Retains the selected mode as part of the permitted union.
+    case only
+    /// Removes the selected mode from the permitted catalog.
+    case exclude
+}
+
+/// Stores one repeatable means-of-transport rule in a provider-neutral connection request.
+public struct TransitConnectionTransportModeFilter: Codable, Equatable, Hashable, Sendable {
+    /// Whether this rule retains or omits its mode.
+    public var operation: TransitConnectionTransportModeFilterOperation
+    /// The detailed means of transport affected by this rule.
+    public var mode: TransitConnectionTransportMode
+
+    /// Creates one repeatable rule without exposing a provider's form identifiers.
+    public init(
+        operation: TransitConnectionTransportModeFilterOperation,
+        mode: TransitConnectionTransportMode
+    ) {
+        self.operation = operation
+        self.mode = mode
+    }
+}
+
 /// Identifies one independently selectable connection-search option a provider understands.
 ///
 /// Interfaces use this contract to offer only controls whose values the selected provider can honor. Supporting
@@ -117,6 +200,8 @@ public enum TransitConnectionOption: String, CaseIterable, Codable, Equatable, H
     case onlyDirect
     /// Adds an ordered intermediate place through which the journey must travel.
     case via
+    /// Selects or omits detailed means of transport through repeatable grouped rules.
+    case transportModeFilters
     /// Limits how many transfers a journey may contain.
     case maximumTransfers
     /// Requires at least a selected amount of time for each transfer.

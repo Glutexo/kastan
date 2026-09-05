@@ -29,6 +29,7 @@ import Testing
     #expect(output.contains("--municipality"))
     #expect(output.contains("--via"))
     #expect(output.contains("--direct"))
+    #expect(output.contains("--transport-mode"))
     #expect(output.contains("--add-to-calendar"))
     #expect(output.contains("--verbose"))
     #expect(output.contains("--max-transfers"))
@@ -71,6 +72,10 @@ import Testing
     #expect(
         TransitConnectionOption.allCases.filter(\.connectionCommandTakesValue)
             == Array(TransitConnectionOption.allCases.dropFirst())
+    )
+    #expect(
+        Set(TransitConnectionTransportMode.allCases.map(\.connectionCommandValue)).count
+            == TransitConnectionTransportMode.allCases.count
     )
 }
 
@@ -244,6 +249,9 @@ import Testing
     let withoutProviderSpecificOptions = await runner.output(for: base)
     let direct = await runner.output(for: base + ["-x"])
     let via = await runner.output(for: base + ["-V", "Pardubice"])
+    let transportMode = await runner.output(
+        for: base + ["--transport-mode", "only:regional-train"]
+    )
     let maximumTransfers = await runner.output(for: base + ["-X", "1"])
     let minimumTransferTime = await runner.output(
         for: base + ["--min-transfer-time=5", "--language", "cs"]
@@ -252,6 +260,10 @@ import Testing
     #expect(!withoutProviderSpecificOptions.hasPrefix("❌"))
     #expect(direct == "❌ Error: Option -x is not supported by data source Limited shared timetable (limited).")
     #expect(via == "❌ Error: Option -V is not supported by data source Limited shared timetable (limited).")
+    #expect(
+        transportMode
+            == "❌ Error: Option --transport-mode is not supported by data source Limited shared timetable (limited)."
+    )
     #expect(maximumTransfers == "❌ Error: Option -X is not supported by data source Limited shared timetable (limited).")
     #expect(minimumTransferTime == "❌ Chyba: Zdroj dat Limited shared timetable (limited) nepodporuje volbu --min-transfer-time.")
 }
@@ -907,6 +919,10 @@ import Testing
 @Test func connectionCommandPassesAndPrintsEveryAdditionalJourneyOption() async throws {
     let output = await englishCommandRunner(
         client: MockIDOSClient(
+            expectedTransportModeFilters: [
+                .init(operation: .only, mode: .regionalTrain),
+                .init(operation: .exclude, mode: .cityTrolleybus),
+            ],
             expectedMinimumTransferTime: -1,
             expectedMaximumTransferTime: 360,
             expectedMaximumWalkingTime: 45,
@@ -926,6 +942,8 @@ import Testing
         for: [
             "connections", "Praha", "Brno", "--timetable", "vlaky",
             "--min-transfer-time", "-1",
+            "--transport-mode", "only:regional-train",
+            "--transport-mode", "exclude:city-trolleybus",
             "--max-transfer-time", "360",
             "--max-walking-time", "45",
             "--max-city-walking-time", "20",
@@ -945,6 +963,11 @@ import Testing
     let request = try #require(jsonDictionary(output)["request"] as? [String: Any])
 
     #expect(request["minimumTransferTime"] as? Int == -1)
+    let transportModeFilters = try #require(request["transportModeFilters"] as? [[String: String]])
+    #expect(transportModeFilters == [
+        ["operation": "only", "mode": "regionalTrain"],
+        ["operation": "exclude", "mode": "cityTrolleybus"],
+    ])
     #expect(request["maximumTransferTime"] as? Int == 360)
     #expect(request["maximumWalkingTime"] as? Int == 45)
     #expect(request["maximumCityWalkingTime"] as? Int == 20)
@@ -1165,6 +1188,16 @@ import Testing
     )
 
     #expect(output == "❌ Error: Invalid --prefer-busy-routes: yes. Use one of: true, false.")
+}
+
+@Test func connectionCommandRejectsInvalidTransportModeFilter() async {
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+        for: ["connections", "Praha", "Brno", "--transport-mode", "prefer:train"]
+    )
+
+    #expect(output.contains("❌ Error: Invalid --transport-mode: prefer:train."))
+    #expect(output.contains("only:highest-quality-train"))
+    #expect(output.contains("exclude:city-trolleybus"))
 }
 
 @Test func connectionCommandRejectsInvalidBedOrCouchettePreference() async {
@@ -1978,6 +2011,51 @@ import Testing
     #expect(limitedRequest.formItems.contains(URLQueryItem(name: "trTypeId[301]", value: "301")))
     #expect(!normalRequest.formItems.contains { $0.name == "AdvancedForm.AdvancedFormIsOpen" })
     #expect(!normalRequest.formItems.contains { $0.name == "AdvancedForm.MinTime" })
+}
+
+@Test func connectionRequestResolvesRepeatableTransportModeFiltersToIDOSCheckboxes() {
+    func transportTypeIDs(in request: IDOSConnectionRequest) -> [Int] {
+        request.formItems.compactMap { item in
+            guard item.name.hasPrefix("trTypeId[") else { return nil }
+            return item.value.flatMap(Int.init)
+        }
+    }
+
+    let onlyRequest = IDOSConnectionRequest(
+        from: "Praha",
+        to: "Brno",
+        transportModeFilters: [
+            .init(operation: .only, mode: .highestQualityTrain),
+            .init(operation: .only, mode: .cityBus),
+        ]
+    )
+    let excludedRequest = IDOSConnectionRequest(
+        from: "Praha",
+        to: "Brno",
+        transportModeFilters: [
+            .init(operation: .exclude, mode: .regionalTrain),
+        ]
+    )
+    let combinedRequest = IDOSConnectionRequest(
+        from: "Praha",
+        to: "Brno",
+        transportModeFilters: [
+            .init(operation: .only, mode: .highestQualityTrain),
+            .init(operation: .only, mode: .cityBus),
+            .init(operation: .exclude, mode: .highestQualityTrain),
+        ]
+    )
+
+    #expect(transportTypeIDs(in: onlyRequest) == [150, 301])
+    #expect(transportTypeIDs(in: excludedRequest) == [
+        150, 151, 152, 154, 155, 156,
+        200, 201, 202,
+        300, 301, 303, 306,
+    ])
+    #expect(transportTypeIDs(in: combinedRequest) == [301])
+    #expect(onlyRequest.formItems.contains(
+        URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "True")
+    ))
 }
 
 @Test func connectionRequestUsesIDOSWalkingAndTransferParameters() {
@@ -3343,6 +3421,7 @@ private struct MockIDOSClient: IDOSClienting {
     var expectedIsArrival = false
     var expectedOnlyDirect = false
     var expectedVia: [String] = []
+    var expectedTransportModeFilters: [TransitConnectionTransportModeFilter]? = nil
     var expectedMaxTransfers: Int? = nil
     var expectedMinimumTransferTime: Int? = nil
     var expectedMaximumTransferTime: Int? = nil
@@ -3418,6 +3497,7 @@ private struct MockIDOSClient: IDOSClienting {
         #expect(request.isArrival == expectedIsArrival)
         #expect(request.onlyDirect == expectedOnlyDirect)
         #expect(request.via == expectedVia)
+        #expect(request.transportModeFilters == expectedTransportModeFilters)
         #expect(request.maxTransfers == expectedMaxTransfers)
         #expect(request.minimumTransferTime == expectedMinimumTransferTime)
         #expect(request.maximumTransferTime == expectedMaximumTransferTime)

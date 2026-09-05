@@ -176,6 +176,7 @@ Its journey options mirror the complete `TransitConnectionRequest` library contr
 
 - `onlyDirect` returns only direct connections when `true`.
 - `via` is an ordered array of places through which the connection must travel.
+- `transportModeFilters` is a repeatable array of objects with `operation` (`only` or `exclude`) and `mode`.
 - `maxTransfers` sets a non-negative maximum number of transfers, including zero.
 - `minimumTransferTime` sets the minimum transfer time in minutes; `-1` selects the timetable standard.
 - `maximumTransferTime` sets a non-negative maximum transfer time in minutes.
@@ -193,6 +194,21 @@ Its journey options mirror the complete `TransitConnectionRequest` library contr
 - `preferBusyRoutes` prefers routes served more frequently.
 - `bedOrCouchettePreference` accepts `noLimitation`, `use`, or `doNotUse`. IDOS offers it only for All timetables,
   Trains + Buses + Urban Public Transport, Trains, and Trains + Buses.
+
+Transport modes retain the three source groups. Trains contain `highestQualityTrain`, `higherQualityTrain`,
+`interregionalTrain`, `regionalTrain`, `trainBus`, `trainShip`, and `trainOther`; buses contain `localBus`,
+`longDistanceBus`, and `internationalBus`; city transport contains `cityTram`, `cityBus`, `cityCableway`, and
+`cityTrolleybus`. Multiple `only` objects form a union. Every `exclude` object is removed from that union, or from the
+full catalog when the array has no `only` object. For example:
+
+```json
+{
+  "transportModeFilters": [
+    { "operation": "only", "mode": "regionalTrain" },
+    { "operation": "exclude", "mode": "cityTrolleybus" }
+  ]
+}
+```
 
 Boolean journey options accept both `true` and `false`; omission preserves the IDOS default, while an explicit
 `false` preserves an active negative condition. Kaštan rejects an option unavailable for the selected timetable

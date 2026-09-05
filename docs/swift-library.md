@@ -52,6 +52,10 @@ let request = TransitConnectionRequest(
     isArrival: true,
     onlyDirect: true,
     via: ["Místek,Anenská"],
+    transportModeFilters: [
+        .init(operation: .only, mode: .regionalTrain),
+        .init(operation: .only, mode: .longDistanceBus),
+    ],
     maxTransfers: 0,
     minimumTransferTime: 10,
     maximumTransferTime: 360,
@@ -161,10 +165,10 @@ persisted source IDs never depend on a Swift type name. Consumers can inspect `d
 presenting a capability.
 
 Connection-search controls use a second, fine-grained contract. A descriptor lists its supported
-`TransitConnectionOption` values in `connectionOptions`, covering Direct connections only, Via, transfer-count and
-transfer-time limits, walking limits, the two walking-transfer policies, wheelchair-accessible and low-floor-only
-results, train preference, the three passenger-needs filters, busy-route preference, and bed/couchette preference
-independently. Advertising
+`TransitConnectionOption` values in `connectionOptions`, covering Direct connections only, Via, detailed
+means-of-transport filters, transfer-count and transfer-time limits, walking limits, the two walking-transfer policies,
+wheelchair-accessible and low-floor-only results, train preference, the three passenger-needs filters, busy-route
+preference, and bed/couchette preference independently. Advertising
 `TransitDataSourceCapability.connections` does not imply support for any of these request options. Interfaces should
 therefore call `supportsConnectionOption(_:for:)` before presenting a control or accepting its value for a selected
 timetable. Its default implementation uses the descriptor's advertised support. IDOS declares the complete set at
@@ -213,7 +217,9 @@ The main provider-neutral model types are:
 - Requests and timetables: `TransitConnectionRequest`, `TransitDeparturesRequest`,
   `TransitStationTimetableRequest`, `TransitStationTimetableMunicipality`, `TransitPlaceSelection`,
   `TransitStationTimetableDepartureResolutionRequest`, `TransitDate`, `TransitTime`, `TransitTimetable`,
-  `TransitTimetableValidity`, `TransitBedOrCouchettePreference`, `TransitLanguage`, and `TransitPageDirection`.
+  `TransitTimetableValidity`, `TransitConnectionTransportModeFilter`, `TransitConnectionTransportModeFilterOperation`,
+  `TransitConnectionTransportMode`, `TransitConnectionTransportModeGroup`, `TransitBedOrCouchettePreference`,
+  `TransitLanguage`, and `TransitPageDirection`.
 - Results: `TransitSuggestion`, `TransitConnection`, `TransitConnectionEmailDraft`, `TransitConnectionLeg`,
   `TransitDeparture`, `TransitServiceDetail`, `TransitServiceInformation`, `TransitServiceStop`,
   `TransitStationTimetable`, `TransitStationTimetableStop`, `TransitStationTimetableSchedule`,
@@ -293,8 +299,18 @@ IDOS JSON continues to omit that default identifier, while another provider's zo
 round trip. `TransitDataSourceDescribing.serviceTimeZone` supplies the same zone to presentation that needs to
 interpret provider text without an accompanying calendar model.
 
-Connection requests expose the supported IDOS transfer and additional-parameter panels. `maxTransfers` includes
-zero, while
+Connection requests expose the supported IDOS transport, transfer, and additional-parameter panels.
+`transportModeFilters` is an optional array of repeatable `TransitConnectionTransportModeFilter` values. Multiple
+`.only` rules form a union; every `.exclude` rule is removed from that union, or from the complete mode catalog when
+the request contains no `.only` rule. A `nil` or empty array retains the provider default. Its stable mode cases follow
+the three IDOS groups:
+
+- Trains: `.highestQualityTrain`, `.higherQualityTrain`, `.interregionalTrain`, `.regionalTrain`, `.trainBus`,
+  `.trainShip`, and `.trainOther`.
+- Buses: `.localBus`, `.longDistanceBus`, and `.internationalBus`.
+- City transport: `.cityTram`, `.cityBus`, `.cityCableway`, and `.cityTrolleybus`.
+
+`maxTransfers` includes zero, while
 `minimumTransferTime` accepts minute values or `-1` for the timetable's standard. `maximumTransferTime`,
 `maximumWalkingTime`, and `maximumCityWalkingTime` use minutes. `walkToNearbyStops` controls whether the journey may
 start or end at a stop reached on foot, and `sameNameWalkingTransfersOnly` restricts walking transfers to stops with

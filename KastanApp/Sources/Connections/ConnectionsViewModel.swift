@@ -16,6 +16,77 @@ enum JourneyOptionGroup: CaseIterable {
     }
 }
 
+extension TransitConnectionTransportModeGroup {
+    /// Preserves the three headings from the IDOS means-of-transport catalog.
+    var localizedTitle: String {
+        switch self {
+        case .trains:
+            AppLocalization.string("Trains")
+        case .buses:
+            AppLocalization.string("Buses")
+        case .cityTransport:
+            AppLocalization.string("City transport")
+        }
+    }
+}
+
+extension TransitConnectionTransportModeFilterOperation {
+    /// Names the compact operation selector without repeating the condition title.
+    var localizedTitle: String {
+        switch self {
+        case .only:
+            AppLocalization.string("Only transport mode")
+        case .exclude:
+            AppLocalization.string("Exclude transport mode")
+        }
+    }
+
+    static var localizedCatalogTitles: [String] {
+        allCases.map(\.localizedTitle)
+    }
+}
+
+extension TransitConnectionTransportMode {
+    /// Names each detailed IDOS transport choice while its native menu supplies the group heading.
+    var localizedTitle: String {
+        switch self {
+        case .highestQualityTrain:
+            AppLocalization.string("Highest quality train (SC, ICE, …)")
+        case .higherQualityTrain:
+            AppLocalization.string("Higher quality train (EC, IC, …)")
+        case .interregionalTrain:
+            AppLocalization.string("Interregional train (R, …)")
+        case .regionalTrain:
+            AppLocalization.string("Regional train (Os, Sp, …)")
+        case .trainBus, .cityBus:
+            AppLocalization.string("Transport mode bus")
+        case .trainShip:
+            AppLocalization.string("Transport mode ship")
+        case .trainOther:
+            AppLocalization.string("Transport mode other")
+        case .localBus:
+            AppLocalization.string("Local bus")
+        case .longDistanceBus:
+            AppLocalization.string("Long-distance bus")
+        case .internationalBus:
+            AppLocalization.string("International bus")
+        case .cityTram:
+            AppLocalization.string("Tram")
+        case .cityCableway:
+            AppLocalization.string("Cableway")
+        case .cityTrolleybus:
+            AppLocalization.string("Trolleybus")
+        }
+    }
+
+    /// Reserves native popup width for all headings and choices, independent of the active filter rows.
+    static var localizedCatalogTitles: [String] {
+        TransitConnectionTransportModeGroup.allCases.flatMap { group in
+            [group.localizedTitle] + allCases.filter { $0.group == group }.map(\.localizedTitle)
+        }
+    }
+}
+
 /// Identifies one connection requirement that can be combined with other requirements in the journey builder.
 enum JourneyConnectionRequirement: String, CaseIterable, Identifiable {
     case wheelchairAccessibleConnectionsOnly
@@ -211,6 +282,7 @@ enum JourneyWalkingConstraint: String, CaseIterable, Identifiable {
 /// Identifies the value editor shown by one extensible journey-option row.
 enum JourneyOptionKind: String, CaseIterable, Identifiable {
     case via
+    case transportMode
     case transfers
     case walkingDistances
     case onlyConnections
@@ -223,6 +295,8 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
         switch self {
         case .via:
             [.via]
+        case .transportMode:
+            [.transportModeFilters]
         case .transfers:
             JourneyTransferConstraint.allCases.map(\.transitConnectionOption)
         case .walkingDistances:
@@ -239,6 +313,8 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
         switch self {
         case .via:
             AppLocalization.string("Via")
+        case .transportMode:
+            AppLocalization.string("Means of transport")
         case .transfers:
             AppLocalization.string("Transfers")
         case .walkingDistances:
@@ -253,7 +329,7 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
     /// Keeps Via independent because passing through its place does not require a transfer.
     var group: JourneyOptionGroup? {
         switch self {
-        case .via:
+        case .via, .transportMode:
             nil
         case .transfers, .walkingDistances:
             .transfers
@@ -272,7 +348,7 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
 
     /// Intermediate places and combined choices can form repeatable rows with distinct subchoices.
     var allowsMultiple: Bool {
-        self == .via || self == .transfers || self == .walkingDistances ||
+        self == .via || self == .transportMode || self == .transfers || self == .walkingDistances ||
             self == .onlyConnections || self == .preference
     }
 
@@ -281,7 +357,7 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
         switch self {
         case .transfers:
             true
-        case .via, .walkingDistances,
+        case .via, .transportMode, .walkingDistances,
              .onlyConnections, .preference:
             false
         }
@@ -341,6 +417,8 @@ struct JourneyOptionEntry: Identifiable, Equatable {
     var sameNameWalkingTransfersOnly: Bool
     var connectionRequirement: JourneyConnectionRequirement
     var preference: JourneyPreference
+    var transportModeFilterOperation: TransitConnectionTransportModeFilterOperation
+    var transportMode: TransitConnectionTransportMode
 
     /// Distinguishes the two transfer-waiting rows that direct-only mode makes meaningless.
     var isTransferTimeCondition: Bool {
@@ -367,7 +445,9 @@ struct JourneyOptionEntry: Identifiable, Equatable {
         walkToNearbyStops: Bool = true,
         sameNameWalkingTransfersOnly: Bool = false,
         connectionRequirement: JourneyConnectionRequirement = .wheelchairAccessibleConnectionsOnly,
-        preference: JourneyPreference = .busyRoutes
+        preference: JourneyPreference = .busyRoutes,
+        transportModeFilterOperation: TransitConnectionTransportModeFilterOperation = .only,
+        transportMode: TransitConnectionTransportMode = .highestQualityTrain
     ) {
         self.id = id
         self.kind = kind
@@ -384,6 +464,8 @@ struct JourneyOptionEntry: Identifiable, Equatable {
         self.sameNameWalkingTransfersOnly = sameNameWalkingTransfersOnly
         self.connectionRequirement = connectionRequirement
         self.preference = preference
+        self.transportModeFilterOperation = transportModeFilterOperation
+        self.transportMode = transportMode
     }
 }
 
@@ -536,6 +618,13 @@ final class ConnectionsViewModel: ObservableObject {
         }
     }
 
+    /// Offers the complete provider-neutral catalog whenever the selected timetable supports transport filtering.
+    var supportedTransportModes: [TransitConnectionTransportMode] {
+        supportsConnectionOption(.transportModeFilters)
+            ? TransitConnectionTransportMode.allCases
+            : []
+    }
+
     var supportsOnlyDirect: Bool {
         supportsConnectionOption(.onlyDirect)
     }
@@ -622,6 +711,17 @@ final class ConnectionsViewModel: ObservableObject {
     var viaPlaceNames: [String] {
         journeyOptions.compactMap { option in
             option.kind == .via ? option.viaPlace : nil
+        }
+    }
+
+    /// Preserves row order while translating every visible means-of-transport condition to the library request.
+    var transportModeFilters: [TransitConnectionTransportModeFilter] {
+        journeyOptions.compactMap { option in
+            guard option.kind == .transportMode else { return nil }
+            return TransitConnectionTransportModeFilter(
+                operation: option.transportModeFilterOperation,
+                mode: option.transportMode
+            )
         }
     }
 
@@ -776,6 +876,13 @@ final class ConnectionsViewModel: ObservableObject {
         availableJourneyPreferences(excluding: id)
     }
 
+    /// Offers the row's current transport choice and every catalog item not selected in another rule.
+    func availableTransportModes(
+        for id: JourneyOptionEntry.ID
+    ) -> [TransitConnectionTransportMode] {
+        availableTransportModes(excluding: id)
+    }
+
     /// Applies a selected condition kind and restores the last value removed for transfer-related conditions.
     func setJourneyOptionKind(_ kind: JourneyOptionKind, for id: JourneyOptionEntry.ID) {
         guard availableJourneyOptionKinds(for: id).contains(kind) else { return }
@@ -786,7 +893,18 @@ final class ConnectionsViewModel: ObservableObject {
         let preference: JourneyPreference?
         let transferConstraint: JourneyTransferConstraint?
         let walkingConstraint: JourneyWalkingConstraint?
+        let transportMode: TransitConnectionTransportMode?
         switch kind {
+        case .transportMode:
+            let availableModes = availableTransportModes(excluding: id)
+            transportMode = availableModes.contains(currentOption.transportMode)
+                ? currentOption.transportMode
+                : availableModes.first
+            connectionRequirement = nil
+            preference = nil
+            transferConstraint = nil
+            walkingConstraint = nil
+            guard transportMode != nil else { return }
         case .transfers:
             let availableConstraints = availableTransferConstraints(excluding: id)
             transferConstraint = availableConstraints.contains(currentOption.transferConstraint)
@@ -795,6 +913,7 @@ final class ConnectionsViewModel: ObservableObject {
             walkingConstraint = nil
             connectionRequirement = nil
             preference = nil
+            transportMode = nil
             guard transferConstraint != nil else { return }
         case .walkingDistances:
             let availableConstraints = availableWalkingConstraints(excluding: id)
@@ -804,6 +923,7 @@ final class ConnectionsViewModel: ObservableObject {
             transferConstraint = nil
             connectionRequirement = nil
             preference = nil
+            transportMode = nil
             guard walkingConstraint != nil else { return }
         case .onlyConnections:
             let availableRequirements = availableConnectionRequirements(excluding: id)
@@ -813,6 +933,7 @@ final class ConnectionsViewModel: ObservableObject {
             preference = nil
             transferConstraint = nil
             walkingConstraint = nil
+            transportMode = nil
             guard connectionRequirement != nil else { return }
         case .preference:
             let availablePreferences = availableJourneyPreferences(excluding: id)
@@ -822,12 +943,14 @@ final class ConnectionsViewModel: ObservableObject {
             connectionRequirement = nil
             transferConstraint = nil
             walkingConstraint = nil
+            transportMode = nil
             guard preference != nil else { return }
         default:
             connectionRequirement = nil
             preference = nil
             transferConstraint = nil
             walkingConstraint = nil
+            transportMode = nil
         }
 
         if onlyDirect, currentOption.isZeroTransferLimit {
@@ -849,6 +972,9 @@ final class ConnectionsViewModel: ObservableObject {
         }
         if let preference {
             journeyOptions[index].preference = preference
+        }
+        if let transportMode {
+            journeyOptions[index].transportMode = transportMode
         }
         if kind.usesRememberedTransferValue {
             restoreRememberedTransferValues(at: index)
@@ -914,6 +1040,33 @@ final class ConnectionsViewModel: ObservableObject {
             return
         }
         journeyOptions[index].preference = preference
+    }
+
+    /// Changes only the include/exclude operation; the mode remains reserved by this row.
+    func setTransportModeFilterOperation(
+        _ operation: TransitConnectionTransportModeFilterOperation,
+        for id: JourneyOptionEntry.ID
+    ) {
+        guard let index = journeyOptions.firstIndex(where: { $0.id == id }),
+              journeyOptions[index].kind == .transportMode
+        else {
+            return
+        }
+        journeyOptions[index].transportModeFilterOperation = operation
+    }
+
+    /// Applies one distinct transport choice so visible rows cannot create contradictory rules for the same mode.
+    func setTransportMode(
+        _ mode: TransitConnectionTransportMode,
+        for id: JourneyOptionEntry.ID
+    ) {
+        guard availableTransportModes(excluding: id).contains(mode),
+              let index = journeyOptions.firstIndex(where: { $0.id == id }),
+              journeyOptions[index].kind == .transportMode
+        else {
+            return
+        }
+        journeyOptions[index].transportMode = mode
     }
 
     /// Inserts a new, immediately editable condition directly after the selected row.
@@ -1066,6 +1219,12 @@ final class ConnectionsViewModel: ObservableObject {
         let requestedViaSelections = requestedViaEntries.isEmpty
             ? nil
             : requestedViaEntries.map(\.selection)
+        let requestedTransportModeFilters: [TransitConnectionTransportModeFilter]? =
+            if supportsConnectionOption(.transportModeFilters), !transportModeFilters.isEmpty {
+                transportModeFilters
+            } else {
+                nil
+            }
         let requestedMaximumTransfers = supportsConnectionOption(.maximumTransfers)
             ? maximumTransfers
             : nil
@@ -1083,6 +1242,7 @@ final class ConnectionsViewModel: ObservableObject {
             onlyDirect: requestsOnlyDirect,
             via: requestedViaEntries.map(\.place),
             viaSelections: requestedViaSelections,
+            transportModeFilters: requestedTransportModeFilters,
             maxTransfers: requestedMaximumTransfers,
             minimumTransferTime: requestHasNoTransfers ||
                 !supportsConnectionOption(.minimumTransferTime)
@@ -1156,6 +1316,10 @@ final class ConnectionsViewModel: ObservableObject {
            let constraint = availableWalkingConstraints(excluding: nil).first {
             option.walkingConstraint = constraint
         }
+        if kind == .transportMode,
+           let transportMode = availableTransportModes(excluding: nil).first {
+            option.transportMode = transportMode
+        }
         if kind == .onlyConnections,
            let requirement = availableConnectionRequirements(excluding: nil).first {
             option.connectionRequirement = requirement
@@ -1183,6 +1347,9 @@ final class ConnectionsViewModel: ObservableObject {
         }
         if kind == .walkingDistances {
             return !availableWalkingConstraints(excluding: id).isEmpty
+        }
+        if kind == .transportMode {
+            return !availableTransportModes(excluding: id).isEmpty
         }
         if kind == .onlyConnections {
             return !availableConnectionRequirements(excluding: id).isEmpty
@@ -1214,6 +1381,16 @@ final class ConnectionsViewModel: ObservableObject {
             !journeyOptions.contains { option in
                 option.id != id && option.kind == .walkingDistances &&
                     option.walkingConstraint == constraint
+            }
+        }
+    }
+
+    private func availableTransportModes(
+        excluding id: JourneyOptionEntry.ID?
+    ) -> [TransitConnectionTransportMode] {
+        supportedTransportModes.filter { mode in
+            !journeyOptions.contains { option in
+                option.id != id && option.kind == .transportMode && option.transportMode == mode
             }
         }
     }
@@ -1301,6 +1478,9 @@ final class ConnectionsViewModel: ObservableObject {
         }
         if option.kind == .walkingDistances {
             return supportsConnectionOption(option.walkingConstraint.transitConnectionOption)
+        }
+        if option.kind == .transportMode {
+            return supportsConnectionOption(.transportModeFilters)
         }
         if option.kind == .onlyConnections {
             return supportsConnectionOption(option.connectionRequirement.transitConnectionOption)

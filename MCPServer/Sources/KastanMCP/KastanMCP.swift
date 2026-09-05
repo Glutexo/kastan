@@ -84,6 +84,8 @@ extension TransitConnectionOption {
             "onlyDirect"
         case .via:
             "via"
+        case .transportModeFilters:
+            "transportModeFilters"
         case .maximumTransfers:
             "maxTransfers"
         case .minimumTransferTime:
@@ -204,6 +206,7 @@ struct KastanMCPTools: Sendable {
                     "isArrival": booleanSchema("When true, the requested time is the arrival time; otherwise it is the departure time."),
                     "onlyDirect": booleanSchema("When true, return direct connections only."),
                     "via": stringArraySchema("Optional ordered places that the connection must travel via."),
+                    "transportModeFilters": transportModeFiltersSchema,
                     "maxTransfers": integerSchema("Maximum permitted number of transfers, including 0.", minimum: 0),
                     "minimumTransferTime": integerSchema("Minimum transfer time in minutes; -1 selects the timetable standard.", minimum: -1),
                     "maximumTransferTime": integerSchema("Maximum transfer time in minutes, including 0.", minimum: 0),
@@ -426,6 +429,7 @@ struct KastanMCPTools: Sendable {
             isArrival: try arguments.boolean("isArrival", default: false),
             onlyDirect: try arguments.boolean("onlyDirect", default: false),
             via: try arguments.stringArray("via", default: []),
+            transportModeFilters: try arguments.transportModeFilters("transportModeFilters"),
             maxTransfers: try arguments.optionalInteger("maxTransfers", minimum: 0),
             minimumTransferTime: try arguments.optionalInteger("minimumTransferTime", minimum: -1),
             maximumTransferTime: try arguments.optionalInteger("maximumTransferTime", minimum: 0),
@@ -615,6 +619,25 @@ struct KastanMCPTools: Sendable {
         "type": "string",
         "description": "Language for names, notes, and information supplied by IDOS. Defaults to en.",
         "enum": ["en", "cs"],
+    ])
+
+    /// Publishes every library transport-mode value while preserving the three catalog groups in its description.
+    private static let transportModeFiltersSchema: Value = .object([
+        "type": "array",
+        "description": "Repeatable means-of-transport rules. Multiple only rules form a union; exclude rules are removed from that union, or from the full catalog when no only rule is present. Groups: trains (highestQualityTrain, higherQualityTrain, interregionalTrain, regionalTrain, trainBus, trainShip, trainOther), buses (localBus, longDistanceBus, internationalBus), cityTransport (cityTram, cityBus, cityCableway, cityTrolleybus).",
+        "items": objectSchema(
+            properties: [
+                "operation": stringEnumSchema(
+                    "Whether this mode is retained or omitted.",
+                    values: TransitConnectionTransportModeFilterOperation.allCases.map(\.rawValue)
+                ),
+                "mode": stringEnumSchema(
+                    "Detailed means of transport.",
+                    values: TransitConnectionTransportMode.allCases.map(\.rawValue)
+                ),
+            ],
+            required: ["operation", "mode"]
+        ),
     ])
 
     private static func readOnlyAnnotations(title: String) -> Tool.Annotations {

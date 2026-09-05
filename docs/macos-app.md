@@ -58,7 +58,13 @@ manager and show their source when more than one ordinary provider is registered
   the same exact departure and arrival shows inline guidance and disables Search before any provider request can start.
   Connections and Station Timetables share the same borderless 24-point direction-swap control between their fields.
   The condition picker keeps Via as an ungrouped route constraint because the connection only needs to pass through its
-  place. It separates the transfer-specific controls under Transfers (`Přestupy` in Czech) and the newer IDOS controls
+  place. Means of transport (`Dopravní prostředek` in Czech) is a second ungrouped, repeatable condition. Each row
+  combines an operation popup—Only or Exclude (`pouze` or `vynechat`)—with a grouped mode popup. Trains contains the
+  four quality classes plus Bus, Ship, and Other; Buses contains Local, Long-distance, and International bus; City
+  transport contains Tram, Bus, Cableway, and Trolleybus. Multiple Only rows form a union, while Exclude rows remove
+  modes from that union or from the complete catalog when there is no Only row. A mode already used by another row is
+  omitted, regardless of its operation.
+  The picker separates the transfer-specific controls under Transfers (`Přestupy` in Czech) and the newer IDOS controls
   under Additional parameters (`Další možnosti` in Czech). Transfers contains the repeatable Transfers condition and
   the repeatable Walking distances (`Přesuny`) condition. Each Transfers row has the concise,
   transfer-context subchoices Maximum number, Minimum time, or Maximum time, followed by that subchoice's number or
@@ -96,7 +102,8 @@ manager and show their source when more than one ordinary provider is registered
   complete localized catalog. Every row retains its minus action; removing the sole condition from a source that
   supports Via resets that row to an empty, inactive Via field instead of removing it, then disables the minus action
   until the row becomes active again or another row is added. The main-window minimum exactly follows the widest complete
-  condition/value pair, including both fixed row actions, and uses compact search insets at that width so labels remain
+  condition/value pair—including the transport operation and the complete grouped mode catalog—plus both fixed row
+  actions, and uses compact search insets at that width so labels remain
   unabridged and controls stay inside the content edges. Summaries retain
   locale-aware transfer wording. Departure/Arrival
   remains visible on the compact journey editor. The journey-options heading shares one level with Search. Expanding it
