@@ -63,7 +63,8 @@ manager and show their source when more than one ordinary provider is registered
   Urban Public Transport is available, walking to a nearby stop at the beginning or end of the journey, and restricting
   walking transfers to stops of the same name. Additional parameters contains Wheelchair accessible connections only,
   Low-floor lines only, Prefer trains instead of buses, Wheelchair accessible connections (trains), Connections for
-  passengers with children (trains), Connections for passengers with bicycles (trains + buses), and Prefer busy routes.
+  passengers with children (trains), Connections for passengers with bicycles (trains + buses), Prefer busy routes,
+  and Bed / Couchette.
   Section headings are disabled menu labels and a separator keeps both groups visually distinct. Via presents
   the same timetable-aware IDOS place suggestions and application-wide place-type filters as the route endpoints,
   retains the exact selected object, and returns to free-text interpretation after editing or changing the timetable.
@@ -75,7 +76,10 @@ manager and show their source when more than one ordinary provider is registered
   outcomes explicitly. Walking between stops offers also at the beginning/end of journey or only during transfers and
   defaults to the former; Walking by stop name offers between any stops or only stops of the same name and defaults to
   the former. The seven additional Boolean conditions use localized Yes/No popups and initially show No, matching the
-  unchecked IDOS controls; they are sent only while their row is present. Every editor shares one row height
+  unchecked IDOS controls; they are sent only while their row is present. Bed / Couchette uses IDOS's three choices:
+  no limitation, use, and don't use. IDOS offers this condition only for All timetables, Trains + Buses + Urban Public
+  Transport, Trains, and Trains + Buses, so the app omits it from every other timetable and resets an active row when
+  the timetable changes to one that does not support it. Every editor shares one row height
   and follows a selection-independent condition menu sized from the
   complete localized catalog. Every row retains its minus action; removing the sole condition from a source that
   supports Via resets that row to an empty, inactive Via field instead of removing it, then disables the minus action

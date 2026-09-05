@@ -33,6 +33,7 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
     case trainConnectionsForPassengersWithChildren
     case connectionsForPassengersWithBicycles
     case preferBusyRoutes
+    case bedOrCouchettePreference
 
     var id: Self { self }
 
@@ -69,6 +70,8 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
             .connectionsForPassengersWithBicycles
         case .preferBusyRoutes:
             .preferBusyRoutes
+        case .bedOrCouchettePreference:
+            .bedOrCouchettePreference
         }
     }
 
@@ -105,6 +108,8 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
             AppLocalization.string("Connections for passengers with bicycles (trains + buses)")
         case .preferBusyRoutes:
             AppLocalization.string("Prefer busy routes")
+        case .bedOrCouchettePreference:
+            AppLocalization.string("Bed / Couchette")
         }
     }
 
@@ -118,7 +123,8 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
         case .wheelchairAccessibleConnectionsOnly, .lowFloorConnectionsOnly,
              .preferTrainsOverBuses, .trainConnectionsForWheelchairPassengers,
              .trainConnectionsForPassengersWithChildren,
-             .connectionsForPassengersWithBicycles, .preferBusyRoutes:
+             .connectionsForPassengersWithBicycles, .preferBusyRoutes,
+             .bedOrCouchettePreference:
             .additionalParameters
         }
     }
@@ -145,7 +151,8 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
              .wheelchairAccessibleConnectionsOnly, .lowFloorConnectionsOnly,
              .preferTrainsOverBuses, .trainConnectionsForWheelchairPassengers,
              .trainConnectionsForPassengersWithChildren,
-             .connectionsForPassengersWithBicycles, .preferBusyRoutes:
+             .connectionsForPassengersWithBicycles, .preferBusyRoutes,
+             .bedOrCouchettePreference:
             false
         }
     }
@@ -184,6 +191,21 @@ struct JourneyDurationChoice: Identifiable, Equatable {
     static let maximumWalkingTimes = [0, 5, 10, 20, 30, 45, 60].map(Self.init)
 }
 
+extension TransitBedOrCouchettePreference {
+    /// Uses the same accommodation choices and wording as the selected IDOS control.
+    func localizedTitle(bundle: Bundle = .main) -> String {
+        let key = switch self {
+        case .noLimitation:
+            "(no limitation)"
+        case .use:
+            "use"
+        case .doNotUse:
+            "don't use"
+        }
+        return bundle.localizedString(forKey: key, value: key, table: nil)
+    }
+}
+
 /// Stores one independently editable condition in the journey-options builder.
 struct JourneyOptionEntry: Identifiable, Equatable {
     let id: UUID
@@ -211,6 +233,7 @@ struct JourneyOptionEntry: Identifiable, Equatable {
     var trainConnectionsForPassengersWithChildren: Bool
     var connectionsForPassengersWithBicycles: Bool
     var preferBusyRoutes: Bool
+    var bedOrCouchettePreference: TransitBedOrCouchettePreference
 
     init(
         id: UUID = UUID(),
@@ -230,7 +253,8 @@ struct JourneyOptionEntry: Identifiable, Equatable {
         trainConnectionsForWheelchairPassengers: Bool = false,
         trainConnectionsForPassengersWithChildren: Bool = false,
         connectionsForPassengersWithBicycles: Bool = false,
-        preferBusyRoutes: Bool = false
+        preferBusyRoutes: Bool = false,
+        bedOrCouchettePreference: TransitBedOrCouchettePreference = .noLimitation
     ) {
         self.id = id
         self.kind = kind
@@ -250,6 +274,7 @@ struct JourneyOptionEntry: Identifiable, Equatable {
         self.trainConnectionsForPassengersWithChildren = trainConnectionsForPassengersWithChildren
         self.connectionsForPassengersWithBicycles = connectionsForPassengersWithBicycles
         self.preferBusyRoutes = preferBusyRoutes
+        self.bedOrCouchettePreference = bedOrCouchettePreference
     }
 }
 
@@ -300,6 +325,7 @@ final class ConnectionsViewModel: ObservableObject {
             for index in journeyOptions.indices {
                 journeyOptions[index].viaSelection = nil
             }
+            removeJourneyOptionsUnavailableForCurrentTimetable()
         }
     }
     @Published var date = Date() {
@@ -344,15 +370,16 @@ final class ConnectionsViewModel: ObservableObject {
         currentLocationProvider: any CurrentLocationProviding = SystemCurrentLocationProvider()
     ) {
         self.client = client
-        // An empty via field is an inactive affordance. Every other editor carries a meaningful default value,
-        // so sources without via support start with no row until the user explicitly adds a condition.
-        journeyOptions = client.descriptor.connectionOptions.contains(.via)
-            ? [JourneyOptionEntry(kind: .via)]
-            : []
-        timetable = AppTimetableDefaults.search(
+        let selectedTimetable = AppTimetableDefaults.search(
             in: client.timetables,
             defaultTimetable: client.defaultTimetable
         )
+        // An empty via field is an inactive affordance. Every other editor carries a meaningful default value,
+        // so sources without via support start with no row until the user explicitly adds a condition.
+        journeyOptions = client.supportsConnectionOption(.via, for: selectedTimetable)
+            ? [JourneyOptionEntry(kind: .via)]
+            : []
+        timetable = selectedTimetable
         self.calendarImporter = calendarImporter
         self.calendarSaver = calendarSaver
         self.pdfOpener = pdfOpener
@@ -365,15 +392,15 @@ final class ConnectionsViewModel: ObservableObject {
         client.timetables
     }
 
-    /// Limits the extensible editor to fields the selected provider promises to interpret.
+    /// Limits the extensible editor to fields the provider promises to interpret for the selected timetable.
     var supportedJourneyOptionKinds: [JourneyOptionKind] {
         JourneyOptionKind.allCases.filter {
-            client.descriptor.connectionOptions.contains($0.transitConnectionOption)
+            supportsConnectionOption($0.transitConnectionOption)
         }
     }
 
     var supportsOnlyDirect: Bool {
-        client.descriptor.connectionOptions.contains(.onlyDirect)
+        supportsConnectionOption(.onlyDirect)
     }
 
     /// Treats a zero transfer ceiling as a direct journey even when the provider has no separate direct flag.
@@ -527,6 +554,12 @@ final class ConnectionsViewModel: ObservableObject {
         journeyOptions.first { $0.kind == .preferBusyRoutes }?.preferBusyRoutes
     }
 
+    var bedOrCouchettePreference: TransitBedOrCouchettePreference? {
+        journeyOptions.first {
+            $0.kind == .bedOrCouchettePreference
+        }?.bedOrCouchettePreference
+    }
+
     /// Presents an active transfer ceiling, retaining only IDOS's established implicit four-transfer default.
     var transferLimitLabel: String {
         if hasNoTransfers {
@@ -534,12 +567,12 @@ final class ConnectionsViewModel: ObservableObject {
         }
 
         if let maximumTransfers,
-           client.descriptor.connectionOptions.contains(.maximumTransfers) {
+           supportsConnectionOption(.maximumTransfers) {
             return AppLocalization.plural("Up to %lld transfers", count: maximumTransfers)
         }
 
         guard client.descriptor.id == .idos,
-              client.descriptor.connectionOptions.contains(.maximumTransfers)
+              supportsConnectionOption(.maximumTransfers)
         else {
             return ""
         }
@@ -627,7 +660,7 @@ final class ConnectionsViewModel: ObservableObject {
             onlyDirect = false
         }
         if journeyOptions.count == 1 {
-            if client.descriptor.connectionOptions.contains(.via) {
+            if supportsConnectionOption(.via) {
                 journeyOptions[0] = makeJourneyOptionEntry(id: id, kind: .via)
             } else {
                 journeyOptions.remove(at: index)
@@ -653,7 +686,7 @@ final class ConnectionsViewModel: ObservableObject {
         self.onlyDirect = onlyDirect
         if onlyDirect {
             removeTransferTimeConditions()
-            guard client.descriptor.connectionOptions.contains(.maximumTransfers) else { return }
+            guard supportsConnectionOption(.maximumTransfers) else { return }
             if let index = journeyOptions.firstIndex(where: { $0.kind == .maximumTransfers }) {
                 rememberTransferValue(from: journeyOptions[index])
                 journeyOptions[index].maximumTransfers = 0
@@ -671,7 +704,7 @@ final class ConnectionsViewModel: ObservableObject {
 
     /// Treats zero transfers as the direct-only shortcut; positive values continue editing the visible condition.
     func setMaximumTransfers(_ value: Int, for id: JourneyOptionEntry.ID) {
-        guard client.descriptor.connectionOptions.contains(.maximumTransfers),
+        guard supportsConnectionOption(.maximumTransfers),
               let index = journeyOptions.firstIndex(where: { $0.id == id }),
               journeyOptions[index].kind == .maximumTransfers
         else {
@@ -733,7 +766,7 @@ final class ConnectionsViewModel: ObservableObject {
         let arrival = to.trimmingCharacters(in: .whitespacesAndNewlines)
         let requestedViaEntries = journeyOptions.compactMap {
             option -> (place: String, selection: TransitPlaceSelection?)? in
-            guard client.descriptor.connectionOptions.contains(.via), option.kind == .via else {
+            guard supportsConnectionOption(.via), option.kind == .via else {
                 return nil
             }
             let place = option.viaPlace.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -746,7 +779,7 @@ final class ConnectionsViewModel: ObservableObject {
         let requestedViaSelections = requestedViaEntries.isEmpty
             ? nil
             : requestedViaEntries.map(\.selection)
-        let requestedMaximumTransfers = client.descriptor.connectionOptions.contains(.maximumTransfers)
+        let requestedMaximumTransfers = supportsConnectionOption(.maximumTransfers)
             ? maximumTransfers
             : nil
         let requestsOnlyDirect = supportsOnlyDirect && onlyDirect
@@ -765,38 +798,41 @@ final class ConnectionsViewModel: ObservableObject {
             viaSelections: requestedViaSelections,
             maxTransfers: requestedMaximumTransfers,
             minimumTransferTime: requestHasNoTransfers ||
-                !client.descriptor.connectionOptions.contains(.minimumTransferTime)
+                !supportsConnectionOption(.minimumTransferTime)
                 ? nil : minimumTransferTime,
             maximumTransferTime: requestHasNoTransfers ||
-                !client.descriptor.connectionOptions.contains(.maximumTransferTime)
+                !supportsConnectionOption(.maximumTransferTime)
                 ? nil : maximumTransferTime,
-            maximumWalkingTime: client.descriptor.connectionOptions.contains(.maximumWalkingTime)
+            maximumWalkingTime: supportsConnectionOption(.maximumWalkingTime)
                 ? maximumWalkingTime : nil,
-            maximumCityWalkingTime: client.descriptor.connectionOptions.contains(.maximumCityWalkingTime)
+            maximumCityWalkingTime: supportsConnectionOption(.maximumCityWalkingTime)
                 ? maximumCityWalkingTime : nil,
-            walkToNearbyStops: client.descriptor.connectionOptions.contains(.walkToNearbyStops)
+            walkToNearbyStops: supportsConnectionOption(.walkToNearbyStops)
                 ? walkToNearbyStops : nil,
-            sameNameWalkingTransfersOnly: client.descriptor.connectionOptions
-                .contains(.sameNameWalkingTransfersOnly)
+            sameNameWalkingTransfersOnly: supportsConnectionOption(.sameNameWalkingTransfersOnly)
                 ? sameNameWalkingTransfersOnly : nil,
-            wheelchairAccessibleConnectionsOnly: client.descriptor.connectionOptions
-                .contains(.wheelchairAccessibleConnectionsOnly)
+            wheelchairAccessibleConnectionsOnly: supportsConnectionOption(.wheelchairAccessibleConnectionsOnly)
                 ? wheelchairAccessibleConnectionsOnly : nil,
-            lowFloorConnectionsOnly: client.descriptor.connectionOptions.contains(.lowFloorConnectionsOnly)
+            lowFloorConnectionsOnly: supportsConnectionOption(.lowFloorConnectionsOnly)
                 ? lowFloorConnectionsOnly : nil,
-            preferTrainsOverBuses: client.descriptor.connectionOptions.contains(.preferTrainsOverBuses)
+            preferTrainsOverBuses: supportsConnectionOption(.preferTrainsOverBuses)
                 ? preferTrainsOverBuses : nil,
-            trainConnectionsForWheelchairPassengers: client.descriptor.connectionOptions
-                .contains(.trainConnectionsForWheelchairPassengers)
+            trainConnectionsForWheelchairPassengers: supportsConnectionOption(
+                .trainConnectionsForWheelchairPassengers
+            )
                 ? trainConnectionsForWheelchairPassengers : nil,
-            trainConnectionsForPassengersWithChildren: client.descriptor.connectionOptions
-                .contains(.trainConnectionsForPassengersWithChildren)
+            trainConnectionsForPassengersWithChildren: supportsConnectionOption(
+                .trainConnectionsForPassengersWithChildren
+            )
                 ? trainConnectionsForPassengersWithChildren : nil,
-            connectionsForPassengersWithBicycles: client.descriptor.connectionOptions
-                .contains(.connectionsForPassengersWithBicycles)
+            connectionsForPassengersWithBicycles: supportsConnectionOption(
+                .connectionsForPassengersWithBicycles
+            )
                 ? connectionsForPassengersWithBicycles : nil,
-            preferBusyRoutes: client.descriptor.connectionOptions.contains(.preferBusyRoutes)
+            preferBusyRoutes: supportsConnectionOption(.preferBusyRoutes)
                 ? preferBusyRoutes : nil,
+            bedOrCouchettePreference: supportsConnectionOption(.bedOrCouchettePreference)
+                ? bedOrCouchettePreference : nil,
             resultLimit: 10
         )
 
@@ -850,7 +886,8 @@ final class ConnectionsViewModel: ObservableObject {
              .wheelchairAccessibleConnectionsOnly, .lowFloorConnectionsOnly,
              .preferTrainsOverBuses, .trainConnectionsForWheelchairPassengers,
              .trainConnectionsForPassengersWithChildren,
-             .connectionsForPassengersWithBicycles, .preferBusyRoutes:
+             .connectionsForPassengersWithBicycles, .preferBusyRoutes,
+             .bedOrCouchettePreference:
             break
         }
     }
@@ -867,6 +904,22 @@ final class ConnectionsViewModel: ObservableObject {
         let removedOptions = journeyOptions.filter { $0.kind.isTransferTimeCondition }
         removedOptions.forEach(rememberTransferValue)
         journeyOptions.removeAll { $0.kind.isTransferTimeCondition }
+    }
+
+    /// Removes conditions that IDOS does not publish for the newly selected timetable.
+    private func removeJourneyOptionsUnavailableForCurrentTimetable() {
+        let unavailableOptionIDs = journeyOptions.compactMap { option in
+            supportsConnectionOption(option.kind.transitConnectionOption) ? nil : option.id
+        }
+        unavailableOptionIDs.forEach { removeJourneyOption(id: $0) }
+        if !supportsOnlyDirect {
+            onlyDirect = false
+        }
+    }
+
+    /// Resolves provider support against the timetable currently represented by this form.
+    private func supportsConnectionOption(_ option: TransitConnectionOption) -> Bool {
+        client.supportsConnectionOption(option, for: timetable)
     }
 
     /// Treats either date or time editing as one deliberate journey-time choice that must remain stable.

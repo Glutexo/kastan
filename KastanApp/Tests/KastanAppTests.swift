@@ -6789,6 +6789,10 @@ final class KastanAppTests: XCTestCase {
                 connectionsForPassengersWithBicycles: false
             ),
             JourneyOptionEntry(kind: .preferBusyRoutes, preferBusyRoutes: true),
+            JourneyOptionEntry(
+                kind: .bedOrCouchettePreference,
+                bedOrCouchettePreference: .use
+            ),
         ]
         model.isArrival = true
 
@@ -6823,6 +6827,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(request?.trainConnectionsForPassengersWithChildren, true)
         XCTAssertEqual(request?.connectionsForPassengersWithBicycles, false)
         XCTAssertEqual(request?.preferBusyRoutes, true)
+        XCTAssertEqual(request?.bedOrCouchettePreference, .use)
         XCTAssertEqual(request?.resultLimit, 10)
         let searchLanguage = await client.lastConnectionSearchLanguage
         XCTAssertEqual(searchLanguage, AppLanguagePreference.idosLanguage)
@@ -6936,6 +6941,35 @@ final class KastanAppTests: XCTestCase {
         model.timetable = IDOSTimetable(slug: "pid", displayName: "Prague + PID")
 
         XCTAssertNil(model.journeyOptions[0].viaSelection)
+    }
+
+    func testBedOrCouchetteOptionFollowsTheSelectedTimetable() async {
+        let client = MockIDOSClient()
+        let model = ConnectionsViewModel(
+            client: client,
+            calendarImporter: RecordingCalendarImporter()
+        )
+        let option = JourneyOptionEntry(
+            kind: .bedOrCouchettePreference,
+            bedOrCouchettePreference: .use
+        )
+        model.journeyOptions = [option]
+
+        XCTAssertTrue(model.supportedJourneyOptionKinds.contains(.bedOrCouchettePreference))
+
+        model.timetable = IDOSTimetable(slug: "autobusy", displayName: "Buses")
+
+        XCTAssertFalse(model.supportedJourneyOptionKinds.contains(.bedOrCouchettePreference))
+        XCTAssertEqual(model.journeyOptions, [JourneyOptionEntry(id: option.id)])
+        model.from = "Praha"
+        model.to = "Brno"
+        await model.search()
+        let request = await client.lastConnectionRequest
+        XCTAssertNil(request?.bedOrCouchettePreference)
+
+        model.timetable = IDOSTimetable(slug: "vlakyautobusy", displayName: "Trains + Buses")
+
+        XCTAssertTrue(model.supportedJourneyOptionKinds.contains(.bedOrCouchettePreference))
     }
 
     func testJourneyOptionRowsCanBeAddedAndRemovedWithoutDroppingTheLastField() {
@@ -7215,6 +7249,34 @@ final class KastanAppTests: XCTestCase {
             czech.localizedString(forKey: "Prefer busy routes", value: nil, table: nil),
             "Preferovat frekventované trasy"
         )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Bed / Couchette", value: nil, table: nil),
+            "Lůžka/Lehátka"
+        )
+        XCTAssertEqual(
+            TransitBedOrCouchettePreference.noLimitation.localizedTitle(bundle: czech),
+            "(bez omezení)"
+        )
+        XCTAssertEqual(
+            TransitBedOrCouchettePreference.use.localizedTitle(bundle: czech),
+            "použít"
+        )
+        XCTAssertEqual(
+            TransitBedOrCouchettePreference.doNotUse.localizedTitle(bundle: czech),
+            "nepoužít"
+        )
+        XCTAssertEqual(
+            TransitBedOrCouchettePreference.noLimitation.localizedTitle(bundle: english),
+            "(no limitation)"
+        )
+        XCTAssertEqual(
+            TransitBedOrCouchettePreference.use.localizedTitle(bundle: english),
+            "use"
+        )
+        XCTAssertEqual(
+            TransitBedOrCouchettePreference.doNotUse.localizedTitle(bundle: english),
+            "don't use"
+        )
         XCTAssertEqual(czech.localizedString(forKey: "Yes", value: nil, table: nil), "Ano")
         XCTAssertEqual(czech.localizedString(forKey: "No", value: nil, table: nil), "Ne")
         XCTAssertEqual(
@@ -7223,7 +7285,7 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             JourneyOptionKind.allCases.filter { $0.group == .additionalParameters },
-            Array(JourneyOptionKind.allCases.suffix(7))
+            Array(JourneyOptionKind.allCases.suffix(8))
         )
         XCTAssertEqual(JourneyDurationChoice(minutes: -1).localizedTitle(bundle: czech), "Standardní")
         XCTAssertEqual(JourneyDurationChoice(minutes: 0).localizedTitle(bundle: czech), "0 minut")

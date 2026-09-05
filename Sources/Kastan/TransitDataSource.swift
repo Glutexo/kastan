@@ -145,6 +145,18 @@ public enum TransitConnectionOption: String, CaseIterable, Codable, Equatable, H
     case connectionsForPassengersWithBicycles
     /// Prefers routes served more frequently.
     case preferBusyRoutes
+    /// Selects whether journeys should use or avoid bed and couchette accommodation.
+    case bedOrCouchettePreference
+}
+
+/// Selects how a connection search should treat services offering beds or couchettes.
+public enum TransitBedOrCouchettePreference: Int, CaseIterable, Codable, Equatable, Hashable, Sendable {
+    /// Applies no accommodation restriction.
+    case noLimitation = 0
+    /// Requires the journey to use bed or couchette accommodation.
+    case use = 1
+    /// Requires the journey not to use bed or couchette accommodation.
+    case doNotUse = 2
 }
 
 /// Identifies one provider and advertises only the product operations that it can fulfill.
@@ -341,6 +353,11 @@ public protocol TransitPlaceSearching: TransitDataSourceDescribing {
 
 /// Searches connections and optionally extends a result through provider-owned continuation state.
 public protocol TransitConnectionSearching: TransitDataSourceDescribing {
+    /// Reports whether one advertised connection option is available for the selected timetable.
+    func supportsConnectionOption(
+        _ option: TransitConnectionOption,
+        for timetable: TransitTimetable
+    ) -> Bool
     func findConnections(request: TransitConnectionRequest) async throws -> [TransitConnection]
     func findConnectionsPage(request: TransitConnectionRequest) async throws -> TransitConnectionPage
     func findConnectionsPage(
@@ -593,6 +610,14 @@ public extension TransitPlaceSearching {
 }
 
 public extension TransitConnectionSearching {
+    /// Providers without timetable-specific restrictions inherit their descriptor's advertised support.
+    func supportsConnectionOption(
+        _ option: TransitConnectionOption,
+        for timetable: TransitTimetable
+    ) -> Bool {
+        descriptor.supports(option)
+    }
+
     func findConnections(request: TransitConnectionRequest) async throws -> [TransitConnection] {
         throw TransitDataSourceError.unsupported(.connections, source: descriptor)
     }

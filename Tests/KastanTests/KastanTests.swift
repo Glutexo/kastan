@@ -1931,6 +1931,28 @@ import Testing
     })
 }
 
+@Test func connectionRequestUsesIDOSBedOrCouchettePreference() {
+    for preference in TransitBedOrCouchettePreference.allCases {
+        let request = IDOSConnectionRequest(
+            from: "Praha",
+            to: "Brno",
+            bedOrCouchettePreference: preference
+        )
+
+        #expect(request.formItems.contains(URLQueryItem(
+            name: "AdvancedForm.UseBeds",
+            value: String(preference.rawValue)
+        )))
+        #expect(request.formItems.contains(URLQueryItem(
+            name: "AdvancedForm.AdvancedFormIsOpen",
+            value: "True"
+        )))
+    }
+
+    let normalRequest = IDOSConnectionRequest(from: "Praha", to: "Brno")
+    #expect(!normalRequest.formItems.contains { $0.name == "AdvancedForm.UseBeds" })
+}
+
 @Test func connectionRequestUsesIDOSViaParameters() throws {
     let selectedVia = try #require(IDOSPlaceSelection(suggestion: IDOSSuggestion(
         selectedText: "Pardubice hl.n.",

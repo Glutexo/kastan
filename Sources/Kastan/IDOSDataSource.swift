@@ -122,6 +122,30 @@ public struct TransitDeparturePage: Sendable {
     }
 }
 
+/// Identifies the catalogs whose live IDOS advanced form publishes the accommodation control.
+private let idosBedOrCouchetteTimetableIdentifiers: Set<String> = [
+    "vlakyautobusymhdvse",
+    "vlakyautobusymhd",
+    "vlaky",
+    "vlakyautobusy",
+]
+
+public extension IDOSClienting {
+    /// Mirrors the accommodation control that IDOS publishes only for its four train-containing general catalogs.
+    func supportsConnectionOption(
+        _ option: TransitConnectionOption,
+        for timetable: TransitTimetable
+    ) -> Bool {
+        guard descriptor.supports(option), timetable.dataSourceID == descriptor.id else {
+            return false
+        }
+        guard option == .bedOrCouchettePreference else {
+            return true
+        }
+        return idosBedOrCouchetteTimetableIdentifiers.contains(timetable.identifier.lowercased())
+    }
+}
+
 public struct IDOSDataSource: IDOSClienting {
     public static let descriptor = TransitDataSourceDescriptor.idos
     public static let serviceTimeZone = TimeZone(identifier: "Europe/Prague")!
@@ -2184,6 +2208,8 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
     public var connectionsForPassengersWithBicycles: Bool?
     /// Whether routes served more frequently are preferred.
     public var preferBusyRoutes: Bool?
+    /// Whether results should use, avoid, or place no restriction on bed and couchette accommodation.
+    public var bedOrCouchettePreference: TransitBedOrCouchettePreference?
     public var resultLimit: Int?
 
     public init(
@@ -2214,6 +2240,7 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
         trainConnectionsForPassengersWithChildren: Bool? = nil,
         connectionsForPassengersWithBicycles: Bool? = nil,
         preferBusyRoutes: Bool? = nil,
+        bedOrCouchettePreference: TransitBedOrCouchettePreference? = nil,
         resultLimit: Int? = nil
     ) {
         self.timetable = timetable
@@ -2243,6 +2270,7 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
         self.trainConnectionsForPassengersWithChildren = trainConnectionsForPassengersWithChildren
         self.connectionsForPassengersWithBicycles = connectionsForPassengersWithBicycles
         self.preferBusyRoutes = preferBusyRoutes
+        self.bedOrCouchettePreference = bedOrCouchettePreference
         self.resultLimit = resultLimit
     }
 
@@ -2365,6 +2393,13 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
                 ))
             }
 
+            if let bedOrCouchettePreference {
+                items.append(URLQueryItem(
+                    name: "AdvancedForm.UseBeds",
+                    value: String(bedOrCouchettePreference.rawValue)
+                ))
+            }
+
             for transportTypeID in Self.defaultTransportTypeIDs {
                 let value = String(transportTypeID)
                 items.append(URLQueryItem(name: "trTypeId[\(value)]", value: value))
@@ -2384,7 +2419,8 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
             lowFloorConnectionsOnly != nil || preferTrainsOverBuses != nil ||
             trainConnectionsForWheelchairPassengers != nil ||
             trainConnectionsForPassengersWithChildren != nil ||
-            connectionsForPassengersWithBicycles != nil || preferBusyRoutes != nil
+            connectionsForPassengersWithBicycles != nil || preferBusyRoutes != nil ||
+            bedOrCouchettePreference != nil
     }
 }
 

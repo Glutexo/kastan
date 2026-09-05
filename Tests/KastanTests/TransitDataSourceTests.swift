@@ -87,12 +87,41 @@ func expectTransitDataSourceContract(
         .trainConnectionsForPassengersWithChildren,
         .connectionsForPassengersWithBicycles,
         .preferBusyRoutes,
+        .bedOrCouchettePreference,
     ])
     #expect(TransitConnectionOption.allCases.allSatisfy(TransitDataSourceDescriptor.idos.supports))
     #expect(custom.supports(.connections))
     #expect(custom.connectionOptions.isEmpty)
     #expect(legacy.supports(.connections))
     #expect(legacy.connectionOptions.isEmpty)
+}
+
+/// Mirrors the timetable-specific visibility of IDOS's bed and couchette control.
+@Test func bedOrCouchetteOptionIsLimitedToCompatibleIDOSTimetables() {
+    let source: any TransitDataSource = IDOSDataSource()
+    let supportedIdentifiers = Set(
+        source.timetables
+            .filter { source.supportsConnectionOption(.bedOrCouchettePreference, for: $0) }
+            .map(\.identifier)
+    )
+
+    #expect(supportedIdentifiers == [
+        "vlakyautobusymhdvse",
+        "vlakyautobusymhd",
+        "vlaky",
+        "vlakyautobusy",
+    ])
+    #expect(source.timetables.allSatisfy {
+        source.supportsConnectionOption(.via, for: $0)
+    })
+    #expect(!source.supportsConnectionOption(
+        .bedOrCouchettePreference,
+        for: TransitTimetable(dataSourceID: "other", identifier: "vlaky", displayName: "Trains")
+    ))
+
+    let regional: any TransitDataSource = RegionalTransitDataSource()
+    #expect(regional.supportsConnectionOption(.via, for: RegionalTransitDataSource.metro))
+    #expect(!regional.supportsConnectionOption(.maximumTransfers, for: RegionalTransitDataSource.metro))
 }
 
 /// Preserves stored descriptors from before connection-option discovery while round-tripping explicit support.

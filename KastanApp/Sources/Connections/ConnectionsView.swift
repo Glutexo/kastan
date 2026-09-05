@@ -230,10 +230,15 @@ enum JourneyOptionRowLayout {
                 JourneyDurationChoice.maximumTransferTimes +
                 JourneyDurationChoice.maximumWalkingTimes
         ).map { $0.localizedTitle() }
+        let bedOrCouchetteTitles = TransitBedOrCouchettePreference.allCases.map {
+            $0.localizedTitle()
+        }
 
         return max(
             minimumFlexibleValueWidth,
-            StableWidthPopUpButton.catalogWidth(for: booleanTitles + durationTitles)
+            StableWidthPopUpButton.catalogWidth(
+                for: booleanTitles + durationTitles + bedOrCouchetteTitles
+            )
         )
     }
 }
@@ -740,7 +745,29 @@ struct ConnectionsView: View {
                 selection: option.preferBusyRoutes,
                 label: option.wrappedValue.kind.localizedTitle
             )
+        case .bedOrCouchettePreference:
+            bedOrCouchettePreferencePicker(
+                selection: option.bedOrCouchettePreference,
+                label: option.wrappedValue.kind.localizedTitle
+            )
         }
+    }
+
+    /// Presents every accommodation restriction accepted by IDOS for compatible train timetables.
+    private func bedOrCouchettePreferencePicker(
+        selection: Binding<TransitBedOrCouchettePreference>,
+        label: String
+    ) -> some View {
+        Picker(selection: selection) {
+            ForEach(TransitBedOrCouchettePreference.allCases, id: \.self) { preference in
+                Text(verbatim: preference.localizedTitle()).tag(preference)
+            }
+        } label: {
+            Text(verbatim: label)
+        }
+        .labelsHidden()
+        .fixedSize()
+        .accessibilityLabel(Text(verbatim: label))
     }
 
     /// Mirrors IDOS's unchecked defaults while keeping either Boolean outcome directly editable.

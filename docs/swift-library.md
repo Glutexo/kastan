@@ -163,11 +163,14 @@ presenting a capability.
 Connection-search controls use a second, fine-grained contract. A descriptor lists its supported
 `TransitConnectionOption` values in `connectionOptions`, covering Direct connections only, Via, transfer-count and
 transfer-time limits, walking limits, the two walking-transfer policies, wheelchair-accessible and low-floor-only
-results, train preference, the three passenger-needs filters, and busy-route preference independently. Advertising
+results, train preference, the three passenger-needs filters, busy-route preference, and bed/couchette preference
+independently. Advertising
 `TransitDataSourceCapability.connections` does not imply support for any of these request options. Interfaces should
-therefore check `descriptor.supports(_:)` for the individual option before presenting its control or accepting its
-value. IDOS declares the complete set; descriptors created without `connectionOptions`, including descriptors decoded
-from older stored JSON, conservatively declare none.
+therefore call `supportsConnectionOption(_:for:)` before presenting a control or accepting its value for a selected
+timetable. Its default implementation uses the descriptor's advertised support. IDOS declares the complete set at
+provider level but narrows Bed / Couchette to All timetables, Trains + Buses + Urban Public Transport, Trains, and
+Trains + Buses. Descriptors created without `connectionOptions`, including descriptors decoded from older stored JSON,
+conservatively declare none.
 
 `stationTimetableDepartureResolution` is a separate capability from `stationTimetables` and `departures`. It means
 that a consumer may pass a `TransitStationTimetableDepartureResolutionRequest` to
@@ -210,7 +213,7 @@ The main provider-neutral model types are:
 - Requests and timetables: `TransitConnectionRequest`, `TransitDeparturesRequest`,
   `TransitStationTimetableRequest`, `TransitStationTimetableMunicipality`, `TransitPlaceSelection`,
   `TransitStationTimetableDepartureResolutionRequest`, `TransitDate`, `TransitTime`, `TransitTimetable`,
-  `TransitTimetableValidity`, `TransitLanguage`, and `TransitPageDirection`.
+  `TransitTimetableValidity`, `TransitBedOrCouchettePreference`, `TransitLanguage`, and `TransitPageDirection`.
 - Results: `TransitSuggestion`, `TransitConnection`, `TransitConnectionEmailDraft`, `TransitConnectionLeg`,
   `TransitDeparture`, `TransitServiceDetail`, `TransitServiceInformation`, `TransitServiceStop`,
   `TransitStationTimetable`, `TransitStationTimetableStop`, `TransitStationTimetableSchedule`,
@@ -298,9 +301,24 @@ start or end at a stop reached on foot, and `sameNameWalkingTransfersOnly` restr
 the same name. `wheelchairAccessibleConnectionsOnly` and `lowFloorConnectionsOnly` restrict result accessibility;
 `preferTrainsOverBuses` and `preferBusyRoutes` select the corresponding routing strategies.
 `trainConnectionsForWheelchairPassengers` and `trainConnectionsForPassengersWithChildren` apply the two train-only
-passenger filters, while `connectionsForPassengersWithBicycles` applies to trains and buses. Leave any optional value
-as `nil` to retain the corresponding IDOS default; an explicit `false` is still sent when the caller needs to preserve
-an active Boolean condition.
+passenger filters, while `connectionsForPassengersWithBicycles` applies to trains and buses.
+`bedOrCouchettePreference` accepts `.noLimitation`, `.use`, or `.doNotUse` and is available only when
+`supportsConnectionOption(.bedOrCouchettePreference, for: timetable)` returns `true`. Leave any optional value as `nil`
+to retain the corresponding IDOS default; an explicit `false` or `.noLimitation` is still sent when the caller needs
+to preserve an active condition.
+
+```swift
+let trainTimetable = try dataSource.resolveTimetable("vlaky")
+if dataSource.supportsConnectionOption(.bedOrCouchettePreference, for: trainTimetable) {
+    let sleeperRequest = TransitConnectionRequest(
+        timetable: trainTimetable,
+        from: "Praha",
+        to: "Košice",
+        bedOrCouchettePreference: .use
+    )
+    let sleeperConnections = try await dataSource.findConnections(request: sleeperRequest)
+}
+```
 
 For a connection endpoint obtained from a device's WGS-84 coordinates, first check the source's
 `coordinatePlaceSelection` capability. Then call
