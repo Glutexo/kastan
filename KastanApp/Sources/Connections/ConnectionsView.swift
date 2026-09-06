@@ -1242,6 +1242,7 @@ struct TruncatingJourneyValuePicker<Value: Hashable & Sendable>: NSViewRepresent
         let button = StableWidthPopUpButton(frame: .zero, pullsDown: false)
         button.controlSize = .regular
         button.usesSizingTitlesAsIntrinsicWidth = true
+        button.minimumIntrinsicWidth = JourneyOptionRowLayout.minimumFlexibleValueWidth
         button.setContentHuggingPriority(.required, for: .horizontal)
         button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         button.cell?.lineBreakMode = .byTruncatingTail
@@ -1442,6 +1443,14 @@ final class StableWidthPopUpButton: NSPopUpButton {
         }
     }
 
+    /// Makes a compact popup's readable footprint part of its bezel instead of invisible surrounding space.
+    var minimumIntrinsicWidth: CGFloat = 0 {
+        didSet {
+            guard minimumIntrinsicWidth != oldValue else { return }
+            invalidateIntrinsicContentSize()
+        }
+    }
+
     var sizingTitles: [String] = [] {
         didSet {
             guard sizingTitles != oldValue else { return }
@@ -1452,7 +1461,10 @@ final class StableWidthPopUpButton: NSPopUpButton {
     override var intrinsicContentSize: NSSize {
         let nativeSize = super.intrinsicContentSize
         guard !sizingTitles.isEmpty else {
-            return nativeSize
+            return NSSize(
+                width: max(minimumIntrinsicWidth, nativeSize.width),
+                height: nativeSize.height
+            )
         }
 
         let sizingWidth = Self.catalogWidth(
@@ -1461,8 +1473,11 @@ final class StableWidthPopUpButton: NSPopUpButton {
             bezelStyle: bezelStyle,
             font: font
         )
+        let preferredWidth = usesSizingTitlesAsIntrinsicWidth
+            ? sizingWidth
+            : max(nativeSize.width, sizingWidth)
         return NSSize(
-            width: usesSizingTitlesAsIntrinsicWidth ? sizingWidth : max(nativeSize.width, sizingWidth),
+            width: max(minimumIntrinsicWidth, preferredWidth),
             height: nativeSize.height
         )
     }

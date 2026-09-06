@@ -2816,13 +2816,17 @@ final class KastanAppTests: XCTestCase {
             for: [longestMenuTitle, selectedTitle]
         )
 
-        XCTAssertEqual(popup.intrinsicContentSize.width, selectedWidth, accuracy: 0.5)
+        XCTAssertEqual(
+            popup.intrinsicContentSize.width,
+            max(selectedWidth, JourneyOptionRowLayout.minimumFlexibleValueWidth),
+            accuracy: 0.5
+        )
         XCTAssertLessThan(popup.intrinsicContentSize.width, completeCatalogWidth)
         XCTAssertEqual(popup.itemTitles, [longestMenuTitle, selectedTitle])
         XCTAssertEqual(popup.titleOfSelectedItem, selectedTitle)
     }
 
-    func testSelectedWalkingHourRetainsReadableControlsAtTheMinimumWindowWidth() throws {
+    func testShortWalkingSubchoiceRendersTheIntendedFieldSpacingAtTheMinimumWindowWidth() throws {
         let conditionWidth = StableWidthPopUpButton.catalogWidth(
             for: JourneyOptionKind.localizedCatalogTitles
         )
@@ -2830,8 +2834,8 @@ final class KastanAppTests: XCTestCase {
             (2 * JourneyOptionRowLayout.actionButtonWidth) -
             JourneyOptionRowLayout.fieldSpacing -
             (3 * JourneyOptionRowLayout.actionSpacing)
-        let subchoiceTitle = "Nejdelší"
-        let durationTitle = "1 hodina"
+        let subchoiceTitle = "Pěší"
+        let durationTitle = "i na začátku/konci"
         let editor = HStack(spacing: JourneyOptionRowLayout.fieldSpacing) {
             TruncatingJourneyValuePicker(
                 selection: .constant(0),
@@ -2846,7 +2850,7 @@ final class KastanAppTests: XCTestCase {
             TruncatingJourneyValuePicker(
                 selection: .constant(60),
                 choices: [
-                    (0, "0 minut"),
+                    (0, "jen při přestupu"),
                     (60, durationTitle),
                 ],
                 accessibilityLabel: subchoiceTitle
@@ -2872,6 +2876,8 @@ final class KastanAppTests: XCTestCase {
         let popups = hostingView.allDescendantViews.compactMap { $0 as? NSPopUpButton }
         let subchoicePopup = try XCTUnwrap(popups.first { $0.toolTip == subchoiceTitle })
         let durationPopup = try XCTUnwrap(popups.first { $0.toolTip == durationTitle })
+        let subchoiceFrame = hostingView.convert(subchoicePopup.bounds, from: subchoicePopup)
+        let durationFrame = hostingView.convert(durationPopup.bounds, from: durationPopup)
 
         XCTAssertGreaterThanOrEqual(
             subchoicePopup.frame.width,
@@ -2880,6 +2886,11 @@ final class KastanAppTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(
             durationPopup.frame.width,
             JourneyOptionRowLayout.minimumFlexibleValueWidth - 0.5
+        )
+        XCTAssertEqual(
+            durationFrame.minX - subchoiceFrame.maxX,
+            JourneyOptionRowLayout.fieldSpacing,
+            accuracy: 0.5
         )
         XCTAssertEqual(subchoicePopup.titleOfSelectedItem, subchoiceTitle)
         XCTAssertEqual(durationPopup.titleOfSelectedItem, durationTitle)
