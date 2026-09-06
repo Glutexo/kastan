@@ -2581,11 +2581,14 @@ final class KastanAppTests: XCTestCase {
     func testMainWindowDefaultsToNarrowestUsableLocalizedSearchWorkspaceWidth() {
         let layout = DetailLayout(availableWidth: KastanApp.minimumMainWindowWidth)
 
-        XCTAssertGreaterThanOrEqual(
+        XCTAssertEqual(
             KastanApp.minimumMainWindowWidth,
-            KastanApp.baselineMainWindowWidth
+            DetailLayout.minimumAvailableWidth(
+                fittingContentWidth: JourneySearchHeaderLayout.minimumContentWidth
+            )
         )
         XCTAssertEqual(KastanApp.defaultMainWindowWidth, KastanApp.minimumMainWindowWidth)
+        XCTAssertEqual(layout.contentWidth, JourneySearchHeaderLayout.minimumContentWidth)
         XCTAssertGreaterThanOrEqual(
             layout.contentWidth,
             JourneyOptionRowLayout.minimumContentWidth
@@ -2593,6 +2596,12 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: true), 0)
         XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: false), 8)
         XCTAssertEqual(SearchTimetablePicker.pickerWidth, 236)
+        XCTAssertEqual(SearchTimetablePicker.favoriteButtonWidth, 24)
+        XCTAssertEqual(
+            JourneySearchHeaderLayout.minimumContentWidth,
+            SearchTimetablePicker.contentWidth(usesCompactLayout: true) +
+                JourneySearchHeaderLayout.compactSpacing + SearchDatePickerLayout.buttonWidth
+        )
         let endpointFieldWidth = ConnectionEndpointLayout.fieldWidth(contentWidth: layout.contentWidth)
         XCTAssertEqual(
             (2 * endpointFieldWidth) + ConnectionEndpointLayout.swapButtonWidth +
@@ -2602,22 +2611,10 @@ final class KastanAppTests: XCTestCase {
     }
 
     func testTransportModeRowCompressesOnlyItsFinalPicker() throws {
-        let conditionWidth = StableWidthPopUpButton.catalogWidth(
-            for: JourneyOptionKind.localizedCatalogTitles
-        )
-        let operationWidth = StableWidthPopUpButton.catalogWidth(
-            for: TransitConnectionTransportModeFilterOperation.localizedCatalogTitles
-        )
         let fullTransportWidth = StableWidthPopUpButton.catalogWidth(
             for: TransitConnectionTransportMode.localizedCatalogTitles
         )
-        let shortenedTransportWidth = max(
-            JourneyOptionRowLayout.minimumFlexibleValueWidth,
-            fullTransportWidth - 40
-        )
-        let contentWidth = conditionWidth + operationWidth + shortenedTransportWidth +
-            (2 * JourneyOptionRowLayout.actionButtonWidth) +
-            (4 * JourneyOptionRowLayout.spacing)
+        let contentWidth = JourneySearchHeaderLayout.minimumContentWidth
         let row = HStack(spacing: JourneyOptionRowLayout.spacing) {
             JourneyOptionKindPicker(
                 selection: .constant(.transportMode),
@@ -2699,6 +2696,7 @@ final class KastanAppTests: XCTestCase {
             XCTAssertLessThanOrEqual(frame.maxX, contentWidth + 1)
         }
         XCTAssertLessThan(transportPopup.frame.width, transportPopup.intrinsicContentSize.width)
+        XCTAssertLessThan(transportPopup.frame.width, fullTransportWidth)
         XCTAssertGreaterThanOrEqual(
             transportPopup.frame.width,
             JourneyOptionRowLayout.minimumFlexibleValueWidth
@@ -2725,6 +2723,56 @@ final class KastanAppTests: XCTestCase {
         let addAction = try XCTUnwrap(actionProbes.last)
         let addActionFrame = hostingView.convert(addAction.bounds, from: addAction)
         XCTAssertEqual(addActionFrame.maxX, contentWidth, accuracy: 0.5)
+    }
+
+    func testJourneyValuePickerTruncatesItsTitleWithoutLosingItsValue() throws {
+        var selection = true
+        let selectedTitle = "A deliberately long selected journey option"
+        let picker = TruncatingJourneyValuePicker(
+            selection: Binding(
+                get: { selection },
+                set: { selection = $0 }
+            ),
+            choices: [(true, selectedTitle), (false, "Short")],
+            accessibilityLabel: "Journey value"
+        )
+        .frame(width: JourneyOptionRowLayout.minimumFlexibleValueWidth, height: 28)
+        let hostingView = NSHostingView(rootView: picker)
+        hostingView.frame = NSRect(
+            x: 0,
+            y: 0,
+            width: JourneyOptionRowLayout.minimumFlexibleValueWidth,
+            height: 28
+        )
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        let popup = try XCTUnwrap(
+            hostingView.allDescendantViews.compactMap { $0 as? NSPopUpButton }.first
+        )
+
+        XCTAssertEqual(
+            popup.frame.width,
+            JourneyOptionRowLayout.minimumFlexibleValueWidth,
+            accuracy: 0.5
+        )
+        XCTAssertLessThan(popup.frame.width, popup.intrinsicContentSize.width)
+        XCTAssertEqual(popup.cell?.lineBreakMode, .byTruncatingTail)
+        XCTAssertEqual(popup.toolTip, selectedTitle)
+        XCTAssertEqual(popup.accessibilityValue() as? String, selectedTitle)
+
+        popup.selectItem(at: 1)
+        popup.sendAction(popup.action, to: popup.target)
+
+        XCTAssertFalse(selection)
     }
 
     func testCompactConnectionFormKeepsNativeControlsInsideWindow() {
@@ -2947,7 +2995,11 @@ final class KastanAppTests: XCTestCase {
 
         hostingView.layoutSubtreeIfNeeded()
 
-        XCTAssertLessThanOrEqual(hostingView.fittingSize.width, layout.contentWidth)
+        XCTAssertEqual(
+            hostingView.fittingSize.width,
+            layout.contentWidth,
+            accuracy: 0.5
+        )
     }
 
     func testTimetablePickerAppearsAbovePrimaryInputInEverySearchMode() throws {

@@ -1366,7 +1366,7 @@ struct StationTimetableSearchHeader: View {
     var body: some View {
         HStack(alignment: .bottom, spacing: 0) {
             timetablePicker
-            Spacer(minLength: usesCompactLayout ? 8 : 12)
+            Spacer(minLength: JourneySearchHeaderLayout.spacing(usesCompactLayout: usesCompactLayout))
             datePicker
         }
         .frame(maxWidth: .infinity, alignment: .leading)

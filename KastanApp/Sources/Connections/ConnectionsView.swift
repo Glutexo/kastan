@@ -191,18 +191,20 @@ enum ConnectionEndpointLayout {
     }
 }
 
-/// Keeps every condition and fixed value readable while letting the final transport picker truncate when needed.
+/// Keeps every condition and fixed action readable while allowing secondary popup values to truncate when needed.
 @MainActor
 enum JourneyOptionRowLayout {
     static let spacing: CGFloat = 8
     static let actionIconWidth: CGFloat = 12
     static let actionButtonWidth: CGFloat = 36
-    static let minimumFlexibleValueWidth: CGFloat = 160
+    static let minimumFlexibleValueWidth: CGFloat = 58
+    static let maximumTransfersFieldWidth: CGFloat = 32
+    static let viaFieldMinimumWidth: CGFloat = 160
     private static let fixedItemSpacingCount: CGFloat = 4
 
     static var minimumContentWidth: CGFloat {
         ceil(
-            conditionCatalogWidth + maximumRequiredValueWidth +
+            conditionCatalogWidth + minimumRequiredValueWidth +
                 (2 * actionButtonWidth) +
                 (fixedItemSpacingCount * spacing)
         )
@@ -214,60 +216,19 @@ enum JourneyOptionRowLayout {
         )
     }
 
-    private static var transferConstraintCatalogWidth: CGFloat {
-        StableWidthPopUpButton.catalogWidth(
-            for: JourneyTransferConstraint.localizedCatalogTitles
-        )
-    }
-
-    private static var walkingConstraintCatalogWidth: CGFloat {
-        StableWidthPopUpButton.catalogWidth(
-            for: JourneyWalkingConstraint.localizedCatalogTitles
-        )
-    }
-
-    /// Reserves usable popup chrome while allowing its longest selected title to yield horizontal space.
+    /// Reserves usable popup chrome while allowing its selected title to yield horizontal space.
     private static var minimumTransportModeValueWidth: CGFloat {
         StableWidthPopUpButton.catalogWidth(
             for: TransitConnectionTransportModeFilterOperation.localizedCatalogTitles
         ) + spacing + minimumFlexibleValueWidth
     }
 
-    private static var maximumRequiredValueWidth: CGFloat {
-        let booleanTitles = [
-            AppLocalization.string("Also at the beginning/end of journey"),
-            AppLocalization.string("Only during transfers"),
-            AppLocalization.string("Between any stops"),
-            AppLocalization.string("Only stops of the same name"),
-            AppLocalization.string("Yes"),
-            AppLocalization.string("No"),
-        ]
-        let transferDurationTitles = (
-            JourneyDurationChoice.minimumTransferTimes + JourneyDurationChoice.maximumTransferTimes
-        ).map { $0.localizedTitle() }
-        let walkingDurationTitles = JourneyDurationChoice.maximumWalkingTimes.map {
-            $0.localizedTitle()
-        }
-        let standaloneValueWidth = max(
-            minimumFlexibleValueWidth,
-            StableWidthPopUpButton.catalogWidth(
-                for: JourneyConnectionRequirement.localizedCatalogTitles +
-                    JourneyPreference.localizedCatalogTitles
-            )
-        )
-        let transferValueWidth = StableWidthPopUpButton.catalogWidth(for: transferDurationTitles)
-        let walkingDurationValueWidth = StableWidthPopUpButton.catalogWidth(for: walkingDurationTitles)
-        let booleanValueWidth = StableWidthPopUpButton.catalogWidth(for: booleanTitles)
+    /// Covers a text field or two compact popup values after the stable condition selector.
+    private static var minimumRequiredValueWidth: CGFloat {
+        let nestedPopupWidth = (2 * minimumFlexibleValueWidth) + spacing
         return max(
-            standaloneValueWidth,
-            max(
-                minimumTransportModeValueWidth,
-                max(
-                    transferConstraintCatalogWidth + spacing + transferValueWidth,
-                    walkingConstraintCatalogWidth + spacing +
-                        max(walkingDurationValueWidth, booleanValueWidth)
-                )
-            )
+            viaFieldMinimumWidth,
+            max(minimumTransportModeValueWidth, nestedPopupWidth)
         )
     }
 }
@@ -681,7 +642,7 @@ struct ConnectionsView: View {
                 scope: .places,
                 client: client
             )
-                .frame(minWidth: 160, maxWidth: 520)
+                .frame(minWidth: JourneyOptionRowLayout.viaFieldMinimumWidth, maxWidth: 520)
                 .layoutPriority(1)
         case .transportMode:
             HStack(spacing: JourneyOptionRowLayout.spacing) {
@@ -703,7 +664,7 @@ struct ConnectionsView: View {
                 )
                 transferConstraintValue(option: option)
             }
-            .fixedSize(horizontal: true, vertical: false)
+            .fixedSize(horizontal: false, vertical: true)
         case .walkingDistances:
             HStack(spacing: JourneyOptionRowLayout.spacing) {
                 walkingConstraintPicker(
@@ -713,7 +674,7 @@ struct ConnectionsView: View {
                 )
                 walkingConstraintValue(option: option)
             }
-            .fixedSize(horizontal: true, vertical: false)
+            .fixedSize(horizontal: false, vertical: true)
         case .onlyConnections:
             connectionRequirementPicker(
                 selection: connectionRequirementBinding(for: option),
@@ -789,7 +750,7 @@ struct ConnectionsView: View {
                 )
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.leading)
-                .frame(width: 40)
+                .frame(width: JourneyOptionRowLayout.maximumTransfersFieldWidth)
             }
             .fixedSize()
             .accessibilityLabel("Maximum number of transfers")
@@ -814,16 +775,12 @@ struct ConnectionsView: View {
         choices: [JourneyTransferConstraint],
         label: String
     ) -> some View {
-        Picker(selection: selection) {
-            ForEach(choices) { constraint in
-                Text(verbatim: constraint.localizedTitle).tag(constraint)
-            }
-        } label: {
-            Text(verbatim: label)
-        }
-        .labelsHidden()
-        .fixedSize()
-        .accessibilityLabel(Text(verbatim: label))
+        TruncatingJourneyValuePicker(
+            selection: selection,
+            choices: choices.map { ($0, $0.localizedTitle) },
+            accessibilityLabel: label
+        )
+        .frame(minWidth: JourneyOptionRowLayout.minimumFlexibleValueWidth)
     }
 
     /// Routes subchoice changes through the model so two rows cannot select the same transfer limit.
@@ -881,16 +838,12 @@ struct ConnectionsView: View {
         choices: [JourneyWalkingConstraint],
         label: String
     ) -> some View {
-        Picker(selection: selection) {
-            ForEach(choices) { constraint in
-                Text(verbatim: constraint.localizedTitle).tag(constraint)
-            }
-        } label: {
-            Text(verbatim: label)
-        }
-        .labelsHidden()
-        .fixedSize()
-        .accessibilityLabel(Text(verbatim: label))
+        TruncatingJourneyValuePicker(
+            selection: selection,
+            choices: choices.map { ($0, $0.localizedTitle) },
+            accessibilityLabel: label
+        )
+        .frame(minWidth: JourneyOptionRowLayout.minimumFlexibleValueWidth)
     }
 
     /// Routes popup changes through the model so two rows cannot select the same walking subchoice.
@@ -913,16 +866,13 @@ struct ConnectionsView: View {
         choices: [JourneyConnectionRequirement],
         label: String
     ) -> some View {
-        Picker(selection: selection) {
-            ForEach(choices) { requirement in
-                Text(verbatim: requirement.localizedTitle).tag(requirement)
-            }
-        } label: {
-            Text(verbatim: label)
-        }
-        .labelsHidden()
-        .fixedSize()
-        .accessibilityLabel(Text(verbatim: label))
+        TruncatingJourneyValuePicker(
+            selection: selection,
+            choices: choices.map { ($0, $0.localizedTitle) },
+            accessibilityLabel: label
+        )
+        .frame(minWidth: JourneyOptionRowLayout.minimumFlexibleValueWidth)
+        .layoutPriority(-1)
     }
 
     /// Routes popup changes through the model so two rows cannot select the same requirement.
@@ -945,16 +895,13 @@ struct ConnectionsView: View {
         choices: [JourneyPreference],
         label: String
     ) -> some View {
-        Picker(selection: selection) {
-            ForEach(choices) { preference in
-                Text(verbatim: preference.localizedTitle).tag(preference)
-            }
-        } label: {
-            Text(verbatim: label)
-        }
-        .labelsHidden()
-        .fixedSize()
-        .accessibilityLabel(Text(verbatim: label))
+        TruncatingJourneyValuePicker(
+            selection: selection,
+            choices: choices.map { ($0, $0.localizedTitle) },
+            accessibilityLabel: label
+        )
+        .frame(minWidth: JourneyOptionRowLayout.minimumFlexibleValueWidth)
+        .layoutPriority(-1)
     }
 
     /// Routes popup changes through the model so two rows cannot select the same preference.
@@ -976,16 +923,13 @@ struct ConnectionsView: View {
         choices: [JourneyDurationChoice],
         label: String
     ) -> some View {
-        Picker(selection: selection) {
-            ForEach(choices) { choice in
-                Text(verbatim: choice.localizedTitle()).tag(choice.minutes)
-            }
-        } label: {
-            Text(verbatim: label)
-        }
-        .labelsHidden()
-        .fixedSize()
-        .accessibilityLabel(Text(verbatim: label))
+        TruncatingJourneyValuePicker(
+            selection: selection,
+            choices: choices.map { ($0.minutes, $0.localizedTitle()) },
+            accessibilityLabel: label
+        )
+        .frame(minWidth: JourneyOptionRowLayout.minimumFlexibleValueWidth)
+        .layoutPriority(-1)
     }
 
     /// Makes both outcomes of an IDOS Boolean condition explicit in the compact value popup.
@@ -996,20 +940,16 @@ struct ConnectionsView: View {
         enabledFirst: Bool,
         label: String
     ) -> some View {
-        Picker(selection: selection) {
-            if enabledFirst {
-                Text(verbatim: enabledTitle).tag(true)
-                Text(verbatim: disabledTitle).tag(false)
-            } else {
-                Text(verbatim: disabledTitle).tag(false)
-                Text(verbatim: enabledTitle).tag(true)
-            }
-        } label: {
-            Text(verbatim: label)
-        }
-        .labelsHidden()
-        .fixedSize()
-        .accessibilityLabel(Text(verbatim: label))
+        let choices = enabledFirst
+            ? [(true, enabledTitle), (false, disabledTitle)]
+            : [(false, disabledTitle), (true, enabledTitle)]
+        return TruncatingJourneyValuePicker(
+            selection: selection,
+            choices: choices,
+            accessibilityLabel: label
+        )
+        .frame(minWidth: JourneyOptionRowLayout.minimumFlexibleValueWidth)
+        .layoutPriority(-1)
     }
 
     /// Preserves the former stepper's accepted range while presenting the requested number field.
@@ -1263,6 +1203,95 @@ struct JourneyOptionKindPicker: NSViewRepresentable {
             else { return }
 
             selection.wrappedValue = kind
+        }
+    }
+}
+
+/// Presents a complete value catalog while allowing the selected title to contract at the window minimum.
+struct TruncatingJourneyValuePicker<Value: Hashable & Sendable>: NSViewRepresentable {
+    struct Choice: Equatable {
+        let value: Value
+        let title: String
+    }
+
+    @Binding private var selection: Value
+    private let choices: [Choice]
+    private let accessibilityLabel: String
+
+    init(
+        selection: Binding<Value>,
+        choices: [(Value, String)],
+        accessibilityLabel: String
+    ) {
+        _selection = selection
+        self.choices = choices.map { Choice(value: $0.0, title: $0.1) }
+        self.accessibilityLabel = accessibilityLabel
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(selection: $selection, choices: choices)
+    }
+
+    func makeNSView(context: Context) -> StableWidthPopUpButton {
+        let button = StableWidthPopUpButton(frame: .zero, pullsDown: false)
+        button.controlSize = .regular
+        button.setContentHuggingPriority(.required, for: .horizontal)
+        button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        button.cell?.lineBreakMode = .byTruncatingTail
+        button.cell?.truncatesLastVisibleLine = true
+        button.target = context.coordinator
+        button.action = #selector(Coordinator.selectValue(_:))
+        return button
+    }
+
+    func updateNSView(_ button: StableWidthPopUpButton, context: Context) {
+        context.coordinator.selection = $selection
+        context.coordinator.choices = choices
+
+        let titles = choices.map(\.title)
+        button.sizingTitles = titles
+        if button.itemTitles != titles {
+            button.removeAllItems()
+            button.addItems(withTitles: titles)
+        }
+
+        if let selectedIndex = choices.firstIndex(where: { $0.value == selection }) {
+            button.selectItem(at: selectedIndex)
+        }
+        let selectedTitle = choices.first(where: { $0.value == selection })?.title
+        button.setAccessibilityLabel(accessibilityLabel)
+        button.setAccessibilityValue(selectedTitle)
+        button.toolTip = selectedTitle
+        button.invalidateIntrinsicContentSize()
+    }
+
+    func sizeThatFits(
+        _ proposal: ProposedViewSize,
+        nsView button: StableWidthPopUpButton,
+        context: Context
+    ) -> CGSize? {
+        let intrinsicSize = button.intrinsicContentSize
+        return CGSize(
+            width: min(proposal.width ?? intrinsicSize.width, intrinsicSize.width),
+            height: intrinsicSize.height
+        )
+    }
+
+    /// Maps the selected menu index back to its strongly typed product value.
+    @MainActor
+    final class Coordinator: NSObject {
+        var selection: Binding<Value>
+        var choices: [Choice]
+
+        init(selection: Binding<Value>, choices: [Choice]) {
+            self.selection = selection
+            self.choices = choices
+        }
+
+        @objc func selectValue(_ sender: NSPopUpButton) {
+            let index = sender.indexOfSelectedItem
+            guard choices.indices.contains(index) else { return }
+            selection.wrappedValue = choices[index].value
         }
     }
 }

@@ -937,10 +937,11 @@ struct AppSectionCommands: Commands {
 /// Launches the native Kaštan experience while sharing all IDOS behavior with the CLI and MCP server.
 @main
 struct KastanApp: App {
-    /// Preserves the search baseline while keeping every journey-option control usable at the localized minimum.
-    static let baselineMainWindowWidth: CGFloat = 522
+    /// Keeps the shared timetable and date columns directly adjacent while retaining usable journey options.
     static let minimumMainWindowWidth = max(
-        baselineMainWindowWidth,
+        DetailLayout.minimumAvailableWidth(
+            fittingContentWidth: JourneySearchHeaderLayout.minimumContentWidth
+        ),
         DetailLayout.minimumAvailableWidth(
             fittingContentWidth: JourneyOptionRowLayout.minimumContentWidth
         )

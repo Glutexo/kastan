@@ -44,10 +44,17 @@ struct SearchTimetablePicker: View {
     static let controlWidth: CGFloat = 229
     /// Reserves the SwiftUI picker host width required for the shared native control width.
     static let pickerWidth: CGFloat = 236
+    /// Keeps the favorite action compact while preserving its complete pointer target.
+    static let favoriteButtonWidth: CGFloat = 24
 
     /// Keeps compact click targets adjacent while giving the wide search layout standard separation.
     static func favoriteSpacing(usesCompactLayout: Bool) -> CGFloat {
         usesCompactLayout ? 0 : 8
+    }
+
+    /// Reports the complete fixed width occupied by the picker and its favorite action.
+    static func contentWidth(usesCompactLayout: Bool) -> CGFloat {
+        pickerWidth + favoriteSpacing(usesCompactLayout: usesCompactLayout) + favoriteButtonWidth
     }
 
     @Environment(\.openWindow) private var openWindow
@@ -87,7 +94,11 @@ struct SearchTimetablePicker: View {
                 } label: {
                     Image(systemName: isTimetableFavorite ? "star.fill" : "star")
                         .foregroundStyle(isTimetableFavorite ? Color.accentColor : Color.secondary)
-                        .frame(width: 24, height: 24, alignment: .leading)
+                        .frame(
+                            width: Self.favoriteButtonWidth,
+                            height: Self.favoriteButtonWidth,
+                            alignment: .leading
+                        )
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel(Text(favoriteButtonLabel))
@@ -134,6 +145,22 @@ struct SearchTimetablePicker: View {
                 }
             }
         )
+    }
+}
+
+/// Defines the narrowest shared header that keeps Timetable directly beside Date and time.
+@MainActor
+enum JourneySearchHeaderLayout {
+    static let compactSpacing: CGFloat = 8
+    static let regularSpacing: CGFloat = 12
+
+    static var minimumContentWidth: CGFloat {
+        SearchTimetablePicker.contentWidth(usesCompactLayout: true) +
+            compactSpacing + SearchDatePickerLayout.buttonWidth
+    }
+
+    static func spacing(usesCompactLayout: Bool) -> CGFloat {
+        usesCompactLayout ? compactSpacing : regularSpacing
     }
 }
 
@@ -225,7 +252,7 @@ struct JourneySearchHeader: View {
                 usesCompactLayout: usesCompactLayout
             )
 
-            Spacer(minLength: usesCompactLayout ? 8 : 12)
+            Spacer(minLength: JourneySearchHeaderLayout.spacing(usesCompactLayout: usesCompactLayout))
 
             VStack(alignment: .leading, spacing: 6) {
                 SearchFieldHeader(

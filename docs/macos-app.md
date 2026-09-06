@@ -102,10 +102,10 @@ manager and show their source when more than one ordinary provider is registered
   and follows a selection-independent condition menu sized from the
   complete localized catalog. Every row retains its minus action; removing the sole condition from a source that
   supports Via resets that row to an empty, inactive Via field instead of removing it, then disables the minus action
-  until the row becomes active again or another row is added. The main-window minimum follows the widest required
-  condition/value pair plus both fixed row actions. The final means-of-transport popup may contract to a usable minimum
-  and truncates a longer selected title with an ellipsis; its menu, hover help, and accessibility value retain the full
-  wording. Compact search insets keep every control inside the content edges at that width. Summaries retain
+  until the row becomes active again or another row is added. Secondary popup values contract at the main-window
+  minimum and truncate longer selected titles with an ellipsis; their menus, hover help, and accessibility values retain
+  the full wording. The stable condition selector, value controls, and both fixed row actions remain usable at that
+  width. Compact search insets keep every control inside the content edges. Summaries retain
   locale-aware transfer wording. Departure/Arrival
   remains visible on the compact journey editor. The journey-options heading shares one level with Search. Expanding it
   or holding Option reveals the Direct connections only checkbox beside the heading; after the user first toggles it, it
@@ -203,10 +203,10 @@ manager and show their source when more than one ordinary provider is registered
   visible insets for their leading controls and an equally wide trailing Search action in all three modes, then collapse
   into low query summaries after
   submission with an explicit action for returning to the editable form. A main window without a saved size defaults
-  to the narrowest width that fits the active localization's complete journey-option rows without moving the connection
-  or station-board time mode below the date and time controls or clipping fields and actions at the window edge. macOS
-  restores the last user-selected supported size thereafter; a legacy saved width below the localized minimum expands
-  to that minimum when its window opens.
+  to the narrowest width that places Timetable immediately beside Date and time with the compact standard gap, without
+  moving the connection or station-board time mode below the date and time controls or clipping fields and actions at
+  the window edge. macOS restores the last user-selected supported size thereafter; a legacy saved width below the
+  minimum expands to that minimum when its window opens.
 - Submitting changed connection criteria replaces the previous result list with a progress indicator until the
   fresh response arrives. A completed search without matches shows dedicated no-results guidance instead of retaining
   the initial instruction to start a search. Connection and station-board paging still extends results chronologically
