@@ -46,7 +46,7 @@ SOURCE_ZIP_PATH := $(DIST_DIR)/kastan-$(APP_VERSION)-source.zip
 
 .DEFAULT_GOAL := dist
 
-.PHONY: help build install-app test test-library test-mcp test-app test-tooling container-images test-container-images dist dmg source-zip check-dist
+.PHONY: help build install-app test test-library test-live-idos test-mcp test-app test-tooling container-images test-container-images dist dmg source-zip check-dist
 
 help: ## Show the available development commands.
 	@printf '%s\n' \
@@ -56,8 +56,9 @@ help: ## Show the available development commands.
 		'  make help                  Show the available development commands.' \
 		'  make build                 Build the Swift package, MCP server, and macOS app.' \
 		'  make install-app           Build and install the one Spotlight-visible macOS app.' \
-		'  make test                  Run every test suite.' \
+		'  make test                  Run every deterministic test suite.' \
 		'  make test-library          Test the shared Swift package and CLI.' \
+		'  make test-live-idos        Smoke-test the shared library against the live IDOS service.' \
 		'  make test-mcp              Test the MCP server.' \
 		'  make test-app              Test the macOS app.' \
 		'  make test-tooling          Test repository development tooling.' \
@@ -102,10 +103,13 @@ install-app: ## Build, install, and de-duplicate the macOS app for Spotlight.
 	@$(KILLALL) Spotlight >/dev/null 2>&1 || true
 	@printf 'Installed %s\n' "$(APP_INSTALL_PATH)"
 
-test: test-library test-mcp test-app test-tooling ## Run every test suite.
+test: test-library test-mcp test-app test-tooling ## Run every deterministic test suite.
 
 test-library: ## Test the shared Swift package and CLI.
 	$(SWIFT) test
+
+test-live-idos: ## Smoke-test the shared library against the live IDOS service.
+	KASTAN_RUN_LIVE_IDOS_TESTS=1 $(SWIFT) test --filter IDOSLiveTests
 
 test-mcp: ## Test the MCP server.
 	$(SWIFT) test --package-path MCPServer

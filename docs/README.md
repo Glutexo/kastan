@@ -28,3 +28,8 @@ All four interfaces use the same `Kastan` models and search engine. The app and 
 provider-neutral contracts, but their shipped builds currently select IDOS, the only built-in provider. The Swift
 library exposes data-source composition, while the MCP server intentionally keeps an IDOS-only public contract. The
 individual guides document the subset or presentation of capabilities exposed by each interface.
+
+## Develop Kaštan
+
+- [Testing](testing.md) — deterministic local suites, opt-in live IDOS contract checks, and their scheduled
+  GitHub Actions run.

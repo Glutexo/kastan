@@ -26,6 +26,10 @@ let package = Package(
             name: "KastanTests",
             dependencies: ["Kastan", "KastanCLI"]
         ),
+        .testTarget(
+            name: "KastanLiveTests",
+            dependencies: ["Kastan"]
+        ),
     ],
     swiftLanguageModes: [.v6]
 )
