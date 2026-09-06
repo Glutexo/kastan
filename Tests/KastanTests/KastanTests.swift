@@ -1955,6 +1955,26 @@ import Testing
     #expect(departureRequest.formItems.contains(URLQueryItem(name: "IsArr", value: "False")))
 }
 
+@Test func connectionRequestMatchesBrowserBasicSuccessfulControls() {
+    let request = IDOSConnectionRequest(from: "Praha", to: "Brno")
+
+    #expect(request.formItems == [
+        URLQueryItem(name: "From", value: "Praha"),
+        URLQueryItem(name: "FromHidden", value: "%0"),
+        URLQueryItem(name: "PositionFromHidden", value: ""),
+        URLQueryItem(name: "To", value: "Brno"),
+        URLQueryItem(name: "ToHidden", value: "%0"),
+        URLQueryItem(name: "PositionToHidden", value: ""),
+        URLQueryItem(name: "AdvancedForm.Via[0]", value: ""),
+        URLQueryItem(name: "AdvancedForm.ViaHidden[0]", value: ""),
+        URLQueryItem(name: "AdvancedForm_ViaHiddenCoor_0_", value: ""),
+        URLQueryItem(name: "Date", value: ""),
+        URLQueryItem(name: "Time", value: ""),
+        URLQueryItem(name: "IsArr", value: "False"),
+        URLQueryItem(name: "DefaultMaxArcLengthFrom", value: "True"),
+    ])
+}
+
 @Test func connectionRequestDistinguishesSelectedStationFromFreeText() throws {
     let suggestion = IDOSSuggestion(
         selectedText: "Frýdek-Místek",
@@ -2008,7 +2028,7 @@ import Testing
     let limitedRequest = IDOSConnectionRequest(from: "Praha", to: "Brno", maxTransfers: 0)
     let normalRequest = IDOSConnectionRequest(from: "Praha", to: "Brno")
 
-    #expect(limitedRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "True")))
+    #expect(limitedRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "true")))
     #expect(limitedRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.MaxChange", value: "0")))
     #expect(limitedRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.MinTime", value: "-1")))
     #expect(limitedRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.MaxTime", value: "240")))
@@ -2021,7 +2041,7 @@ import Testing
     let limitedRequest = IDOSConnectionRequest(from: "Praha", to: "Brno", minimumTransferTime: 10)
     let normalRequest = IDOSConnectionRequest(from: "Praha", to: "Brno")
 
-    #expect(limitedRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "True")))
+    #expect(limitedRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "true")))
     #expect(limitedRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.MaxChange", value: "4")))
     #expect(limitedRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.MinTime", value: "10")))
     #expect(limitedRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.MaxTime", value: "240")))
@@ -2061,11 +2081,50 @@ import Testing
     #expect(transportTypeIDs(in: excludedRequest) == [
         150, 151, 152, 154, 155, 156,
         200, 201, 202,
-        300, 301, 303, 306,
+        300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312,
+        314, 315, 317, 318, 319, 321,
     ])
     #expect(onlyRequest.formItems.contains(
-        URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "True")
+        URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "true")
     ))
+}
+
+@Test func connectionRequestUsesTheCurrentlyPublishedBrowserFormContract() throws {
+    let html = #"""
+    <form id="connection-filter">
+      <input name="AdvancedForm.AdvancedFormIsOpen" type="hidden" value="False">
+      <input name="DefaultMaxArcLengthFrom" type="hidden" value="True">
+      <input name="trTypeId[153]" type="checkbox" value="153" checked>
+      <input name="trTypeId[999]" type="checkbox" value="999" checked>
+      <select name="AdvancedForm.MaxChange">
+        <option value="4">4</option><option selected="selected" value="7">7</option>
+      </select>
+      <select name="AdvancedForm.MinTime"><option selected value="20">20</option></select>
+      <select name="AdvancedForm.MaxTime"><option selected value="360">360</option></select>
+      <input name="AdvancedForm.LimitWalkArcs" type="checkbox" value="false">
+      <input name="AdvancedForm.LowDeckConnTr" type="checkbox" value="false">
+    </form>
+    """#
+    let contract = try #require(IDOSConnectionFormParser.contract(in: html))
+    let request = IDOSConnectionRequest(
+        from: "Praha",
+        to: "Brno",
+        transportModeFilter: .init(operation: .exclude, modes: [.regionalTrain]),
+        sameNameWalkingTransfersOnly: true,
+        lowFloorConnectionsOnly: false
+    )
+    let items = request.formItems(using: contract)
+
+    #expect(contract.transportModeIDs == [153, 999])
+    #expect(items.contains(URLQueryItem(name: "trTypeId[999]", value: "999")))
+    #expect(!items.contains { $0.name == "trTypeId[153]" })
+    #expect(items.contains(URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "true")))
+    #expect(items.contains(URLQueryItem(name: "AdvancedForm.MaxChange", value: "7")))
+    #expect(items.contains(URLQueryItem(name: "AdvancedForm.MinTime", value: "20")))
+    #expect(items.contains(URLQueryItem(name: "AdvancedForm.MaxTime", value: "360")))
+    #expect(items.contains(URLQueryItem(name: "AdvancedForm.LimitWalkArcs", value: "false")))
+    #expect(!items.contains { $0.name == "AdvancedForm.LowDeckConnTr" })
+    #expect(items.contains(URLQueryItem(name: "DefaultMaxArcLengthFrom", value: "True")))
 }
 
 @Test func connectionRequestUsesIDOSWalkingAndTransferParameters() {
@@ -2080,16 +2139,14 @@ import Testing
     )
 
     #expect(customizedRequest.formItems.contains(
-        URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "True")
+        URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "true")
     ))
     #expect(customizedRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.MaxTime", value: "360")))
     #expect(customizedRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.MaxArcLength", value: "45")))
     #expect(customizedRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.MaxArcLengthCity", value: "20")))
+    #expect(!customizedRequest.formItems.contains { $0.name == "AdvancedForm.MaxArcLengthFrom" })
     #expect(customizedRequest.formItems.contains(
-        URLQueryItem(name: "AdvancedForm.MaxArcLengthFrom", value: "false")
-    ))
-    #expect(customizedRequest.formItems.contains(
-        URLQueryItem(name: "AdvancedForm.LimitWalkArcs", value: "true")
+        URLQueryItem(name: "AdvancedForm.LimitWalkArcs", value: "false")
     ))
 }
 
@@ -2108,28 +2165,22 @@ import Testing
     let normalRequest = IDOSConnectionRequest(from: "Praha", to: "Brno")
 
     #expect(customizedRequest.formItems.contains(
-        URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "True")
+        URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "true")
     ))
     #expect(customizedRequest.formItems.contains(
-        URLQueryItem(name: "AdvancedForm.LowDeckConn", value: "true")
+        URLQueryItem(name: "AdvancedForm.LowDeckConn", value: "false")
     ))
+    #expect(!customizedRequest.formItems.contains { $0.name == "AdvancedForm.LowDeckConnTr" })
     #expect(customizedRequest.formItems.contains(
-        URLQueryItem(name: "AdvancedForm.LowDeckConnTr", value: "false")
+        URLQueryItem(name: "AdvancedForm.PrefereTrains", value: "false")
     ))
+    #expect(!customizedRequest.formItems.contains { $0.name == "AdvancedForm.WheelChair" })
     #expect(customizedRequest.formItems.contains(
-        URLQueryItem(name: "AdvancedForm.PrefereTrains", value: "true")
+        URLQueryItem(name: "AdvancedForm.Children", value: "false")
     ))
+    #expect(!customizedRequest.formItems.contains { $0.name == "AdvancedForm.Bicycle" })
     #expect(customizedRequest.formItems.contains(
-        URLQueryItem(name: "AdvancedForm.WheelChair", value: "false")
-    ))
-    #expect(customizedRequest.formItems.contains(
-        URLQueryItem(name: "AdvancedForm.Children", value: "true")
-    ))
-    #expect(customizedRequest.formItems.contains(
-        URLQueryItem(name: "AdvancedForm.Bicycle", value: "false")
-    ))
-    #expect(customizedRequest.formItems.contains(
-        URLQueryItem(name: "AdvancedForm.AutoStrategy", value: "true")
+        URLQueryItem(name: "AdvancedForm.AutoStrategy", value: "false")
     ))
     #expect(!normalRequest.formItems.contains { item in
         [
@@ -2164,7 +2215,7 @@ import Testing
         )))
         #expect(request.formItems.contains(URLQueryItem(
             name: "AdvancedForm.AdvancedFormIsOpen",
-            value: "True"
+            value: "true"
         )))
     }
 
@@ -2188,7 +2239,7 @@ import Testing
     )
     let normalRequest = IDOSConnectionRequest(from: "Praha", to: "Brno")
 
-    #expect(viaRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "True")))
+    #expect(viaRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "true")))
     #expect(viaRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.Via[0]", value: "Pardubice hl.n.")))
     #expect(viaRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.Via[1]", value: "Olomouc")))
     #expect(viaRequest.formItems.contains(URLQueryItem(
@@ -2198,8 +2249,8 @@ import Testing
     #expect(viaRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.ViaHidden[1]", value: "")))
     #expect(viaRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.MaxChange", value: "4")))
     #expect(viaRequest.formItems.contains(URLQueryItem(name: "trTypeId[301]", value: "301")))
-    #expect(!normalRequest.formItems.contains { $0.name.hasPrefix("AdvancedForm.Via[") })
-    #expect(!normalRequest.formItems.contains { $0.name.hasPrefix("AdvancedForm.ViaHidden[") })
+    #expect(normalRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.Via[0]", value: "")))
+    #expect(normalRequest.formItems.contains(URLQueryItem(name: "AdvancedForm.ViaHidden[0]", value: "")))
 }
 
 @Test func connectionRequestCarriesResultLimit() {
@@ -2231,7 +2282,8 @@ import Testing
     #expect(request.formItems.contains(URLQueryItem(name: "Date", value: "18.6.2026")))
     #expect(request.formItems.contains(URLQueryItem(name: "Time", value: "16:00")))
     #expect(request.formItems.contains(URLQueryItem(name: "IsArr", value: "True")))
-    #expect(request.formItems.contains(URLQueryItem(name: "submit", value: "true")))
+    #expect(request.formItems.contains(URLQueryItem(name: "PositionFromHidden", value: "")))
+    #expect(!request.formItems.contains { $0.name == "submit" })
 }
 
 @Test func stationTimetableRequestUsesIDOSParameters() {
@@ -2251,7 +2303,42 @@ import Testing
     #expect(values["f"] == "Strašnická")
     #expect(values["t"] == "Sídliště Libuš")
     #expect(values["wholeweek"] == "true")
-    #expect(values["submit"] == "true")
+    #expect(values["submit"] == nil)
+}
+
+@Test func stationTimetableRequestUsesBrowserFormHiddenValues() throws {
+    let html = #"""
+    <form action="/en/odis/zjr/" id="connection-filter" method="post">
+      <input name="TtIndex" type="hidden" value="3">
+      <input name="TtName" type="hidden" value="FM">
+      <input name="LineHidden" type="hidden" value="">
+      <input name="FromHidden" type="hidden" value="%3">
+      <input name="ToHidden" type="hidden" value="%3">
+    </form>
+    """#
+    let contract = try #require(IDOSStationTimetableFormParser.contract(in: html))
+    let request = IDOSStationTimetableRequest(
+        timetable: IDOSTimetable(slug: "odis", displayName: "ODIS"),
+        line: " Bus 301 ",
+        from: " Řepiště,,U kříže ",
+        to: " Místek,Riviéra ",
+        serviceDate: TransitDate(year: 2026, month: 9, day: 7),
+        wholeWeek: true
+    )
+    let values = Dictionary(uniqueKeysWithValues: request.formItems(using: contract).map {
+        ($0.name, $0.value)
+    })
+
+    #expect(values["TtIndex"] == "3")
+    #expect(values["TtName"] == "FM")
+    #expect(values["Line"] == "Bus 301")
+    #expect(values["LineHidden"] == "")
+    #expect(values["From"] == "Řepiště,,U kříže")
+    #expect(values["FromHidden"] == "%3")
+    #expect(values["To"] == "Místek,Riviéra")
+    #expect(values["ToHidden"] == "%3")
+    #expect(values["Date"] == "7.9.2026")
+    #expect(values["WholeWeek"] == "true")
 }
 
 @Test func odisStationTimetableMunicipalitiesMatchIDOSParameters() throws {
@@ -2815,7 +2902,7 @@ import Testing
         "pdfModel%5BjsConnData%5D%5Bactive%5D=true",
         "pdfModel%5BjsConnData%5D%5BconnData%5D%5B0%5D%5BconnId%5D=123",
         "pdfModel%5BjsConnData%5D%5BconnData%5D%5B0%5D%5BpriceOffer%5D=",
-        "pdfModel%5BjsConnData%5D%5BsearchItem%5D%5Bname%5D=Praha%20hl.n.",
+        "pdfModel%5BjsConnData%5D%5BsearchItem%5D%5Bname%5D=Praha+hl.n.",
     ].joined(separator: "&"))
 }
 

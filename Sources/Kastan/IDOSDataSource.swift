@@ -166,6 +166,48 @@ private extension TransitConnectionTransportMode {
     }
 }
 
+/// Content negotiation used by the IDOS website for browser navigations and jQuery JSONP requests.
+private enum IDOSResponseRepresentation: Equatable, Sendable {
+    case any
+    case html
+    case javaScript
+
+    var acceptHeader: String? {
+        switch self {
+        case .any:
+            nil
+        case .html:
+            "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        case .javaScript:
+            "text/javascript, application/javascript, application/ecmascript, " +
+                "application/x-ecmascript, */*; q=0.01"
+        }
+    }
+
+    var isXMLHTTPRequest: Bool {
+        self == .javaScript
+    }
+
+    func accepts(_ response: HTTPURLResponse) -> Bool {
+        guard self != .any else { return true }
+        guard let mimeType = response.mimeType?.lowercased() else { return false }
+        return switch self {
+        case .any:
+            true
+        case .html:
+            mimeType == "text/html" || mimeType == "application/xhtml+xml"
+        case .javaScript:
+            [
+                "application/javascript",
+                "application/x-javascript",
+                "application/ecmascript",
+                "application/x-ecmascript",
+                "text/javascript",
+            ].contains(mimeType)
+        }
+    }
+}
+
 public extension IDOSClienting {
     /// Mirrors the accommodation control that IDOS publishes only for its four train-containing general catalogs.
     func supportsConnectionOption(
@@ -185,6 +227,7 @@ public extension IDOSClienting {
 public struct IDOSDataSource: IDOSClienting {
     public static let descriptor = TransitDataSourceDescriptor.idos
     public static let serviceTimeZone = TimeZone(identifier: "Europe/Prague")!
+    static let userAgent = "kastan/0.1 (+local personal use)"
 
     public var baseURL: URL
 
@@ -277,11 +320,27 @@ public struct IDOSDataSource: IDOSClienting {
     }
 
     public func suggest(prefix: String, limit: Int = 8, timetable: TransitTimetable = .defaultTimetable) async throws -> [TransitSuggestion] {
-        try await searchTimetableObjects(prefix: prefix, limit: limit, timetable: timetable, onlyStation: false)
+        try await searchTimetableObjects(
+            endpoint: "SearchTimetableObjects",
+            refererEndpoint: "spojeni/",
+            prefix: prefix,
+            limit: limit,
+            timetable: timetable,
+            onlyStation: false,
+            includesPositionAccuracy: false
+        )
     }
 
     public func searchStations(prefix: String, limit: Int = 8, timetable: TransitTimetable = .defaultTimetable) async throws -> [TransitSuggestion] {
-        try await searchTimetableObjects(prefix: prefix, limit: limit, timetable: timetable, onlyStation: true)
+        try await searchTimetableObjects(
+            endpoint: "SearchTimetableObjectsDep",
+            refererEndpoint: "odjezdy/",
+            prefix: prefix,
+            limit: limit,
+            timetable: timetable,
+            onlyStation: true,
+            includesPositionAccuracy: true
+        )
     }
 
     /// Suggests MHD or integrated-transport lines and includes each available terminal pair.
@@ -352,27 +411,43 @@ public struct IDOSDataSource: IDOSClienting {
     }
 
     private func searchTimetableObjects(
+        endpoint: String,
+        refererEndpoint: String,
         prefix: String,
         limit: Int,
         timetable: TransitTimetable,
-        onlyStation: Bool
+        onlyStation: Bool,
+        includesPositionAccuracy: Bool
     ) async throws -> [TransitSuggestion] {
         try validateOwnership(of: timetable)
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
-        components.path = "/en/\(timetable.slug)/Ajax/SearchTimetableObjects/"
-        components.queryItems = [
-            URLQueryItem(name: "count", value: String(limit)),
+        components.path = "/en/\(timetable.slug)/Ajax/\(endpoint)/"
+        var queryItems = [
+            URLQueryItem(name: "count", value: String(max(18, limit))),
             URLQueryItem(name: "prefixText", value: prefix),
-            URLQueryItem(name: "positionAccuracy", value: "0"),
-            URLQueryItem(name: "searchByPosition", value: "false"),
+            URLQueryItem(name: "searchByPosition", value: "true"),
             URLQueryItem(name: "onlyStation", value: onlyStation ? "true" : "false"),
+            URLQueryItem(name: "line", value: ""),
             URLQueryItem(name: "format", value: "json"),
             URLQueryItem(name: "bindTtIndex", value: ""),
+            URLQueryItem(name: "date", value: ""),
             URLQueryItem(name: "callback", value: "idosCallback"),
+            URLQueryItem(name: "_", value: Self.browserCacheBuster()),
         ]
+        if includesPositionAccuracy {
+            queryItems.insert(URLQueryItem(name: "positionAccuracy", value: ""), at: 2)
+        }
+        components.queryItems = queryItems
 
-        let data = try await data(from: components.requiredURL)
-        return try decodedSuggestions(from: data, timetable: timetable)
+        var referer = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        referer.path = "/en/\(timetable.slug)/\(refererEndpoint)"
+
+        let data = try await data(
+            from: components.requiredURL,
+            expecting: .javaScript,
+            referer: referer.requiredURL
+        )
+        return Array(try decodedSuggestions(from: data, timetable: timetable).prefix(max(0, limit)))
     }
 
     private func searchStationTimetableObjects(
@@ -390,36 +465,52 @@ public struct IDOSDataSource: IDOSClienting {
         components.path = "/en/\(timetable.slug)/Ajax/\(endpoint)/"
         var queryItems = Self.stationTimetableSuggestionQueryItems(
             prefix: prefix,
+            line: line ?? "",
             limit: limit,
             municipality: municipality,
             onlyStation: onlyStation
         )
-        if let line, !line.isEmpty {
-            queryItems.append(URLQueryItem(name: "line", value: line))
-        }
+        queryItems.append(URLQueryItem(name: "_", value: Self.browserCacheBuster()))
         components.queryItems = queryItems
 
-        let data = try await data(from: components.requiredURL)
-        return try decodedSuggestions(from: data, timetable: timetable)
+        var referer = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        referer.path = "/en/\(timetable.slug)/zjr/"
+        if let timetableName = municipality?.timetableName {
+            referer.queryItems = [URLQueryItem(name: "ttn", value: timetableName)]
+        }
+        let data = try await data(
+            from: components.requiredURL,
+            expecting: .javaScript,
+            referer: referer.requiredURL
+        )
+        return Array(try decodedSuggestions(from: data, timetable: timetable).prefix(max(0, limit)))
     }
 
     /// Builds the municipality-aware query shared by both Station Timetable suggestion endpoints.
     static func stationTimetableSuggestionQueryItems(
         prefix: String,
+        line: String = "",
         limit: Int,
         municipality: TransitStationTimetableMunicipality?,
         onlyStation: Bool
     ) -> [URLQueryItem] {
         [
-            URLQueryItem(name: "count", value: String(limit)),
+            URLQueryItem(name: "count", value: String(max(18, limit))),
             URLQueryItem(name: "prefixText", value: prefix),
-            URLQueryItem(name: "positionAccuracy", value: "0"),
+            URLQueryItem(name: "positionAccuracy", value: ""),
             URLQueryItem(name: "searchByPosition", value: "false"),
             URLQueryItem(name: "onlyStation", value: onlyStation ? "true" : "false"),
+            URLQueryItem(name: "line", value: line),
             URLQueryItem(name: "format", value: "json"),
             URLQueryItem(name: "bindTtIndex", value: String(municipality?.timetableIndex ?? 0)),
+            URLQueryItem(name: "date", value: ""),
             URLQueryItem(name: "callback", value: "idosCallback"),
         ]
+    }
+
+    /// Mirrors jQuery's cache-busting query value so URL caches cannot return stale autocomplete data.
+    private static func browserCacheBuster() -> String {
+        String(Int(Date().timeIntervalSince1970 * 1_000))
     }
 
     /// Decodes IDOS suggestions while applying the same readable symbols used by every other result.
@@ -451,9 +542,29 @@ public struct IDOSDataSource: IDOSClienting {
 
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         components.path = language.path(timetable: request.timetable, endpoint: "zjr/")
-        components.queryItems = request.queryItems
-        let resultURL = try components.requiredURL
-        let data = try await data(from: resultURL)
+        if let timetableName = request.effectiveMunicipality?.timetableName {
+            components.queryItems = [URLQueryItem(name: "ttn", value: timetableName)]
+        }
+        let formURL = try components.requiredURL
+        let formData = try await data(from: formURL, expecting: .html)
+        guard let formHTML = String(data: formData, encoding: .utf8),
+              let formContract = IDOSStationTimetableFormParser.contract(in: formHTML)
+        else {
+            throw IDOSError.stationTimetableUnavailable
+        }
+
+        components.queryItems = nil
+        let postURL = try components.requiredURL
+        var urlRequest = URLRequest(url: postURL)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = Self.formURLEncodedData(request.formItems(using: formContract))
+
+        var resultComponents = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        resultComponents.path = language.path(timetable: request.timetable, endpoint: "zjr/vysledky/")
+        resultComponents.queryItems = request.resultQueryItems(using: formContract)
+        let resultURL = try resultComponents.requiredURL
+        let data = try await data(for: urlRequest, expecting: .html, referer: formURL)
         guard let html = String(data: data, encoding: .utf8),
               let result = IDOSStationTimetableParser.parse(
                   html: html,
@@ -524,7 +635,7 @@ public struct IDOSDataSource: IDOSClienting {
         try validateOwnership(of: timetable)
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         components.path = language.path(timetable: timetable, endpoint: "spojeni/")
-        let data = try await data(from: components.requiredURL)
+        let data = try await data(from: components.requiredURL, expecting: .html)
         guard let html = String(data: data, encoding: .utf8),
               let validity = IDOSTimetableValidityParser.parse(html: html)
         else {
@@ -553,14 +664,21 @@ public struct IDOSDataSource: IDOSClienting {
         }
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         components.path = language.path(timetable: request.timetable, endpoint: "spojeni/")
+        let formURL = try components.requiredURL
+        let formData = try await data(from: formURL, expecting: .html)
+        guard let formHTML = String(data: formData, encoding: .utf8),
+              let formContract = IDOSConnectionFormParser.contract(in: formHTML)
+        else {
+            throw IDOSError.invalidResponse
+        }
 
-        var urlRequest = URLRequest(url: try components.requiredURL)
+        var urlRequest = URLRequest(url: formURL)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
-        urlRequest.httpBody = Self.formURLEncodedData(request.formItems)
+        urlRequest.httpBody = Self.formURLEncodedData(request.formItems(using: formContract))
 
-        let data = try await data(for: urlRequest)
+        let data = try await data(for: urlRequest, expecting: .html, referer: formURL)
         guard let html = String(data: data, encoding: .utf8) else {
             throw IDOSError.invalidResponse
         }
@@ -645,7 +763,7 @@ public struct IDOSDataSource: IDOSClienting {
         ])
         urlRequest.httpBody = Self.formURLEncodedData(items)
 
-        let data = try await data(for: urlRequest)
+        let data = try await data(for: urlRequest, expecting: .javaScript)
         let json = try IDOSJSONP.decodePayload(from: data)
         guard let object = try JSONSerialization.jsonObject(with: json) as? [String: Any] else {
             throw IDOSError.invalidResponse
@@ -983,14 +1101,16 @@ public struct IDOSDataSource: IDOSClienting {
         try validateOwnership(of: request.stationSelection, timetable: request.timetable)
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         components.path = language.path(timetable: request.timetable, endpoint: "odjezdy/")
+        let formURL = try components.requiredURL
+        _ = try await data(from: formURL, expecting: .html)
 
-        var urlRequest = URLRequest(url: try components.requiredURL)
+        var urlRequest = URLRequest(url: formURL)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
         urlRequest.httpBody = Self.formURLEncodedData(request.formItems)
 
-        let data = try await data(for: urlRequest)
+        let data = try await data(for: urlRequest, expecting: .html, referer: formURL)
         guard let html = String(data: data, encoding: .utf8) else {
             throw IDOSError.invalidResponse
         }
@@ -1036,14 +1156,17 @@ public struct IDOSDataSource: IDOSClienting {
         let reference = try IDOSServiceReference(id: id, fallbackTimetable: timetable)
         var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         components.path = language.path(timetable: reference.timetable, endpoint: "Ajax/TrainDetail")
-        components.queryItems = [URLQueryItem(name: "callback", value: "idosCallback")]
+        components.queryItems = [
+            URLQueryItem(name: "callback", value: "idosCallback"),
+            URLQueryItem(name: "_", value: Self.browserCacheBuster()),
+        ]
 
         var urlRequest = URLRequest(url: try components.requiredURL)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/x-www-form-urlencoded; charset=UTF-8", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = Self.formURLEncodedData(reference.formItems)
 
-        let data = try await data(for: urlRequest)
+        let data = try await data(for: urlRequest, expecting: .javaScript)
         let json = try IDOSJSONP.decodePayload(from: data)
         guard let object = try JSONSerialization.jsonObject(with: json) as? [String: Any] else {
             throw IDOSError.invalidResponse
@@ -1080,7 +1203,7 @@ public struct IDOSDataSource: IDOSClienting {
 
         var formComponents = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
         formComponents.path = language.path(timetable: reference.timetable, endpoint: "spojeni/")
-        let formData = try await data(from: formComponents.requiredURL)
+        let formData = try await data(from: formComponents.requiredURL, expecting: .html)
         guard let formHTML = String(data: formData, encoding: .utf8),
               let combinationID = IDOSConnectionFormParser.combinationID(in: formHTML)
         else {
@@ -1103,7 +1226,7 @@ public struct IDOSDataSource: IDOSClienting {
             URLQueryItem(name: "callback", value: "idosCallback"),
         ]
 
-        let data = try await data(from: components.requiredURL)
+        let data = try await data(from: components.requiredURL, expecting: .javaScript)
         guard !data.isEmpty else {
             throw IDOSError.dateLimitsUnavailable
         }
@@ -1117,9 +1240,13 @@ public struct IDOSDataSource: IDOSClienting {
         return limits
     }
 
-    private func data(from url: URL) async throws -> Data {
+    private func data(
+        from url: URL,
+        expecting representation: IDOSResponseRepresentation = .any,
+        referer: URL? = nil
+    ) async throws -> Data {
         let request = URLRequest(url: url)
-        return try await data(for: request)
+        return try await data(for: request, expecting: representation, referer: referer)
     }
 
     /// Loads the one connection encoded by a service share URL for native IDOS export operations.
@@ -1139,7 +1266,7 @@ public struct IDOSDataSource: IDOSClienting {
             throw IDOSError.invalidURL
         }
 
-        let data = try await data(from: url)
+        let data = try await data(from: url, expecting: .html)
         guard let html = String(data: data, encoding: .utf8),
               let connection = IDOSConnectionParser.parse(
                   html: html,
@@ -1151,9 +1278,34 @@ public struct IDOSDataSource: IDOSClienting {
         return connection
     }
 
-    private func data(for request: URLRequest) async throws -> Data {
+    private func data(
+        for request: URLRequest,
+        expecting representation: IDOSResponseRepresentation = .any,
+        referer: URL? = nil
+    ) async throws -> Data {
         var request = request
-        request.setValue("kastan/0.1 (+local personal use)", forHTTPHeaderField: "User-Agent")
+        request.setValue(Self.userAgent, forHTTPHeaderField: "User-Agent")
+        if let acceptHeader = representation.acceptHeader,
+           request.value(forHTTPHeaderField: "Accept") == nil {
+            request.setValue(acceptHeader, forHTTPHeaderField: "Accept")
+        }
+        if representation.isXMLHTTPRequest,
+           request.value(forHTTPHeaderField: "X-Requested-With") == nil {
+            request.setValue("XMLHttpRequest", forHTTPHeaderField: "X-Requested-With")
+            request.cachePolicy = .reloadIgnoringLocalCacheData
+        }
+        if let referer, request.value(forHTTPHeaderField: "Referer") == nil {
+            request.setValue(referer.absoluteString, forHTTPHeaderField: "Referer")
+        }
+        if request.httpMethod?.uppercased() == "POST",
+           representation == .html,
+           request.value(forHTTPHeaderField: "Origin") == nil,
+           let url = request.url,
+           let scheme = url.scheme,
+           let host = url.host {
+            let port = url.port.map { ":\($0)" } ?? ""
+            request.setValue("\(scheme)://\(host)\(port)", forHTTPHeaderField: "Origin")
+        }
 
         return try await withCheckedThrowingContinuation { continuation in
             let task = URLSession.shared.dataTask(with: request) { data, response, error in
@@ -1164,7 +1316,8 @@ public struct IDOSDataSource: IDOSClienting {
 
                 guard let data,
                       let httpResponse = response as? HTTPURLResponse,
-                      200..<300 ~= httpResponse.statusCode
+                      200..<300 ~= httpResponse.statusCode,
+                      representation.accepts(httpResponse)
                 else {
                     continuation.resume(throwing: IDOSError.invalidResponse)
                     return
@@ -1416,22 +1569,14 @@ public struct TransitDeparturesRequest: Codable, Equatable, Sendable {
     }
 
     var formItems: [URLQueryItem] {
-        var items = [
+        [
             URLQueryItem(name: "From", value: station),
             URLQueryItem(name: "FromHidden", value: stationSelection.flatMap(IDOSPlaceIdentity.formValue) ?? "%0"),
+            URLQueryItem(name: "PositionFromHidden", value: ""),
+            URLQueryItem(name: "Date", value: serviceDate?.idosRequestValue ?? date ?? ""),
+            URLQueryItem(name: "Time", value: serviceTime?.idosRequestValue ?? time ?? ""),
             URLQueryItem(name: "IsArr", value: isArrival ? "True" : "False"),
         ]
-
-        if let date = serviceDate?.idosRequestValue ?? date {
-            items.append(URLQueryItem(name: "Date", value: date))
-        }
-
-        if let time = serviceTime?.idosRequestValue ?? time {
-            items.append(URLQueryItem(name: "Time", value: time))
-        }
-
-        items.append(URLQueryItem(name: "submit", value: "true"))
-        return items
     }
 }
 
@@ -1803,13 +1948,45 @@ public struct TransitStationTimetableRequest: Codable, Equatable, Sendable {
     }
 
     var queryItems: [URLQueryItem] {
+        resultQueryItems(
+            using: IDOSStationTimetableFormContract(
+                timetableIndex: String(effectiveMunicipality?.timetableIndex ?? 0),
+                timetableName: effectiveMunicipality?.timetableName ?? "",
+                lineHidden: "",
+                fromHidden: "%3",
+                toHidden: "%3"
+            )
+        )
+    }
+
+    /// Serializes the successful controls of the currently published Station Timetable form.
+    func formItems(using contract: IDOSStationTimetableFormContract) -> [URLQueryItem] {
+        var items = [
+            URLQueryItem(name: "TtIndex", value: contract.timetableIndex),
+            URLQueryItem(name: "TtName", value: contract.timetableName),
+            URLQueryItem(name: "Line", value: line.trimmingCharacters(in: .whitespacesAndNewlines)),
+            URLQueryItem(name: "LineHidden", value: contract.lineHidden),
+            URLQueryItem(name: "From", value: from.trimmingCharacters(in: .whitespacesAndNewlines)),
+            URLQueryItem(name: "FromHidden", value: contract.fromHidden),
+            URLQueryItem(name: "To", value: to.trimmingCharacters(in: .whitespacesAndNewlines)),
+            URLQueryItem(name: "ToHidden", value: contract.toHidden),
+            URLQueryItem(name: "Date", value: serviceDate?.idosRequestValue ?? date ?? ""),
+        ]
+        if wholeWeek {
+            items.append(URLQueryItem(name: "WholeWeek", value: "true"))
+        }
+        return items
+    }
+
+    /// Reconstructs the canonical URL to which the browser form redirects after a successful POST.
+    func resultQueryItems(using contract: IDOSStationTimetableFormContract) -> [URLQueryItem] {
         var items = [
             URLQueryItem(name: "l", value: line.trimmingCharacters(in: .whitespacesAndNewlines)),
             URLQueryItem(name: "f", value: from.trimmingCharacters(in: .whitespacesAndNewlines)),
             URLQueryItem(name: "t", value: to.trimmingCharacters(in: .whitespacesAndNewlines)),
         ]
-        if let municipality = effectiveMunicipality {
-            items.append(URLQueryItem(name: "ttn", value: municipality.timetableName))
+        if !contract.timetableName.isEmpty {
+            items.append(URLQueryItem(name: "ttn", value: contract.timetableName))
         }
         if let date = serviceDate?.idosRequestValue ?? date, !date.isEmpty {
             items.insert(URLQueryItem(name: "date", value: date), at: 0)
@@ -1817,7 +1994,6 @@ public struct TransitStationTimetableRequest: Codable, Equatable, Sendable {
         if wholeWeek {
             items.append(URLQueryItem(name: "wholeweek", value: "true"))
         }
-        items.append(URLQueryItem(name: "submit", value: "true"))
         return items
     }
 
@@ -2312,138 +2488,152 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
     }
 
     var formItems: [URLQueryItem] {
+        formItems(using: .browserFallback)
+    }
+
+    /// Serializes the same successful controls as the currently published IDOS browser form.
+    func formItems(using contract: IDOSConnectionFormContract) -> [URLQueryItem] {
         var items = [
             URLQueryItem(name: "From", value: from),
             URLQueryItem(name: "FromHidden", value: fromSelection.flatMap(IDOSPlaceIdentity.formValue) ?? "%0"),
+            URLQueryItem(name: "PositionFromHidden", value: ""),
             URLQueryItem(name: "To", value: to),
             URLQueryItem(name: "ToHidden", value: toSelection.flatMap(IDOSPlaceIdentity.formValue) ?? "%0"),
-            URLQueryItem(name: "IsArr", value: isArrival ? "True" : "False"),
+            URLQueryItem(name: "PositionToHidden", value: ""),
         ]
 
-        if let date = serviceDate?.idosRequestValue ?? date {
-            items.append(URLQueryItem(name: "Date", value: date))
+        for index in 0..<max(1, via.count) {
+            let place = via.indices.contains(index) ? via[index] : ""
+            items.append(URLQueryItem(name: "AdvancedForm.Via[\(index)]", value: place))
+            let selection = viaSelections.flatMap { selections in
+                selections.indices.contains(index) ? selections[index] : nil
+            }
+            items.append(URLQueryItem(
+                name: "AdvancedForm.ViaHidden[\(index)]",
+                value: selection.flatMap(IDOSPlaceIdentity.formValue) ?? ""
+            ))
+            items.append(URLQueryItem(
+                name: "AdvancedForm_ViaHiddenCoor_\(index)_",
+                value: ""
+            ))
         }
 
-        if let time = serviceTime?.idosRequestValue ?? time {
-            items.append(URLQueryItem(name: "Time", value: time))
-        }
+        items.append(URLQueryItem(name: "Date", value: serviceDate?.idosRequestValue ?? date ?? ""))
+        items.append(URLQueryItem(name: "Time", value: serviceTime?.idosRequestValue ?? time ?? ""))
+        items.append(URLQueryItem(name: "IsArr", value: isArrival ? "True" : "False"))
 
         if onlyDirect {
             items.append(URLQueryItem(name: "OnlyDirect", value: "true"))
         }
 
         if hasAdvancedOptions {
-            items.append(URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "True"))
+            items.append(URLQueryItem(
+                name: "AdvancedForm.AdvancedFormIsOpen",
+                value: "true"
+            ))
 
-            for (index, place) in via.enumerated() {
-                items.append(URLQueryItem(name: "AdvancedForm.Via[\(index)]", value: place))
-                let selection = viaSelections.flatMap { selections in
-                    selections.indices.contains(index) ? selections[index] : nil
-                }
-                items.append(URLQueryItem(
-                    name: "AdvancedForm.ViaHidden[\(index)]",
-                    value: selection.flatMap(IDOSPlaceIdentity.formValue) ?? ""
-                ))
+            for id in selectedTransportModeIDs(available: contract.transportModeIDs) {
+                items.append(URLQueryItem(name: "trTypeId[\(id)]", value: String(id)))
             }
 
-            items.append(URLQueryItem(
-                name: "AdvancedForm.MaxChange",
-                value: String(maxTransfers ?? Self.defaultMaxTransfers)
-            ))
-            items.append(URLQueryItem(
-                name: "AdvancedForm.MinTime",
-                value: String(minimumTransferTime ?? Self.defaultMinimumTransferTime)
-            ))
-            items.append(URLQueryItem(
-                name: "AdvancedForm.MaxTime",
-                value: String(maximumTransferTime ?? Self.defaultMaximumTransferTime)
-            ))
-            items.append(URLQueryItem(
-                name: "AdvancedForm.MaxArcLength",
-                value: String(maximumWalkingTime ?? Self.defaultMaximumWalkingTime)
-            ))
-            items.append(URLQueryItem(
-                name: "AdvancedForm.MaxArcLengthCity",
-                value: String(maximumCityWalkingTime ?? Self.defaultMaximumCityWalkingTime)
-            ))
+            func appendIfPublished(_ name: String, value: String) {
+                guard contract.contains(name) else { return }
+                items.append(URLQueryItem(name: name, value: value))
+            }
+            appendIfPublished(
+                "AdvancedForm.MaxChange",
+                value: maxTransfers.map(String.init) ??
+                    contract.value(for: "AdvancedForm.MaxChange") ??
+                    String(Self.defaultMaxTransfers)
+            )
+            appendIfPublished(
+                "AdvancedForm.MinTime",
+                value: minimumTransferTime.map(String.init) ??
+                    contract.value(for: "AdvancedForm.MinTime") ??
+                    String(Self.defaultMinimumTransferTime)
+            )
+            appendIfPublished(
+                "AdvancedForm.MaxTime",
+                value: maximumTransferTime.map(String.init) ??
+                    contract.value(for: "AdvancedForm.MaxTime") ??
+                    String(Self.defaultMaximumTransferTime)
+            )
+            appendIfPublished(
+                "AdvancedForm.MaxArcLength",
+                value: maximumWalkingTime.map(String.init) ??
+                    contract.value(for: "AdvancedForm.MaxArcLength") ??
+                    String(Self.defaultMaximumWalkingTime)
+            )
+            appendIfPublished(
+                "AdvancedForm.MaxArcLengthCity",
+                value: maximumCityWalkingTime.map(String.init) ??
+                    contract.value(for: "AdvancedForm.MaxArcLengthCity") ??
+                    String(Self.defaultMaximumCityWalkingTime)
+            )
 
-            if let walkToNearbyStops {
+            if contract.contains("AdvancedForm.MaxArcLengthFrom"), walkToNearbyStops != false {
                 items.append(URLQueryItem(
                     name: "AdvancedForm.MaxArcLengthFrom",
-                    value: String(walkToNearbyStops)
+                    value: contract.value(for: "AdvancedForm.MaxArcLengthFrom") ?? "true"
                 ))
             }
 
-            if let sameNameWalkingTransfersOnly {
-                items.append(URLQueryItem(
-                    name: "AdvancedForm.LimitWalkArcs",
-                    value: String(sameNameWalkingTransfersOnly)
-                ))
+            func appendEnabledInvertedToggle(_ name: String, enabled: Bool?) {
+                guard enabled == true, contract.contains(name) else { return }
+                items.append(URLQueryItem(name: name, value: contract.value(for: name) ?? "false"))
             }
+            appendEnabledInvertedToggle(
+                "AdvancedForm.LimitWalkArcs",
+                enabled: sameNameWalkingTransfersOnly
+            )
+            appendEnabledInvertedToggle(
+                "AdvancedForm.LowDeckConn",
+                enabled: wheelchairAccessibleConnectionsOnly
+            )
+            appendEnabledInvertedToggle(
+                "AdvancedForm.LowDeckConnTr",
+                enabled: lowFloorConnectionsOnly
+            )
+            appendEnabledInvertedToggle(
+                "AdvancedForm.PrefereTrains",
+                enabled: preferTrainsOverBuses
+            )
+            appendEnabledInvertedToggle(
+                "AdvancedForm.WheelChair",
+                enabled: trainConnectionsForWheelchairPassengers
+            )
+            appendEnabledInvertedToggle(
+                "AdvancedForm.Children",
+                enabled: trainConnectionsForPassengersWithChildren
+            )
+            appendEnabledInvertedToggle(
+                "AdvancedForm.Bicycle",
+                enabled: connectionsForPassengersWithBicycles
+            )
+            appendEnabledInvertedToggle(
+                "AdvancedForm.AutoStrategy",
+                enabled: preferBusyRoutes
+            )
 
-            if let wheelchairAccessibleConnectionsOnly {
-                items.append(URLQueryItem(
-                    name: "AdvancedForm.LowDeckConn",
-                    value: String(wheelchairAccessibleConnectionsOnly)
-                ))
-            }
-
-            if let lowFloorConnectionsOnly {
-                items.append(URLQueryItem(
-                    name: "AdvancedForm.LowDeckConnTr",
-                    value: String(lowFloorConnectionsOnly)
-                ))
-            }
-
-            if let preferTrainsOverBuses {
-                items.append(URLQueryItem(
-                    name: "AdvancedForm.PrefereTrains",
-                    value: String(preferTrainsOverBuses)
-                ))
-            }
-
-            if let trainConnectionsForWheelchairPassengers {
-                items.append(URLQueryItem(
-                    name: "AdvancedForm.WheelChair",
-                    value: String(trainConnectionsForWheelchairPassengers)
-                ))
-            }
-
-            if let trainConnectionsForPassengersWithChildren {
-                items.append(URLQueryItem(
-                    name: "AdvancedForm.Children",
-                    value: String(trainConnectionsForPassengersWithChildren)
-                ))
-            }
-
-            if let connectionsForPassengersWithBicycles {
-                items.append(URLQueryItem(
-                    name: "AdvancedForm.Bicycle",
-                    value: String(connectionsForPassengersWithBicycles)
-                ))
-            }
-
-            if let preferBusyRoutes {
-                items.append(URLQueryItem(
-                    name: "AdvancedForm.AutoStrategy",
-                    value: String(preferBusyRoutes)
-                ))
-            }
-
-            if let bedOrCouchettePreference {
+            if contract.contains("AdvancedForm.UseBeds") {
                 items.append(URLQueryItem(
                     name: "AdvancedForm.UseBeds",
-                    value: String(bedOrCouchettePreference.idosFormValue)
+                    value: bedOrCouchettePreference.map { String($0.idosFormValue) } ??
+                        contract.value(for: "AdvancedForm.UseBeds") ??
+                        String(TransitBedOrCouchettePreference.noLimitation.idosFormValue)
                 ))
             }
 
-            for transportMode in selectedTransportModes {
-                let value = String(transportMode.idosFormID)
-                items.append(URLQueryItem(name: "trTypeId[\(value)]", value: value))
-            }
+            appendIfPublished("AdvancedForm.OwnerMaskNames", value: "")
+            appendIfPublished("AdvancedForm.OwnerMaskExcludeInclude", value: "True")
+            appendIfPublished("AdvancedForm.Num1MaskNames", value: "")
+            appendIfPublished("AdvancedForm.Num1MaskExcludeInclude", value: "True")
         }
 
-        items.append(URLQueryItem(name: "submit", value: "true"))
+        items.append(URLQueryItem(
+            name: "DefaultMaxArcLengthFrom",
+            value: contract.value(for: "DefaultMaxArcLengthFrom") ?? "true"
+        ))
         return items
     }
 
@@ -2461,18 +2651,18 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
             bedOrCouchettePreference != nil
     }
 
-    /// Resolves the filter's single operation to the checkbox set expected by the IDOS form.
-    private var selectedTransportModes: [TransitConnectionTransportMode] {
+    /// Retains every browser-published mode that is not explicitly removed, including modes newer than Kaštan.
+    private func selectedTransportModeIDs(available: [Int]) -> [Int] {
         guard let transportModeFilter else {
-            return TransitConnectionTransportMode.allCases
+            return available
         }
-        let filteredModes = Set(transportModeFilter.modes)
-        return TransitConnectionTransportMode.allCases.filter { mode in
+        let filteredIDs = Set(transportModeFilter.modes.map(\.idosFormID))
+        return available.filter { id in
             switch transportModeFilter.operation {
             case .only:
-                filteredModes.contains(mode)
+                filteredIDs.contains(id)
             case .exclude:
-                !filteredModes.contains(mode)
+                !filteredIDs.contains(id)
             }
         }
     }
@@ -4046,8 +4236,9 @@ enum IDOSFormEncoding {
 
     private static func encode(_ value: String) -> String {
         var allowed = CharacterSet.alphanumerics
-        allowed.insert(charactersIn: "-._~")
-        return value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value
+        allowed.insert(charactersIn: "*-._")
+        return (value.addingPercentEncoding(withAllowedCharacters: allowed) ?? value)
+            .replacingOccurrences(of: "%20", with: "+")
     }
 }
 
@@ -4649,7 +4840,191 @@ enum IDOSTimetableValidityParser {
     }
 }
 
+/// Browser-published controls that determine which advanced values a connection POST may contain.
+struct IDOSConnectionFormContract: Equatable, Sendable {
+    let transportModeIDs: [Int]
+    let fieldValues: [String: String]
+
+    func contains(_ name: String) -> Bool {
+        fieldValues[name] != nil
+    }
+
+    func value(for name: String) -> String? {
+        fieldValues[name]
+    }
+
+    /// Keeps request-model unit tests deterministic while live searches use the freshly downloaded form contract.
+    static let browserFallback = IDOSConnectionFormContract(
+        transportModeIDs: [
+            150, 151, 152, 153, 154, 155, 156,
+            200, 201, 202,
+            300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312,
+            314, 315, 317, 318, 319, 321,
+        ],
+        fieldValues: [
+            "AdvancedForm.AdvancedFormIsOpen": "False",
+            "AdvancedForm.MaxChange": "4",
+            "AdvancedForm.MinTime": "-1",
+            "AdvancedForm.MaxTime": "240",
+            "AdvancedForm.MaxArcLength": "60",
+            "AdvancedForm.MaxArcLengthCity": "10",
+            "AdvancedForm.MaxArcLengthFrom": "true",
+            "AdvancedForm.LimitWalkArcs": "false",
+            "AdvancedForm.UseBeds": "0",
+            "AdvancedForm.LowDeckConn": "false",
+            "AdvancedForm.LowDeckConnTr": "false",
+            "AdvancedForm.PrefereTrains": "false",
+            "AdvancedForm.WheelChair": "false",
+            "AdvancedForm.Children": "false",
+            "AdvancedForm.Bicycle": "false",
+            "AdvancedForm.AutoStrategy": "false",
+            "AdvancedForm.OwnerMaskNames": "",
+            "AdvancedForm.OwnerMaskExcludeInclude": "True",
+            "AdvancedForm.Num1MaskNames": "",
+            "AdvancedForm.Num1MaskExcludeInclude": "True",
+            "DefaultMaxArcLengthFrom": "True",
+        ]
+    )
+}
+
+/// Hidden values supplied by the browser's Station Timetable form for its selected local catalog.
+struct IDOSStationTimetableFormContract: Equatable, Sendable {
+    let timetableIndex: String
+    let timetableName: String
+    let lineHidden: String
+    let fromHidden: String
+    let toHidden: String
+}
+
+enum IDOSStationTimetableFormParser {
+    /// Reads the hidden provider values instead of deriving them from Kaštan's display model.
+    static func contract(in html: String) -> IDOSStationTimetableFormContract? {
+        guard html.contains(#"id="connection-filter""#),
+              let timetableIndex = inputValue(named: "TtIndex", in: html),
+              let timetableName = inputValue(named: "TtName", in: html),
+              let lineHidden = inputValue(named: "LineHidden", in: html),
+              let fromHidden = inputValue(named: "FromHidden", in: html),
+              let toHidden = inputValue(named: "ToHidden", in: html)
+        else {
+            return nil
+        }
+        return IDOSStationTimetableFormContract(
+            timetableIndex: timetableIndex,
+            timetableName: timetableName,
+            lineHidden: lineHidden,
+            fromHidden: fromHidden,
+            toHidden: toHidden
+        )
+    }
+
+    private static func inputValue(named name: String, in html: String) -> String? {
+        RegexSupport.captures(
+            pattern: #"<input\b([^>]*)>"#,
+            in: html,
+            options: [.caseInsensitive]
+        ).compactMap(\.first).first { attributes in
+            RegexSupport.capture(pattern: #"\bname="([^"]+)""#, in: attributes) == name
+        }.flatMap { attributes in
+            RegexSupport.capture(pattern: #"\bvalue="([^"]*)""#, in: attributes)
+        }.map(HTMLText.decodeEntities)
+    }
+}
+
 enum IDOSConnectionFormParser {
+    /// Reads the successful controls published by the same HTML form a browser submits.
+    static func contract(in html: String) -> IDOSConnectionFormContract? {
+        guard html.contains(#"id="connection-filter""#) else { return nil }
+
+        let inputs = RegexSupport.captures(
+            pattern: #"<input\b([^>]*)>"#,
+            in: html,
+            options: [.caseInsensitive]
+        ).compactMap(\.first)
+        var fieldValues: [String: String] = [:]
+        var transportModeIDs: [Int] = []
+        var knownTransportModeIDs: Set<Int> = []
+
+        for attributes in inputs {
+            guard let name = RegexSupport.capture(pattern: #"\bname="([^"]+)""#, in: attributes) else {
+                continue
+            }
+            if let idText = RegexSupport.capture(
+                pattern: #"^trTypeId\[(\d+)\]$"#,
+                in: name
+            ), let id = Int(idText), knownTransportModeIDs.insert(id).inserted {
+                transportModeIDs.append(id)
+            }
+            if fieldValues[name] == nil {
+                fieldValues[name] = RegexSupport.capture(
+                    pattern: #"\bvalue="([^"]*)""#,
+                    in: attributes
+                ).map(HTMLText.decodeEntities) ?? ""
+            }
+        }
+
+        let selects = RegexSupport.captures(
+            pattern: #"<select\b([^>]*)>(.*?)</select>"#,
+            in: html,
+            options: [.caseInsensitive, .dotMatchesLineSeparators]
+        )
+        for select in selects where select.count == 2 {
+            guard let name = RegexSupport.capture(
+                pattern: #"\bname="([^"]+)""#,
+                in: select[0]
+            ) else {
+                continue
+            }
+            let options = RegexSupport.captures(
+                pattern: #"<option\b([^>]*)>"#,
+                in: select[1],
+                options: [.caseInsensitive]
+            ).compactMap(\.first)
+            let selected = options.first { attributes in
+                !RegexSupport.matches(
+                    pattern: #"\bselected(?:="[^"]*")?"#,
+                    in: attributes,
+                    options: [.caseInsensitive]
+                ).isEmpty
+            } ?? options.first
+            fieldValues[name] = selected.flatMap { attributes in
+                RegexSupport.capture(pattern: #"\bvalue="([^"]*)""#, in: attributes)
+            }.map(HTMLText.decodeEntities) ?? ""
+        }
+
+        if fieldValues["AdvancedForm.OwnerMaskExcludeInclude"] != nil {
+            fieldValues["AdvancedForm.OwnerMaskExcludeInclude"] = "True"
+        }
+        if fieldValues["AdvancedForm.Num1MaskExcludeInclude"] != nil {
+            fieldValues["AdvancedForm.Num1MaskExcludeInclude"] = "True"
+        }
+
+        for name in [
+            "AdvancedForm.MaxChange",
+            "AdvancedForm.MinTime",
+            "AdvancedForm.MaxTime",
+            "AdvancedForm.MaxArcLength",
+            "AdvancedForm.MaxArcLengthCity",
+            "AdvancedForm.UseBeds",
+        ] where fieldValues[name]?.isEmpty == true {
+            fieldValues.removeValue(forKey: name)
+        }
+
+        guard !transportModeIDs.isEmpty,
+              fieldValues["AdvancedForm.AdvancedFormIsOpen"] != nil,
+              fieldValues["DefaultMaxArcLengthFrom"] != nil,
+              fieldValues["AdvancedForm.MaxChange"] != nil,
+              fieldValues["AdvancedForm.MinTime"] != nil,
+              fieldValues["AdvancedForm.MaxTime"] != nil
+        else {
+            return nil
+        }
+
+        return IDOSConnectionFormContract(
+            transportModeIDs: transportModeIDs,
+            fieldValues: fieldValues
+        )
+    }
+
     /// Reads the timetable-combination identifier passed to IDOS's connection form JavaScript.
     static func combinationID(in html: String) -> String? {
         guard let value = RegexSupport.capture(
