@@ -937,7 +937,7 @@ struct AppSectionCommands: Commands {
 /// Launches the native Kaštan experience while sharing all IDOS behavior with the CLI and MCP server.
 @main
 struct KastanApp: App {
-    /// Preserves the established search baseline while fitting every complete localized journey-option row.
+    /// Preserves the search baseline while keeping every journey-option control usable at the localized minimum.
     static let baselineMainWindowWidth: CGFloat = 522
     static let minimumMainWindowWidth = max(
         baselineMainWindowWidth,

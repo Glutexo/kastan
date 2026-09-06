@@ -102,10 +102,10 @@ manager and show their source when more than one ordinary provider is registered
   and follows a selection-independent condition menu sized from the
   complete localized catalog. Every row retains its minus action; removing the sole condition from a source that
   supports Via resets that row to an empty, inactive Via field instead of removing it, then disables the minus action
-  until the row becomes active again or another row is added. The main-window minimum exactly follows the widest complete
-  condition/value pair—including the transport operation and the complete grouped mode catalog—plus both fixed row
-  actions, and uses compact search insets at that width so labels remain
-  unabridged and controls stay inside the content edges. Summaries retain
+  until the row becomes active again or another row is added. The main-window minimum follows the widest required
+  condition/value pair plus both fixed row actions. The final means-of-transport popup may contract to a usable minimum
+  and truncates a longer selected title with an ellipsis; its menu, hover help, and accessibility value retain the full
+  wording. Compact search insets keep every control inside the content edges at that width. Summaries retain
   locale-aware transfer wording. Departure/Arrival
   remains visible on the compact journey editor. The journey-options heading shares one level with Search. Expanding it
   or holding Option reveals the Direct connections only checkbox beside the heading; after the user first toggles it, it

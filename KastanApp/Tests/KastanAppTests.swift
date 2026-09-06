@@ -2578,7 +2578,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(SearchActionButton.contentWidth, 140)
     }
 
-    func testMainWindowDefaultsToFullyReadableLocalizedSearchWorkspaceWidth() {
+    func testMainWindowDefaultsToNarrowestUsableLocalizedSearchWorkspaceWidth() {
         let layout = DetailLayout(availableWidth: KastanApp.minimumMainWindowWidth)
 
         XCTAssertGreaterThanOrEqual(
@@ -2601,10 +2601,23 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testWidestJourneyOptionRowFitsLocalizedMinimumWithoutCompression() throws {
-        let contentWidth = DetailLayout(
-            availableWidth: KastanApp.minimumMainWindowWidth
-        ).contentWidth
+    func testTransportModeRowCompressesOnlyItsFinalPicker() throws {
+        let conditionWidth = StableWidthPopUpButton.catalogWidth(
+            for: JourneyOptionKind.localizedCatalogTitles
+        )
+        let operationWidth = StableWidthPopUpButton.catalogWidth(
+            for: TransitConnectionTransportModeFilterOperation.localizedCatalogTitles
+        )
+        let fullTransportWidth = StableWidthPopUpButton.catalogWidth(
+            for: TransitConnectionTransportMode.localizedCatalogTitles
+        )
+        let shortenedTransportWidth = max(
+            JourneyOptionRowLayout.minimumFlexibleValueWidth,
+            fullTransportWidth - 40
+        )
+        let contentWidth = conditionWidth + operationWidth + shortenedTransportWidth +
+            (2 * JourneyOptionRowLayout.actionButtonWidth) +
+            (4 * JourneyOptionRowLayout.spacing)
         let row = HStack(spacing: JourneyOptionRowLayout.spacing) {
             JourneyOptionKindPicker(
                 selection: .constant(.transportMode),
@@ -2612,21 +2625,25 @@ final class KastanAppTests: XCTestCase {
             )
             .fixedSize(horizontal: true, vertical: false)
 
-            Picker(selection: .constant(TransitConnectionTransportModeFilterOperation.only)) {
-                ForEach(TransitConnectionTransportModeFilterOperation.allCases, id: \.self) { operation in
-                    Text(verbatim: operation.localizedTitle).tag(operation)
+            HStack(spacing: JourneyOptionRowLayout.spacing) {
+                Picker(selection: .constant(TransitConnectionTransportModeFilterOperation.only)) {
+                    ForEach(TransitConnectionTransportModeFilterOperation.allCases, id: \.self) { operation in
+                        Text(verbatim: operation.localizedTitle).tag(operation)
+                    }
+                } label: {
+                    Text(verbatim: JourneyOptionKind.transportMode.localizedTitle)
                 }
-            } label: {
-                Text(verbatim: JourneyOptionKind.transportMode.localizedTitle)
-            }
-            .labelsHidden()
-            .fixedSize()
+                .labelsHidden()
+                .fixedSize()
 
-            JourneyTransportModePicker(
-                selection: .constant(.highestQualityTrain),
-                availableModes: TransitConnectionTransportMode.allCases
-            )
-            .fixedSize(horizontal: true, vertical: false)
+                JourneyTransportModePicker(
+                    selection: .constant(.highestQualityTrain),
+                    availableModes: TransitConnectionTransportMode.allCases
+                )
+                .frame(minWidth: JourneyOptionRowLayout.minimumFlexibleValueWidth)
+                .layoutPriority(-1)
+            }
+            .fixedSize(horizontal: false, vertical: true)
 
             Spacer(minLength: 0)
 
@@ -2671,6 +2688,9 @@ final class KastanAppTests: XCTestCase {
         let actionProbes = try ["remove-action", "add-action"].map { name in
             try XCTUnwrap(probes.first { $0.name == name })
         }
+        let transportPopup = try XCTUnwrap(popupButtons.first {
+            $0.toolTip == TransitConnectionTransportMode.highestQualityTrain.localizedTitle
+        })
 
         XCTAssertEqual(popupButtons.count, 3)
         for control in visibleControls {
@@ -2678,7 +2698,17 @@ final class KastanAppTests: XCTestCase {
             XCTAssertGreaterThanOrEqual(frame.minX, -1)
             XCTAssertLessThanOrEqual(frame.maxX, contentWidth + 1)
         }
-        for popupButton in popupButtons {
+        XCTAssertLessThan(transportPopup.frame.width, transportPopup.intrinsicContentSize.width)
+        XCTAssertGreaterThanOrEqual(
+            transportPopup.frame.width,
+            JourneyOptionRowLayout.minimumFlexibleValueWidth
+        )
+        XCTAssertEqual(transportPopup.cell?.lineBreakMode, .byTruncatingTail)
+        XCTAssertEqual(
+            transportPopup.accessibilityValue() as? String,
+            TransitConnectionTransportMode.highestQualityTrain.localizedTitle
+        )
+        for popupButton in popupButtons where popupButton !== transportPopup {
             XCTAssertGreaterThanOrEqual(
                 popupButton.frame.width,
                 popupButton.intrinsicContentSize.width - 0.5

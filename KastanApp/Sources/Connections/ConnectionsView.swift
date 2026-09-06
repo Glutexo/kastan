@@ -191,7 +191,7 @@ enum ConnectionEndpointLayout {
     }
 }
 
-/// Reserves the complete localized condition/value pair and both fixed row actions at the window minimum.
+/// Keeps every condition and fixed value readable while letting the final transport picker truncate when needed.
 @MainActor
 enum JourneyOptionRowLayout {
     static let spacing: CGFloat = 8
@@ -202,7 +202,7 @@ enum JourneyOptionRowLayout {
 
     static var minimumContentWidth: CGFloat {
         ceil(
-            conditionCatalogWidth + maximumFixedValueWidth +
+            conditionCatalogWidth + maximumRequiredValueWidth +
                 (2 * actionButtonWidth) +
                 (fixedItemSpacingCount * spacing)
         )
@@ -226,15 +226,14 @@ enum JourneyOptionRowLayout {
         )
     }
 
-    private static var transportModeValueWidth: CGFloat {
+    /// Reserves usable popup chrome while allowing its longest selected title to yield horizontal space.
+    private static var minimumTransportModeValueWidth: CGFloat {
         StableWidthPopUpButton.catalogWidth(
             for: TransitConnectionTransportModeFilterOperation.localizedCatalogTitles
-        ) + spacing + StableWidthPopUpButton.catalogWidth(
-            for: TransitConnectionTransportMode.localizedCatalogTitles
-        )
+        ) + spacing + minimumFlexibleValueWidth
     }
 
-    private static var maximumFixedValueWidth: CGFloat {
+    private static var maximumRequiredValueWidth: CGFloat {
         let booleanTitles = [
             AppLocalization.string("Also at the beginning/end of journey"),
             AppLocalization.string("Only during transfers"),
@@ -262,7 +261,7 @@ enum JourneyOptionRowLayout {
         return max(
             standaloneValueWidth,
             max(
-                transportModeValueWidth,
+                minimumTransportModeValueWidth,
                 max(
                     transferConstraintCatalogWidth + spacing + transferValueWidth,
                     walkingConstraintCatalogWidth + spacing +
@@ -691,8 +690,10 @@ struct ConnectionsView: View {
                     selection: transportModeBinding(for: option),
                     availableModes: model.availableTransportModes(for: option.wrappedValue.id)
                 )
+                .frame(minWidth: JourneyOptionRowLayout.minimumFlexibleValueWidth)
+                .layoutPriority(-1)
             }
-            .fixedSize(horizontal: true, vertical: false)
+            .fixedSize(horizontal: false, vertical: true)
         case .transfers:
             HStack(spacing: JourneyOptionRowLayout.spacing) {
                 transferConstraintPicker(
@@ -1279,7 +1280,9 @@ struct JourneyTransportModePicker: NSViewRepresentable {
         let button = StableWidthPopUpButton(frame: .zero, pullsDown: false)
         button.controlSize = .regular
         button.setContentHuggingPriority(.required, for: .horizontal)
-        button.setContentCompressionResistancePriority(.required, for: .horizontal)
+        button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        button.cell?.lineBreakMode = .byTruncatingTail
+        button.cell?.truncatesLastVisibleLine = true
         button.target = context.coordinator
         button.action = #selector(Coordinator.selectMode(_:))
         button.setAccessibilityLabel(AppLocalization.string("Means of transport"))
@@ -1357,6 +1360,7 @@ struct JourneyTransportModePicker: NSViewRepresentable {
             button.select(item)
         }
         button.setAccessibilityValue(selection.localizedTitle)
+        button.toolTip = selection.localizedTitle
         button.invalidateIntrinsicContentSize()
     }
 
@@ -1365,7 +1369,11 @@ struct JourneyTransportModePicker: NSViewRepresentable {
         nsView button: StableWidthPopUpButton,
         context: Context
     ) -> CGSize? {
-        button.intrinsicContentSize
+        let intrinsicSize = button.intrinsicContentSize
+        return CGSize(
+            width: min(proposal.width ?? intrinsicSize.width, intrinsicSize.width),
+            height: intrinsicSize.height
+        )
     }
 
     /// Passes the selected detailed mode back into the SwiftUI journey-option row.
