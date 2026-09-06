@@ -2593,6 +2593,11 @@ final class KastanAppTests: XCTestCase {
             layout.contentWidth,
             JourneyOptionRowLayout.minimumContentWidth
         )
+        XCTAssertEqual(JourneyOptionRowLayout.fieldSpacing, 0)
+        XCTAssertGreaterThan(
+            JourneyOptionRowLayout.actionSpacing,
+            JourneyOptionRowLayout.fieldSpacing
+        )
         XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: true), 0)
         XCTAssertEqual(SearchTimetablePicker.favoriteSpacing(usesCompactLayout: false), 8)
         XCTAssertEqual(SearchTimetablePicker.pickerWidth, 236)
@@ -2615,32 +2620,34 @@ final class KastanAppTests: XCTestCase {
             for: TransitConnectionTransportMode.localizedCatalogTitles
         )
         let contentWidth = JourneySearchHeaderLayout.minimumContentWidth
-        let row = HStack(spacing: JourneyOptionRowLayout.spacing) {
-            JourneyOptionKindPicker(
-                selection: .constant(.transportMode),
-                availableKinds: JourneyOptionKind.allCases
-            )
-            .fixedSize(horizontal: true, vertical: false)
-
-            HStack(spacing: JourneyOptionRowLayout.spacing) {
-                Picker(selection: .constant(TransitConnectionTransportModeFilterOperation.only)) {
-                    ForEach(TransitConnectionTransportModeFilterOperation.allCases, id: \.self) { operation in
-                        Text(verbatim: operation.localizedTitle).tag(operation)
-                    }
-                } label: {
-                    Text(verbatim: JourneyOptionKind.transportMode.localizedTitle)
-                }
-                .labelsHidden()
-                .fixedSize()
-
-                JourneyTransportModePicker(
-                    selection: .constant(.highestQualityTrain),
-                    availableModes: TransitConnectionTransportMode.allCases
+        let row = HStack(spacing: JourneyOptionRowLayout.actionSpacing) {
+            HStack(spacing: JourneyOptionRowLayout.fieldSpacing) {
+                JourneyOptionKindPicker(
+                    selection: .constant(.transportMode),
+                    availableKinds: JourneyOptionKind.allCases
                 )
-                .frame(minWidth: JourneyOptionRowLayout.minimumFlexibleValueWidth)
-                .layoutPriority(-1)
+                .fixedSize(horizontal: true, vertical: false)
+
+                HStack(spacing: JourneyOptionRowLayout.fieldSpacing) {
+                    Picker(selection: .constant(TransitConnectionTransportModeFilterOperation.only)) {
+                        ForEach(TransitConnectionTransportModeFilterOperation.allCases, id: \.self) { operation in
+                            Text(verbatim: operation.localizedTitle).tag(operation)
+                        }
+                    } label: {
+                        Text(verbatim: JourneyOptionKind.transportMode.localizedTitle)
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+
+                    JourneyTransportModePicker(
+                        selection: .constant(.highestQualityTrain),
+                        availableModes: TransitConnectionTransportMode.allCases
+                    )
+                    .frame(minWidth: JourneyOptionRowLayout.minimumFlexibleValueWidth)
+                    .layoutPriority(-1)
+                }
+                .fixedSize(horizontal: false, vertical: true)
             }
-            .fixedSize(horizontal: false, vertical: true)
 
             Spacer(minLength: 0)
 
@@ -2821,10 +2828,11 @@ final class KastanAppTests: XCTestCase {
         )
         let editorWidth = JourneySearchHeaderLayout.minimumContentWidth - conditionWidth -
             (2 * JourneyOptionRowLayout.actionButtonWidth) -
-            (4 * JourneyOptionRowLayout.spacing)
+            JourneyOptionRowLayout.fieldSpacing -
+            (3 * JourneyOptionRowLayout.actionSpacing)
         let subchoiceTitle = "Nejdelší"
         let durationTitle = "1 hodina"
-        let editor = HStack(spacing: JourneyOptionRowLayout.spacing) {
+        let editor = HStack(spacing: JourneyOptionRowLayout.fieldSpacing) {
             TruncatingJourneyValuePicker(
                 selection: .constant(0),
                 choices: [

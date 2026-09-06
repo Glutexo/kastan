@@ -194,20 +194,23 @@ enum ConnectionEndpointLayout {
 /// Keeps every condition and fixed action readable while allowing secondary popup values to truncate when needed.
 @MainActor
 enum JourneyOptionRowLayout {
-    static let spacing: CGFloat = 8
+    /// Lets adjacent popup bezels provide their own native visual separation without adding empty row space.
+    static let fieldSpacing: CGFloat = 0
+    /// Keeps destructive and additive row actions visually separate from the editable fields and each other.
+    static let actionSpacing: CGFloat = 8
     static let actionIconWidth: CGFloat = 12
     static let actionButtonWidth: CGFloat = 36
     /// Leaves enough room for a meaningful value fragment after native popup chrome.
     static let minimumFlexibleValueWidth: CGFloat = 94
     static let maximumTransfersFieldWidth: CGFloat = 32
     static let viaFieldMinimumWidth: CGFloat = 160
-    private static let fixedItemSpacingCount: CGFloat = 4
+    private static let fixedActionSpacingCount: CGFloat = 3
 
     static var minimumContentWidth: CGFloat {
         ceil(
-            conditionCatalogWidth + minimumRequiredValueWidth +
+            conditionCatalogWidth + fieldSpacing + minimumRequiredValueWidth +
                 (2 * actionButtonWidth) +
-                (fixedItemSpacingCount * spacing)
+                (fixedActionSpacingCount * actionSpacing)
         )
     }
 
@@ -221,12 +224,12 @@ enum JourneyOptionRowLayout {
     private static var minimumTransportModeValueWidth: CGFloat {
         StableWidthPopUpButton.catalogWidth(
             for: TransitConnectionTransportModeFilterOperation.localizedCatalogTitles
-        ) + spacing + minimumFlexibleValueWidth
+        ) + fieldSpacing + minimumFlexibleValueWidth
     }
 
     /// Covers a text field or two compact popup values after the stable condition selector.
     private static var minimumRequiredValueWidth: CGFloat {
-        let nestedPopupWidth = (2 * minimumFlexibleValueWidth) + spacing
+        let nestedPopupWidth = (2 * minimumFlexibleValueWidth) + fieldSpacing
         return max(
             viaFieldMinimumWidth,
             max(minimumTransportModeValueWidth, nestedPopupWidth)
@@ -576,10 +579,12 @@ struct ConnectionsView: View {
     }
 
     private func journeyOptionRow(option: Binding<JourneyOptionEntry>) -> some View {
-        HStack(spacing: JourneyOptionRowLayout.spacing) {
-            journeyOptionKindMenu(option: option)
+        HStack(spacing: JourneyOptionRowLayout.actionSpacing) {
+            HStack(spacing: JourneyOptionRowLayout.fieldSpacing) {
+                journeyOptionKindMenu(option: option)
 
-            journeyOptionValue(option: option)
+                journeyOptionValue(option: option)
+            }
 
             Spacer(minLength: 0)
 
@@ -646,7 +651,7 @@ struct ConnectionsView: View {
                 .frame(minWidth: JourneyOptionRowLayout.viaFieldMinimumWidth, maxWidth: 520)
                 .layoutPriority(1)
         case .transportMode:
-            HStack(spacing: JourneyOptionRowLayout.spacing) {
+            HStack(spacing: JourneyOptionRowLayout.fieldSpacing) {
                 transportModeFilterOperationPicker(option: option)
                 JourneyTransportModePicker(
                     selection: transportModeBinding(for: option),
@@ -657,7 +662,7 @@ struct ConnectionsView: View {
             }
             .fixedSize(horizontal: false, vertical: true)
         case .transfers:
-            HStack(spacing: JourneyOptionRowLayout.spacing) {
+            HStack(spacing: JourneyOptionRowLayout.fieldSpacing) {
                 transferConstraintPicker(
                     selection: transferConstraintBinding(for: option),
                     choices: model.availableTransferConstraints(for: option.wrappedValue.id),
@@ -667,7 +672,7 @@ struct ConnectionsView: View {
             }
             .fixedSize(horizontal: false, vertical: true)
         case .walkingDistances:
-            HStack(spacing: JourneyOptionRowLayout.spacing) {
+            HStack(spacing: JourneyOptionRowLayout.fieldSpacing) {
                 walkingConstraintPicker(
                     selection: walkingConstraintBinding(for: option),
                     choices: model.availableWalkingConstraints(for: option.wrappedValue.id),
