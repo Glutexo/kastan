@@ -102,9 +102,10 @@ manager and show their source when more than one ordinary provider is registered
   and follows a selection-independent condition menu sized from the
   complete localized catalog. Every row retains its minus action; removing the sole condition from a source that
   supports Via resets that row to an empty, inactive Via field instead of removing it, then disables the minus action
-  until the row becomes active again or another row is added. Secondary popup values contract at the main-window
-  minimum and truncate longer selected titles with an ellipsis; their menus, hover help, and accessibility values retain
-  the full wording. The stable condition selector, value controls, and both fixed row actions remain usable at that
+  until the row becomes active again or another row is added. Secondary popups size from their current values instead
+  of reserving the width of the longest menu entry. At the main-window minimum they share the available space and only
+  then truncate longer selected titles with an ellipsis; their menus, hover help, and accessibility values retain the
+  full wording. The stable condition selector, value controls, and both fixed row actions remain usable at that
   width. Compact search insets keep every control inside the content edges. Summaries retain
   locale-aware transfer wording. Departure/Arrival
   remains visible on the compact journey editor. The journey-options heading shares one level with Search. Expanding it

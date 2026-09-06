@@ -197,7 +197,8 @@ enum JourneyOptionRowLayout {
     static let spacing: CGFloat = 8
     static let actionIconWidth: CGFloat = 12
     static let actionButtonWidth: CGFloat = 36
-    static let minimumFlexibleValueWidth: CGFloat = 58
+    /// Leaves enough room for a meaningful value fragment after native popup chrome.
+    static let minimumFlexibleValueWidth: CGFloat = 94
     static let maximumTransfersFieldWidth: CGFloat = 32
     static let viaFieldMinimumWidth: CGFloat = 160
     private static let fixedItemSpacingCount: CGFloat = 4
@@ -1235,6 +1236,7 @@ struct TruncatingJourneyValuePicker<Value: Hashable & Sendable>: NSViewRepresent
     func makeNSView(context: Context) -> StableWidthPopUpButton {
         let button = StableWidthPopUpButton(frame: .zero, pullsDown: false)
         button.controlSize = .regular
+        button.usesSizingTitlesAsIntrinsicWidth = true
         button.setContentHuggingPriority(.required, for: .horizontal)
         button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         button.cell?.lineBreakMode = .byTruncatingTail
@@ -1249,7 +1251,6 @@ struct TruncatingJourneyValuePicker<Value: Hashable & Sendable>: NSViewRepresent
         context.coordinator.choices = choices
 
         let titles = choices.map(\.title)
-        button.sizingTitles = titles
         if button.itemTitles != titles {
             button.removeAllItems()
             button.addItems(withTitles: titles)
@@ -1259,6 +1260,7 @@ struct TruncatingJourneyValuePicker<Value: Hashable & Sendable>: NSViewRepresent
             button.selectItem(at: selectedIndex)
         }
         let selectedTitle = choices.first(where: { $0.value == selection })?.title
+        button.sizingTitles = selectedTitle.map { [$0] } ?? []
         button.setAccessibilityLabel(accessibilityLabel)
         button.setAccessibilityValue(selectedTitle)
         button.toolTip = selectedTitle
@@ -1427,6 +1429,14 @@ struct JourneyTransportModePicker: NSViewRepresentable {
 
 /// Uses the complete localized catalog as a stable, selection-independent sizing reference.
 final class StableWidthPopUpButton: NSPopUpButton {
+    /// Allows flexible value controls to size from a selected-title catalog while their menus retain every full title.
+    var usesSizingTitlesAsIntrinsicWidth = false {
+        didSet {
+            guard usesSizingTitlesAsIntrinsicWidth != oldValue else { return }
+            invalidateIntrinsicContentSize()
+        }
+    }
+
     var sizingTitles: [String] = [] {
         didSet {
             guard sizingTitles != oldValue else { return }
@@ -1440,16 +1450,14 @@ final class StableWidthPopUpButton: NSPopUpButton {
             return nativeSize
         }
 
+        let sizingWidth = Self.catalogWidth(
+            for: sizingTitles,
+            controlSize: controlSize,
+            bezelStyle: bezelStyle,
+            font: font
+        )
         return NSSize(
-            width: max(
-                nativeSize.width,
-                Self.catalogWidth(
-                    for: sizingTitles,
-                    controlSize: controlSize,
-                    bezelStyle: bezelStyle,
-                    font: font
-                )
-            ),
+            width: usesSizingTitlesAsIntrinsicWidth ? sizingWidth : max(nativeSize.width, sizingWidth),
             height: nativeSize.height
         )
     }

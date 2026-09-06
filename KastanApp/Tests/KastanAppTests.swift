@@ -2775,6 +2775,108 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(selection)
     }
 
+    func testJourneyValuePickerSizesFromSelectedValueInsteadOfLongestMenuChoice() throws {
+        var selection = 60
+        let selectedTitle = "1 hodina"
+        let longestMenuTitle = "Mimořádně dlouhá jiná položka nabídky"
+        let picker = TruncatingJourneyValuePicker(
+            selection: Binding(
+                get: { selection },
+                set: { selection = $0 }
+            ),
+            choices: [(0, longestMenuTitle), (60, selectedTitle)],
+            accessibilityLabel: "Nejdelší"
+        )
+        .fixedSize()
+        let hostingView = NSHostingView(rootView: picker)
+        hostingView.frame = NSRect(x: 0, y: 0, width: 400, height: 28)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        let popup = try XCTUnwrap(
+            hostingView.allDescendantViews.compactMap { $0 as? NSPopUpButton }.first
+        )
+        let selectedWidth = StableWidthPopUpButton.catalogWidth(for: [selectedTitle])
+        let completeCatalogWidth = StableWidthPopUpButton.catalogWidth(
+            for: [longestMenuTitle, selectedTitle]
+        )
+
+        XCTAssertEqual(popup.intrinsicContentSize.width, selectedWidth, accuracy: 0.5)
+        XCTAssertLessThan(popup.intrinsicContentSize.width, completeCatalogWidth)
+        XCTAssertEqual(popup.itemTitles, [longestMenuTitle, selectedTitle])
+        XCTAssertEqual(popup.titleOfSelectedItem, selectedTitle)
+    }
+
+    func testSelectedWalkingHourRemainsCompleteAtTheMinimumWindowWidth() throws {
+        let conditionWidth = StableWidthPopUpButton.catalogWidth(
+            for: JourneyOptionKind.localizedCatalogTitles
+        )
+        let editorWidth = JourneySearchHeaderLayout.minimumContentWidth - conditionWidth -
+            (2 * JourneyOptionRowLayout.actionButtonWidth) -
+            (4 * JourneyOptionRowLayout.spacing)
+        let subchoiceTitle = "Nejdelší"
+        let durationTitle = "1 hodina"
+        let editor = HStack(spacing: JourneyOptionRowLayout.spacing) {
+            TruncatingJourneyValuePicker(
+                selection: .constant(0),
+                choices: [
+                    (0, subchoiceTitle),
+                    (1, "Mimořádně dlouhá jiná podvolba"),
+                ],
+                accessibilityLabel: "Přesuny"
+            )
+            .frame(minWidth: JourneyOptionRowLayout.minimumFlexibleValueWidth)
+
+            TruncatingJourneyValuePicker(
+                selection: .constant(60),
+                choices: [
+                    (0, "0 minut"),
+                    (60, durationTitle),
+                ],
+                accessibilityLabel: subchoiceTitle
+            )
+            .frame(minWidth: JourneyOptionRowLayout.minimumFlexibleValueWidth)
+            .layoutPriority(-1)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(width: editorWidth, height: 28, alignment: .leading)
+        let hostingView = NSHostingView(rootView: editor)
+        hostingView.frame = NSRect(x: 0, y: 0, width: editorWidth, height: 28)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        hostingView.layoutSubtreeIfNeeded()
+        defer { window.orderOut(nil) }
+
+        let popups = hostingView.allDescendantViews.compactMap { $0 as? NSPopUpButton }
+        let subchoicePopup = try XCTUnwrap(popups.first { $0.toolTip == subchoiceTitle })
+        let durationPopup = try XCTUnwrap(popups.first { $0.toolTip == durationTitle })
+
+        XCTAssertGreaterThanOrEqual(
+            subchoicePopup.frame.width,
+            subchoicePopup.intrinsicContentSize.width - 0.5
+        )
+        XCTAssertGreaterThanOrEqual(
+            durationPopup.frame.width,
+            durationPopup.intrinsicContentSize.width - 0.5
+        )
+        XCTAssertEqual(subchoicePopup.titleOfSelectedItem, subchoiceTitle)
+        XCTAssertEqual(durationPopup.titleOfSelectedItem, durationTitle)
+    }
+
     func testCompactConnectionFormKeepsNativeControlsInsideWindow() {
         let width = KastanApp.minimumMainWindowWidth
         func assertControlsStayInsideWindow(
