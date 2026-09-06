@@ -194,8 +194,8 @@ enum ConnectionEndpointLayout {
 /// Keeps every condition and fixed action readable while allowing secondary popup values to truncate when needed.
 @MainActor
 enum JourneyOptionRowLayout {
-    /// Lets adjacent popup bezels provide their own native visual separation without adding empty row space.
-    static let fieldSpacing: CGFloat = 0
+    /// Separates adjacent popup bezels without returning to the wider spacing reserved for row actions.
+    static let fieldSpacing: CGFloat = 4
     /// Keeps destructive and additive row actions visually separate from the editable fields and each other.
     static let actionSpacing: CGFloat = 8
     static let actionIconWidth: CGFloat = 12

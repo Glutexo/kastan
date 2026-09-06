@@ -2593,7 +2593,7 @@ final class KastanAppTests: XCTestCase {
             layout.contentWidth,
             JourneyOptionRowLayout.minimumContentWidth
         )
-        XCTAssertEqual(JourneyOptionRowLayout.fieldSpacing, 0)
+        XCTAssertEqual(JourneyOptionRowLayout.fieldSpacing, 4)
         XCTAssertGreaterThan(
             JourneyOptionRowLayout.actionSpacing,
             JourneyOptionRowLayout.fieldSpacing
