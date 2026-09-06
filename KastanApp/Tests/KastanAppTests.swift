@@ -2815,7 +2815,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(popup.titleOfSelectedItem, selectedTitle)
     }
 
-    func testSelectedWalkingHourRemainsCompleteAtTheMinimumWindowWidth() throws {
+    func testSelectedWalkingHourRetainsReadableControlsAtTheMinimumWindowWidth() throws {
         let conditionWidth = StableWidthPopUpButton.catalogWidth(
             for: JourneyOptionKind.localizedCatalogTitles
         )
@@ -2867,11 +2867,11 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertGreaterThanOrEqual(
             subchoicePopup.frame.width,
-            subchoicePopup.intrinsicContentSize.width - 0.5
+            JourneyOptionRowLayout.minimumFlexibleValueWidth - 0.5
         )
         XCTAssertGreaterThanOrEqual(
             durationPopup.frame.width,
-            durationPopup.intrinsicContentSize.width - 0.5
+            JourneyOptionRowLayout.minimumFlexibleValueWidth - 0.5
         )
         XCTAssertEqual(subchoicePopup.titleOfSelectedItem, subchoiceTitle)
         XCTAssertEqual(durationPopup.titleOfSelectedItem, durationTitle)
