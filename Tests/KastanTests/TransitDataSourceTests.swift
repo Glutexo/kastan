@@ -97,16 +97,16 @@ func expectTransitDataSourceContract(
     #expect(legacy.connectionOptions.isEmpty)
 }
 
-/// Keeps every detailed mode and its IDOS-facing group available to all product interfaces without numeric IDs.
+/// Keeps every detailed mode and its semantic group available to all product interfaces without numeric IDs.
 @Test func connectionTransportModesUseStablePublicValuesAndGroups() {
     #expect(TransitConnectionTransportMode.allCases == [
         .highestQualityTrain,
         .higherQualityTrain,
         .interregionalTrain,
         .regionalTrain,
-        .trainBus,
-        .trainShip,
-        .trainOther,
+        .bus,
+        .ship,
+        .other,
         .localBus,
         .longDistanceBus,
         .internationalBus,
@@ -115,9 +115,19 @@ func expectTransitDataSourceContract(
         .cityCableway,
         .cityTrolleybus,
     ])
+    #expect(TransitConnectionTransportModeGroup.allCases == [
+        .trains,
+        .general,
+        .buses,
+        .cityTransport,
+    ])
     #expect(
         TransitConnectionTransportMode.allCases.filter { $0.group == .trains }
-            == Array(TransitConnectionTransportMode.allCases[0...6])
+            == Array(TransitConnectionTransportMode.allCases[0...3])
+    )
+    #expect(
+        TransitConnectionTransportMode.allCases.filter { $0.group == .general }
+            == Array(TransitConnectionTransportMode.allCases[4...6])
     )
     #expect(
         TransitConnectionTransportMode.allCases.filter { $0.group == .buses }

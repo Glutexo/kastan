@@ -298,6 +298,7 @@
 "Cableway" = "cableway";
 "City transport" = "City transport";
 "Exclude transport mode" = "exclude";
+"General" = "General";
 "Highest quality train (SC, ICE, …)" = "highest quality train (SC, ICE, …)";
 "Higher quality train (EC, IC, …)" = "higher quality train (EC, IC, …)";
 "International bus" = "international bus";

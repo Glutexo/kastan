@@ -630,7 +630,7 @@ struct KastanMCPTools: Sendable {
             ),
             "modes": .object([
                 "type": "array",
-                "description": "Detailed means of transport. Groups: trains (highestQualityTrain, higherQualityTrain, interregionalTrain, regionalTrain, trainBus, trainShip, trainOther), buses (localBus, longDistanceBus, internationalBus), cityTransport (cityTram, cityBus, cityCableway, cityTrolleybus).",
+                "description": "Detailed means of transport. Groups: trains (highestQualityTrain, higherQualityTrain, interregionalTrain, regionalTrain), general (bus, ship, other), buses (localBus, longDistanceBus, internationalBus), cityTransport (cityTram, cityBus, cityCableway, cityTrolleybus).",
                 "items": stringEnumSchema(
                     "One detailed means of transport.",
                     values: TransitConnectionTransportMode.allCases.map(\.rawValue)

@@ -195,11 +195,11 @@ Its journey options mirror the complete `TransitConnectionRequest` library contr
 - `bedOrCouchettePreference` accepts `noLimitation`, `use`, or `doNotUse`. IDOS offers it only for All timetables,
   Trains + Buses + Urban Public Transport, Trains, and Trains + Buses.
 
-Transport modes retain the three source groups. Trains contain `highestQualityTrain`, `higherQualityTrain`,
-`interregionalTrain`, `regionalTrain`, `trainBus`, `trainShip`, and `trainOther`; buses contain `localBus`,
-`longDistanceBus`, and `internationalBus`; city transport contains `cityTram`, `cityBus`, `cityCableway`, and
-`cityTrolleybus`. The single operation makes `only` and `exclude` mutually exclusive. `only` retains the union of the
-listed modes, while `exclude` removes all listed modes from the complete catalog. For example:
+Transport modes use four semantic groups. Trains contain `highestQualityTrain`, `higherQualityTrain`,
+`interregionalTrain`, and `regionalTrain`; general transport contains `bus`, `ship`, and `other`; buses contain
+`localBus`, `longDistanceBus`, and `internationalBus`; city transport contains `cityTram`, `cityBus`, `cityCableway`,
+and `cityTrolleybus`. The single operation makes `only` and `exclude` mutually exclusive. `only` retains the union of
+the listed modes, while `exclude` removes all listed modes from the complete catalog. For example:
 
 ```json
 {

@@ -77,6 +77,9 @@ import Testing
         Set(TransitConnectionTransportMode.allCases.map(\.connectionCommandValue)).count
             == TransitConnectionTransportMode.allCases.count
     )
+    #expect(TransitConnectionTransportMode.bus.connectionCommandValue == "bus")
+    #expect(TransitConnectionTransportMode.ship.connectionCommandValue == "ship")
+    #expect(TransitConnectionTransportMode.other.connectionCommandValue == "other")
 }
 
 @Test func sourceOptionRoutesCollidingTimetablesAcrossGlobalArgumentPositions() async throws {
@@ -2042,7 +2045,7 @@ import Testing
         to: "Brno",
         transportModeFilter: .init(
             operation: .only,
-            modes: [.highestQualityTrain, .cityBus]
+            modes: [.highestQualityTrain, .bus, .cityBus]
         )
     )
     let excludedRequest = IDOSConnectionRequest(
@@ -2054,7 +2057,7 @@ import Testing
         )
     )
 
-    #expect(transportTypeIDs(in: onlyRequest) == [150, 301])
+    #expect(transportTypeIDs(in: onlyRequest) == [150, 154, 301])
     #expect(transportTypeIDs(in: excludedRequest) == [
         150, 151, 152, 154, 155, 156,
         200, 201, 202,

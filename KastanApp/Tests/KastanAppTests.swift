@@ -7718,6 +7718,7 @@ final class KastanAppTests: XCTestCase {
             TransitConnectionTransportModeGroup.allCases.map(\.localizedTitle),
             [
                 AppLocalization.string("Trains"),
+                AppLocalization.string("General"),
                 AppLocalization.string("Buses"),
                 AppLocalization.string("City transport"),
             ]
@@ -7740,6 +7741,10 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(
             czech.localizedString(forKey: "Local bus", value: nil, table: nil),
             "místní autobus"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "General", value: nil, table: nil),
+            "Obecné"
         )
         XCTAssertEqual(
             czech.localizedString(forKey: "Cableway", value: nil, table: nil),
@@ -7890,7 +7895,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(selection, .transfers)
     }
 
-    func testTransportModePickerUsesThreeInertCatalogGroupsAndEveryMode() throws {
+    func testTransportModePickerUsesFourInertCatalogGroupsAndEveryMode() throws {
         var selection = TransitConnectionTransportMode.cityBus
         let picker = JourneyTransportModePicker(
             selection: Binding(
@@ -7926,7 +7931,7 @@ final class KastanAppTests: XCTestCase {
         } else {
             XCTAssertTrue(headings.allSatisfy { !$0.isEnabled })
         }
-        XCTAssertEqual(popupButton.itemArray.filter(\.isSeparatorItem).count, 2)
+        XCTAssertEqual(popupButton.itemArray.filter(\.isSeparatorItem).count, 3)
         XCTAssertEqual(representedModes, TransitConnectionTransportMode.allCases)
         XCTAssertEqual(
             popupButton.selectedItem?.representedObject as? String,

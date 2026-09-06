@@ -17,11 +17,13 @@ enum JourneyOptionGroup: CaseIterable {
 }
 
 extension TransitConnectionTransportModeGroup {
-    /// Preserves the three headings from the IDOS means-of-transport catalog.
+    /// Names the semantic sections of the means-of-transport catalog.
     var localizedTitle: String {
         switch self {
         case .trains:
             AppLocalization.string("Trains")
+        case .general:
+            AppLocalization.string("General")
         case .buses:
             AppLocalization.string("Buses")
         case .cityTransport:
@@ -58,11 +60,11 @@ extension TransitConnectionTransportMode {
             AppLocalization.string("Interregional train (R, …)")
         case .regionalTrain:
             AppLocalization.string("Regional train (Os, Sp, …)")
-        case .trainBus, .cityBus:
+        case .bus, .cityBus:
             AppLocalization.string("Transport mode bus")
-        case .trainShip:
+        case .ship:
             AppLocalization.string("Transport mode ship")
-        case .trainOther:
+        case .other:
             AppLocalization.string("Transport mode other")
         case .localBus:
             AppLocalization.string("Local bus")

@@ -298,6 +298,7 @@
 "Cableway" = "lanová dráha";
 "City transport" = "MHD";
 "Exclude transport mode" = "vynechat";
+"General" = "Obecné";
 "Highest quality train (SC, ICE, …)" = "vlak nejvyšší kvality (SC, ICE, …)";
 "Higher quality train (EC, IC, …)" = "vlak vyšší kvality (EC, IC, …)";
 "International bus" = "mezinárodní autobus";

@@ -152,9 +152,9 @@ private extension TransitConnectionTransportMode {
         case .higherQualityTrain: 151
         case .interregionalTrain: 152
         case .regionalTrain: 153
-        case .trainBus: 154
-        case .trainShip: 155
-        case .trainOther: 156
+        case .bus: 154
+        case .ship: 155
+        case .other: 156
         case .localBus: 200
         case .longDistanceBus: 201
         case .internationalBus: 202

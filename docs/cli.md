@@ -182,8 +182,8 @@ Repeat `--transport-mode` to select several modes, but use one operation through
 are mutually exclusive. Repeated `only` values form the permitted union; repeated `exclude` values are all removed
 from the complete catalog. The grouped mode values are:
 
-- Trains: `highest-quality-train`, `higher-quality-train`, `interregional-train`, `regional-train`, `train-bus`,
-  `train-ship`, and `train-other`.
+- Trains: `highest-quality-train`, `higher-quality-train`, `interregional-train`, and `regional-train`.
+- General: `bus`, `ship`, and `other`.
 - Buses: `local-bus`, `long-distance-bus`, and `international-bus`.
 - City transport: `city-tram`, `city-bus`, `city-cableway`, and `city-trolleybus`.
 

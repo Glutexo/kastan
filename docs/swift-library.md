@@ -303,10 +303,10 @@ Connection requests expose the supported IDOS transport, transfer, and additiona
 `transportModeFilter` is an optional `TransitConnectionTransportModeFilter` with one `operation` and a `modes` array.
 The single operation makes `.only` and `.exclude` mutually exclusive: `.only` retains the union of every listed mode,
 while `.exclude` removes every listed mode from the complete catalog. A `nil` filter retains the provider default. Its
-stable mode cases follow the three IDOS groups:
+stable mode cases follow four semantic groups:
 
-- Trains: `.highestQualityTrain`, `.higherQualityTrain`, `.interregionalTrain`, `.regionalTrain`, `.trainBus`,
-  `.trainShip`, and `.trainOther`.
+- Trains: `.highestQualityTrain`, `.higherQualityTrain`, `.interregionalTrain`, and `.regionalTrain`.
+- General: `.bus`, `.ship`, and `.other`.
 - Buses: `.localBus`, `.longDistanceBus`, and `.internationalBus`.
 - City transport: `.cityTram`, `.cityBus`, `.cityCableway`, and `.cityTrolleybus`.
 
