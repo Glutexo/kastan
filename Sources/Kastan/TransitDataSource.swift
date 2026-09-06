@@ -174,20 +174,20 @@ public enum TransitConnectionTransportModeFilterOperation: String, CaseIterable,
     case exclude
 }
 
-/// Stores one repeatable means-of-transport rule in a provider-neutral connection request.
+/// Stores one mutually exclusive means-of-transport operation and all modes it affects.
 public struct TransitConnectionTransportModeFilter: Codable, Equatable, Hashable, Sendable {
-    /// Whether this rule retains or omits its mode.
+    /// Whether the selected modes are the only permitted modes or are omitted from the complete catalog.
     public var operation: TransitConnectionTransportModeFilterOperation
-    /// The detailed means of transport affected by this rule.
-    public var mode: TransitConnectionTransportMode
+    /// The detailed means of transport affected by the shared operation.
+    public var modes: [TransitConnectionTransportMode]
 
-    /// Creates one repeatable rule without exposing a provider's form identifiers.
+    /// Creates one complete filter without allowing `only` and `exclude` to be combined.
     public init(
         operation: TransitConnectionTransportModeFilterOperation,
-        mode: TransitConnectionTransportMode
+        modes: [TransitConnectionTransportMode]
     ) {
         self.operation = operation
-        self.mode = mode
+        self.modes = modes
     }
 }
 

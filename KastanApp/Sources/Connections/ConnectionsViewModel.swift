@@ -714,15 +714,14 @@ final class ConnectionsViewModel: ObservableObject {
         }
     }
 
-    /// Preserves row order while translating every visible means-of-transport condition to the library request.
-    var transportModeFilters: [TransitConnectionTransportModeFilter] {
-        journeyOptions.compactMap { option in
-            guard option.kind == .transportMode else { return nil }
-            return TransitConnectionTransportModeFilter(
-                operation: option.transportModeFilterOperation,
-                mode: option.transportMode
-            )
-        }
+    /// Combines visible rows under their one shared operation for the library request.
+    var transportModeFilter: TransitConnectionTransportModeFilter? {
+        let options = journeyOptions.filter { $0.kind == .transportMode }
+        guard let operation = options.first?.transportModeFilterOperation else { return nil }
+        return TransitConnectionTransportModeFilter(
+            operation: operation,
+            modes: options.map(\.transportMode)
+        )
     }
 
     /// Returns the single visible transfer ceiling, including the zero that represents direct-only mode.
@@ -975,6 +974,10 @@ final class ConnectionsViewModel: ObservableObject {
         }
         if let transportMode {
             journeyOptions[index].transportMode = transportMode
+            journeyOptions[index].transportModeFilterOperation =
+                journeyOptions.first {
+                    $0.id != id && $0.kind == .transportMode
+                }?.transportModeFilterOperation ?? currentOption.transportModeFilterOperation
         }
         if kind.usesRememberedTransferValue {
             restoreRememberedTransferValues(at: index)
@@ -1042,17 +1045,18 @@ final class ConnectionsViewModel: ObservableObject {
         journeyOptions[index].preference = preference
     }
 
-    /// Changes only the include/exclude operation; the mode remains reserved by this row.
+    /// Applies the selected mutually exclusive operation to every visible transport row.
     func setTransportModeFilterOperation(
         _ operation: TransitConnectionTransportModeFilterOperation,
         for id: JourneyOptionEntry.ID
     ) {
-        guard let index = journeyOptions.firstIndex(where: { $0.id == id }),
-              journeyOptions[index].kind == .transportMode
+        guard journeyOptions.contains(where: { $0.id == id && $0.kind == .transportMode })
         else {
             return
         }
-        journeyOptions[index].transportModeFilterOperation = operation
+        for index in journeyOptions.indices where journeyOptions[index].kind == .transportMode {
+            journeyOptions[index].transportModeFilterOperation = operation
+        }
     }
 
     /// Applies one distinct transport choice so visible rows cannot create contradictory rules for the same mode.
@@ -1219,12 +1223,9 @@ final class ConnectionsViewModel: ObservableObject {
         let requestedViaSelections = requestedViaEntries.isEmpty
             ? nil
             : requestedViaEntries.map(\.selection)
-        let requestedTransportModeFilters: [TransitConnectionTransportModeFilter]? =
-            if supportsConnectionOption(.transportModeFilters), !transportModeFilters.isEmpty {
-                transportModeFilters
-            } else {
-                nil
-            }
+        let requestedTransportModeFilter = supportsConnectionOption(.transportModeFilters)
+            ? transportModeFilter
+            : nil
         let requestedMaximumTransfers = supportsConnectionOption(.maximumTransfers)
             ? maximumTransfers
             : nil
@@ -1242,7 +1243,7 @@ final class ConnectionsViewModel: ObservableObject {
             onlyDirect: requestsOnlyDirect,
             via: requestedViaEntries.map(\.place),
             viaSelections: requestedViaSelections,
-            transportModeFilters: requestedTransportModeFilters,
+            transportModeFilter: requestedTransportModeFilter,
             maxTransfers: requestedMaximumTransfers,
             minimumTransferTime: requestHasNoTransfers ||
                 !supportsConnectionOption(.minimumTransferTime)
@@ -1319,6 +1320,9 @@ final class ConnectionsViewModel: ObservableObject {
         if kind == .transportMode,
            let transportMode = availableTransportModes(excluding: nil).first {
             option.transportMode = transportMode
+            option.transportModeFilterOperation = journeyOptions.first {
+                $0.kind == .transportMode
+            }?.transportModeFilterOperation ?? .only
         }
         if kind == .onlyConnections,
            let requirement = availableConnectionRequirements(excluding: nil).first {

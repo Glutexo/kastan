@@ -42,16 +42,17 @@ import Testing
     ] + TransitConnectionOption.allCases.map(\.mcpArgumentName)))
     #expect(TransitConnectionOption.allCases.map(\.mcpArgumentName).count == 18)
     #expect(connectionProperties["minimumTransferTime"]?.objectValue?["minimum"] == -1)
-    let transportModeItems = try #require(
-        connectionProperties["transportModeFilters"]?.objectValue?["items"]?.objectValue
+    let transportModeFilter = try #require(
+        connectionProperties["transportModeFilter"]?.objectValue
     )
-    #expect(transportModeItems["required"] == ["operation", "mode"])
+    #expect(transportModeFilter["required"] == ["operation", "modes"])
     #expect(
-        transportModeItems["properties"]?.objectValue?["operation"]?.objectValue?["enum"]
+        transportModeFilter["properties"]?.objectValue?["operation"]?.objectValue?["enum"]
             == ["only", "exclude"]
     )
     #expect(
-        transportModeItems["properties"]?.objectValue?["mode"]?.objectValue?["enum"]
+        transportModeFilter["properties"]?.objectValue?["modes"]?.objectValue?["items"]?
+            .objectValue?["enum"]
             == .array(TransitConnectionTransportMode.allCases.map { Value.string($0.rawValue) })
     )
     #expect(
@@ -109,9 +110,9 @@ import Testing
             "isArrival": true,
             "onlyDirect": true,
             "via": ["Pardubice", "Olomouc"],
-            "transportModeFilters": .array([
-                .object(["operation": "only", "mode": "regionalTrain"]),
-                .object(["operation": "exclude", "mode": "cityTrolleybus"]),
+            "transportModeFilter": .object([
+                "operation": "only",
+                "modes": ["regionalTrain", "longDistanceBus"],
             ]),
             "maxTransfers": 1,
             "minimumTransferTime": -1,
@@ -151,10 +152,10 @@ import Testing
     #expect(request?.isArrival == true)
     #expect(request?.onlyDirect == true)
     #expect(request?.via == ["Pardubice", "Olomouc"])
-    #expect(request?.transportModeFilters == [
-        .init(operation: .only, mode: .regionalTrain),
-        .init(operation: .exclude, mode: .cityTrolleybus),
-    ])
+    #expect(request?.transportModeFilter == .init(
+        operation: .only,
+        modes: [.regionalTrain, .longDistanceBus]
+    ))
     #expect(request?.maxTransfers == 1)
     #expect(request?.minimumTransferTime == -1)
     #expect(request?.maximumTransferTime == 360)
@@ -177,7 +178,7 @@ import Testing
     )
     #expect(
         result.structuredContent?.objectValue?["request"]?
-            .objectValue?["transportModeFilters"]?.arrayValue?.count == 2
+            .objectValue?["transportModeFilter"]?.objectValue?["modes"]?.arrayValue?.count == 2
     )
     let outputSchema = try #require(
         KastanMCPTools.definitions.first { $0.name == "find_connections" }?.outputSchema
@@ -480,8 +481,9 @@ import Testing
         name: "find_connections",
         arguments: [
             "from": "Praha", "to": "Brno",
-            "transportModeFilters": .array([
-                .object(["operation": "only", "mode": "hovercraft"]),
+            "transportModeFilter": .object([
+                "operation": "only",
+                "modes": ["hovercraft"],
             ]),
         ]
     )
@@ -489,8 +491,8 @@ import Testing
         name: "find_connections",
         arguments: [
             "from": "Praha", "to": "Brno",
-            "transportModeFilters": .array([
-                .object(["operation": "exclude"]),
+            "transportModeFilter": .object([
+                "operation": "exclude",
             ]),
         ]
     )
@@ -526,13 +528,13 @@ import Testing
     #expect(invalidTransportMode.isError == true)
     #expect(
         text(from: invalidTransportMode.content)?.contains(
-            "Invalid value 'hovercraft' for argument 'transportModeFilters[0].mode'."
+            "Invalid value 'hovercraft' for argument 'transportModeFilter.modes[0]'."
         ) == true
     )
     #expect(incompleteTransportModeFilter.isError == true)
     #expect(
         text(from: incompleteTransportModeFilter.content)
-            == "Error: Missing required argument 'transportModeFilters[0].mode'."
+            == "Error: Missing required argument 'transportModeFilter.modes'."
     )
     #expect(await mock.lastConnectionRequest == nil)
     #expect(await mock.lastDeparturesRequest == nil)

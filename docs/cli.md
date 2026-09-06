@@ -149,7 +149,7 @@ swift run kastan connections Praha Brno --via Pardubice --via Olomouc
 swift run kastan connections Praha Brno --time 15:00 --arrival
 swift run kastan connections Praha Brno --max-transfers 0
 swift run kastan connections Praha Brno --min-transfer-time -1 --max-transfer-time 360
-swift run kastan connections Praha Brno --transport-mode only:regional-train --transport-mode exclude:city-trolleybus
+swift run kastan connections Praha Brno --transport-mode only:regional-train --transport-mode only:long-distance-bus
 swift run kastan connections Praha Brno --wheelchair-accessible-connections-only true
 swift run kastan connections Praha Košice --timetable vlaky --bed-or-couchette-preference use
 swift run kastan connections Praha Brno --limit 3
@@ -178,8 +178,9 @@ Every library option has a stable English CLI spelling:
 | `--prefer-busy-routes` | `true` or `false`; prefers routes served more frequently. |
 | `--bed-or-couchette-preference` | `no-limitation`, `use`, or `do-not-use`; available only for compatible train timetables. |
 
-Multiple `only` transport-mode rules form a union. Every `exclude` rule is removed from that union, or from the full
-catalog when no `only` rule is present. The grouped mode values are:
+Repeat `--transport-mode` to select several modes, but use one operation throughout a request: `only` and `exclude`
+are mutually exclusive. Repeated `only` values form the permitted union; repeated `exclude` values are all removed
+from the complete catalog. The grouped mode values are:
 
 - Trains: `highest-quality-train`, `higher-quality-train`, `interregional-train`, `regional-train`, `train-bus`,
   `train-ship`, and `train-other`.

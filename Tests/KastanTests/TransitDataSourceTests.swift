@@ -131,7 +131,7 @@ func expectTransitDataSourceContract(
 
     let filter = TransitConnectionTransportModeFilter(
         operation: .exclude,
-        mode: .cityTrolleybus
+        modes: [.cityTrolleybus, .regionalTrain]
     )
     let decodedFilter = try? JSONDecoder().decode(
         TransitConnectionTransportModeFilter.self,

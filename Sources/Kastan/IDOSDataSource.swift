@@ -2210,11 +2210,11 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
     public var via: [String]
     /// Exact autocomplete choices aligned with `via`, with `nil` entries retaining free-text interpretation.
     public var viaSelections: [TransitPlaceSelection?]?
-    /// Repeatable rules that retain selected transport modes or omit them from the IDOS default catalog.
+    /// One operation that either retains selected transport modes or omits them from the IDOS default catalog.
     ///
-    /// Multiple `only` rules form a union. `exclude` rules are then removed from that union, or from the complete
-    /// catalog when no `only` rule is present. `nil` and an empty array both retain every default transport mode.
-    public var transportModeFilters: [TransitConnectionTransportModeFilter]?
+    /// The operation applies to every mode in the filter, making `only` and `exclude` mutually exclusive. `nil`
+    /// retains every default transport mode.
+    public var transportModeFilter: TransitConnectionTransportModeFilter?
     /// The maximum number of transfers permitted, including zero, or `nil` for the IDOS default.
     public var maxTransfers: Int?
     /// The minimum transfer time in minutes, with `-1` selecting the timetable's standard transfer time.
@@ -2261,7 +2261,7 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
         onlyDirect: Bool = false,
         via: [String] = [],
         viaSelections: [TransitPlaceSelection?]? = nil,
-        transportModeFilters: [TransitConnectionTransportModeFilter]? = nil,
+        transportModeFilter: TransitConnectionTransportModeFilter? = nil,
         maxTransfers: Int? = nil,
         minimumTransferTime: Int? = nil,
         maximumTransferTime: Int? = nil,
@@ -2292,7 +2292,7 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
         self.onlyDirect = onlyDirect
         self.via = via
         self.viaSelections = viaSelections
-        self.transportModeFilters = transportModeFilters
+        self.transportModeFilter = transportModeFilter
         self.maxTransfers = maxTransfers
         self.minimumTransferTime = minimumTransferTime
         self.maximumTransferTime = maximumTransferTime
@@ -2448,7 +2448,7 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
     }
 
     private var hasAdvancedOptions: Bool {
-        !via.isEmpty || transportModeFilters?.isEmpty == false ||
+        !via.isEmpty || transportModeFilter != nil ||
             maxTransfers != nil || minimumTransferTime != nil ||
             maximumTransferTime != nil || maximumWalkingTime != nil ||
             maximumCityWalkingTime != nil || walkToNearbyStops != nil ||
@@ -2461,16 +2461,19 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
             bedOrCouchettePreference != nil
     }
 
-    /// Resolves repeatable product rules to the checkbox set expected by the IDOS form.
+    /// Resolves the filter's single operation to the checkbox set expected by the IDOS form.
     private var selectedTransportModes: [TransitConnectionTransportMode] {
-        let filters = transportModeFilters ?? []
-        let onlyModes = Set(filters.lazy.filter { $0.operation == .only }.map(\.mode))
-        let excludedModes = Set(filters.lazy.filter { $0.operation == .exclude }.map(\.mode))
-        let candidates = onlyModes.isEmpty
-            ? Set(TransitConnectionTransportMode.allCases)
-            : onlyModes
-        return TransitConnectionTransportMode.allCases.filter {
-            candidates.contains($0) && !excludedModes.contains($0)
+        guard let transportModeFilter else {
+            return TransitConnectionTransportMode.allCases
+        }
+        let filteredModes = Set(transportModeFilter.modes)
+        return TransitConnectionTransportMode.allCases.filter { mode in
+            switch transportModeFilter.operation {
+            case .only:
+                filteredModes.contains(mode)
+            case .exclude:
+                !filteredModes.contains(mode)
+            }
         }
     }
 }

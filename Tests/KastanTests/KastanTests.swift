@@ -919,10 +919,10 @@ import Testing
 @Test func connectionCommandPassesAndPrintsEveryAdditionalJourneyOption() async throws {
     let output = await englishCommandRunner(
         client: MockIDOSClient(
-            expectedTransportModeFilters: [
-                .init(operation: .only, mode: .regionalTrain),
-                .init(operation: .exclude, mode: .cityTrolleybus),
-            ],
+            expectedTransportModeFilter: .init(
+                operation: .only,
+                modes: [.regionalTrain, .longDistanceBus]
+            ),
             expectedMinimumTransferTime: -1,
             expectedMaximumTransferTime: 360,
             expectedMaximumWalkingTime: 45,
@@ -943,7 +943,7 @@ import Testing
             "connections", "Praha", "Brno", "--timetable", "vlaky",
             "--min-transfer-time", "-1",
             "--transport-mode", "only:regional-train",
-            "--transport-mode", "exclude:city-trolleybus",
+            "--transport-mode", "only:long-distance-bus",
             "--max-transfer-time", "360",
             "--max-walking-time", "45",
             "--max-city-walking-time", "20",
@@ -963,11 +963,12 @@ import Testing
     let request = try #require(jsonDictionary(output)["request"] as? [String: Any])
 
     #expect(request["minimumTransferTime"] as? Int == -1)
-    let transportModeFilters = try #require(request["transportModeFilters"] as? [[String: String]])
-    #expect(transportModeFilters == [
-        ["operation": "only", "mode": "regionalTrain"],
-        ["operation": "exclude", "mode": "cityTrolleybus"],
-    ])
+    let transportModeFilter = try #require(request["transportModeFilter"] as? [String: Any])
+    #expect(transportModeFilter["operation"] as? String == "only")
+    #expect(
+        transportModeFilter["modes"] as? [String]
+            == ["regionalTrain", "longDistanceBus"]
+    )
     #expect(request["maximumTransferTime"] as? Int == 360)
     #expect(request["maximumWalkingTime"] as? Int == 45)
     #expect(request["maximumCityWalkingTime"] as? Int == 20)
@@ -1198,6 +1199,21 @@ import Testing
     #expect(output.contains("❌ Error: Invalid --transport-mode: prefer:train."))
     #expect(output.contains("only:highest-quality-train"))
     #expect(output.contains("exclude:city-trolleybus"))
+}
+
+@Test func connectionCommandRejectsMutuallyExclusiveTransportModeOperations() async {
+    let output = await englishCommandRunner(client: MockIDOSClient()).output(
+        for: [
+            "connections", "Praha", "Brno",
+            "--transport-mode", "only:regional-train",
+            "--transport-mode", "exclude:city-trolleybus",
+        ]
+    )
+
+    #expect(
+        output
+            == "❌ Error: Conflicting options: --transport-mode only and --transport-mode exclude. Use only one."
+    )
 }
 
 @Test func connectionCommandRejectsInvalidBedOrCouchettePreference() async {
@@ -2013,7 +2029,7 @@ import Testing
     #expect(!normalRequest.formItems.contains { $0.name == "AdvancedForm.MinTime" })
 }
 
-@Test func connectionRequestResolvesRepeatableTransportModeFiltersToIDOSCheckboxes() {
+@Test func connectionRequestResolvesMutuallyExclusiveTransportModeFiltersToIDOSCheckboxes() {
     func transportTypeIDs(in request: IDOSConnectionRequest) -> [Int] {
         request.formItems.compactMap { item in
             guard item.name.hasPrefix("trTypeId[") else { return nil }
@@ -2024,26 +2040,18 @@ import Testing
     let onlyRequest = IDOSConnectionRequest(
         from: "Praha",
         to: "Brno",
-        transportModeFilters: [
-            .init(operation: .only, mode: .highestQualityTrain),
-            .init(operation: .only, mode: .cityBus),
-        ]
+        transportModeFilter: .init(
+            operation: .only,
+            modes: [.highestQualityTrain, .cityBus]
+        )
     )
     let excludedRequest = IDOSConnectionRequest(
         from: "Praha",
         to: "Brno",
-        transportModeFilters: [
-            .init(operation: .exclude, mode: .regionalTrain),
-        ]
-    )
-    let combinedRequest = IDOSConnectionRequest(
-        from: "Praha",
-        to: "Brno",
-        transportModeFilters: [
-            .init(operation: .only, mode: .highestQualityTrain),
-            .init(operation: .only, mode: .cityBus),
-            .init(operation: .exclude, mode: .highestQualityTrain),
-        ]
+        transportModeFilter: .init(
+            operation: .exclude,
+            modes: [.regionalTrain]
+        )
     )
 
     #expect(transportTypeIDs(in: onlyRequest) == [150, 301])
@@ -2052,7 +2060,6 @@ import Testing
         200, 201, 202,
         300, 301, 303, 306,
     ])
-    #expect(transportTypeIDs(in: combinedRequest) == [301])
     #expect(onlyRequest.formItems.contains(
         URLQueryItem(name: "AdvancedForm.AdvancedFormIsOpen", value: "True")
     ))
@@ -3421,7 +3428,7 @@ private struct MockIDOSClient: IDOSClienting {
     var expectedIsArrival = false
     var expectedOnlyDirect = false
     var expectedVia: [String] = []
-    var expectedTransportModeFilters: [TransitConnectionTransportModeFilter]? = nil
+    var expectedTransportModeFilter: TransitConnectionTransportModeFilter? = nil
     var expectedMaxTransfers: Int? = nil
     var expectedMinimumTransferTime: Int? = nil
     var expectedMaximumTransferTime: Int? = nil
@@ -3497,7 +3504,7 @@ private struct MockIDOSClient: IDOSClienting {
         #expect(request.isArrival == expectedIsArrival)
         #expect(request.onlyDirect == expectedOnlyDirect)
         #expect(request.via == expectedVia)
-        #expect(request.transportModeFilters == expectedTransportModeFilters)
+        #expect(request.transportModeFilter == expectedTransportModeFilter)
         #expect(request.maxTransfers == expectedMaxTransfers)
         #expect(request.minimumTransferTime == expectedMinimumTransferTime)
         #expect(request.maximumTransferTime == expectedMaximumTransferTime)

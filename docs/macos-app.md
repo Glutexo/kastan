@@ -61,9 +61,10 @@ manager and show their source when more than one ordinary provider is registered
   place. Means of transport (`Dopravní prostředek` in Czech) is a second ungrouped, repeatable condition. Each row
   combines an operation popup—Only or Exclude (`pouze` or `vynechat`)—with a grouped mode popup. Trains contains the
   four quality classes plus Bus, Ship, and Other; Buses contains Local, Long-distance, and International bus; City
-  transport contains Tram, Bus, Cableway, and Trolleybus. Multiple Only rows form a union, while Exclude rows remove
-  modes from that union or from the complete catalog when there is no Only row. A mode already used by another row is
-  omitted, regardless of its operation.
+  transport contains Tram, Bus, Cableway, and Trolleybus. Only and Exclude are mutually exclusive across the complete
+  condition: changing the operation in any row changes it in every transport row. Multiple Only rows form the permitted
+  union, while multiple Exclude rows remove their modes from the complete catalog. A mode already used by another row
+  is omitted.
   The picker separates the transfer-specific controls under Transfers (`Přestupy` in Czech) and the newer IDOS controls
   under Additional parameters (`Další možnosti` in Czech). Transfers contains the repeatable Transfers condition and
   the repeatable Walking distances (`Přesuny`) condition. Each Transfers row has the concise,

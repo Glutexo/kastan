@@ -550,7 +550,7 @@ struct CommandRunner {
         let fromPlace = resolvePlace(endpoints.from, in: aliasDatabase)
         let toPlace = resolvePlace(endpoints.to, in: aliasDatabase)
         let viaPlaces = options.values(for: "--via", short: "-V").map { resolvePlace($0, in: aliasDatabase) }
-        let transportModeFilters = try options.transportModeFilters(for: "--transport-mode")
+        let transportModeFilter = try options.transportModeFilter(for: "--transport-mode")
         let timetable = try resolveTimetable(
             explicitValue: options.value(for: "--timetable", short: "-T"),
             aliases: ([fromPlace, toPlace] + viaPlaces).compactMap(\.alias)
@@ -606,7 +606,7 @@ struct CommandRunner {
             isArrival: try options.isArrivalTimeMode(),
             onlyDirect: options.contains("--direct", short: "-x") || options.contains("--only-direct"),
             via: viaPlaces.map(\.station),
-            transportModeFilters: transportModeFilters,
+            transportModeFilter: transportModeFilter,
             maxTransfers: maxTransfers,
             minimumTransferTime: minimumTransferTime,
             maximumTransferTime: maximumTransferTime,
@@ -3187,8 +3187,8 @@ private struct CommandOptions {
         }
     }
 
-    /// Parses each `only:mode` or `exclude:mode` value without exposing IDOS checkbox identifiers.
-    func transportModeFilters(for name: String) throws -> [TransitConnectionTransportModeFilter]? {
+    /// Combines repeated mode values under one operation and rejects mutually exclusive operations.
+    func transportModeFilter(for name: String) throws -> TransitConnectionTransportModeFilter? {
         let values = values(for: name)
         guard !values.isEmpty else { return nil }
 
@@ -3197,7 +3197,10 @@ private struct CommandOptions {
                 "\(operation.rawValue):\($0.connectionCommandValue)"
             }
         }
-        return try values.map { value in
+        let rules = try values.map { value -> (
+            operation: TransitConnectionTransportModeFilterOperation,
+            mode: TransitConnectionTransportMode
+        ) in
             let components = value.split(separator: ":", maxSplits: 1).map(String.init)
             guard components.count == 2,
                   let operation = TransitConnectionTransportModeFilterOperation(
@@ -3211,8 +3214,19 @@ private struct CommandOptions {
                     allowed: allowed
                 )
             }
-            return TransitConnectionTransportModeFilter(operation: operation, mode: mode)
+            return (operation, mode)
         }
+        let operation = rules[0].operation
+        guard rules.allSatisfy({ $0.operation == operation }) else {
+            throw CommandError.conflictingOptions(
+                "--transport-mode only",
+                "--transport-mode exclude"
+            )
+        }
+        return TransitConnectionTransportModeFilter(
+            operation: operation,
+            modes: rules.map(\.mode)
+        )
     }
 
     func contains(_ name: String, short shortName: String? = nil) -> Bool {

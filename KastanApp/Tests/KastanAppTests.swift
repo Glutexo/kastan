@@ -6862,7 +6862,7 @@ final class KastanAppTests: XCTestCase {
             ),
             JourneyOptionEntry(
                 kind: .transportMode,
-                transportModeFilterOperation: .exclude,
+                transportModeFilterOperation: .only,
                 transportMode: .cityTrolleybus
             ),
             JourneyOptionEntry(
@@ -6940,10 +6940,10 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(request?.viaSelections?.count, 2)
         XCTAssertEqual(request?.viaSelections?[0], viaSelection.idosSelection)
         XCTAssertNil(request?.viaSelections?[1])
-        XCTAssertEqual(request?.transportModeFilters, [
-            .init(operation: .only, mode: .regionalTrain),
-            .init(operation: .exclude, mode: .cityTrolleybus),
-        ])
+        XCTAssertEqual(request?.transportModeFilter, .init(
+            operation: .only,
+            modes: [.regionalTrain, .cityTrolleybus]
+        ))
         XCTAssertEqual(request?.timetable.slug, "vlaky")
         XCTAssertNil(request?.date)
         XCTAssertNil(request?.time)
@@ -7245,7 +7245,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(model.preferTrainsOverBuses, true)
     }
 
-    func testTransportModeCanRepeatWithDistinctGroupedChoicesAndEitherOperation() {
+    func testTransportModeCanRepeatWithDistinctChoicesUnderOneSharedOperation() {
         let model = ConnectionsViewModel(
             client: MockIDOSClient(),
             calendarImporter: RecordingCalendarImporter()
@@ -7261,13 +7261,13 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertEqual(model.journeyOptions.map(\.kind), [.transportMode, .transportMode])
         XCTAssertEqual(model.journeyOptions[0].transportMode, .highestQualityTrain)
-        XCTAssertEqual(model.journeyOptions[0].transportModeFilterOperation, .only)
+        XCTAssertEqual(model.journeyOptions[0].transportModeFilterOperation, .exclude)
         XCTAssertEqual(model.journeyOptions[1].transportMode, .cityBus)
         XCTAssertEqual(model.journeyOptions[1].transportModeFilterOperation, .exclude)
-        XCTAssertEqual(model.transportModeFilters, [
-            .init(operation: .only, mode: .highestQualityTrain),
-            .init(operation: .exclude, mode: .cityBus),
-        ])
+        XCTAssertEqual(model.transportModeFilter, .init(
+            operation: .exclude,
+            modes: [.highestQualityTrain, .cityBus]
+        ))
         XCTAssertFalse(model.availableTransportModes(for: firstID).contains(.cityBus))
         XCTAssertFalse(
             model.availableTransportModes(for: secondID).contains(.highestQualityTrain)
@@ -7275,6 +7275,11 @@ final class KastanAppTests: XCTestCase {
 
         model.setTransportMode(.cityBus, for: firstID)
         XCTAssertEqual(model.journeyOptions[0].transportMode, .highestQualityTrain)
+
+        model.setTransportModeFilterOperation(.only, for: firstID)
+        XCTAssertTrue(model.journeyOptions.allSatisfy {
+            $0.transportModeFilterOperation == .only
+        })
 
         model.removeJourneyOption(id: secondID)
         model.setTransportMode(.cityBus, for: firstID)

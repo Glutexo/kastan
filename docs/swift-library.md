@@ -52,10 +52,10 @@ let request = TransitConnectionRequest(
     isArrival: true,
     onlyDirect: true,
     via: ["Místek,Anenská"],
-    transportModeFilters: [
-        .init(operation: .only, mode: .regionalTrain),
-        .init(operation: .only, mode: .longDistanceBus),
-    ],
+    transportModeFilter: .init(
+        operation: .only,
+        modes: [.regionalTrain, .longDistanceBus]
+    ),
     maxTransfers: 0,
     minimumTransferTime: 10,
     maximumTransferTime: 360,
@@ -300,10 +300,10 @@ round trip. `TransitDataSourceDescribing.serviceTimeZone` supplies the same zone
 interpret provider text without an accompanying calendar model.
 
 Connection requests expose the supported IDOS transport, transfer, and additional-parameter panels.
-`transportModeFilters` is an optional array of repeatable `TransitConnectionTransportModeFilter` values. Multiple
-`.only` rules form a union; every `.exclude` rule is removed from that union, or from the complete mode catalog when
-the request contains no `.only` rule. A `nil` or empty array retains the provider default. Its stable mode cases follow
-the three IDOS groups:
+`transportModeFilter` is an optional `TransitConnectionTransportModeFilter` with one `operation` and a `modes` array.
+The single operation makes `.only` and `.exclude` mutually exclusive: `.only` retains the union of every listed mode,
+while `.exclude` removes every listed mode from the complete catalog. A `nil` filter retains the provider default. Its
+stable mode cases follow the three IDOS groups:
 
 - Trains: `.highestQualityTrain`, `.higherQualityTrain`, `.interregionalTrain`, `.regionalTrain`, `.trainBus`,
   `.trainShip`, and `.trainOther`.

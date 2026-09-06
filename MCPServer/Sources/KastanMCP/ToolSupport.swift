@@ -133,45 +133,54 @@ struct ToolArguments {
         return preference
     }
 
-    /// Resolves repeatable structured rules into the provider-neutral transport-mode filter model.
-    func transportModeFilters(_ name: String) throws -> [TransitConnectionTransportModeFilter]? {
+    /// Resolves one structured operation and its modes into the provider-neutral transport filter.
+    func transportModeFilter(_ name: String) throws -> TransitConnectionTransportModeFilter? {
         guard let value = values[name], !value.isNull else {
             return nil
         }
-        guard let array = value.arrayValue else {
-            throw MCPToolError.invalidType(name: name, expected: "an array of filter objects")
+        guard let object = value.objectValue else {
+            throw MCPToolError.invalidType(name: name, expected: "a filter object")
+        }
+        let unknown = Set(object.keys).subtracting(["operation", "modes"]).sorted()
+        guard unknown.isEmpty else {
+            throw MCPToolError.unknownArguments(unknown.map { "\(name).\($0)" })
         }
 
-        return try array.enumerated().map { index, value in
-            let path = "\(name)[\(index)]"
-            guard let object = value.objectValue else {
-                throw MCPToolError.invalidType(name: path, expected: "an object")
+        let operationValue = try requiredString("operation", in: object, path: name)
+        guard let operation = TransitConnectionTransportModeFilterOperation(
+            rawValue: operationValue
+        ) else {
+            throw MCPToolError.invalidValue(
+                name: "\(name).operation",
+                value: operationValue,
+                allowed: TransitConnectionTransportModeFilterOperation.allCases.map(\.rawValue)
+            )
+        }
+        let modesName = "\(name).modes"
+        guard let modesValue = object["modes"] else {
+            throw MCPToolError.missingArgument(modesName)
+        }
+        guard let modeValues = modesValue.arrayValue, !modeValues.isEmpty else {
+            throw MCPToolError.invalidType(
+                name: modesName,
+                expected: "a non-empty array of transport modes"
+            )
+        }
+        let modes = try modeValues.enumerated().map { index, value in
+            let modeName = "\(modesName)[\(index)]"
+            guard let modeValue = value.stringValue else {
+                throw MCPToolError.invalidType(name: modeName, expected: "a string")
             }
-            let unknown = Set(object.keys).subtracting(["operation", "mode"]).sorted()
-            guard unknown.isEmpty else {
-                throw MCPToolError.unknownArguments(unknown.map { "\(path).\($0)" })
-            }
-
-            let operationValue = try requiredString("operation", in: object, path: path)
-            guard let operation = TransitConnectionTransportModeFilterOperation(
-                rawValue: operationValue
-            ) else {
-                throw MCPToolError.invalidValue(
-                    name: "\(path).operation",
-                    value: operationValue,
-                    allowed: TransitConnectionTransportModeFilterOperation.allCases.map(\.rawValue)
-                )
-            }
-            let modeValue = try requiredString("mode", in: object, path: path)
             guard let mode = TransitConnectionTransportMode(rawValue: modeValue) else {
                 throw MCPToolError.invalidValue(
-                    name: "\(path).mode",
+                    name: modeName,
                     value: modeValue,
                     allowed: TransitConnectionTransportMode.allCases.map(\.rawValue)
                 )
             }
-            return TransitConnectionTransportModeFilter(operation: operation, mode: mode)
+            return mode
         }
+        return TransitConnectionTransportModeFilter(operation: operation, modes: modes)
     }
 
     /// Reads a required string from one closed nested argument object and reports its complete input path.
@@ -586,7 +595,7 @@ enum MCPOutputSchemas {
             "isArrival": booleanSchema,
             "onlyDirect": booleanSchema,
             "via": stringArraySchema,
-            "transportModeFilters": transportModeFiltersSchema,
+            "transportModeFilter": transportModeFilterSchema,
             "maxTransfers": integerSchema,
             "minimumTransferTime": integerSchema,
             "maximumTransferTime": integerSchema,
@@ -794,16 +803,18 @@ enum MCPOutputSchemas {
                     }
                 ),
             ]),
-            "mode": .object([
-                "type": "string",
-                "enum": .array(
-                    TransitConnectionTransportMode.allCases.map { .string($0.rawValue) }
-                ),
+            "modes": .object([
+                "type": "array",
+                "items": .object([
+                    "type": "string",
+                    "enum": .array(
+                        TransitConnectionTransportMode.allCases.map { .string($0.rawValue) }
+                    ),
+                ]),
             ]),
         ],
-        required: ["operation", "mode"]
+        required: ["operation", "modes"]
     )
-    private static let transportModeFiltersSchema = arraySchema(items: transportModeFilterSchema)
 
     private static let stringSchema: Value = .object(["type": "string"])
     private static let integerSchema: Value = .object(["type": "integer"])
