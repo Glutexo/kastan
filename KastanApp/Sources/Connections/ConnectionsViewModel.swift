@@ -541,6 +541,7 @@ final class ConnectionsViewModel: ObservableObject {
     @Published private(set) var processingPDFConnectionID: AppTransitValueIdentity?
     @Published private(set) var locatingEndpoint: ConnectionEndpoint?
     @Published var errorMessage: String?
+    @Published private(set) var actionError: ResultActionError?
 
     let client: any TransitDataSource
     private let calendarImporter: any CalendarImporting
@@ -707,6 +708,11 @@ final class ConnectionsViewModel: ObservableObject {
     var showsRefreshActionForError: Bool {
         guard errorMessage != nil else { return false }
         return endpointValidationMessage == nil
+    }
+
+    /// Clears modal feedback after the passenger acknowledges a failed result action.
+    func dismissActionError() {
+        actionError = nil
     }
 
     /// Returns intermediate places in their visible row order for the request and collapsed summary.
@@ -1631,7 +1637,7 @@ final class ConnectionsViewModel: ObservableObject {
         guard processingEmailConnectionID == nil else { return }
 
         processingEmailConnectionID = connection.appIdentity
-        errorMessage = nil
+        actionError = nil
         defer { processingEmailConnectionID = nil }
 
         do {
@@ -1645,7 +1651,10 @@ final class ConnectionsViewModel: ObservableObject {
             try emailMailComposer.compose(draft)
         } catch {
             guard !Task.isCancelled else { return }
-            errorMessage = AppErrorPresentation.message(for: error)
+            actionError = ResultActionError(
+                title: ConnectionEmailAction.composeInMail.localizedTitle,
+                error: error
+            )
         }
     }
 
@@ -1655,7 +1664,7 @@ final class ConnectionsViewModel: ObservableObject {
         for connection: TransitConnection
     ) async {
         processingCalendarConnectionID = connection.appIdentity
-        errorMessage = nil
+        actionError = nil
         defer { processingCalendarConnectionID = nil }
 
         do {
@@ -1677,7 +1686,7 @@ final class ConnectionsViewModel: ObservableObject {
                 )
             }
         } catch {
-            errorMessage = AppErrorPresentation.message(for: error)
+            actionError = ResultActionError(title: action.localizedTitle, error: error)
         }
     }
 
@@ -1687,7 +1696,7 @@ final class ConnectionsViewModel: ObservableObject {
         for connection: TransitConnection
     ) async {
         processingPDFConnectionID = connection.appIdentity
-        errorMessage = nil
+        actionError = nil
         defer { processingPDFConnectionID = nil }
 
         do {
@@ -1707,7 +1716,7 @@ final class ConnectionsViewModel: ObservableObject {
                 try await pdfExporter.save(pdfData: data, suggestedFileName: fileName)
             }
         } catch {
-            errorMessage = AppErrorPresentation.message(for: error)
+            actionError = ResultActionError(title: action.localizedTitle, error: error)
         }
     }
 }

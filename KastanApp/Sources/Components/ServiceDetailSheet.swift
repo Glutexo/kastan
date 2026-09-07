@@ -12,7 +12,7 @@ final class ServiceDetailViewModel: ObservableObject {
     @Published private(set) var isProcessingCalendar = false
     @Published private(set) var isProcessingPDF = false
     @Published private(set) var errorMessage: String?
-    @Published private(set) var actionErrorMessage: String?
+    @Published private(set) var actionError: ResultActionError?
 
     private let id: String
     private let timetable: TransitTimetable
@@ -49,6 +49,11 @@ final class ServiceDetailViewModel: ObservableObject {
     /// Exposes only stable provider metadata needed to decide which service actions the UI can offer.
     var dataSourceDescriptor: TransitDataSourceDescriptor {
         client.descriptor
+    }
+
+    /// Clears modal feedback after the passenger acknowledges a failed result action.
+    func dismissActionError() {
+        actionError = nil
     }
 
     func load() async {
@@ -143,13 +148,20 @@ final class ServiceDetailViewModel: ObservableObject {
 
     /// Fetches the dated service's calendar and either opens it or lets the user retain its ICS file.
     func performCalendarAction(_ action: CalendarExportAction) async {
-        guard !isPerformingExport,
-              let service = await loadedService(),
-              !isPerformingExport
-        else { return }
+        guard !isPerformingExport else { return }
         isProcessingCalendar = true
-        actionErrorMessage = nil
+        actionError = nil
         defer { isProcessingCalendar = false }
+
+        guard let service = await loadedService() else {
+            if let errorMessage {
+                actionError = ResultActionError(
+                    title: action.localizedTitle,
+                    message: errorMessage
+                )
+            }
+            return
+        }
 
         do {
             let calendar = try await client.serviceCalendar(
@@ -169,19 +181,26 @@ final class ServiceDetailViewModel: ObservableObject {
                 )
             }
         } catch {
-            actionErrorMessage = AppErrorPresentation.message(for: error)
+            actionError = ResultActionError(title: action.localizedTitle, error: error)
         }
     }
 
     /// Fetches the dated service's PDF and either opens it in Preview or lets the user retain its file.
     func performPDFAction(_ action: PDFExportAction) async {
-        guard !isPerformingExport,
-              let service = await loadedService(),
-              !isPerformingExport
-        else { return }
+        guard !isPerformingExport else { return }
         isProcessingPDF = true
-        actionErrorMessage = nil
+        actionError = nil
         defer { isProcessingPDF = false }
+
+        guard let service = await loadedService() else {
+            if let errorMessage {
+                actionError = ResultActionError(
+                    title: action.localizedTitle,
+                    message: errorMessage
+                )
+            }
+            return
+        }
 
         do {
             let data = try await client.servicePDF(
@@ -199,7 +218,7 @@ final class ServiceDetailViewModel: ObservableObject {
                 try await pdfExporter.save(pdfData: data, suggestedFileName: fileName)
             }
         } catch {
-            actionErrorMessage = AppErrorPresentation.message(for: error)
+            actionError = ResultActionError(title: action.localizedTitle, error: error)
         }
     }
 }
@@ -544,6 +563,9 @@ struct ServiceDetailView: View {
         .task {
             await model.load()
         }
+        .resultActionErrorAlert(model.actionError) {
+            model.dismissActionError()
+        }
     }
 
     private var windowTitle: String {
@@ -681,14 +703,6 @@ struct ServiceDetailView: View {
                                         )
                                     }
                                 }
-                        }
-
-                        if let actionErrorMessage = model.actionErrorMessage {
-                            Label(actionErrorMessage, systemImage: "exclamationmark.triangle.fill")
-                                .foregroundStyle(.red)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(12)
-                                .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
                         }
 
                         VStack(alignment: .leading, spacing: 8) {

@@ -329,6 +329,58 @@ enum AppErrorPresentation {
     }
 }
 
+/// Retains enough context to explain a failed result action after its menu or toolbar interaction has ended.
+struct ResultActionError: Identifiable, Equatable {
+    let id = UUID()
+    let title: String
+    let message: String
+
+    init(title: String, error: Error) {
+        self.title = title
+        message = AppErrorPresentation.message(for: error)
+    }
+
+    init(title: String, message: String) {
+        self.title = title
+        self.message = message
+    }
+}
+
+/// Presents asynchronous result-action failures immediately, including actions started from transient menus.
+private struct ResultActionErrorAlertModifier: ViewModifier {
+    let error: ResultActionError?
+    let dismiss: () -> Void
+
+    func body(content: Content) -> some View {
+        content.alert(
+            item: Binding(
+                get: { error },
+                set: { value in
+                    if value == nil {
+                        dismiss()
+                    }
+                }
+            )
+        ) { error in
+            Alert(
+                title: Text(verbatim: error.title),
+                message: Text(verbatim: error.message),
+                dismissButton: .default(Text("OK"))
+            )
+        }
+    }
+}
+
+extension View {
+    /// Keeps the outcome visible even when its source menu has already closed or scrolled away.
+    func resultActionErrorAlert(
+        _ error: ResultActionError?,
+        dismiss: @escaping () -> Void
+    ) -> some View {
+        modifier(ResultActionErrorAlertModifier(error: error, dismiss: dismiss))
+    }
+}
+
 /// Stores an ordered, persistent subset of the known timetable catalog for quick picker access.
 struct TimetableFavorites: Equatable {
     static let storageKey = "favoriteTimetableSlugs"

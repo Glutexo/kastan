@@ -12,13 +12,22 @@ enum PDFExportAction: Equatable {
         modifierFlags.contains(.option) ? .download : .openInPreview
     }
 
-    var title: LocalizedStringKey {
+    var titleKey: String {
         switch self {
         case .openInPreview:
             "Open PDF in Preview"
         case .download:
             "Download PDF File"
         }
+    }
+
+    var title: LocalizedStringKey {
+        LocalizedStringKey(titleKey)
+    }
+
+    /// Supplies the selected PDF operation to feedback shown outside the originating menu.
+    var localizedTitle: String {
+        AppLocalization.string(titleKey)
     }
 
     var systemImage: String {

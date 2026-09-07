@@ -8482,6 +8482,37 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(language, AppLanguagePreference.idosLanguage)
         XCTAssertNil(model.processingCalendarConnectionID)
         XCTAssertNil(model.errorMessage)
+        XCTAssertNil(model.actionError)
+    }
+
+    func testConnectionCalendarNetworkFailureBecomesVisibleActionError() async {
+        let client = MockIDOSClient()
+        let detail = "The network connection was lost."
+        await client.configureConnectionCalendarFailure(detail: detail)
+        let model = ConnectionsViewModel(client: client)
+        let connection = IDOSConnection(
+            id: "connection-calendar-failure",
+            departureTime: "12:00",
+            departureStation: "Praha",
+            arrivalTime: "14:30",
+            arrivalStation: "Brno",
+            duration: "2 h 30 min",
+            legs: []
+        )
+
+        await model.performCalendarAction(.addToCalendar, for: connection)
+
+        XCTAssertEqual(model.actionError?.title, CalendarExportAction.addToCalendar.localizedTitle)
+        XCTAssertEqual(
+            model.actionError?.message,
+            AppErrorPresentation.message(for: IDOSError.networkUnavailable(detail))
+        )
+        XCTAssertNil(model.errorMessage)
+        XCTAssertNil(model.processingCalendarConnectionID)
+
+        model.dismissActionError()
+
+        XCTAssertNil(model.actionError)
     }
 
     func testConnectionCalendarDownloadSavesICSWithoutOpeningCalendarApp() async {
@@ -8514,6 +8545,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(saver.suggestedFileName?.contains(":") == true)
         XCTAssertNil(model.processingCalendarConnectionID)
         XCTAssertNil(model.errorMessage)
+        XCTAssertNil(model.actionError)
     }
 
     func testServiceCalendarImportUsesCalendarReturnedByIDOS() async {
@@ -8538,7 +8570,27 @@ final class KastanAppTests: XCTestCase {
         let requestCount = await client.serviceDetailRequestCount
         XCTAssertEqual(requestCount, 1)
         XCTAssertFalse(model.isProcessingCalendar)
-        XCTAssertNil(model.actionErrorMessage)
+        XCTAssertNil(model.actionError)
+    }
+
+    func testServiceCalendarReportsFailureWhileLazilyLoadingContextMenuAction() async {
+        let client = MockIDOSClient()
+        let detail = "The Internet connection appears to be offline."
+        await client.configureServiceDetailFailure(detail: detail)
+        let model = ServiceDetailViewModel(id: "service-calendar-failure", client: client)
+
+        await model.performCalendarAction(.addToCalendar)
+
+        XCTAssertEqual(model.actionError?.title, CalendarExportAction.addToCalendar.localizedTitle)
+        XCTAssertEqual(
+            model.actionError?.message,
+            AppErrorPresentation.message(for: IDOSError.networkUnavailable(detail))
+        )
+        XCTAssertFalse(model.isProcessingCalendar)
+
+        model.dismissActionError()
+
+        XCTAssertNil(model.actionError)
     }
 
     func testServiceCalendarDownloadSavesICSWithoutOpeningCalendarApp() async {
@@ -8561,7 +8613,7 @@ final class KastanAppTests: XCTestCase {
         let serviceID = await client.lastCalendarServiceID
         XCTAssertEqual(serviceID, "service-1")
         XCTAssertFalse(model.isProcessingCalendar)
-        XCTAssertNil(model.actionErrorMessage)
+        XCTAssertNil(model.actionError)
     }
 
     func testServiceDetailLoadsExactOperatingDaysAndTimetableValidityForInformationCalendars() async {
@@ -8602,7 +8654,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(serviceID, "service-1")
         XCTAssertEqual(language, AppLanguagePreference.idosLanguage)
         XCTAssertFalse(model.isProcessingPDF)
-        XCTAssertNil(model.actionErrorMessage)
+        XCTAssertNil(model.actionError)
     }
 
     func testServicePDFDownloadSavesWithoutOpeningPreview() async {
@@ -8623,7 +8675,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(exporter.suggestedFileName?.contains("Ostrava-Svinov") == true)
         XCTAssertTrue(exporter.suggestedFileName?.hasSuffix(".pdf") == true)
         XCTAssertFalse(model.isProcessingPDF)
-        XCTAssertNil(model.actionErrorMessage)
+        XCTAssertNil(model.actionError)
     }
 
     func testConnectionPDFOpensDocumentReturnedByIDOSInPreview() async {
@@ -9884,6 +9936,8 @@ private actor MockIDOSClient: IDOSClienting {
     private var connectionPagingSessionExpired = false
     private var configuredSuggestions: [IDOSSuggestion]?
     private var departureResponsesByDate: [String: [IDOSDeparture]]?
+    private var connectionCalendarFailureDetail: String?
+    private var serviceDetailFailureDetail: String?
 
     func configureSuggestions(_ suggestions: [IDOSSuggestion]) {
         configuredSuggestions = suggestions
@@ -9917,6 +9971,14 @@ private actor MockIDOSClient: IDOSClienting {
 
     func configureServiceDetail(_ service: IDOSServiceDetail) {
         configuredServiceDetail = service
+    }
+
+    func configureConnectionCalendarFailure(detail: String) {
+        connectionCalendarFailureDetail = detail
+    }
+
+    func configureServiceDetailFailure(detail: String) {
+        serviceDetailFailureDetail = detail
     }
 
     func suggest(prefix: String, limit: Int, timetable: IDOSTimetable) async throws -> [IDOSSuggestion] {
@@ -10122,7 +10184,10 @@ private actor MockIDOSClient: IDOSClienting {
     }
 
     func connectionCalendar(for connection: IDOSConnection, timetable: IDOSTimetable) async throws -> String {
-        "BEGIN:VCALENDAR\nEND:VCALENDAR"
+        if let connectionCalendarFailureDetail {
+            throw IDOSError.networkUnavailable(connectionCalendarFailureDetail)
+        }
+        return "BEGIN:VCALENDAR\nEND:VCALENDAR"
     }
 
     func connectionEmailDraft(
@@ -10158,6 +10223,9 @@ private actor MockIDOSClient: IDOSClienting {
         language: IDOSLanguage
     ) async throws -> String {
         lastConnectionCalendarLanguage = language
+        if let connectionCalendarFailureDetail {
+            throw IDOSError.networkUnavailable(connectionCalendarFailureDetail)
+        }
         return "BEGIN:VCALENDAR\nEND:VCALENDAR"
     }
 
@@ -10240,6 +10308,9 @@ private actor MockIDOSClient: IDOSClienting {
         serviceDetailRequestCount += 1
         serviceDetailRequestIDs.append(id)
         serviceDetailRequestTimetables.append(timetable)
+        if let serviceDetailFailureDetail {
+            throw IDOSError.networkUnavailable(serviceDetailFailureDetail)
+        }
         if let configuredServiceDetail {
             return configuredServiceDetail
         }

@@ -307,7 +307,10 @@ private struct DepartureRow: View {
                 }
 
                 Spacer()
-                if supportsServiceDetails {
+                if contextMenuModel.isPerformingExport {
+                    ProgressView()
+                        .controlSize(.small)
+                } else if supportsServiceDetails {
                     Image(systemName: "chevron.right")
                         .foregroundStyle(.tertiary)
                 }
@@ -340,6 +343,9 @@ private struct DepartureRow: View {
                 showsStopNoteText: showsStopNoteText,
                 presentation: .preview
             )
+        }
+        .resultActionErrorAlert(contextMenuModel.actionError) {
+            contextMenuModel.dismissActionError()
         }
     }
 

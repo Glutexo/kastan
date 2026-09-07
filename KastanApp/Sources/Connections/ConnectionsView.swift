@@ -301,6 +301,9 @@ struct ConnectionsView: View {
                 client: client
             )
         }
+        .resultActionErrorAlert(model.actionError) {
+            model.dismissActionError()
+        }
         .onAppear {
             model.refreshCurrentDateAndTime()
         }
@@ -1910,6 +1913,9 @@ struct ConnectionDetailView: View {
                 client: client
             )
         }
+        .resultActionErrorAlert(actionsModel.actionError) {
+            actionsModel.dismissActionError()
+        }
     }
 
     private var windowTitle: String {
@@ -2135,20 +2141,24 @@ private struct ConnectionLegRow: View {
         )
     }
 
-    @ViewBuilder
     var body: some View {
-        if let selection {
-            rowButton(selection: selection)
-                .contextMenu {
-                    ServiceContextMenuContent(
-                        model: contextMenuModel,
-                        showPreview: { isPreviewPresented = true },
-                        openInNewWindow: { openService(selection) }
-                    )
-                }
-        } else {
-            rowButton(selection: nil)
-                .disabled(true)
+        Group {
+            if let selection {
+                rowButton(selection: selection)
+                    .contextMenu {
+                        ServiceContextMenuContent(
+                            model: contextMenuModel,
+                            showPreview: { isPreviewPresented = true },
+                            openInNewWindow: { openService(selection) }
+                        )
+                    }
+            } else {
+                rowButton(selection: nil)
+                    .disabled(true)
+            }
+        }
+        .resultActionErrorAlert(contextMenuModel.actionError) {
+            contextMenuModel.dismissActionError()
         }
     }
 
@@ -2203,7 +2213,10 @@ private struct ConnectionLegRow: View {
                             AdaptiveConnectionPlatform(value: platform)
                         }
                         Spacer()
-                        if selection != nil {
+                        if contextMenuModel.isPerformingExport {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else if selection != nil {
                             Image(systemName: "chevron.right")
                                 .font(.caption)
                                 .foregroundStyle(.tertiary)

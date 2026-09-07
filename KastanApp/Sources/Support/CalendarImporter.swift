@@ -12,13 +12,22 @@ enum CalendarExportAction: Equatable {
         modifierFlags.contains(.option) ? .download : .addToCalendar
     }
 
-    var title: LocalizedStringKey {
+    var titleKey: String {
         switch self {
         case .addToCalendar:
             "Add to Calendar"
         case .download:
             "Download ICS File"
         }
+    }
+
+    var title: LocalizedStringKey {
+        LocalizedStringKey(titleKey)
+    }
+
+    /// Supplies the selected calendar operation to feedback shown outside the originating menu.
+    var localizedTitle: String {
+        AppLocalization.string(titleKey)
     }
 
     var systemImage: String {

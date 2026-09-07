@@ -13,13 +13,22 @@ enum ConnectionEmailAction: Equatable {
         modifierFlags.contains(.option) ? .composeInMail : .sendViaIDOS
     }
 
-    var title: LocalizedStringKey {
+    var titleKey: String {
         switch self {
         case .sendViaIDOS:
             "Send by Email"
         case .composeInMail:
             "Compose in Mail"
         }
+    }
+
+    var title: LocalizedStringKey {
+        LocalizedStringKey(titleKey)
+    }
+
+    /// Supplies the selected email operation to feedback shown outside the originating menu.
+    var localizedTitle: String {
+        AppLocalization.string(titleKey)
     }
 
     var systemImage: String {

@@ -245,6 +245,8 @@ manager and show their source when more than one ordinary provider is registered
   opening it. The sheet accepts one or more recipient addresses separated by commas or semicolons. Kaštan sends the
   address list and message to IDOS only after explicit confirmation and does not retain them after the sheet closes.
   IDOS generates and delivers the in-app attachments; delivery and attachment errors stay in the sheet for retry.
+  If preparing the direct Mail draft fails, Kaštan instead presents an alert named for that action with the complete
+  error message.
 - The View menu's Show connection badges setting is off initially, applies to every app window, and persists across
   launches. When enabled, connection cards use semantic emoji to mark direct journeys and every connection tied for
   the shortest displayed duration; complete-connection windows follow the same setting. Badge text never wraps or
@@ -338,7 +340,10 @@ manager and show their source when more than one ordinary provider is registered
   menus, detail toolbars, and the File menu. Holding Option changes that action everywhere to Download ICS File and
   saves the same calendar through the native macOS save panel. Open PDF in Preview opens the generated document in
   Apple's Preview application from the same locations. Holding Option changes that action everywhere to Download PDF
-  File and saves the document through its own native panel.
+  File and saves the document through its own native panel. The originating result control or service row shows
+  progress while Kaštan prepares an export. If loading, opening, or saving fails, an alert names the attempted action
+  and preserves the complete error message even after a transient menu closes or its result is outside the visible
+  scroll position.
 - English and Czech interface localization.
 - An app-information window describing the data source and linking to IDOS, its terms, and the Kaštan repository.
 - A Help menu that repeats the About window's maintained links to IDOS, its terms, and the Kaštan repository
