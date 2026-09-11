@@ -2264,7 +2264,6 @@ private struct ConnectionLegRow: View {
                         ServiceContextMenuContent(
                             model: contextMenuModel,
                             showPreview: { isPreviewPresented = true },
-                            openInNewWindow: { openService(selection) },
                             openStationTimetable: stationTimetableAction
                         )
                     }

@@ -308,7 +308,7 @@ manager and show their source when more than one ordinary provider is registered
   Cards always retain line colors and transport symbols. Right-clicking anywhere on a connection card
   opens the same complete action menu as its ellipsis button, with Open in new window ahead of email,
   calendar, PDF, and sharing actions. Right-clicking a particular service row stays scoped to that service and
-  offers its own preview and new-window actions followed by calendar, PDF, and sharing actions rather
+  offers its own preview followed by calendar, PDF, and sharing actions rather
   than falling through to the enclosing connection. All available detail actions are selectable on the first menu opening;
   the chosen action loads the complete service data only when needed and then continues automatically. The same
   service-specific menu is available on station-board rows. A trackpad Force Click on either kind of service row

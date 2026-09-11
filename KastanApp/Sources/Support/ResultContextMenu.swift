@@ -4,15 +4,6 @@ import SwiftUI
 enum ResultContextTarget: CaseIterable {
     case connection
     case service
-
-    var openInNewWindowTitleKey: String {
-        switch self {
-        case .connection:
-            "Open in new window"
-        case .service:
-            "Open service in new window"
-        }
-    }
 }
 
 /// Defines stable contextual-menu contents independently of the visible ellipsis or right-click gesture.
@@ -45,7 +36,7 @@ enum ResultContextAction: Hashable, Identifiable {
                 canOpenPDF: availability.canOpenPDF
             )
         case .service:
-            navigation = [.preview, .openInNewWindow]
+            navigation = [.preview]
             details = ResultDetailAction.availableActions(
                 canSendByEmail: false,
                 canAddToCalendar: availability.canAddToCalendar,
@@ -88,7 +79,12 @@ struct ResultContextActionLabel: View {
         case .preview:
             Label("Preview service", systemImage: "eye")
         case .openInNewWindow:
-            Label(LocalizedStringKey(target.openInNewWindowTitleKey), systemImage: "macwindow")
+            switch target {
+            case .connection:
+                Label("Open in new window", systemImage: "macwindow")
+            case .service:
+                EmptyView()
+            }
         case .detail(let action):
             Label(
                 action.title(
@@ -209,18 +205,15 @@ struct ConnectionContextMenuContent: View {
 struct ServiceContextMenuContent: View {
     @ObservedObject var model: ServiceDetailViewModel
     let showPreview: () -> Void
-    let openInNewWindow: () -> Void
     let openStationTimetable: ((StationTimetableOpenDestination) -> Void)?
 
     init(
         model: ServiceDetailViewModel,
         showPreview: @escaping () -> Void,
-        openInNewWindow: @escaping () -> Void,
         openStationTimetable: ((StationTimetableOpenDestination) -> Void)? = nil
     ) {
         self.model = model
         self.showPreview = showPreview
-        self.openInNewWindow = openInNewWindow
         self.openStationTimetable = openStationTimetable
     }
 
@@ -248,9 +241,7 @@ struct ServiceContextMenuContent: View {
                 ResultContextActionLabel(action: action, target: .service)
             }
         case .openInNewWindow:
-            Button(action: openInNewWindow) {
-                ResultContextActionLabel(action: action, target: .service)
-            }
+            EmptyView()
         case .separator:
             Divider()
             if let openStationTimetable {

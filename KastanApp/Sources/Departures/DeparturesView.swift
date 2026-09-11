@@ -325,8 +325,7 @@ private struct DepartureRow: View {
             if supportsServiceDetails {
                 ServiceContextMenuContent(
                     model: contextMenuModel,
-                    showPreview: { isPreviewPresented = true },
-                    openInNewWindow: openService
+                    showPreview: { isPreviewPresented = true }
                 )
             }
         }

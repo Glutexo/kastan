@@ -2269,7 +2269,6 @@ final class KastanAppTests: XCTestCase {
             ResultContextAction.availableActions(for: .service),
             [
                 .preview,
-                .openInNewWindow,
                 .separator,
                 .detail(.addToCalendar),
                 .detail(.openPDF),
@@ -2280,9 +2279,8 @@ final class KastanAppTests: XCTestCase {
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
         let keys = [
-            ResultContextTarget.connection.openInNewWindowTitleKey,
+            "Open in new window",
             "Preview service",
-            ResultContextTarget.service.openInNewWindowTitleKey,
             "Open station timetable",
             "Open station timetable in new tab",
             "Open station timetable in new window",
@@ -2292,7 +2290,6 @@ final class KastanAppTests: XCTestCase {
             [
                 "Otevřít v novém okně",
                 "Náhled spoje",
-                "Otevřít spoj v novém okně",
                 "Otevřít zastávkový JŘ",
                 "Otevřít zastávkový JŘ v novém panelu",
                 "Otevřít zastávkový JŘ v novém okně",
@@ -2309,8 +2306,7 @@ final class KastanAppTests: XCTestCase {
         let model = ServiceDetailViewModel(id: "service-context-menu", client: client)
         let menu = ServiceContextMenuContent(
             model: model,
-            showPreview: {},
-            openInNewWindow: {}
+            showPreview: {}
         )
 
         XCTAssertNil(model.service)
