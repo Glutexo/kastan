@@ -272,6 +272,24 @@ final class AppDataSourceWorkspace: ObservableObject, Identifiable {
             initialSelection: opensStationTimetable ? initialStationTimetableSelection : nil
         )
     }
+
+    /// Moves the completed connection route into the editable Station Timetables form in this window.
+    @discardableResult
+    func showStationTimetableForConnectionSearch() -> Bool {
+        guard availableSections.contains(.stationTimetables),
+              stationTimetablesModel.presentConnectionSearch(
+                  timetable: connectionsModel.timetable,
+                  from: connectionsModel.from,
+                  to: connectionsModel.to,
+                  date: connectionsModel.date
+              )
+        else {
+            return false
+        }
+
+        selection = .stationTimetables
+        return true
+    }
 }
 
 /// Keeps a source choice local to one main window and replaces all provider-owned state atomically.
@@ -519,7 +537,10 @@ private struct ProviderSearchWorkspaceView: View {
                     showsConnectionBadges: showsConnectionBadges,
                     showsItemDetails: showsItemDetails,
                     showsServiceInformationText: showsServiceInformationText,
-                    showsStopNoteText: showsStopNoteText
+                    showsStopNoteText: showsStopNoteText,
+                    showStationTimetable: workspace.availableSections.contains(.stationTimetables)
+                        ? { _ = workspace.showStationTimetableForConnectionSearch() }
+                        : nil
                 )
             case .departures:
                 DeparturesView(

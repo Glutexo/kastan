@@ -2186,7 +2186,8 @@ final class KastanAppTests: XCTestCase {
             ResultContextTarget.connection.openInNewWindowTitleKey,
             "Preview service",
             ResultContextTarget.service.openInNewWindowTitleKey,
-            "Open station timetable in new window",
+            "Open in new window",
+            "Station timetable",
         ]
         XCTAssertEqual(
             keys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
@@ -2194,7 +2195,8 @@ final class KastanAppTests: XCTestCase {
                 "Otevřít spojení v novém okně",
                 "Náhled spoje",
                 "Otevřít spoj v novém okně",
-                "Otevřít zastávkový jízdní řád v novém okně",
+                "Otevřít v novém okně",
+                "Zastávkový JŘ",
             ]
         )
         XCTAssertEqual(
@@ -8914,6 +8916,52 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(language, AppLanguagePreference.transitLanguage)
         XCTAssertEqual(model.result?.selectedStop?.name, "Strašnická")
         XCTAssertNil(model.errorMessage)
+    }
+
+    func testConnectionSummaryPreparesAStationTimetableWithoutStartingAnIncompleteSearch() async throws {
+        let client = MockIDOSClient()
+        let workspace = AppDataSourceWorkspace(client: client)
+        let stationTimetables = workspace.stationTimetablesModel
+        stationTimetables.line = "Old line"
+        stationTimetables.from = "Old origin"
+        stationTimetables.to = "Old destination"
+        stationTimetables.wholeWeek = true
+        await stationTimetables.search()
+        XCTAssertNotNil(stationTimetables.result)
+        let previousRequest = await client.lastStationTimetableRequest
+
+        let timetable = try IDOSTimetable.resolve("frydekmistek")
+        let selectedDate = serviceDate(2026, 9, 11)
+        workspace.connectionsModel.timetable = timetable
+        workspace.connectionsModel.from = "Frýdek,Na Veselé"
+        workspace.connectionsModel.to = "Místek,Ostravská"
+        workspace.connectionsModel.date = selectedDate
+
+        XCTAssertTrue(workspace.showStationTimetableForConnectionSearch())
+
+        XCTAssertEqual(workspace.selection, .stationTimetables)
+        XCTAssertEqual(stationTimetables.timetable, timetable)
+        XCTAssertNil(stationTimetables.municipality)
+        XCTAssertTrue(stationTimetables.line.isEmpty)
+        XCTAssertEqual(stationTimetables.from, "Frýdek,Na Veselé")
+        XCTAssertEqual(stationTimetables.to, "Místek,Ostravská")
+        XCTAssertEqual(stationTimetables.date, selectedDate)
+        XCTAssertFalse(stationTimetables.wholeWeek)
+        XCTAssertFalse(stationTimetables.canSearch)
+        XCTAssertNil(stationTimetables.result)
+        XCTAssertNil(stationTimetables.errorMessage)
+        let requestAfterTransition = await client.lastStationTimetableRequest
+        XCTAssertEqual(requestAfterTransition, previousRequest)
+    }
+
+    func testConnectionSummaryDoesNotOfferAnUnsupportedStationTimetableCatalog() {
+        let workspace = AppDataSourceWorkspace(client: MockIDOSClient())
+        workspace.connectionsModel.timetable = .defaultTimetable
+        workspace.stationTimetablesModel.line = "Existing line"
+
+        XCTAssertFalse(workspace.showStationTimetableForConnectionSearch())
+        XCTAssertEqual(workspace.selection, .connections)
+        XCTAssertEqual(workspace.stationTimetablesModel.line, "Existing line")
     }
 
     func testStationTimetableMinuteResolvesAndOpensTheMatchingService() async throws {

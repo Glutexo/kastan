@@ -512,7 +512,7 @@ struct StationTimetablesView: View {
                         Button {
                             openStopInNewWindow(at: index)
                         } label: {
-                            Label("Open station timetable in new window", systemImage: "macwindow")
+                            Label("Open in new window", systemImage: "macwindow")
                         }
                     }
                     .alternatingRowBackground(at: index)

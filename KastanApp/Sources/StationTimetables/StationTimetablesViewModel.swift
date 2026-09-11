@@ -132,6 +132,40 @@ final class StationTimetablesViewModel: ObservableObject {
         } && (municipalities.isEmpty || municipality != nil) && !isSearching
     }
 
+    /// Replaces any previous result with the parts of a completed connection search reusable by this form.
+    ///
+    /// A connection query does not identify one line, so the form keeps the transferred route and date visible while
+    /// requiring the passenger to choose that missing value before another provider request can start.
+    @discardableResult
+    func presentConnectionSearch(
+        timetable requestedTimetable: TransitTimetable,
+        from: String,
+        to: String,
+        date: Date
+    ) -> Bool {
+        guard let selectedTimetable = timetables.first(where: {
+            $0.appIdentity == requestedTimetable.appIdentity
+        }) else {
+            return false
+        }
+
+        timetable = selectedTimetable
+        municipality = client.defaultStationTimetableMunicipality(for: selectedTimetable)
+        line = ""
+        self.from = from
+        self.to = to
+        self.date = date
+        wholeWeek = false
+        result = nil
+        resultSearchDate = nil
+        resultUsesWholeWeek = false
+        resultRequest = nil
+        resolvingDeparture = nil
+        errorMessage = nil
+        hasPendingInitialSelection = false
+        return true
+    }
+
     /// Applies both terminal names supplied by the data source with a selected line direction.
     func selectLineSuggestion(_ suggestion: TransitSuggestion) {
         line = suggestion.text

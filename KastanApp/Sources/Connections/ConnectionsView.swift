@@ -246,6 +246,7 @@ struct ConnectionsView: View {
     let showsItemDetails: Bool
     let showsServiceInformationText: Bool
     let showsStopNoteText: Bool
+    let showStationTimetable: (() -> Void)?
     @State private var isJourneyOptionsExpanded = false
     @State private var hasUsedDirectConnectionsShortcut = false
     @State private var isSearchFormCollapsed = false
@@ -253,6 +254,24 @@ struct ConnectionsView: View {
     @State private var optionIsPressed = SearchShortcutPresentation.isVisible(
         for: NSEvent.modifierFlags
     )
+
+    init(
+        model: ConnectionsViewModel,
+        client: any TransitDataSource,
+        showsConnectionBadges: Bool,
+        showsItemDetails: Bool,
+        showsServiceInformationText: Bool,
+        showsStopNoteText: Bool,
+        showStationTimetable: (() -> Void)? = nil
+    ) {
+        self.model = model
+        self.client = client
+        self.showsConnectionBadges = showsConnectionBadges
+        self.showsItemDetails = showsItemDetails
+        self.showsServiceInformationText = showsServiceInformationText
+        self.showsStopNoteText = showsStopNoteText
+        self.showStationTimetable = showStationTimetable
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -269,11 +288,7 @@ struct ConnectionsView: View {
                 loadLater: { await model.loadMore(.later) }
             ) {
                 if isSearchFormCollapsed {
-                    SearchSummaryBar(
-                        summary: searchSummary,
-                        systemImage: "arrow.left.arrow.right",
-                        edit: editSearch
-                    )
+                    connectionSearchSummaryBar
                     .transition(.opacity)
                 } else {
                     searchPanel(layout: layout)
@@ -487,6 +502,37 @@ struct ConnectionsView: View {
             via: model.viaPlaceNames,
             transferLimit: model.transferLimitLabel
         )
+    }
+
+    /// Keeps the route transition in the summary's context menu without adding a visible control.
+    @ViewBuilder
+    private var connectionSearchSummaryBar: some View {
+        if canShowStationTimetable, let showStationTimetable {
+            searchSummaryBar
+                .contentShape(Rectangle())
+                .contextMenu {
+                    Button(action: showStationTimetable) {
+                        Label("Station timetable", systemImage: "calendar")
+                    }
+                }
+        } else {
+            searchSummaryBar
+        }
+    }
+
+    private var searchSummaryBar: some View {
+        SearchSummaryBar(
+            summary: searchSummary,
+            systemImage: "arrow.left.arrow.right",
+            edit: editSearch
+        )
+    }
+
+    /// Offers the transition only when the connection catalog is accepted by Station Timetables.
+    private var canShowStationTimetable: Bool {
+        showStationTimetable != nil && AppTimetableGroup.stationTimetables(in: client.timetables).contains {
+            $0.appIdentity == model.timetable.appIdentity
+        }
     }
 
     private var searchEditCommandContext: SearchEditCommandContext {

@@ -120,6 +120,9 @@ manager and show their source when more than one ordinary provider is registered
   removes the zero-transfer row. The previous positive transfer count and both time values remain remembered; manually
   adding any of these subchoices later restores its last value instead of its default. A source that advertises Direct
   connections only without the maximum-transfer option still gets the checkbox, without an unsupported synthetic row.
+  After a supported search, right-clicking its compact summary offers Station timetable without adding another visible
+  control. The action changes this window to Station Timetables, carries over the timetable, date, and direction stops,
+  clears any older result, and leaves the required Line field for the passenger to complete.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, optional tariff zones and platforms or stands, lockout labels, keyed departure explanations,
@@ -132,7 +135,7 @@ manager and show their source when more than one ordinary provider is registered
   They align below Timetable and Date and reuse the matching control widths. Line suggestions use the transport icon
   supplied by IDOS, such as 🚌 for a bus or 🚋 for a tram, instead of presenting the line as a generic place. An
   ordinary route-stop click selects that stop in the current timetable. Every stop, including the currently selected
-  one, offers Open station timetable in new window from its context menu; Command-click performs the same action. The
+  one, offers Open in new window from its context menu; Command-click performs the same action. The
   independent main window retains the submitted catalog, municipality, line, direction, date, and whole-week setting
   while selecting the requested stop. Schedule
   headings keep the numeric date and follow the selected language's weekday capitalization, such as lowercase Czech

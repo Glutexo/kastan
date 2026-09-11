@@ -178,10 +178,10 @@
 "Open Link" = "Otevřít odkaz";
 "Open attachment %@" = "Otevřít přílohu %@";
 "Open connection in new window" = "Otevřít spojení v novém okně";
+"Open in new window" = "Otevřít v novém okně";
 "Open PDF in Preview" = "Otevřít PDF v Náhledu";
 "Open service at %@" = "Otevřít spoj v %@";
 "Open service in new window" = "Otevřít spoj v novém okně";
-"Open station timetable in new window" = "Otevřít zastávkový jízdní řád v novém okně";
 "IDOS website" = "Web IDOSu";
 "Opens in the default application" = "Otevře se ve výchozí aplikaci";
 "Opens in the default web browser" = "Otevře se ve výchozím webovém prohlížeči";
@@ -243,6 +243,7 @@
 "Station" = "Stanice";
 "Station board" = "Odjezdová tabule";
 "Station timetable content" = "Obsah zastávkového jízdního řádu";
+"Station timetable" = "Zastávkový JŘ";
 "Station timetables" = "Zastávkové JŘ";
 "Station timetable platform %@" = "stanoviště %@";
 "Station or stop" = "Stanice nebo zastávka";
