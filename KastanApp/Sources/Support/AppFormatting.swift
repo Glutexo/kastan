@@ -1150,11 +1150,24 @@ struct RuleExplanationPopover: View {
 struct OptionClickOverlay: NSViewRepresentable {
     let action: () -> Void
 
-    func makeNSView(context: Context) -> OptionClickCaptureView {
-        OptionClickCaptureView { _ in action() }
+    func makeNSView(context: Context) -> ModifierClickCaptureView {
+        ModifierClickCaptureView { _ in action() }
     }
 
-    func updateNSView(_ nsView: OptionClickCaptureView, context: Context) {
+    func updateNSView(_ nsView: ModifierClickCaptureView, context: Context) {
+        nsView.action = { _ in action() }
+    }
+}
+
+/// Gives Command-click an independent action even when SwiftUI does not activate the underlying button.
+struct CommandClickOverlay: NSViewRepresentable {
+    let action: () -> Void
+
+    func makeNSView(context: Context) -> ModifierClickCaptureView {
+        ModifierClickCaptureView(requiredModifierFlags: .command) { _ in action() }
+    }
+
+    func updateNSView(_ nsView: ModifierClickCaptureView, context: Context) {
         nsView.action = { _ in action() }
     }
 }
@@ -1163,27 +1176,30 @@ struct OptionClickOverlay: NSViewRepresentable {
 struct OptionClickPopoverAnchorOverlay: NSViewRepresentable {
     let updateAnchor: (UnitPoint) -> Void
 
-    func makeNSView(context: Context) -> OptionClickCaptureView {
-        OptionClickCaptureView(consumesEvent: false, action: updateAnchor)
+    func makeNSView(context: Context) -> ModifierClickCaptureView {
+        ModifierClickCaptureView(consumesEvent: false, action: updateAnchor)
     }
 
-    func updateNSView(_ nsView: OptionClickCaptureView, context: Context) {
+    func updateNSView(_ nsView: ModifierClickCaptureView, context: Context) {
         nsView.action = updateAnchor
     }
 }
 
-/// Locates Option-modified primary clicks without entering SwiftUI's hit-testing and either
-/// consumes a compact-symbol action or preserves a linked-text action for its original handler.
-final class OptionClickCaptureView: NSView {
+/// Locates one configured modifier-click without entering SwiftUI's hit-testing and either consumes its
+/// independent action or preserves a linked-text action for the original handler.
+final class ModifierClickCaptureView: NSView {
     var action: (UnitPoint) -> Void
+    let requiredModifierFlags: NSEvent.ModifierFlags
     let consumesEvent: Bool
     /// AppKit creates and consumes this opaque token exclusively on the main thread.
     nonisolated(unsafe) private var eventMonitor: Any?
 
     init(
+        requiredModifierFlags: NSEvent.ModifierFlags = .option,
         consumesEvent: Bool = true,
         action: @escaping (UnitPoint) -> Void
     ) {
+        self.requiredModifierFlags = requiredModifierFlags
         self.consumesEvent = consumesEvent
         self.action = action
         super.init(frame: .zero)
@@ -1220,8 +1236,11 @@ final class OptionClickCaptureView: NSView {
         true
     }
 
-    static func handles(_ event: NSEvent) -> Bool {
-        event.type == .leftMouseDown && event.modifierFlags.contains(.option)
+    static func handles(
+        _ event: NSEvent,
+        requiredModifierFlags: NSEvent.ModifierFlags = .option
+    ) -> Bool {
+        event.type == .leftMouseDown && event.modifierFlags.contains(requiredModifierFlags)
     }
 
     func captures(_ event: NSEvent) -> Bool {
@@ -1236,7 +1255,11 @@ final class OptionClickCaptureView: NSView {
     }
 
     private func anchor(for event: NSEvent) -> UnitPoint? {
-        guard Self.handles(event), event.window === window else { return nil }
+        guard Self.handles(event, requiredModifierFlags: requiredModifierFlags),
+              event.window === window
+        else {
+            return nil
+        }
         let location = convert(event.locationInWindow, from: nil)
         guard bounds.contains(location), bounds.width > 0, bounds.height > 0 else { return nil }
         return UnitPoint(
@@ -1251,6 +1274,9 @@ final class OptionClickCaptureView: NSView {
         self.eventMonitor = nil
     }
 }
+
+/// Retains the established test and call-site name for the default Option-click configuration.
+typealias OptionClickCaptureView = ModifierClickCaptureView
 
 /// Keeps optional stop facts visually subordinate while their hover and VoiceOver wording stays explicit.
 struct CompactStopMetadata: View {

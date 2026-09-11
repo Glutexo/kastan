@@ -11,7 +11,7 @@ struct StationTimetablesView: View {
     let showsItemDetails: Bool
     let showsStopNoteText: Bool
     let showInDepartures: (ResolvedDepartureSearch) -> Void
-    @State private var isSearchFormCollapsed = false
+    @State private var isSearchFormCollapsed: Bool
     @State private var isNotesExpanded = false
     @State private var isExplanationsExpanded = false
     @State private var selectedResultSection = StationTimetableResultSection.stops
@@ -28,6 +28,7 @@ struct StationTimetablesView: View {
         self.showsItemDetails = showsItemDetails
         self.showsStopNoteText = showsStopNoteText
         self.showInDepartures = showInDepartures
+        _isSearchFormCollapsed = State(initialValue: model.startsWithInitialSelection)
     }
 
     var body: some View {
@@ -60,6 +61,9 @@ struct StationTimetablesView: View {
             .animation(.easeInOut(duration: 0.18), value: isSearchFormCollapsed)
         }
         .focusedSceneValue(\.searchEditCommandContext, searchEditCommandContext)
+        .task {
+            await model.loadInitialSelectionIfNeeded()
+        }
     }
 
     private func resultsPanel(layout: DetailLayout) -> some View {
@@ -480,7 +484,12 @@ struct StationTimetablesView: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(StationTimetableStopButtonStyle())
-                        .disabled(stop.isSelected || model.isSearching)
+                        .disabled(model.isSearching)
+                        .overlay {
+                            CommandClickOverlay {
+                                openStopInNewWindow(at: index)
+                            }
+                        }
 
                         if !notePresentation.textNotes.isEmpty {
                             NoteText(notePresentation.textNotes.joined(separator: " · "))
@@ -499,6 +508,13 @@ struct StationTimetablesView: View {
                         stop.isSelected ? Color.accentColor.opacity(0.1) : Color.clear,
                         in: RoundedRectangle(cornerRadius: 6)
                     )
+                    .contextMenu {
+                        Button {
+                            openStopInNewWindow(at: index)
+                        } label: {
+                            Label("Open station timetable in new window", systemImage: "macwindow")
+                        }
+                    }
                     .alternatingRowBackground(at: index)
                     .overlay {
                         StationTimetableStopTimeline(
@@ -510,6 +526,17 @@ struct StationTimetablesView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func openStopInNewWindow(at index: Int) {
+        guard let selection = model.newWindowSelection(forStopAt: index) else { return }
+        openWindow(
+            id: AppWindow.main,
+            value: MainWindowSceneValue(
+                dataSourceID: selection.dataSourceID,
+                initialStationTimetableSelection: selection
+            )
+        )
     }
 
     private func schedules(_ result: TransitStationTimetable) -> some View {

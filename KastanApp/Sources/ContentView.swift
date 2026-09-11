@@ -256,13 +256,21 @@ final class AppDataSourceWorkspace: ObservableObject, Identifiable {
     let stationTimetablesModel: StationTimetablesViewModel
     @Published var selection: AppSection
 
-    init(client: any TransitDataSource) {
+    init(
+        client: any TransitDataSource,
+        initialStationTimetableSelection: StationTimetableSelection? = nil
+    ) {
         self.client = client
         availableSections = AppSection.available(for: client.descriptor)
-        selection = availableSections.first ?? .connections
+        let opensStationTimetable = initialStationTimetableSelection?.dataSourceID == client.descriptor.id &&
+            availableSections.contains(.stationTimetables)
+        selection = opensStationTimetable ? .stationTimetables : availableSections.first ?? .connections
         connectionsModel = ConnectionsViewModel(client: client)
         departuresModel = DeparturesViewModel(client: client)
-        stationTimetablesModel = StationTimetablesViewModel(client: client)
+        stationTimetablesModel = StationTimetablesViewModel(
+            client: client,
+            initialSelection: opensStationTimetable ? initialStationTimetableSelection : nil
+        )
     }
 }
 
@@ -276,7 +284,8 @@ final class AppDataSourceSelection: ObservableObject {
 
     init(
         registry: TransitDataSourceRegistry,
-        initialDataSourceID: TransitDataSourceID? = nil
+        initialDataSourceID: TransitDataSourceID? = nil,
+        initialStationTimetableSelection: StationTimetableSelection? = nil
     ) {
         self.registry = registry
         descriptors = registry.descriptors
@@ -285,7 +294,10 @@ final class AppDataSourceSelection: ObservableObject {
         }
         let initialDataSource = initialDataSourceID.flatMap(registry.dataSource(for:))
             ?? registry.defaultDataSource
-        workspace = AppDataSourceWorkspace(client: initialDataSource)
+        workspace = AppDataSourceWorkspace(
+            client: initialDataSource,
+            initialStationTimetableSelection: initialStationTimetableSelection
+        )
     }
 
     var selectedDataSourceID: TransitDataSourceID {
@@ -410,7 +422,8 @@ struct ContentView: View {
         _dataSourceSelection = StateObject(
             wrappedValue: AppDataSourceSelection(
                 registry: dataSources,
-                initialDataSourceID: sceneValue.wrappedValue.dataSourceID
+                initialDataSourceID: sceneValue.wrappedValue.dataSourceID,
+                initialStationTimetableSelection: sceneValue.wrappedValue.initialStationTimetableSelection
             )
         )
         self.lastClosedDataSource = lastClosedDataSource
@@ -449,6 +462,9 @@ struct ContentView: View {
             // the registry fallback selected by the workspace in that case.
             if sceneValue.dataSourceID != dataSourceSelection.selectedDataSourceID {
                 sceneValue.dataSourceID = dataSourceSelection.selectedDataSourceID
+            }
+            if sceneValue.initialStationTimetableSelection != nil {
+                sceneValue.initialStationTimetableSelection = nil
             }
         }
     }

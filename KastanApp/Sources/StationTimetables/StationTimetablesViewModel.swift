@@ -1,6 +1,31 @@
 import Foundation
 import Kastan
 
+/// Preserves one submitted station-timetable query while opening its selected stop in another main window.
+struct StationTimetableSelection: Codable, Hashable {
+    let timetable: TransitTimetable
+    let municipality: TransitStationTimetableMunicipality?
+    let line: String
+    let from: String
+    let to: String
+    let serviceDate: TransitDate
+    let wholeWeek: Bool
+
+    var dataSourceID: TransitDataSourceID { timetable.dataSourceID }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(timetable.dataSourceID)
+        hasher.combine(timetable.identifier)
+        hasher.combine(timetable.displayName)
+        hasher.combine(municipality)
+        hasher.combine(line)
+        hasher.combine(from)
+        hasher.combine(to)
+        hasher.combine(serviceDate)
+        hasher.combine(wholeWeek)
+    }
+}
+
 /// Owns one MHD or integrated-transport station-timetable query and its selected route stop.
 @MainActor
 final class StationTimetablesViewModel: ObservableObject {
@@ -19,19 +44,66 @@ final class StationTimetablesViewModel: ObservableObject {
     let client: any TransitDataSource
     private var resultSearchDate: TransitDate?
     private var resultUsesWholeWeek = false
+    private var resultRequest: TransitStationTimetableRequest?
+    private var hasPendingInitialSelection = false
 
     private struct DepartureResolution {
         let selection: ServiceSelection
         let search: ResolvedDepartureSearch
     }
 
-    init(client: any TransitDataSource) {
+    init(
+        client: any TransitDataSource,
+        initialSelection: StationTimetableSelection? = nil
+    ) {
         self.client = client
         timetable = AppTimetableDefaults.search(
             in: client.timetables,
             defaultTimetable: client.defaultTimetable
         )
         municipality = client.defaultStationTimetableMunicipality(for: timetable)
+
+        guard let initialSelection,
+              initialSelection.dataSourceID == client.descriptor.id
+        else {
+            return
+        }
+
+        let selectedTimetable = client.timetables.first {
+            $0.dataSourceID == initialSelection.timetable.dataSourceID &&
+                $0.identifier == initialSelection.timetable.identifier
+        } ?? initialSelection.timetable
+        let selectedMunicipality = initialSelection.municipality.map { requested in
+            client.stationTimetableMunicipalities(for: selectedTimetable).first {
+                $0.dataSourceID == requested.dataSourceID &&
+                    $0.timetableIdentifier == requested.timetableIdentifier &&
+                    $0.identifier == requested.identifier
+            } ?? requested
+        }
+
+        timetable = selectedTimetable
+        municipality = selectedMunicipality
+        line = initialSelection.line
+        from = initialSelection.from
+        to = initialSelection.to
+        date = TransitRequestFormatting.displayDateAndTime(
+            serviceDate: initialSelection.serviceDate,
+            serviceTime: TransitTime(hour: 12, minute: 0)
+        ) ?? Date()
+        wholeWeek = initialSelection.wholeWeek
+        hasPendingInitialSelection = true
+    }
+
+    /// Starts the query carried by a newly opened main window exactly once.
+    func loadInitialSelectionIfNeeded() async {
+        guard hasPendingInitialSelection else { return }
+        hasPendingInitialSelection = false
+        await search()
+    }
+
+    /// Lets the view begin with the compact submitted-query summary while the new window loads its result.
+    var startsWithInitialSelection: Bool {
+        hasPendingInitialSelection
     }
 
     /// Municipalities available inside the currently selected Station Timetable catalog.
@@ -66,6 +138,7 @@ final class StationTimetablesViewModel: ObservableObject {
         from = suggestion.from ?? ""
         to = suggestion.to ?? ""
         result = nil
+        resultRequest = nil
         errorMessage = nil
     }
 
@@ -94,6 +167,7 @@ final class StationTimetablesViewModel: ObservableObject {
         to = ""
         result = nil
         resultSearchDate = nil
+        resultRequest = nil
         resolvingDeparture = nil
         errorMessage = nil
     }
@@ -120,6 +194,7 @@ final class StationTimetablesViewModel: ObservableObject {
         isSearching = true
         errorMessage = nil
         result = nil
+        resultRequest = nil
         resolvingDeparture = nil
         defer { isSearching = false }
 
@@ -143,6 +218,7 @@ final class StationTimetablesViewModel: ObservableObject {
             )
             resultSearchDate = requestedDate
             resultUsesWholeWeek = requestedWholeWeek
+            resultRequest = request
             result = loadedResult
         } catch {
             errorMessage = AppErrorPresentation.message(for: error)
@@ -250,6 +326,38 @@ final class StationTimetablesViewModel: ObservableObject {
             from = result.stops[index].name
             await search()
         }
+    }
+
+    /// Builds the independent query represented by activating one stop in the currently displayed route.
+    func newWindowSelection(forStopAt index: Int) -> StationTimetableSelection? {
+        guard let result,
+              let resultRequest,
+              let resultSearchDate,
+              result.stops.indices.contains(index)
+        else {
+            return nil
+        }
+
+        let stop = result.stops[index]
+        var from = resultRequest.from
+        var to = resultRequest.to
+        if !stop.isSelected {
+            if index == result.stops.index(before: result.stops.endIndex) {
+                swap(&from, &to)
+            } else {
+                from = stop.name
+            }
+        }
+
+        return StationTimetableSelection(
+            timetable: resultRequest.timetable,
+            municipality: resultRequest.municipality,
+            line: resultRequest.line,
+            from: from,
+            to: to,
+            serviceDate: resultSearchDate,
+            wholeWeek: resultRequest.wholeWeek
+        )
     }
 
     func reverseDirection() async {

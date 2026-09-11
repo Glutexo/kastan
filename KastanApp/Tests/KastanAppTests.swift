@@ -2186,10 +2186,16 @@ final class KastanAppTests: XCTestCase {
             ResultContextTarget.connection.openInNewWindowTitleKey,
             "Preview service",
             ResultContextTarget.service.openInNewWindowTitleKey,
+            "Open station timetable in new window",
         ]
         XCTAssertEqual(
             keys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
-            ["Otevřít spojení v novém okně", "Náhled spoje", "Otevřít spoj v novém okně"]
+            [
+                "Otevřít spojení v novém okně",
+                "Náhled spoje",
+                "Otevřít spoj v novém okně",
+                "Otevřít zastávkový jízdní řád v novém okně",
+            ]
         )
         XCTAssertEqual(
             keys.map { english.localizedString(forKey: $0, value: nil, table: nil) },
@@ -4746,9 +4752,25 @@ final class KastanAppTests: XCTestCase {
             clickCount: 1,
             pressure: 1
         ))
+        let commandClick = try XCTUnwrap(NSEvent.mouseEvent(
+            with: .leftMouseDown,
+            location: clickLocation,
+            modifierFlags: [.command],
+            timestamp: 0,
+            windowNumber: window.windowNumber,
+            context: nil,
+            eventNumber: 3,
+            clickCount: 1,
+            pressure: 1
+        ))
 
         XCTAssertFalse(OptionClickCaptureView.handles(ordinaryClick))
         XCTAssertTrue(OptionClickCaptureView.handles(optionClick))
+        XCTAssertFalse(OptionClickCaptureView.handles(commandClick))
+        XCTAssertTrue(ModifierClickCaptureView.handles(
+            commandClick,
+            requiredModifierFlags: .command
+        ))
         XCTAssertGreaterThan(clickView.frame.width, 0)
         XCTAssertGreaterThan(clickView.frame.height, 0)
         XCTAssertFalse(clickView.captures(ordinaryClick))
@@ -4960,9 +4982,19 @@ final class KastanAppTests: XCTestCase {
     }
 
     func testMainWindowSceneValueKeepsSameProviderWindowsDistinctAndRestorable() throws {
+        let stationTimetableSelection = StationTimetableSelection(
+            timetable: IDOSTimetable(slug: "pid", displayName: "PID"),
+            municipality: nil,
+            line: "Bus 154",
+            from: "Strašnická",
+            to: "Sídliště Libuš",
+            serviceDate: TransitDate(year: 2026, month: 9, day: 11),
+            wholeWeek: false
+        )
         let first = MainWindowSceneValue(
             id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA")!,
-            dataSourceID: .idos
+            dataSourceID: .idos,
+            initialStationTimetableSelection: stationTimetableSelection
         )
         let second = MainWindowSceneValue(
             id: UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!,
@@ -4971,6 +5003,7 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertNotEqual(first, second)
         XCTAssertEqual(first.dataSourceID, second.dataSourceID)
+        XCTAssertNil(second.initialStationTimetableSelection)
         XCTAssertEqual(
             try JSONDecoder().decode(
                 MainWindowSceneValue.self,
@@ -9187,6 +9220,99 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(request?.from, "Na Hroudě")
         XCTAssertEqual(request?.to, "Sídliště Libuš")
         XCTAssertEqual(model.result?.selectedStop?.name, "Na Hroudě")
+    }
+
+    func testStationTimetableStopsBuildIndependentMainWindowQueries() async throws {
+        let client = MockIDOSClient()
+        let model = StationTimetablesViewModel(client: client)
+        model.date = serviceDate(2026, 9, 11)
+        model.wholeWeek = true
+        model.selectTimetable(slug: "pid")
+        model.selectLineSuggestion(IDOSSuggestion(
+            text: "Bus 154",
+            from: "Strašnická",
+            to: "Sídliště Libuš"
+        ))
+        await model.search()
+
+        model.line = "Unsubmitted line"
+        model.from = "Unsubmitted origin"
+        model.to = "Unsubmitted destination"
+        model.date = serviceDate(2030, 1, 2)
+        model.wholeWeek = false
+
+        let selectedStop = try XCTUnwrap(model.newWindowSelection(forStopAt: 0))
+        let intermediateStop = try XCTUnwrap(model.newWindowSelection(forStopAt: 1))
+        let terminalStop = try XCTUnwrap(model.newWindowSelection(forStopAt: 2))
+
+        XCTAssertEqual(selectedStop.from, "Strašnická")
+        XCTAssertEqual(selectedStop.to, "Sídliště Libuš")
+        XCTAssertEqual(intermediateStop.from, "Na Hroudě")
+        XCTAssertEqual(intermediateStop.to, "Sídliště Libuš")
+        XCTAssertEqual(terminalStop.from, "Sídliště Libuš")
+        XCTAssertEqual(terminalStop.to, "Strašnická")
+        XCTAssertEqual(intermediateStop.line, "Bus 154")
+        XCTAssertEqual(intermediateStop.serviceDate, TransitDate(year: 2026, month: 9, day: 11))
+        XCTAssertTrue(intermediateStop.wholeWeek)
+        XCTAssertEqual(
+            try JSONDecoder().decode(
+                StationTimetableSelection.self,
+                from: JSONEncoder().encode(intermediateStop)
+            ),
+            intermediateStop
+        )
+
+        let workspace = AppDataSourceWorkspace(
+            client: client,
+            initialStationTimetableSelection: intermediateStop
+        )
+        XCTAssertEqual(workspace.selection, .stationTimetables)
+        XCTAssertTrue(workspace.stationTimetablesModel.startsWithInitialSelection)
+
+        await workspace.stationTimetablesModel.loadInitialSelectionIfNeeded()
+
+        let request = await client.lastStationTimetableRequest
+        XCTAssertFalse(workspace.stationTimetablesModel.startsWithInitialSelection)
+        XCTAssertEqual(request?.line, "Bus 154")
+        XCTAssertEqual(request?.from, "Na Hroudě")
+        XCTAssertEqual(request?.to, "Sídliště Libuš")
+        XCTAssertEqual(request?.serviceDate, TransitDate(year: 2026, month: 9, day: 11))
+        XCTAssertEqual(request?.wholeWeek, true)
+        XCTAssertEqual(workspace.stationTimetablesModel.result?.selectedStop?.name, "Na Hroudě")
+    }
+
+    func testRenderedStationTimetableStopsRegisterCommandClickTargets() async throws {
+        let client = MockIDOSClient()
+        let model = StationTimetablesViewModel(client: client)
+        model.line = "Bus 154"
+        model.from = "Strašnická"
+        model.to = "Sídliště Libuš"
+        await model.search()
+        let result = try XCTUnwrap(model.result)
+        let hostingView = NSHostingView(rootView: StationTimetablesView(
+            model: model,
+            client: client,
+            showsItemDetails: false,
+            showsStopNoteText: false
+        ))
+        hostingView.frame = NSRect(x: 0, y: 0, width: 1_000, height: 900)
+        let window = NSWindow(
+            contentRect: hostingView.frame,
+            styleMask: .borderless,
+            backing: .buffered,
+            defer: false
+        )
+        window.contentView = hostingView
+        window.makeKeyAndOrderFront(nil)
+        defer { window.orderOut(nil) }
+
+        hostingView.layoutSubtreeIfNeeded()
+
+        let commandClickTargets = hostingView.allDescendantViews
+            .compactMap { $0 as? ModifierClickCaptureView }
+            .filter { $0.requiredModifierFlags.contains(.command) }
+        XCTAssertEqual(commandClickTargets.count, result.stops.count)
+        XCTAssertTrue(commandClickTargets.allSatisfy { $0.bounds.width > 0 && $0.bounds.height > 0 })
     }
 
     func testLocalizedErrorPresentationPreservesNetworkDetail() {

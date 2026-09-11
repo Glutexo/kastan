@@ -130,7 +130,11 @@ manager and show their source when more than one ordinary provider is registered
   suggestions from the newly selected local catalog. Municipality and Line share one row at every supported window
   width, directly associating the local catalog with its available lines.
   They align below Timetable and Date and reuse the matching control widths. Line suggestions use the transport icon
-  supplied by IDOS, such as 🚌 for a bus or 🚋 for a tram, instead of presenting the line as a generic place. Schedule
+  supplied by IDOS, such as 🚌 for a bus or 🚋 for a tram, instead of presenting the line as a generic place. An
+  ordinary route-stop click selects that stop in the current timetable. Every stop, including the currently selected
+  one, offers Open station timetable in new window from its context menu; Command-click performs the same action. The
+  independent main window retains the submitted catalog, municipality, line, direction, date, and whole-week setting
+  while selecting the requested stop. Schedule
   headings keep the numeric date and follow the selected language's weekday capitalization, such as lowercase Czech
   `středa` and uppercase English `Wednesday`. The route, explanations, and notes use icon headings. Route stops use
   the same connected circular timeline as complete service routes. Its neutral section

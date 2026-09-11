@@ -23,14 +23,21 @@ enum AppWindow {
 ///
 /// The unique identifier keeps two windows that use the same provider distinct when they are opened through
 /// SwiftUI's value-based window API. The provider identifier remains mutable so a regular provider change can be
-/// persisted as part of the scene's restoration value.
+/// persisted as part of the scene's restoration value. A station-timetable selection seeds a newly opened window and
+/// is cleared after its workspace has adopted the query.
 struct MainWindowSceneValue: Codable, Hashable {
     let id: UUID
     var dataSourceID: TransitDataSourceID
+    var initialStationTimetableSelection: StationTimetableSelection?
 
-    init(id: UUID = UUID(), dataSourceID: TransitDataSourceID) {
+    init(
+        id: UUID = UUID(),
+        dataSourceID: TransitDataSourceID,
+        initialStationTimetableSelection: StationTimetableSelection? = nil
+    ) {
         self.id = id
         self.dataSourceID = dataSourceID
+        self.initialStationTimetableSelection = initialStationTimetableSelection
     }
 }
 
