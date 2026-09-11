@@ -200,6 +200,90 @@ enum AppWindowActions {
     }
 }
 
+/// Identifies where a completed connection search should prepare its station-timetable form.
+enum ConnectionStationTimetableDestination: CaseIterable, Hashable, Identifiable {
+    case currentTab
+    case newTab
+    case newWindow
+
+    var id: Self { self }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .currentTab:
+            "Open"
+        case .newTab:
+            "Open in new tab"
+        case .newWindow:
+            "Open in new window"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .currentTab:
+            "arrow.right"
+        case .newTab:
+            "rectangle.on.rectangle"
+        case .newWindow:
+            "macwindow"
+        }
+    }
+}
+
+/// Connects the File menu to the supported connection search in the focused main window.
+struct ConnectionStationTimetableCommandContext {
+    let isAvailable: Bool
+    let open: (ConnectionStationTimetableDestination) -> Void
+}
+
+struct ConnectionStationTimetableCommandContextKey: FocusedValueKey {
+    typealias Value = ConnectionStationTimetableCommandContext
+}
+
+extension FocusedValues {
+    var connectionStationTimetableCommandContext: ConnectionStationTimetableCommandContext? {
+        get { self[ConnectionStationTimetableCommandContextKey.self] }
+        set { self[ConnectionStationTimetableCommandContextKey.self] = newValue }
+    }
+}
+
+/// Presents the same three station-timetable destinations in contextual and application menus.
+struct ConnectionStationTimetableMenu: View {
+    let title: LocalizedStringKey
+    let open: (ConnectionStationTimetableDestination) -> Void
+
+    var body: some View {
+        Menu {
+            ForEach(ConnectionStationTimetableDestination.allCases) { destination in
+                Button {
+                    open(destination)
+                } label: {
+                    Label(destination.title, systemImage: destination.systemImage)
+                }
+            }
+        } label: {
+            Label(title, systemImage: "calendar")
+        }
+    }
+}
+
+/// Adds the focused connection's station-timetable destinations to the File menu.
+struct ConnectionStationTimetableCommands: Commands {
+    @FocusedValue(\.connectionStationTimetableCommandContext) private var context
+
+    var body: some Commands {
+        CommandGroup(after: .newItem) {
+            Divider()
+
+            ConnectionStationTimetableMenu(title: "Station Timetable") { destination in
+                context?.open(destination)
+            }
+            .disabled(context?.isAvailable != true)
+        }
+    }
+}
+
 /// Keeps SwiftUI's generic close commands from duplicating Kaštan's explicit tab and window actions.
 @MainActor
 final class ApplicationMainMenu: NSObject {
@@ -1015,6 +1099,7 @@ struct KastanApp: App {
                 dataSources: dataSources,
                 lastClosedDataSource: lastClosedDataSource
             )
+            ConnectionStationTimetableCommands()
             ResultDetailCommands()
             AppSectionCommands(
                 showsConnectionBadges: $showsConnectionBadges,

@@ -436,6 +436,46 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testFileMenuOffersEveryStationTimetableDestinationWithAnUnabbreviatedName() async throws {
+        try await Task.sleep(for: .milliseconds(250))
+
+        let menuTitle = AppLocalization.string("Station Timetable")
+        let destinationTitles = [
+            "Open",
+            "Open in new tab",
+            "Open in new window",
+        ].map { AppLocalization.string($0) }
+        let fileMenu = try XCTUnwrap(
+            NSApplication.shared.mainMenu?.items
+                .compactMap(\.submenu)
+                .first { menu in menu.items.contains { $0.title == menuTitle } }
+        )
+        let stationTimetableItem = try XCTUnwrap(
+            fileMenu.items.first { $0.title == menuTitle }
+        )
+        let stationTimetableMenu = try XCTUnwrap(stationTimetableItem.submenu)
+
+        XCTAssertEqual(stationTimetableMenu.items.map(\.title), destinationTitles)
+
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Station Timetable", value: nil, table: nil),
+            "Zastávkový jízdní řád"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Station timetable", value: nil, table: nil),
+            "Zastávkový JŘ"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Open in new tab", value: nil, table: nil),
+            "Otevřít v novém panelu"
+        )
+        XCTAssertEqual(
+            czech.localizedString(forKey: "Open in new window", value: nil, table: nil),
+            "Otevřít v novém okně"
+        )
+    }
+
     func testNestedProviderMenusKeepMockChoicesAsOptionAlternates() {
         let mainMenu = NSMenu(title: "Main")
         let fileMenu = NSMenu(title: "File")
@@ -8937,6 +8977,38 @@ final class KastanAppTests: XCTestCase {
         workspace.connectionsModel.to = "Místek,Ostravská"
         workspace.connectionsModel.date = selectedDate
 
+        let newWindowSelection = try XCTUnwrap(
+            workspace.stationTimetableSelectionForConnectionSearch()
+        )
+        XCTAssertEqual(newWindowSelection.timetable, timetable)
+        XCTAssertNil(newWindowSelection.municipality)
+        XCTAssertTrue(newWindowSelection.line.isEmpty)
+        XCTAssertEqual(newWindowSelection.from, "Frýdek,Na Veselé")
+        XCTAssertEqual(newWindowSelection.to, "Místek,Ostravská")
+        XCTAssertEqual(
+            newWindowSelection.serviceDate,
+            TransitDate(year: 2026, month: 9, day: 11)
+        )
+        XCTAssertFalse(newWindowSelection.wholeWeek)
+
+        let independentWorkspace = AppDataSourceWorkspace(
+            client: client,
+            initialStationTimetableSelection: newWindowSelection
+        )
+        XCTAssertEqual(independentWorkspace.selection, .stationTimetables)
+        XCTAssertFalse(independentWorkspace.stationTimetablesModel.startsWithInitialSelection)
+        XCTAssertEqual(independentWorkspace.stationTimetablesModel.timetable, timetable)
+        XCTAssertTrue(independentWorkspace.stationTimetablesModel.line.isEmpty)
+        XCTAssertEqual(
+            independentWorkspace.stationTimetablesModel.from,
+            "Frýdek,Na Veselé"
+        )
+        XCTAssertEqual(independentWorkspace.stationTimetablesModel.to, "Místek,Ostravská")
+
+        await independentWorkspace.stationTimetablesModel.loadInitialSelectionIfNeeded()
+        let requestAfterOpeningIndependentWorkspace = await client.lastStationTimetableRequest
+        XCTAssertEqual(requestAfterOpeningIndependentWorkspace, previousRequest)
+
         XCTAssertTrue(workspace.showStationTimetableForConnectionSearch())
 
         XCTAssertEqual(workspace.selection, .stationTimetables)
@@ -8960,6 +9032,7 @@ final class KastanAppTests: XCTestCase {
         workspace.stationTimetablesModel.line = "Existing line"
 
         XCTAssertFalse(workspace.showStationTimetableForConnectionSearch())
+        XCTAssertNil(workspace.stationTimetableSelectionForConnectionSearch())
         XCTAssertEqual(workspace.selection, .connections)
         XCTAssertEqual(workspace.stationTimetablesModel.line, "Existing line")
     }

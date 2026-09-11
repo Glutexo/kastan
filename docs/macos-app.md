@@ -120,9 +120,11 @@ manager and show their source when more than one ordinary provider is registered
   removes the zero-transfer row. The previous positive transfer count and both time values remain remembered; manually
   adding any of these subchoices later restores its last value instead of its default. A source that advertises Direct
   connections only without the maximum-transfer option still gets the checkbox, without an unsupported synthetic row.
-  After a supported search, right-clicking its compact summary offers Station timetable without adding another visible
-  control. The action changes this window to Station Timetables, carries over the timetable, date, and direction stops,
-  clears any older result, and leaves the required Line field for the passenger to complete.
+  After a supported search, right-clicking its compact summary offers a Station timetable submenu without adding
+  another visible control. The same submenu appears as Station Timetable in the File menu, where its name remains
+  unabbreviated. Both menus can open the prepared form in the current tab, a new native tab, or a new window. Each
+  destination carries over the timetable, date, and direction stops, clears any older result, and leaves the required
+  Line field for the passenger to complete before the first request.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, optional tariff zones and platforms or stands, lockout labels, keyed departure explanations,

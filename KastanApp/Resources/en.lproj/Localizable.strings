@@ -175,9 +175,11 @@
 "Network request failed. Check your internet connection." = "Network request failed. Check your internet connection.";
 "Network request failed. Check your internet connection. %@" = "Network request failed. Check your internet connection. %@";
 "OK" = "OK";
+"Open" = "Open";
 "Open Link" = "Open Link";
 "Open attachment %@" = "Open attachment %@";
 "Open connection in new window" = "Open connection in new window";
+"Open in new tab" = "Open in new tab";
 "Open in new window" = "Open in new window";
 "Open PDF in Preview" = "Open PDF in Preview";
 "Open service at %@" = "Open service at %@";
@@ -243,6 +245,7 @@
 "Station" = "Station";
 "Station board" = "Station board";
 "Station timetable content" = "Station timetable content";
+"Station Timetable" = "Station Timetable";
 "Station timetable" = "Station timetable";
 "Station timetables" = "Station timetables";
 "Station timetable platform %@" = "Platform %@";

@@ -246,7 +246,7 @@ struct ConnectionsView: View {
     let showsItemDetails: Bool
     let showsServiceInformationText: Bool
     let showsStopNoteText: Bool
-    let showStationTimetable: (() -> Void)?
+    let openStationTimetable: ((ConnectionStationTimetableDestination) -> Void)?
     @State private var isJourneyOptionsExpanded = false
     @State private var hasUsedDirectConnectionsShortcut = false
     @State private var isSearchFormCollapsed = false
@@ -262,7 +262,7 @@ struct ConnectionsView: View {
         showsItemDetails: Bool,
         showsServiceInformationText: Bool,
         showsStopNoteText: Bool,
-        showStationTimetable: (() -> Void)? = nil
+        openStationTimetable: ((ConnectionStationTimetableDestination) -> Void)? = nil
     ) {
         self.model = model
         self.client = client
@@ -270,7 +270,7 @@ struct ConnectionsView: View {
         self.showsItemDetails = showsItemDetails
         self.showsServiceInformationText = showsServiceInformationText
         self.showsStopNoteText = showsStopNoteText
-        self.showStationTimetable = showStationTimetable
+        self.openStationTimetable = openStationTimetable
     }
 
     var body: some View {
@@ -309,6 +309,10 @@ struct ConnectionsView: View {
                 .frame(width: 0, height: 0)
         }
         .focusedSceneValue(\.searchEditCommandContext, searchEditCommandContext)
+        .focusedSceneValue(
+            \.connectionStationTimetableCommandContext,
+            connectionStationTimetableCommandContext
+        )
         .sheet(item: $emailSelection) { selection in
             ConnectionEmailView(
                 connection: selection.connection,
@@ -504,16 +508,17 @@ struct ConnectionsView: View {
         )
     }
 
-    /// Keeps the route transition in the summary's context menu without adding a visible control.
+    /// Keeps every route transition in the summary's context menu without adding a visible control.
     @ViewBuilder
     private var connectionSearchSummaryBar: some View {
-        if canShowStationTimetable, let showStationTimetable {
+        if canOpenStationTimetable, let openStationTimetable {
             searchSummaryBar
                 .contentShape(Rectangle())
                 .contextMenu {
-                    Button(action: showStationTimetable) {
-                        Label("Station timetable", systemImage: "calendar")
-                    }
+                    ConnectionStationTimetableMenu(
+                        title: "Station timetable",
+                        open: openStationTimetable
+                    )
                 }
         } else {
             searchSummaryBar
@@ -529,10 +534,20 @@ struct ConnectionsView: View {
     }
 
     /// Offers the transition only when the connection catalog is accepted by Station Timetables.
-    private var canShowStationTimetable: Bool {
-        showStationTimetable != nil && AppTimetableGroup.stationTimetables(in: client.timetables).contains {
+    private var canOpenStationTimetable: Bool {
+        openStationTimetable != nil && AppTimetableGroup.stationTimetables(in: client.timetables).contains {
             $0.appIdentity == model.timetable.appIdentity
         }
+    }
+
+    private var connectionStationTimetableCommandContext: ConnectionStationTimetableCommandContext {
+        ConnectionStationTimetableCommandContext(
+            isAvailable: isSearchFormCollapsed && canOpenStationTimetable,
+            open: { destination in
+                guard canOpenStationTimetable else { return }
+                openStationTimetable?(destination)
+            }
+        )
     }
 
     private var searchEditCommandContext: SearchEditCommandContext {

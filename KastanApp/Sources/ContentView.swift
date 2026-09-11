@@ -290,6 +290,27 @@ final class AppDataSourceWorkspace: ObservableObject, Identifiable {
         selection = .stationTimetables
         return true
     }
+
+    /// Builds the editable station-timetable draft transferred into another main window or tab.
+    func stationTimetableSelectionForConnectionSearch() -> StationTimetableSelection? {
+        guard availableSections.contains(.stationTimetables),
+              let timetable = stationTimetablesModel.timetables.first(where: {
+                  $0.appIdentity == connectionsModel.timetable.appIdentity
+              })
+        else {
+            return nil
+        }
+
+        return StationTimetableSelection(
+            timetable: timetable,
+            municipality: client.defaultStationTimetableMunicipality(for: timetable),
+            line: "",
+            from: connectionsModel.from,
+            to: connectionsModel.to,
+            serviceDate: TransitRequestFormatting.serviceDate(from: connectionsModel.date),
+            wholeWeek: false
+        )
+    }
 }
 
 /// Keeps a source choice local to one main window and replaces all provider-owned state atomically.
@@ -538,8 +559,10 @@ private struct ProviderSearchWorkspaceView: View {
                     showsItemDetails: showsItemDetails,
                     showsServiceInformationText: showsServiceInformationText,
                     showsStopNoteText: showsStopNoteText,
-                    showStationTimetable: workspace.availableSections.contains(.stationTimetables)
-                        ? { _ = workspace.showStationTimetableForConnectionSearch() }
+                    openStationTimetable: workspace.availableSections.contains(.stationTimetables)
+                        ? { destination in
+                            openConnectionStationTimetable(destination)
+                        }
                         : nil
                 )
             case .departures:
@@ -561,6 +584,32 @@ private struct ProviderSearchWorkspaceView: View {
                         workspace.selection = .departures
                     }
                 )
+            }
+        }
+    }
+
+    /// Reuses the focused search in place or seeds an independent native tab or window.
+    private func openConnectionStationTimetable(
+        _ destination: ConnectionStationTimetableDestination
+    ) {
+        switch destination {
+        case .currentTab:
+            _ = workspace.showStationTimetableForConnectionSearch()
+        case .newTab, .newWindow:
+            guard let selection = workspace.stationTimetableSelectionForConnectionSearch() else {
+                return
+            }
+            let sceneValue = MainWindowSceneValue(
+                dataSourceID: selection.dataSourceID,
+                initialStationTimetableSelection: selection
+            )
+
+            if destination == .newTab {
+                AppWindowActions.newTab {
+                    openWindow(id: AppWindow.main, value: sceneValue)
+                }
+            } else {
+                openWindow(id: AppWindow.main, value: sceneValue)
             }
         }
     }

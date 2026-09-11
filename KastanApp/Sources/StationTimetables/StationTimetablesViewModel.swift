@@ -1,7 +1,7 @@
 import Foundation
 import Kastan
 
-/// Preserves one submitted station-timetable query while opening its selected stop in another main window.
+/// Preserves a station-timetable form while opening it in another main window or tab.
 struct StationTimetableSelection: Codable, Hashable {
     let timetable: TransitTimetable
     let municipality: TransitStationTimetableMunicipality?
@@ -91,17 +91,17 @@ final class StationTimetablesViewModel: ObservableObject {
             serviceTime: TransitTime(hour: 12, minute: 0)
         ) ?? Date()
         wholeWeek = initialSelection.wholeWeek
-        hasPendingInitialSelection = true
+        hasPendingInitialSelection = canSearch
     }
 
-    /// Starts the query carried by a newly opened main window exactly once.
+    /// Starts a complete query carried by a newly opened main window exactly once.
     func loadInitialSelectionIfNeeded() async {
         guard hasPendingInitialSelection else { return }
         hasPendingInitialSelection = false
         await search()
     }
 
-    /// Lets the view begin with the compact submitted-query summary while the new window loads its result.
+    /// Lets a complete form begin with its compact summary while the new window loads the result.
     var startsWithInitialSelection: Bool {
         hasPendingInitialSelection
     }

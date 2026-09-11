@@ -175,9 +175,11 @@
 "Network request failed. Check your internet connection." = "Síťový požadavek selhal. Zkontrolujte připojení k internetu.";
 "Network request failed. Check your internet connection. %@" = "Síťový požadavek selhal. Zkontrolujte připojení k internetu. %@";
 "OK" = "OK";
+"Open" = "Otevřít";
 "Open Link" = "Otevřít odkaz";
 "Open attachment %@" = "Otevřít přílohu %@";
 "Open connection in new window" = "Otevřít spojení v novém okně";
+"Open in new tab" = "Otevřít v novém panelu";
 "Open in new window" = "Otevřít v novém okně";
 "Open PDF in Preview" = "Otevřít PDF v Náhledu";
 "Open service at %@" = "Otevřít spoj v %@";
@@ -243,6 +245,7 @@
 "Station" = "Stanice";
 "Station board" = "Odjezdová tabule";
 "Station timetable content" = "Obsah zastávkového jízdního řádu";
+"Station Timetable" = "Zastávkový jízdní řád";
 "Station timetable" = "Zastávkový JŘ";
 "Station timetables" = "Zastávkové JŘ";
 "Station timetable platform %@" = "stanoviště %@";
