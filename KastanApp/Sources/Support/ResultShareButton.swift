@@ -11,6 +11,11 @@ enum ResultSharingAction: CaseIterable, Hashable {
         modifierFlags.contains(.option) ? .text : .link
     }
 
+    /// Makes portable text the visible action when the result has no permanent provider link.
+    static func primary(hasLink: Bool, hasText: Bool) -> Self {
+        hasLink || !hasText ? .link : .text
+    }
+
     var title: LocalizedStringKey {
         switch self {
         case .link:
@@ -37,6 +42,7 @@ struct ResultShareButton<Label: View>: View {
     private let text: String?
     private let resolveLink: (@MainActor () async -> URL?)?
     private let resolveText: (@MainActor () async -> String?)?
+    private let primaryAction: ResultSharingAction
     private let offersTextAlternate: Bool
     private let label: (ResultSharingAction) -> Label
 
@@ -53,13 +59,18 @@ struct ResultShareButton<Label: View>: View {
         self.text = text
         resolveLink = nil
         resolveText = nil
-        self.offersTextAlternate = offersTextAlternate
+        primaryAction = .primary(
+            hasLink: link != nil,
+            hasText: text?.isEmpty == false
+        )
+        self.offersTextAlternate = offersTextAlternate && primaryAction == .link
         self.label = label
     }
 
     /// Resolves a service representation only after the passenger activates its sharing action.
     init(
         placement: OptionAlternateButtonPlacement,
+        offersLink: Bool = true,
         resolvingLink resolveLink: @escaping @MainActor () async -> URL?,
         resolvingText resolveText: @escaping @MainActor () async -> String?,
         @ViewBuilder label: @escaping (ResultSharingAction) -> Label
@@ -69,7 +80,8 @@ struct ResultShareButton<Label: View>: View {
         text = nil
         self.resolveLink = resolveLink
         self.resolveText = resolveText
-        offersTextAlternate = true
+        primaryAction = offersLink ? .link : .text
+        offersTextAlternate = offersLink
         self.label = label
     }
 
@@ -78,7 +90,7 @@ struct ResultShareButton<Label: View>: View {
         if offersTextAlternate {
             OptionAlternateButton(
                 placement: placement,
-                primaryAction: ResultSharingAction.link,
+                primaryAction: primaryAction,
                 alternateAction: .text,
                 title: \.title,
                 isEnabled: isAvailable,
@@ -87,13 +99,13 @@ struct ResultShareButton<Label: View>: View {
             )
         } else {
             Button {
-                present(.link)
+                present(primaryAction)
             } label: {
-                label(.link)
+                label(primaryAction)
             }
-            .accessibilityLabel(ResultSharingAction.link.title)
-            .help(ResultSharingAction.link.title)
-            .disabled(!isAvailable(.link))
+            .accessibilityLabel(primaryAction.title)
+            .help(primaryAction.title)
+            .disabled(!isAvailable(primaryAction))
         }
     }
 
@@ -139,12 +151,27 @@ final class ResultSharingServicePickerPresenter: NSObject, @preconcurrency NSSha
     static let shared = ResultSharingServicePickerPresenter()
 
     private let openURL: @MainActor (URL) -> Void
+    private let activeSourceView: @MainActor () -> NSView?
+    private let presentPicker: @MainActor (NSSharingServicePicker, NSRect, NSView) -> Void
     private var activePicker: NSSharingServicePicker?
 
-    init(openURL: @escaping @MainActor (URL) -> Void = { url in
-        _ = NSWorkspace.shared.open(url)
-    }) {
+    init(
+        openURL: @escaping @MainActor (URL) -> Void = { url in
+            _ = NSWorkspace.shared.open(url)
+        },
+        activeSourceView: @escaping @MainActor () -> NSView? = {
+            (NSApplication.shared.keyWindow ?? NSApplication.shared.mainWindow)?.contentView
+        },
+        presentPicker: @escaping @MainActor (NSSharingServicePicker, NSRect, NSView) -> Void = {
+            picker,
+            anchorRect,
+            sourceView in
+            picker.show(relativeTo: anchorRect, of: sourceView, preferredEdge: .minY)
+        }
+    ) {
         self.openURL = openURL
+        self.activeSourceView = activeSourceView
+        self.presentPicker = presentPicker
         super.init()
     }
 
@@ -159,19 +186,21 @@ final class ResultSharingServicePickerPresenter: NSObject, @preconcurrency NSSha
 
     /// Anchors every toolbar, menu, and contextual presentation to the active result window.
     private func show(items: [Any]) {
-        guard let sourceView = (NSApplication.shared.keyWindow ?? NSApplication.shared.mainWindow)?.contentView
-        else { return }
+        guard let sourceView = activeSourceView() else { return }
+        let anchorRect = Self.anchorRect(in: sourceView)
 
-        activePicker?.close()
+        // A contextual or application menu is still tracking while it invokes its action. AppKit ignores a
+        // sharing picker opened in that callback, so wait until the menu has finished dismissing itself.
+        DispatchQueue.main.async { [weak self, weak sourceView] in
+            guard let self, let sourceView, sourceView.window != nil else { return }
 
-        let picker = NSSharingServicePicker(items: items)
-        picker.delegate = self
-        activePicker = picker
-        picker.show(
-            relativeTo: Self.anchorRect(in: sourceView),
-            of: sourceView,
-            preferredEdge: .minY
-        )
+            self.activePicker?.close()
+
+            let picker = NSSharingServicePicker(items: items)
+            picker.delegate = self
+            self.activePicker = picker
+            self.presentPicker(picker, anchorRect, sourceView)
+        }
     }
 
     func sharingServicePicker(

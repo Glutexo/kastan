@@ -1029,6 +1029,7 @@ private struct StationTimetableDepartureTime: View {
         case .share:
             ResultShareButton(
                 placement: .menu,
+                offersLink: preview.client.descriptor.supports(.servicePermanentLinks),
                 resolvingLink: {
                     await resolvedServiceModel(preview: preview)?.localizedPermanentLink()
                 },

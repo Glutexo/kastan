@@ -185,6 +185,10 @@ or line and direction semantics can be matched. IDOS keeps its minute, weekday-l
 `IDOSDataSource`; another provider can use completely different display syntax when it implements and advertises
 this capability.
 
+`servicePermanentLinks` tells an interface that lazily loaded service details can supply a permanent provider URL.
+Consumers can then present link sharing before fetching the complete service. Providers without the capability still
+retain portable text sharing generated from their loaded service detail, without exposing an unavailable link action.
+
 `TransitDataSourceRegistry` resolves providers by stable ID and exposes descriptors without coupling callers to
 concrete implementations. Registration rejects duplicate provider IDs, case-insensitive duplicate timetable
 identifiers within one provider, a default timetable absent from its catalog, a missing default provider, and any
@@ -198,8 +202,9 @@ default source must always be ordinary, and provider IDs must remain unique acro
 also registers `MockTransitDataSource` under `.mock` as an explicit-only provider. The mock supplies stable,
 network-free timetable, suggestion, coordinate-selection, connection, departure, station-timetable, departure
 resolution, and service-detail fixtures for CLI tests and deliberate interface previews. It does not advertise
-paging, exports, email, or connection-search options, so consumers exercise the same capability filtering required
-for a partial live provider. Omitting a source therefore still selects IDOS while IDOS is the only ordinary provider;
+paging, permanent service links, exports, email, or connection-search options, so consumers exercise the same
+capability filtering required for a partial live provider. Omitting a source therefore still selects IDOS while IDOS
+is the only ordinary provider;
 the mock is used only when a caller resolves `.mock` explicitly. `IDOSDataSource` implements all currently advertised
 capabilities through publicly reachable IDOS endpoints.
 

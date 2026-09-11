@@ -287,6 +287,7 @@ struct ServiceContextMenuContent: View {
         case .detail(.share):
             ResultShareButton(
                 placement: .menu,
+                offersLink: model.dataSourceDescriptor.supports(.servicePermanentLinks),
                 resolvingLink: model.localizedPermanentLink,
                 resolvingText: model.localizedShareText
             ) { sharingAction in

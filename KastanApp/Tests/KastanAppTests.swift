@@ -2104,6 +2104,23 @@ final class KastanAppTests: XCTestCase {
             ResultDetailAction.share.systemImage(sharingAction: .text),
             ResultSharingAction.text.systemImage
         )
+        XCTAssertEqual(
+            ResultSharingAction.primary(hasLink: true, hasText: true),
+            .link
+        )
+        XCTAssertEqual(
+            ResultSharingAction.primary(hasLink: false, hasText: true),
+            .text
+        )
+        XCTAssertEqual(
+            ResultSharingAction.primary(hasLink: false, hasText: false),
+            .link
+        )
+    }
+
+    func testLazyServiceSharingFollowsPermanentLinkCapability() {
+        XCTAssertTrue(IDOSDataSource.descriptor.supports(.servicePermanentLinks))
+        XCTAssertFalse(MockTransitDataSource.descriptor.supports(.servicePermanentLinks))
     }
 
     func testShareToolbarKeepsItsWidthWhenOptionChangesRepresentation() {
@@ -2357,6 +2374,36 @@ final class KastanAppTests: XCTestCase {
         openService.perform(withItems: [url])
 
         XCTAssertEqual(openedURL, url)
+    }
+
+    func testSharingPickerWaitsUntilItsTriggeringMenuActionReturns() async throws {
+        let url = try XCTUnwrap(URL(string: "https://idos.cz/en/vlaky/spojeni/prehled/?p=share"))
+        let sourceView = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 300))
+        let sourceWindow = NSWindow(
+            contentRect: sourceView.frame,
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        sourceWindow.contentView = sourceView
+        var triggeringActionReturned = false
+        var presentationFollowedAction: Bool?
+        let pickerPresented = expectation(description: "Sharing picker presentation was deferred")
+        let presenter = ResultSharingServicePickerPresenter(
+            activeSourceView: { sourceView },
+            presentPicker: { _, _, presentedView in
+                XCTAssertIdentical(presentedView, sourceView)
+                presentationFollowedAction = triggeringActionReturned
+                pickerPresented.fulfill()
+            }
+        )
+
+        presenter.show(link: url)
+
+        XCTAssertNil(presentationFollowedAction)
+        triggeringActionReturned = true
+        await fulfillment(of: [pickerPresented])
+        XCTAssertEqual(presentationFollowedAction, true)
     }
 
     func testTextSharingKeepsSystemServicesWithoutOfferingLinkOpening() {

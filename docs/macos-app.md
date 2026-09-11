@@ -247,7 +247,8 @@ manager and show their source when more than one ordinary provider is registered
   Holding Option changes that same action to Share Text. The shared text follows the app language and the CLI's
   default human-readable layout, including its semantic emoji and the complete route for a service, while omitting
   terminal-only ANSI color and emphasis codes. Share Text remains available when IDOS does not supply a permanent
-  result link.
+  result link and becomes the primary sharing action for a data source that does not advertise permanent service
+  links.
 - Connection cards and complete connections offer Send by Email when IDOS supplies the data needed for that result.
   Activating it normally opens a confirmation sheet with IDOS's localized default message and generated PDF and
   calendar attachment names, extends the IDOS website attribution with Kaštan's GitHub project URL, and keeps the
@@ -350,8 +351,9 @@ manager and show their source when more than one ordinary provider is registered
   so their operating calendars continue to interpret printed rules, including abbreviated ranges such as
   `17. to 20.VIII.` and same-month lists such as `18.,19.IX.`, inside the validity interval printed by IDOS.
 - Permanent connection and service-detail links localized by their data source, shared through the standard macOS
-  picker. Alongside the system sharing services, that picker offers Open Link without a redundant standalone result
-  action. Every service-detail action is an individually visible control in that window's native toolbar.
+  picker from result controls, contextual menus, and the File menu. Alongside the system sharing services, that picker
+  offers Open Link without a redundant standalone result action. Every service-detail action is an individually
+  visible control in that window's native toolbar.
 - Localized IDOS calendar and PDF exports matching the app language for connection results and dated service
   details. Add to Calendar opens the generated event in the user's calendar application from result menus, service
   menus, station-timetable departure menus, detail toolbars, and the File menu. Holding Option changes that action

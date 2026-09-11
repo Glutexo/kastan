@@ -99,6 +99,8 @@ public enum TransitDataSourceCapability: String, CaseIterable, Codable, Equatabl
     /// Indicates that station-timetable rows can be matched to this provider's departure-board results.
     case stationTimetableDepartureResolution
     case serviceDetails
+    /// Indicates that service details can supply permanent URLs for sharing their provider result.
+    case servicePermanentLinks
     case timetableValidity
     case serviceDateLimits
     case connectionCalendarExport
@@ -396,6 +398,7 @@ private extension TransitDataSourceCapability {
         case .stationTimetables: "station timetables"
         case .stationTimetableDepartureResolution: "station-timetable departure resolution"
         case .serviceDetails: "service details"
+        case .servicePermanentLinks: "permanent service links"
         case .timetableValidity: "timetable validity"
         case .serviceDateLimits: "service operating-day calendars"
         case .connectionCalendarExport: "connection calendar export"
