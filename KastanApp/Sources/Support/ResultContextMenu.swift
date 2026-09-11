@@ -143,13 +143,14 @@ struct ConnectionContextMenuContent: View {
                 ResultContextActionLabel(action: action, target: .connection)
             }
         case .separator:
+            Divider()
             if let openStationTimetable {
                 StationTimetableOpenActions(
                     titleStyle: .abbreviated,
                     open: openStationTimetable
                 )
+                Divider()
             }
-            Divider()
         case .detail(.sendByEmail):
             ConnectionEmailButton(
                 placement: .menu,
@@ -251,13 +252,14 @@ struct ServiceContextMenuContent: View {
                 ResultContextActionLabel(action: action, target: .service)
             }
         case .separator:
+            Divider()
             if let openStationTimetable {
                 StationTimetableOpenActions(
                     titleStyle: .abbreviated,
                     open: openStationTimetable
                 )
+                Divider()
             }
-            Divider()
         case .detail(.sendByEmail):
             EmptyView()
         case .detail(.addToCalendar):
