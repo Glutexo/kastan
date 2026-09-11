@@ -1431,6 +1431,20 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(secondPreview.showsStopNoteText)
     }
 
+    func testResolvableStationTimetableTimeOffersEverySupportedServiceAction() {
+        let configuration = StationTimetableDeparturePreviewConfiguration(
+            client: MockIDOSClient(),
+            showsItemDetails: false,
+            showsStopNoteText: false,
+            resolveSelection: { nil }
+        )
+
+        XCTAssertEqual(
+            configuration.contextActions,
+            [.addToCalendar, .openPDF, .share]
+        )
+    }
+
     func testStationTimetableDepartureMarkersStayAttachedWhenTimesWrap() {
         let values = ["05A", "15B", "25C", "35A", "45B", "55C"]
         let explanations = ["A: první", "B: druhá", "C: třetí"]

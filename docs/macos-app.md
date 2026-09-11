@@ -145,9 +145,11 @@ manager and show their source when more than one ordinary provider is registered
   with the selected stop highlighted through the searched direction. Option-clicking it instead switches to
   Departures and presents the already resolved station board for the same stop, date, time, and timetable without
   repeating the provider request. Force Clicking it performs the same on-demand lookup and presents a compact
-  complete-route preview at the detail view's minimum supported width without also opening a window. Times after
-  midnight and Whole week grouping follow the selected provider's own resolution semantics; IDOS keeps its following-
-  day and nearest Monday–Sunday occurrence rules inside the IDOS adapter.
+  complete-route preview at the detail view's minimum supported width without also opening a window. Right-clicking
+  a departure offers its calendar, PDF, and sharing actions; the selected action performs the same on-demand lookup
+  and then continues with that exact dated service. Times after midnight and Whole week grouping follow the selected
+  provider's own resolution semantics; IDOS keeps its following-day and nearest Monday–Sunday occurrence rules inside
+  the IDOS adapter.
   Explanations also appear in their own
   collapsed disclosure immediately below the timetable, while general notes remain in a separate collapsed disclosure
   at the very bottom of the complete result in both wide and compact layouts. Both expand into selectable text while
@@ -337,11 +339,12 @@ manager and show their source when more than one ordinary provider is registered
   action. Every service-detail action is an individually visible control in that window's native toolbar.
 - Localized IDOS calendar and PDF exports matching the app language for connection results and dated service
   details. Add to Calendar opens the generated event in the user's calendar application from result menus, service
-  menus, detail toolbars, and the File menu. Holding Option changes that action everywhere to Download ICS File and
-  saves the same calendar through the native macOS save panel. Open PDF in Preview opens the generated document in
-  Apple's Preview application from the same locations. Holding Option changes that action everywhere to Download PDF
-  File and saves the document through its own native panel. The originating result control or service row shows
-  progress while Kaštan prepares an export without separating that control from the other service-window actions.
+  menus, station-timetable departure menus, detail toolbars, and the File menu. Holding Option changes that action
+  everywhere to Download ICS File and saves the same calendar through the native macOS save panel. Open PDF in Preview
+  opens the generated document in Apple's Preview application from the same locations. Holding Option changes that
+  action everywhere to Download PDF File and saves the document through its own native panel. The originating result
+  control or service row shows progress while Kaštan prepares an export without separating that control from the
+  other service-window actions.
   If loading, opening, or saving fails, an alert names the attempted action and preserves the complete error message
   even after a transient menu closes or its result is outside the visible scroll position. When IDOS publishes a
   dated-service link that cannot be reopened, Kaštan resolves the same run from its date and complete route before

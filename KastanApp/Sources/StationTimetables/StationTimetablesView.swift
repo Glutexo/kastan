@@ -765,6 +765,16 @@ struct StationTimetableDeparturePreviewConfiguration {
     let showsItemDetails: Bool
     let showsStopNoteText: Bool
     let resolveSelection: @MainActor () async -> ServiceSelection?
+
+    /// Offers the service actions supported by the source once this displayed minute has been resolved.
+    var contextActions: [ResultDetailAction] {
+        let availability = ResultDetailActionAvailability.service(client.descriptor)
+        return ResultDetailAction.availableActions(
+            canSendByEmail: false,
+            canAddToCalendar: availability.canAddToCalendar,
+            canOpenPDF: availability.canOpenPDF
+        )
+    }
 }
 
 /// Presents minute markers as secondary information attached to their departure while keeping
@@ -854,21 +864,29 @@ private struct StationTimetableDepartureTime: View {
     @State private var isPreviewPresented = false
     @State private var suppressesPrimaryAction = false
     @State private var previewResolutionID: UUID?
+    @State private var isPerformingContextAction = false
+    @State private var contextActionError: ResultActionError?
 
     @ViewBuilder
     var body: some View {
-        if isResolving, !isPreviewPresented {
-            ProgressView()
-                .controlSize(.small)
-                .fixedSize()
-                .accessibilityLabel(Text("Finding service…"))
-        } else if let action, let displayedTime {
-            departureButton(action: action, displayedTime: displayedTime)
-        } else {
-            departureLabel
+        Group {
+            if (isResolving || isPerformingContextAction), !isPreviewPresented {
+                ProgressView()
+                    .controlSize(.small)
+                    .fixedSize()
+                    .accessibilityLabel(Text("Finding service…"))
+            } else if let action, let displayedTime {
+                departureButton(action: action, displayedTime: displayedTime)
+            } else {
+                departureLabel
+            }
+        }
+        .resultActionErrorAlert(contextActionError) {
+            contextActionError = nil
         }
     }
 
+    @ViewBuilder
     private func departureButton(
         action: @escaping () -> Void,
         displayedTime: String
@@ -883,7 +901,7 @@ private struct StationTimetableDepartureTime: View {
         let helpText = [presentation.explanation ?? actionLabel, searchHint]
             .compactMap(\.self)
             .joined(separator: "\n")
-        return Button {
+        let button = Button {
             guard !suppressesPrimaryAction else { return }
             action()
         } label: {
@@ -910,6 +928,106 @@ private struct StationTimetableDepartureTime: View {
         .onChange(of: isPreviewPresented) { isPresented in
             previewPresentationChanged(isPresented)
         }
+
+        if preview == nil {
+            button
+        } else {
+            button.contextMenu {
+                serviceActionMenu
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var serviceActionMenu: some View {
+        if let preview {
+            ForEach(preview.contextActions) { action in
+                serviceActionControl(action, preview: preview)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func serviceActionControl(
+        _ action: ResultDetailAction,
+        preview: StationTimetableDeparturePreviewConfiguration
+    ) -> some View {
+        switch action {
+        case .sendByEmail:
+            EmptyView()
+        case .addToCalendar:
+            CalendarExportButton(placement: .menu) { calendarExportAction in
+                performServiceAction(preview: preview) { model in
+                    await model.performCalendarAction(calendarExportAction)
+                }
+            } label: { calendarExportAction in
+                ResultContextActionLabel(
+                    action: .detail(action),
+                    target: .service,
+                    calendarExportAction: calendarExportAction
+                )
+            }
+            .disabled(isPerformingContextAction)
+        case .openPDF:
+            PDFExportButton(placement: .menu) { pdfExportAction in
+                performServiceAction(preview: preview) { model in
+                    await model.performPDFAction(pdfExportAction)
+                }
+            } label: { pdfExportAction in
+                ResultContextActionLabel(
+                    action: .detail(action),
+                    target: .service,
+                    pdfExportAction: pdfExportAction
+                )
+            }
+            .disabled(isPerformingContextAction)
+        case .share:
+            ResultShareButton(
+                placement: .menu,
+                resolvingLink: {
+                    await resolvedServiceModel(preview: preview)?.localizedPermanentLink()
+                },
+                resolvingText: {
+                    await resolvedServiceModel(preview: preview)?.localizedShareText()
+                }
+            ) { sharingAction in
+                ResultContextActionLabel(
+                    action: .detail(action),
+                    target: .service,
+                    sharingAction: sharingAction
+                )
+            }
+            .disabled(isPerformingContextAction)
+        }
+    }
+
+    /// Resolves the selected timetable minute before continuing its calendar or PDF action.
+    private func performServiceAction(
+        preview: StationTimetableDeparturePreviewConfiguration,
+        action: @escaping @MainActor (ServiceDetailViewModel) async -> Void
+    ) {
+        guard !isPerformingContextAction else { return }
+        isPerformingContextAction = true
+        contextActionError = nil
+
+        Task { @MainActor in
+            defer { isPerformingContextAction = false }
+            guard let model = await resolvedServiceModel(preview: preview) else { return }
+            await action(model)
+            contextActionError = model.actionError
+        }
+    }
+
+    /// Builds the standard service-action model only after the provider identifies the dated run.
+    private func resolvedServiceModel(
+        preview: StationTimetableDeparturePreviewConfiguration
+    ) async -> ServiceDetailViewModel? {
+        guard let selection = await preview.resolveSelection() else { return nil }
+        return ServiceDetailViewModel(
+            id: selection.serviceID,
+            timetable: selection.timetable,
+            client: preview.client
+        )
     }
 
     @ViewBuilder

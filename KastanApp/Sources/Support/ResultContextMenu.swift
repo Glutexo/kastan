@@ -58,7 +58,7 @@ enum ResultContextAction: Hashable, Identifiable {
 }
 
 /// Supplies the result-specific wording and stable symbols shared by every contextual menu.
-private struct ResultContextActionLabel: View {
+struct ResultContextActionLabel: View {
     let action: ResultContextAction
     let target: ResultContextTarget
     let emailAction: ConnectionEmailAction
