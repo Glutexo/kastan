@@ -5710,21 +5710,33 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(ResultPreviewLayout.serviceSize, CGSize(width: 400, height: 560))
     }
 
-    func testDoubleClickingAnywhereInConnectionSummaryOpensItsWindow() {
+    func testDoubleClickingAnywhereInConnectionSummaryOpensItsWindow() throws {
         for showsConnectionBadges in [false, true] {
             XCTAssertEqual(
-                connectionCardOpenCount(
-                    afterDoubleClickAt: NSPoint(x: 300, y: 120),
+                try connectionCardOpenCount(
+                    after: .doubleClick(at: NSPoint(x: 300, y: 120)),
                     showsConnectionBadges: showsConnectionBadges
                 ),
                 1
             )
             XCTAssertEqual(
-                connectionCardOpenCount(
-                    afterDoubleClickAt: NSPoint(x: 300, y: 90),
+                try connectionCardOpenCount(
+                    after: .doubleClick(at: NSPoint(x: 300, y: 90)),
                     showsConnectionBadges: showsConnectionBadges
                 ),
                 1
+            )
+        }
+    }
+
+    func testCommandClickingAnywhereInConnectionSummaryOpensItsWindow() throws {
+        for showsConnectionBadges in [false, true] {
+            XCTAssertEqual(
+                try connectionCardOpenCount(
+                    after: .commandClickingEachSummaryRow,
+                    showsConnectionBadges: showsConnectionBadges
+                ),
+                2
             )
         }
     }
@@ -9563,12 +9575,17 @@ private func connection(
     )
 }
 
-/// Delivers a native double-click to the rendered connection summary in either badge layout.
+private enum ConnectionSummaryTestInteraction {
+    case doubleClick(at: NSPoint)
+    case commandClickingEachSummaryRow
+}
+
+/// Exercises either supported new-window shortcut on the rendered connection summary.
 @MainActor
 private func connectionCardOpenCount(
-    afterDoubleClickAt location: NSPoint,
+    after interaction: ConnectionSummaryTestInteraction,
     showsConnectionBadges: Bool
-) -> Int {
+) throws -> Int {
     var openCount = 0
     let card = ConnectionCard(
         number: 1,
@@ -9605,22 +9622,50 @@ private func connectionCardOpenCount(
     hostingView.layoutSubtreeIfNeeded()
     defer { window.orderOut(nil) }
 
-    for clickCount in 1...2 {
-        for eventType in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
-            let event = NSEvent.mouseEvent(
-                with: eventType,
+    switch interaction {
+    case let .doubleClick(location):
+        for clickCount in 1...2 {
+            for eventType in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                let event = NSEvent.mouseEvent(
+                    with: eventType,
+                    location: location,
+                    modifierFlags: [],
+                    timestamp: ProcessInfo.processInfo.systemUptime + Double(clickCount) * 0.01,
+                    windowNumber: window.windowNumber,
+                    context: nil,
+                    eventNumber: 0,
+                    clickCount: clickCount,
+                    pressure: eventType == .leftMouseDown ? 1 : 0
+                )
+                if let event {
+                    window.sendEvent(event)
+                }
+            }
+        }
+    case .commandClickingEachSummaryRow:
+        let clickViews = hostingView.allDescendantViews
+            .compactMap { $0 as? ModifierClickCaptureView }
+            .filter { $0.requiredModifierFlags.contains(.command) }
+        XCTAssertEqual(clickViews.count, 2)
+        XCTAssertTrue(clickViews.allSatisfy { $0.bounds.width > 0 && $0.bounds.height > 0 })
+
+        for (eventNumber, clickView) in clickViews.enumerated() {
+            let location = clickView.convert(
+                NSPoint(x: clickView.bounds.midX, y: clickView.bounds.midY),
+                to: nil
+            )
+            let event = try XCTUnwrap(NSEvent.mouseEvent(
+                with: .leftMouseDown,
                 location: location,
-                modifierFlags: [],
-                timestamp: ProcessInfo.processInfo.systemUptime + Double(clickCount) * 0.01,
+                modifierFlags: [.command],
+                timestamp: ProcessInfo.processInfo.systemUptime,
                 windowNumber: window.windowNumber,
                 context: nil,
-                eventNumber: 0,
-                clickCount: clickCount,
-                pressure: eventType == .leftMouseDown ? 1 : 0
-            )
-            if let event {
-                window.sendEvent(event)
-            }
+                eventNumber: eventNumber,
+                clickCount: 1,
+                pressure: 1
+            ))
+            XCTAssertNil(clickView.process(event))
         }
     }
 

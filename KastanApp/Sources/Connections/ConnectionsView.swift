@@ -1587,7 +1587,7 @@ private struct ConnectionTimeFramePreferenceKey: PreferenceKey {
     }
 }
 
-/// Contains one complete journey and reveals its new-window header shortcut while Option is held.
+/// Contains one complete journey and offers its summary as a direct new-window shortcut.
 struct ConnectionCard: View {
     let number: Int?
     let connection: TransitConnection
@@ -1668,6 +1668,11 @@ struct ConnectionCard: View {
                     .onTapGesture(count: 2) {
                         openConnection?()
                     }
+                    .overlay {
+                        if let openConnection {
+                            CommandClickOverlay(action: openConnection)
+                        }
+                    }
                     if showsOpenConnectionButton, let openConnection {
                         Button(action: openConnection) {
                             Label("Open connection in new window", systemImage: "macwindow")
@@ -1716,6 +1721,11 @@ struct ConnectionCard: View {
                 .contentShape(Rectangle())
                 .onTapGesture(count: 2) {
                     openConnection?()
+                }
+                .overlay {
+                    if let openConnection {
+                        CommandClickOverlay(action: openConnection)
+                    }
                 }
 
                 if !connection.legs.isEmpty {
