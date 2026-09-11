@@ -8,7 +8,7 @@ enum ResultContextTarget: CaseIterable {
     var openInNewWindowTitleKey: String {
         switch self {
         case .connection:
-            "Open connection in new window"
+            "Open in new window"
         case .service:
             "Open service in new window"
         }

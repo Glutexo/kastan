@@ -2192,7 +2192,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(
             keys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
             [
-                "Otevřít spojení v novém okně",
+                "Otevřít v novém okně",
                 "Náhled spoje",
                 "Otevřít spoj v novém okně",
                 "Otevřít v novém okně",
