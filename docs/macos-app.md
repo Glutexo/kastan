@@ -341,10 +341,11 @@ manager and show their source when more than one ordinary provider is registered
   saves the same calendar through the native macOS save panel. Open PDF in Preview opens the generated document in
   Apple's Preview application from the same locations. Holding Option changes that action everywhere to Download PDF
   File and saves the document through its own native panel. The originating result control or service row shows
-  progress while Kaštan prepares an export. If loading, opening, or saving fails, an alert names the attempted action
-  and preserves the complete error message even after a transient menu closes or its result is outside the visible
-  scroll position. When IDOS publishes a dated-service link that cannot be reopened, Kaštan resolves the same run
-  from its date and complete route before requesting the calendar or PDF.
+  progress while Kaštan prepares an export without separating that control from the other service-window actions.
+  If loading, opening, or saving fails, an alert names the attempted action and preserves the complete error message
+  even after a transient menu closes or its result is outside the visible scroll position. When IDOS publishes a
+  dated-service link that cannot be reopened, Kaštan resolves the same run from its date and complete route before
+  requesting the calendar or PDF.
 - English and Czech interface localization.
 - An app-information window describing the data source and linking to IDOS, its terms, and the Kaštan repository.
 - A Help menu that repeats the About window's maintained links to IDOS, its terms, and the Kaštan repository

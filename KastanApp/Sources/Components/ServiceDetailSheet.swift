@@ -650,15 +650,17 @@ struct ServiceDetailView: View {
         pdfExportAction: PDFExportAction = .openInPreview,
         isPerforming: Bool
     ) -> some View {
-        if isPerforming {
-            ProgressView()
-                .controlSize(.small)
-        } else {
+        ZStack {
             serviceActionLabel(
                 action,
                 calendarExportAction: calendarExportAction,
                 pdfExportAction: pdfExportAction
             )
+            .opacity(isPerforming ? 0 : 1)
+
+            ProgressView()
+                .controlSize(.small)
+                .opacity(isPerforming ? 1 : 0)
         }
     }
 
