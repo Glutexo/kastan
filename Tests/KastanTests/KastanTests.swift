@@ -3316,6 +3316,72 @@ import Testing
     #expect(legacy.id == "odis:1-4286-18.06.2026 16:03:00")
 }
 
+/// Rebuilds a failed urban-service export from the complete dated route and the provider-owned run ID.
+@Test func serviceExportSearchFindsTheSameRunFromItsInitialStop() throws {
+    let timetable = IDOSTimetable(
+        slug: "frydekmistek",
+        displayName: "Urban Public Transport Frýdek-Místek"
+    )
+    let service = TransitServiceDetail(
+        id: "frydekmistek:0-271-11.09.2026 07:42:00",
+        timetable: timetable,
+        name: "Bus 302",
+        date: "11.9.2026",
+        stops: [
+            TransitServiceStop(name: "Nové Dvory,Frýdecká skládka", departureTime: "7:31"),
+            TransitServiceStop(name: "Frýdek,Na Veselé", departureTime: "7:42"),
+            TransitServiceStop(name: "Místek,Riviéra", arrivalTime: "8:00"),
+        ]
+    )
+    let search = try #require(IDOSServiceExportConnectionSearch(service: service))
+
+    #expect(search.request.timetable == timetable)
+    #expect(search.request.from == "Nové Dvory,Frýdecká skládka")
+    #expect(search.request.to == "Místek,Riviéra")
+    #expect(search.request.date == "11.9.2026")
+    #expect(search.request.time == "7:31")
+    #expect(search.request.onlyDirect)
+
+    func connection(id: String, serviceID: String) -> TransitConnection {
+        TransitConnection(
+            timetableIdentifier: timetable.identifier,
+            id: id,
+            departureTime: "7:31",
+            departureStation: "Nové Dvory,Frýdecká skládka",
+            arrivalTime: "8:00",
+            arrivalStation: "Místek,Riviéra",
+            duration: "29 min",
+            legs: [
+                TransitConnectionLeg(
+                    name: "Bus 302",
+                    id: serviceID,
+                    departureTime: "7:31",
+                    fromStation: "Nové Dvory,Frýdecká skládka",
+                    arrivalTime: "8:00",
+                    toStation: "Místek,Riviéra"
+                ),
+            ]
+        )
+    }
+
+    let otherRun = connection(
+        id: "1",
+        serviceID: "frydekmistek:0-275-11.09.2026 08:12:00"
+    )
+    let sameServiceOnAnotherDay = connection(
+        id: "3",
+        serviceID: "frydekmistek:0-271-12.09.2026 07:31:00"
+    )
+    let sameRunAtItsInitialStop = connection(
+        id: "2",
+        serviceID: "frydekmistek:0-271-11.09.2026 07:31:00"
+    )
+
+    #expect(search.matchingConnection(
+        in: [otherRun, sameServiceOnAnotherDay, sameRunAtItsInitialStop]
+    )?.id == "2")
+}
+
 @Test func idosLanguageBuildsLocalizedEndpointPaths() {
     let timetable = IDOSTimetable(slug: "vlaky", displayName: "Trains")
 

@@ -347,7 +347,9 @@ remains available only as an IDOS compatibility surface.
 `connectionCalendar` returns IDOS iCalendar text for a search result. `serviceCalendar` and `servicePDF`
 resolve a dated service's permanent result link and return the corresponding native IDOS export. Calendar and PDF
 exports accept an explicit language for their human-readable text; calendar calls without one retain the historical
-English default for source compatibility.
+English default for source compatibility. If IDOS supplies a dated-service link that no longer opens a connection
+result, `IDOSDataSource` resolves the same provider-owned run from its date and complete route before requesting the
+native export.
 `timetableValidity` returns the inclusive first and last dates published by the selected IDOS timetable together
 with its civil service-day zone.
 `serviceDateLimits` returns the exact `runs`, `doesNotRun`, or `informationUnavailable` state that IDOS publishes

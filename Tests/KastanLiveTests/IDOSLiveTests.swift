@@ -102,6 +102,31 @@ final class IDOSLiveTests: XCTestCase {
         XCTAssertGreaterThan(detail.stops.count, 1)
     }
 
+    func testUrbanServiceCalendarContract() async throws {
+        let client = IDOSDataSource()
+        let timetable = try client.resolveTimetable("frydekmistek")
+        let request = TransitDeparturesRequest(
+            timetable: timetable,
+            station: "Frýdek,Na Veselé",
+            serviceDate: try tomorrowServiceDate(),
+            serviceTime: TransitTime(hour: 10, minute: 0)
+        )
+        let page = try await client.findDeparturesPage(
+            request: request,
+            language: .czech
+        )
+        let departure = try XCTUnwrap(page.departures.first)
+        let service = try await client.serviceDetail(
+            id: departure.id,
+            timetable: timetable,
+            language: .czech
+        )
+
+        let calendar = try await client.serviceCalendar(for: service, language: .czech)
+
+        XCTAssertTrue(calendar.contains("BEGIN:VCALENDAR"))
+    }
+
     func testStationTimetableContract() async throws {
         let client = IDOSDataSource()
         let timetable = try client.resolveTimetable("pid")

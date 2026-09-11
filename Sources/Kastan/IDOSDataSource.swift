@@ -967,6 +967,7 @@ public struct IDOSDataSource: IDOSClienting {
     ) async throws -> String {
         let connection = try await resultConnection(
             for: service,
+            language: language,
             unavailableError: .calendarUnavailable
         )
         return try await connectionCalendar(
@@ -983,6 +984,7 @@ public struct IDOSDataSource: IDOSClienting {
     ) async throws -> Data {
         let connection = try await resultConnection(
             for: service,
+            language: language,
             unavailableError: .pdfUnavailable
         )
         return try await connectionPDF(
@@ -1249,9 +1251,10 @@ public struct IDOSDataSource: IDOSClienting {
         return try await data(for: request, expecting: representation, referer: referer)
     }
 
-    /// Loads the one connection encoded by a service share URL for native IDOS export operations.
+    /// Loads the connection behind a service link or rebuilds its native export model from the dated route.
     private func resultConnection(
         for service: TransitServiceDetail,
+        language: TransitLanguage,
         unavailableError: IDOSError
     ) async throws -> TransitConnection {
         try validateOwnership(of: service.timetable)
@@ -1266,14 +1269,29 @@ public struct IDOSDataSource: IDOSClienting {
             throw IDOSError.invalidURL
         }
 
-        let data = try await data(from: url, expecting: .html)
-        guard let html = String(data: data, encoding: .utf8),
-              let connection = IDOSConnectionParser.parse(
-                  html: html,
-                  timetable: service.timetable
-              ).first
-        else {
-            throw IDOSError.invalidResponse
+        do {
+            let data = try await data(from: url, expecting: .html)
+            if let html = String(data: data, encoding: .utf8),
+               let connection = IDOSConnectionParser.parse(
+                   html: html,
+                   timetable: service.timetable
+               ).first
+            {
+                return connection
+            }
+        } catch IDOSError.invalidResponse {
+            // Some IDOS urban-service links redirect straight back to an empty search form.
+        }
+
+        guard let search = IDOSServiceExportConnectionSearch(service: service) else {
+            throw unavailableError
+        }
+        let page = try await findConnectionsPage(
+            request: search.request,
+            language: language
+        )
+        guard let connection = search.matchingConnection(in: page.connections) else {
+            throw unavailableError
         }
         return connection
     }
@@ -5693,6 +5711,115 @@ struct IDOSServiceReference {
             URLQueryItem(name: "timeFrom", value: String(format: "%02d:%02d", hour, minute)),
             URLQueryItem(name: "isDep", value: "true"),
         ]
+    }
+}
+
+/// Rebuilds the native export model when IDOS's service-detail link no longer opens a connection result.
+struct IDOSServiceExportConnectionSearch {
+    let request: TransitConnectionRequest
+    private let reference: IDOSServiceReference
+    private let year: Int
+    private let month: Int
+    private let day: Int
+
+    init?(service: TransitServiceDetail) {
+        guard let reference = try? IDOSServiceReference(
+            id: service.id,
+            fallbackTimetable: service.timetable
+        ),
+              let departureIndex = service.stops.firstIndex(where: {
+                  $0.departureTime?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+              }),
+              let departureTime = service.stops[departureIndex].departureTime?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+              !departureTime.isEmpty
+        else {
+            return nil
+        }
+
+        let departureStop = service.stops[departureIndex]
+        let departureName = Self.normalizedStopName(departureStop.name)
+        guard !departureName.isEmpty,
+              let arrivalIndex = service.stops.indices.reversed().first(where: {
+                  $0 > departureIndex &&
+                      Self.normalizedStopName(service.stops[$0].name) != departureName
+              })
+        else {
+            return nil
+        }
+
+        let suppliedDate = service.date?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let date: String
+        if let suppliedDate, !suppliedDate.isEmpty {
+            date = suppliedDate
+        } else {
+            date = "\(reference.day).\(reference.month).\(reference.year)"
+        }
+        let serviceDate = Self.dateComponents(in: date) ?? (
+            year: reference.year,
+            month: reference.month,
+            day: reference.day
+        )
+        self.reference = reference
+        year = serviceDate.year
+        month = serviceDate.month
+        day = serviceDate.day
+        request = TransitConnectionRequest(
+            timetable: service.timetable,
+            from: departureStop.name,
+            to: service.stops[arrivalIndex].name,
+            date: date,
+            time: departureTime,
+            onlyDirect: true
+        )
+    }
+
+    /// Selects the same provider-owned run even when a route search identifies it at its initial stop.
+    func matchingConnection(in connections: [TransitConnection]) -> TransitConnection? {
+        connections.first { connection in
+            connection.dataSourceID == .idos &&
+                connection.timetableIdentifier == reference.timetable.identifier &&
+                connection.legs.contains { leg in
+                    guard let id = leg.id,
+                          let candidate = try? IDOSServiceReference(
+                              id: id,
+                              fallbackTimetable: reference.timetable
+                          )
+                    else {
+                        return false
+                    }
+                    return candidate.timetable.identifier == reference.timetable.identifier &&
+                        candidate.timetableIndex == reference.timetableIndex &&
+                        candidate.trainID == reference.trainID &&
+                        candidate.year == year &&
+                        candidate.month == month &&
+                        candidate.day == day
+                }
+        }
+    }
+
+    private static func dateComponents(in value: String) -> (year: Int, month: Int, day: Int)? {
+        guard let parts = RegexSupport.captures(
+            pattern: #"^(\d{1,2})\.(\d{1,2})\.(\d{4})$"#,
+            in: value
+        ).first,
+              let day = Int(parts[0]),
+              let month = Int(parts[1]),
+              let year = Int(parts[2])
+        else {
+            return nil
+        }
+        return (year, month, day)
+    }
+
+    private static func normalizedStopName(_ value: String) -> String {
+        value
+            .folding(
+                options: [.diacriticInsensitive, .caseInsensitive],
+                locale: Locale(identifier: "cs_CZ")
+            )
+            .lowercased()
+            .filter { $0.isLetter || $0.isNumber }
     }
 }
 
