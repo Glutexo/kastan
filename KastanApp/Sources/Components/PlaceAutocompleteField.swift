@@ -558,6 +558,7 @@ struct PlaceAutocompleteField: View {
     let isPerformingHeaderShortcut: Bool
     let isHeaderShortcutDisabled: Bool
     let headerShortcutAction: (() -> Void)?
+    let focusRequest: Binding<Bool>?
 
     @StateObject private var model: PlaceSuggestionsModel
     @FocusState private var isFocused: Bool
@@ -578,7 +579,8 @@ struct PlaceAutocompleteField: View {
         showsHeaderShortcut: Bool = false,
         isPerformingHeaderShortcut: Bool = false,
         isHeaderShortcutDisabled: Bool = false,
-        headerShortcutAction: (() -> Void)? = nil
+        headerShortcutAction: (() -> Void)? = nil,
+        focusRequest: Binding<Bool>? = nil
     ) {
         self.title = title
         self.prompt = prompt
@@ -594,6 +596,7 @@ struct PlaceAutocompleteField: View {
         self.isPerformingHeaderShortcut = isPerformingHeaderShortcut
         self.isHeaderShortcutDisabled = isHeaderShortcutDisabled
         self.headerShortcutAction = headerShortcutAction
+        self.focusRequest = focusRequest
         _model = StateObject(wrappedValue: PlaceSuggestionsModel(client: client, scope: scope))
     }
 
@@ -604,6 +607,12 @@ struct PlaceAutocompleteField: View {
             TextField(prompt, text: $text)
                 .textFieldStyle(.roundedBorder)
                 .focused($isFocused)
+                .task(id: focusRequest?.wrappedValue == true) {
+                    guard focusRequest?.wrappedValue == true else { return }
+                    await Task.yield()
+                    isFocused = true
+                    focusRequest?.wrappedValue = false
+                }
                 .onChange(of: text) { value in
                     if let selectedPlace = selection?.wrappedValue,
                        selectedPlace.text != value {

@@ -3376,6 +3376,8 @@ public struct TransitConnection: Codable, Equatable, Sendable {
     private var timetableIdentityScope: TransitTimetableIdentityScope
     var hasExplicitTimetableIdentifier: Bool { timetableIdentityScope.isExplicit }
     public var id: String
+    /// Exact calendar date on which the connection leaves its first displayed stop, when supplied by the provider.
+    public var departureDate: TransitDate?
     public var departureTime: String
     public var departureStation: String
     public var arrivalTime: String
@@ -3412,6 +3414,7 @@ public struct TransitConnection: Codable, Equatable, Sendable {
         dataSourceID: TransitDataSourceID = .idos,
         timetableIdentifier: String = TransitTimetable.defaultTimetable.identifier,
         id: String,
+        departureDate: TransitDate? = nil,
         departureTime: String,
         departureStation: String,
         arrivalTime: String,
@@ -3424,6 +3427,7 @@ public struct TransitConnection: Codable, Equatable, Sendable {
             dataSourceID: dataSourceID,
             timetableIdentifier: timetableIdentifier,
             id: id,
+            departureDate: departureDate,
             departureTime: departureTime,
             departureStation: departureStation,
             arrivalTime: arrivalTime,
@@ -3439,6 +3443,7 @@ public struct TransitConnection: Codable, Equatable, Sendable {
         dataSourceID: TransitDataSourceID = .idos,
         timetableIdentifier: String = TransitTimetable.defaultTimetable.identifier,
         id: String,
+        departureDate: TransitDate? = nil,
         departureTime: String,
         departureStation: String,
         arrivalTime: String,
@@ -3452,6 +3457,7 @@ public struct TransitConnection: Codable, Equatable, Sendable {
         self.timetableIdentifier = timetableIdentifier
         timetableIdentityScope = .explicit
         self.id = id
+        self.departureDate = departureDate
         self.departureTime = departureTime
         self.departureStation = departureStation
         self.arrivalTime = arrivalTime
@@ -3466,6 +3472,7 @@ public struct TransitConnection: Codable, Equatable, Sendable {
         case dataSourceID
         case timetableIdentifier
         case id
+        case departureDate
         case departureTime
         case departureStation
         case arrivalTime
@@ -3488,6 +3495,7 @@ public struct TransitConnection: Codable, Equatable, Sendable {
                 codingPath: container.codingPath
             ),
             id: try container.decode(String.self, forKey: .id),
+            departureDate: try container.decodeIfPresent(TransitDate.self, forKey: .departureDate),
             departureTime: try container.decode(String.self, forKey: .departureTime),
             departureStation: try container.decode(String.self, forKey: .departureStation),
             arrivalTime: try container.decode(String.self, forKey: .arrivalTime),
@@ -3508,6 +3516,7 @@ public struct TransitConnection: Codable, Equatable, Sendable {
             try container.encode(timetableIdentifier, forKey: .timetableIdentifier)
         }
         try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(departureDate, forKey: .departureDate)
         try container.encode(departureTime, forKey: .departureTime)
         try container.encode(departureStation, forKey: .departureStation)
         try container.encode(arrivalTime, forKey: .arrivalTime)
@@ -3558,6 +3567,8 @@ public struct TransitConnectionLeg: Codable, Equatable, Sendable {
     public var id: String?
     public var color: String?
     public var transportMode: TransitTransportMode?
+    /// Exact calendar date on which this service leaves its displayed origin, when supplied by the provider.
+    public var departureDate: TransitDate?
     public var departureTime: String
     public var fromStation: String
     public var fromTariffZone: String?
@@ -3576,6 +3587,7 @@ public struct TransitConnectionLeg: Codable, Equatable, Sendable {
         id: String? = nil,
         color: String? = nil,
         transportMode: TransitTransportMode? = nil,
+        departureDate: TransitDate? = nil,
         departureTime: String,
         fromStation: String,
         fromTariffZone: String? = nil,
@@ -3592,6 +3604,7 @@ public struct TransitConnectionLeg: Codable, Equatable, Sendable {
         self.id = id
         self.color = color
         self.transportMode = transportMode
+        self.departureDate = departureDate
         self.departureTime = departureTime
         self.fromStation = fromStation
         self.fromTariffZone = fromTariffZone
@@ -3610,6 +3623,7 @@ public struct TransitConnectionLeg: Codable, Equatable, Sendable {
         case id
         case color
         case transportMode
+        case departureDate
         case departureTime
         case fromStation
         case fromTariffZone
@@ -3631,6 +3645,7 @@ public struct TransitConnectionLeg: Codable, Equatable, Sendable {
             id: try container.decodeIfPresent(String.self, forKey: .id),
             color: try container.decodeIfPresent(String.self, forKey: .color),
             transportMode: try container.decodeIfPresent(TransitTransportMode.self, forKey: .transportMode),
+            departureDate: try container.decodeIfPresent(TransitDate.self, forKey: .departureDate),
             departureTime: try container.decode(String.self, forKey: .departureTime),
             fromStation: try container.decode(String.self, forKey: .fromStation),
             fromTariffZone: try container.decodeIfPresent(String.self, forKey: .fromTariffZone),
@@ -3654,6 +3669,7 @@ public struct TransitConnectionLeg: Codable, Equatable, Sendable {
         try container.encodeIfPresent(id, forKey: .id)
         try container.encodeIfPresent(color, forKey: .color)
         try container.encodeIfPresent(transportMode, forKey: .transportMode)
+        try container.encodeIfPresent(departureDate, forKey: .departureDate)
         try container.encode(departureTime, forKey: .departureTime)
         try container.encode(fromStation, forKey: .fromStation)
         try container.encodeIfPresent(fromTariffZone, forKey: .fromTariffZone)
@@ -4326,6 +4342,11 @@ private enum IDOSServiceInformationHTMLParser {
 }
 
 enum IDOSConnectionParser {
+    private struct LegIdentity {
+        let serviceID: String?
+        let departureDate: TransitDate?
+    }
+
     static func parse(
         html: String,
         timetable: TransitTimetable = .defaultTimetable
@@ -4339,7 +4360,7 @@ enum IDOSConnectionParser {
         timetable: TransitTimetable = .defaultTimetable
     ) -> [TransitConnection] {
         let calendarModels = calendarModels(in: html, result: result)
-        let legIdentifiers = legIdentifiersByConnectionID(in: result, timetable: timetable)
+        let legIdentities = legIdentitiesByConnectionID(in: result, timetable: timetable)
         let starts = RegexSupport.matches(
             pattern: #"<div id="connectionBox-([0-9]+)""#,
             in: html
@@ -4354,7 +4375,7 @@ enum IDOSConnectionParser {
             return parseConnection(
                 id: id,
                 block: block,
-                legIdentifiers: legIdentifiers[id] ?? [],
+                legIdentities: legIdentities[id] ?? [],
                 calendarModel: calendarModels[id],
                 timetable: timetable
             )
@@ -4396,7 +4417,7 @@ enum IDOSConnectionParser {
     private static func parseConnection(
         id: String,
         block: String,
-        legIdentifiers: [String?],
+        legIdentities: [LegIdentity],
         calendarModel: String?,
         timetable: TransitTimetable
     ) -> TransitConnection? {
@@ -4439,11 +4460,13 @@ enum IDOSConnectionParser {
 
             let departure = stationRows[departureIndex]
             let arrival = stationRows[arrivalIndex]
+            let identity = legIdentities.indices.contains(index) ? legIdentities[index] : nil
             return TransitConnectionLeg(
                 name: lines[index].name,
-                id: legIdentifiers.indices.contains(index) ? legIdentifiers[index] : nil,
+                id: identity?.serviceID,
                 color: lines[index].color,
                 transportMode: lines[index].transportMode,
+                departureDate: identity?.departureDate,
                 departureTime: departure.time,
                 fromStation: departure.station,
                 fromTariffZone: departure.tariffZone,
@@ -4462,6 +4485,7 @@ enum IDOSConnectionParser {
             dataSourceID: .idos,
             timetableIdentifier: timetable.identifier,
             id: id,
+            departureDate: legs.first?.departureDate,
             departureTime: first.time,
             departureStation: first.station,
             arrivalTime: last.time,
@@ -4481,15 +4505,15 @@ enum IDOSConnectionParser {
     }
 
     /// Builds the same opaque service identifier that departure results expose for a specific run.
-    private static func legIdentifiersByConnectionID(
+    private static func legIdentitiesByConnectionID(
         in result: [String: Any]?,
         timetable: TransitTimetable
-    ) -> [String: [String?]] {
+    ) -> [String: [LegIdentity]] {
         guard let connectionData = result?["connData"] as? [[String: Any]] else {
             return [:]
         }
 
-        var identifiers: [String: [String?]] = [:]
+        var identities: [String: [LegIdentity]] = [:]
         for connection in connectionData {
             guard let connectionID = connectionID(from: connection),
                   let trains = connection["trains"] as? [[String: Any]]
@@ -4497,30 +4521,39 @@ enum IDOSConnectionParser {
                 continue
             }
 
-            identifiers[connectionID] = trains.map { serviceIdentifier(from: $0, timetable: timetable) }
+            identities[connectionID] = trains.map { serviceIdentity(from: $0, timetable: timetable) }
         }
-        return identifiers
+        return identities
+    }
+
+    private static func serviceIdentity(
+        from train: [String: Any],
+        timetable: TransitTimetable
+    ) -> LegIdentity {
+        let departureDate = (train["dateFromValue"] as? String).flatMap(serviceDate)
+        return LegIdentity(
+            serviceID: serviceIdentifier(
+                from: train,
+                timetable: timetable,
+                departureDate: departureDate
+            ),
+            departureDate: departureDate
+        )
     }
 
     private static func serviceIdentifier(
         from train: [String: Any],
-        timetable: TransitTimetable
+        timetable: TransitTimetable,
+        departureDate: TransitDate?
     ) -> String? {
         guard let timetableIndex = integer(train["ttIndex"]),
               let trainID = integer(train["train"]),
-              let date = train["dateFromValue"] as? String,
+              let departureDate,
               let time = train["timeFrom"] as? String,
-              let dateParts = RegexSupport.captures(
-                pattern: #"^(\d{4})-(\d{1,2})-(\d{1,2})"#,
-                in: date
-              ).first,
               let timeParts = RegexSupport.captures(
                 pattern: #"^(\d{1,2}):(\d{2})(?::(\d{2}))?"#,
                 in: time
               ).first,
-              let year = Int(dateParts[0]),
-              let month = Int(dateParts[1]),
-              let day = Int(dateParts[2]),
               let hour = Int(timeParts[0]),
               let minute = Int(timeParts[1])
         else {
@@ -4530,14 +4563,29 @@ enum IDOSConnectionParser {
         let second = timeParts.indices.contains(2) ? Int(timeParts[2]) ?? 0 : 0
         let dateTime = String(
             format: "%02d.%02d.%04d %02d:%02d:%02d",
-            day,
-            month,
-            year,
+            departureDate.day,
+            departureDate.month,
+            departureDate.year,
             hour,
             minute,
             second
         )
         return "\(timetable.slug):\(timetableIndex)-\(trainID)-\(dateTime)"
+    }
+
+    private static func serviceDate(from value: String) -> TransitDate? {
+        guard let parts = RegexSupport.captures(
+            pattern: #"^(\d{4})-(\d{1,2})-(\d{1,2})"#,
+            in: value
+        ).first,
+              let year = Int(parts[0]),
+              let month = Int(parts[1]),
+              let day = Int(parts[2])
+        else {
+            return nil
+        }
+
+        return TransitDate(year: year, month: month, day: day)
     }
 
     private static func calendarModels(in html: String, result: [String: Any]?) -> [String: String] {

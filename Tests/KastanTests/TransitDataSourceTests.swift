@@ -1454,12 +1454,20 @@ func expectTransitDataSourceContract(
     let connection = TransitConnection(
         timetableIdentifier: "vlaky",
         id: "42",
+        departureDate: TransitDate(year: 2026, month: 9, day: 7),
         departureTime: "08:00",
         departureStation: "Praha hl.n.",
         arrivalTime: "10:30",
         arrivalStation: "Brno hl.n.",
         duration: "2 h 30 min",
-        legs: []
+        legs: [TransitConnectionLeg(
+            name: "R 1",
+            departureDate: TransitDate(year: 2026, month: 9, day: 7),
+            departureTime: "08:00",
+            fromStation: "Praha hl.n.",
+            arrivalTime: "10:30",
+            toStation: "Brno hl.n."
+        )]
     )
     let departure = TransitDeparture(
         timetableIdentifier: "vlaky",

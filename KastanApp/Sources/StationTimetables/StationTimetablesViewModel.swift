@@ -26,6 +26,88 @@ struct StationTimetableSelection: Codable, Hashable {
     }
 }
 
+/// Builds station-timetable forms from each level of a completed connection result.
+enum StationTimetableSelectionFactory {
+    static func search(
+        timetable: TransitTimetable,
+        from: String,
+        to: String,
+        serviceDate: TransitDate,
+        client: any TransitDataSource
+    ) -> StationTimetableSelection? {
+        make(
+            timetable: timetable,
+            line: "",
+            from: from,
+            to: to,
+            serviceDate: serviceDate,
+            client: client
+        )
+    }
+
+    /// Uses the result's matched stops and departure date instead of the broader submitted search.
+    static func connection(
+        _ connection: TransitConnection,
+        timetable: TransitTimetable,
+        fallbackServiceDate: TransitDate?,
+        client: any TransitDataSource
+    ) -> StationTimetableSelection? {
+        make(
+            timetable: timetable,
+            line: "",
+            from: connection.departureStation,
+            to: connection.arrivalStation,
+            serviceDate: connection.departureDate ?? fallbackServiceDate,
+            client: client
+        )
+    }
+
+    /// Uses the concrete service's line, matched stops, and calendar day to create a complete query.
+    static func service(
+        _ leg: TransitConnectionLeg,
+        in connection: TransitConnection,
+        timetable: TransitTimetable,
+        fallbackServiceDate: TransitDate?,
+        client: any TransitDataSource
+    ) -> StationTimetableSelection? {
+        make(
+            timetable: timetable,
+            line: leg.name,
+            from: leg.fromStation,
+            to: leg.toStation,
+            serviceDate: leg.departureDate ?? connection.departureDate ?? fallbackServiceDate,
+            client: client
+        )
+    }
+
+    private static func make(
+        timetable requestedTimetable: TransitTimetable,
+        line: String,
+        from: String,
+        to: String,
+        serviceDate: TransitDate?,
+        client: any TransitDataSource
+    ) -> StationTimetableSelection? {
+        guard let serviceDate,
+              let timetable = AppTimetableGroup.stationTimetables(in: client.timetables).first(where: {
+                  $0.appIdentity == requestedTimetable.appIdentity
+              })
+        else {
+            return nil
+        }
+
+        return StationTimetableSelection(
+            timetable: timetable,
+            municipality: client.defaultStationTimetableMunicipality(for: timetable),
+            line: line,
+            from: from,
+            to: to,
+            serviceDate: serviceDate,
+            wholeWeek: false
+        )
+    }
+}
+
 /// Owns one MHD or integrated-transport station-timetable query and its selected route stop.
 @MainActor
 final class StationTimetablesViewModel: ObservableObject {
@@ -46,6 +128,7 @@ final class StationTimetablesViewModel: ObservableObject {
     private var resultUsesWholeWeek = false
     private var resultRequest: TransitStationTimetableRequest?
     private var hasPendingInitialSelection = false
+    @Published var requestsLineFocus = false
 
     private struct DepartureResolution {
         let selection: ServiceSelection
@@ -63,17 +146,23 @@ final class StationTimetablesViewModel: ObservableObject {
         )
         municipality = client.defaultStationTimetableMunicipality(for: timetable)
 
-        guard let initialSelection,
-              initialSelection.dataSourceID == client.descriptor.id
+        if let initialSelection {
+            _ = present(initialSelection)
+        }
+    }
+
+    /// Replaces the editable form and starts complete transferred queries when the view next appears.
+    @discardableResult
+    func present(_ selection: StationTimetableSelection) -> Bool {
+        guard selection.dataSourceID == client.descriptor.id,
+              let selectedTimetable = timetables.first(where: {
+                  $0.appIdentity == selection.timetable.appIdentity
+              })
         else {
-            return
+            return false
         }
 
-        let selectedTimetable = client.timetables.first {
-            $0.dataSourceID == initialSelection.timetable.dataSourceID &&
-                $0.identifier == initialSelection.timetable.identifier
-        } ?? initialSelection.timetable
-        let selectedMunicipality = initialSelection.municipality.map { requested in
+        let selectedMunicipality = selection.municipality.map { requested in
             client.stationTimetableMunicipalities(for: selectedTimetable).first {
                 $0.dataSourceID == requested.dataSourceID &&
                     $0.timetableIdentifier == requested.timetableIdentifier &&
@@ -83,15 +172,23 @@ final class StationTimetablesViewModel: ObservableObject {
 
         timetable = selectedTimetable
         municipality = selectedMunicipality
-        line = initialSelection.line
-        from = initialSelection.from
-        to = initialSelection.to
+        line = selection.line
+        from = selection.from
+        to = selection.to
         date = TransitRequestFormatting.displayDateAndTime(
-            serviceDate: initialSelection.serviceDate,
+            serviceDate: selection.serviceDate,
             serviceTime: TransitTime(hour: 12, minute: 0)
         ) ?? Date()
-        wholeWeek = initialSelection.wholeWeek
+        wholeWeek = selection.wholeWeek
+        result = nil
+        resultSearchDate = nil
+        resultUsesWholeWeek = false
+        resultRequest = nil
+        resolvingDeparture = nil
+        errorMessage = nil
         hasPendingInitialSelection = canSearch
+        requestsLineFocus = line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return true
     }
 
     /// Starts a complete query carried by a newly opened main window exactly once.
@@ -104,6 +201,11 @@ final class StationTimetablesViewModel: ObservableObject {
     /// Lets a complete form begin with its compact summary while the new window loads the result.
     var startsWithInitialSelection: Bool {
         hasPendingInitialSelection
+    }
+
+    /// Requests the missing line field after an incomplete connection-level transfer opens the form.
+    var startsWithLineFocus: Bool {
+        requestsLineFocus
     }
 
     /// Municipalities available inside the currently selected Station Timetable catalog.
@@ -130,40 +232,6 @@ final class StationTimetablesViewModel: ObservableObject {
         [line, from, to].allSatisfy {
             !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         } && (municipalities.isEmpty || municipality != nil) && !isSearching
-    }
-
-    /// Replaces any previous result with the parts of a completed connection search reusable by this form.
-    ///
-    /// A connection query does not identify one line, so the form keeps the transferred route and date visible while
-    /// requiring the passenger to choose that missing value before another provider request can start.
-    @discardableResult
-    func presentConnectionSearch(
-        timetable requestedTimetable: TransitTimetable,
-        from: String,
-        to: String,
-        date: Date
-    ) -> Bool {
-        guard let selectedTimetable = timetables.first(where: {
-            $0.appIdentity == requestedTimetable.appIdentity
-        }) else {
-            return false
-        }
-
-        timetable = selectedTimetable
-        municipality = client.defaultStationTimetableMunicipality(for: selectedTimetable)
-        line = ""
-        self.from = from
-        self.to = to
-        self.date = date
-        wholeWeek = false
-        result = nil
-        resultSearchDate = nil
-        resultUsesWholeWeek = false
-        resultRequest = nil
-        resolvingDeparture = nil
-        errorMessage = nil
-        hasPendingInitialSelection = false
-        return true
     }
 
     /// Applies both terminal names supplied by the data source with a selected line direction.

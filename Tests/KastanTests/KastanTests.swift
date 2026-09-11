@@ -2799,8 +2799,10 @@ import Testing
     #expect(connections.count == 1)
     #expect(connections.first?.id == "396829589")
     #expect(connections.first?.duration == "3 h 40 min")
+    #expect(connections.first?.departureDate == TransitDate(year: 2026, month: 6, day: 18))
     #expect(connections.first?.legs.first?.name == "R9 (R 981 Vysocina)")
     #expect(connections.first?.legs.first?.id == "vlaky:0-74552-18.06.2026 12:04:00")
+    #expect(connections.first?.legs.first?.departureDate == TransitDate(year: 2026, month: 6, day: 18))
     #expect(connections.first?.legs.first?.color == "#FF0000")
     #expect(connections.first?.legs.first?.transportMode == .train)
     #expect(connections.first?.legs.first?.fromTariffZone == "P")
@@ -2988,20 +2990,31 @@ import Testing
     <div id="connectionBox-1122672429" class="box connection">
       <p class="reset total">Overall time <strong>38 min</strong></p>
       <h3 title="bus (Nove Dvory,Frydecka skladka >> Mistek,Riviera)" style="color: #0000FF;"><span>Bus 302</span></h3>
-      <p class="reset time" title="">11:53</p><p class="station"><strong class="name ">Frýdek,Na Veselé</strong></p>
-      <p class="reset time" title="">12:06</p><p class="station"><strong class="name ">Místek,Anenská</strong></p>
+      <p class="reset time" title="">23:53</p><p class="station"><strong class="name ">Frýdek,Na Veselé</strong></p>
+      <p class="reset time" title="">00:06</p><p class="station"><strong class="name ">Místek,Anenská</strong></p>
       <span class="operator"><span>Transdev Slezsko a.s.</span></span>
       <span class="delay-bubble">Currently no delay</span>
       <h3 title="local bus (Frenstat p.Radh.,,u skol >> Ostrava,Mor.Ostrava,Namesti Republiky)" style="color: #0000FF;"><span>Bus 980</span></h3>
-      <p class="reset time" title="">12:13</p><p class="station"><strong class="name ">Frýdek-Místek,Místek,Anenská</strong></p>
-      <p class="reset time" title="">12:31</p><p class="station"><strong class="name ">Ostrava,Hrabůvka,Benzina</strong></p>
+      <p class="reset time" title="">00:13</p><p class="station"><strong class="name ">Frýdek-Místek,Místek,Anenská</strong></p>
+      <p class="reset time" title="">00:31</p><p class="station"><strong class="name ">Ostrava,Hrabůvka,Benzina</strong></p>
     </div>
+    <script>
+    var connResult = new Conn.ConnResult(params, null, {"connData":[{"connId":1122672429,"trains":[
+      {"ttIndex":0,"train":302,"dateFromValue":"2026-09-11T00:00:00","timeFrom":"23:53"},
+      {"ttIndex":0,"train":980,"dateFromValue":"2026-09-12T00:00:00","timeFrom":"00:13"}
+    ]}]});
+    </script>
     """
 
     let connection = IDOSConnectionParser.parse(html: html).first
     let summary = connection?.summaryLine(number: 1)
 
     #expect(connection?.legs.map(\.name) == ["Bus 302", "Bus 980"])
+    #expect(connection?.departureDate == TransitDate(year: 2026, month: 9, day: 11))
+    #expect(connection?.legs.map(\.departureDate) == [
+        TransitDate(year: 2026, month: 9, day: 11),
+        TransitDate(year: 2026, month: 9, day: 12),
+    ])
     #expect(connection?.legs.map(\.color) == ["#0000FF", "#0000FF"])
     #expect(connection?.legs.map(\.transportMode) == [.bus, .bus])
     #expect(connection?.legs.first?.carrier == "Transdev Slezsko a.s.")

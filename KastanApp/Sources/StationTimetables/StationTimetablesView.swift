@@ -173,7 +173,8 @@ struct StationTimetablesView: View {
             scope: .stationTimetableLines,
             stationTimetableMunicipality: model.municipality,
             client: client,
-            onSelection: model.selectLineSuggestion
+            onSelection: model.selectLineSuggestion,
+            focusRequest: $model.requestsLineFocus
         )
         .frame(minWidth: 170, maxWidth: .infinity)
     }

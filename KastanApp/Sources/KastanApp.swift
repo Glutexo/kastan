@@ -200,29 +200,18 @@ enum AppWindowActions {
     }
 }
 
-/// Identifies where a completed connection search should prepare its station-timetable form.
-enum ConnectionStationTimetableDestination: CaseIterable, Hashable, Identifiable {
+/// Identifies where a connection result should prepare its station-timetable form.
+enum StationTimetableOpenDestination: CaseIterable, Hashable, Identifiable {
     case currentTab
     case newTab
     case newWindow
 
     var id: Self { self }
 
-    var title: LocalizedStringKey {
-        switch self {
-        case .currentTab:
-            "Open"
-        case .newTab:
-            "Open in new tab"
-        case .newWindow:
-            "Open in new window"
-        }
-    }
-
     var systemImage: String {
         switch self {
         case .currentTab:
-            "arrow.right"
+            "calendar"
         case .newTab:
             "rectangle.on.rectangle"
         case .newWindow:
@@ -231,10 +220,33 @@ enum ConnectionStationTimetableDestination: CaseIterable, Hashable, Identifiable
     }
 }
 
+/// Chooses concise contextual wording or the fully written File-menu wording.
+enum StationTimetableOpenActionTitleStyle {
+    case abbreviated
+    case full
+
+    func title(for destination: StationTimetableOpenDestination) -> LocalizedStringKey {
+        switch (self, destination) {
+        case (.abbreviated, .currentTab):
+            "Open station timetable"
+        case (.abbreviated, .newTab):
+            "Open station timetable in new tab"
+        case (.abbreviated, .newWindow):
+            "Open station timetable in new window"
+        case (.full, .currentTab):
+            "Open Station Timetable"
+        case (.full, .newTab):
+            "Open Station Timetable in New Tab"
+        case (.full, .newWindow):
+            "Open Station Timetable in New Window"
+        }
+    }
+}
+
 /// Connects the File menu to the supported connection search in the focused main window.
 struct ConnectionStationTimetableCommandContext {
     let isAvailable: Bool
-    let open: (ConnectionStationTimetableDestination) -> Void
+    let open: (StationTimetableOpenDestination) -> Void
 }
 
 struct ConnectionStationTimetableCommandContextKey: FocusedValueKey {
@@ -248,22 +260,21 @@ extension FocusedValues {
     }
 }
 
-/// Presents the same three station-timetable destinations in contextual and application menus.
-struct ConnectionStationTimetableMenu: View {
-    let title: LocalizedStringKey
-    let open: (ConnectionStationTimetableDestination) -> Void
+/// Places the three station-timetable destinations directly in their containing menu.
+struct StationTimetableOpenActions: View {
+    let titleStyle: StationTimetableOpenActionTitleStyle
+    let open: (StationTimetableOpenDestination) -> Void
 
     var body: some View {
-        Menu {
-            ForEach(ConnectionStationTimetableDestination.allCases) { destination in
-                Button {
-                    open(destination)
-                } label: {
-                    Label(destination.title, systemImage: destination.systemImage)
-                }
+        ForEach(StationTimetableOpenDestination.allCases) { destination in
+            Button {
+                open(destination)
+            } label: {
+                Label(
+                    titleStyle.title(for: destination),
+                    systemImage: destination.systemImage
+                )
             }
-        } label: {
-            Label(title, systemImage: "calendar")
         }
     }
 }
@@ -276,7 +287,7 @@ struct ConnectionStationTimetableCommands: Commands {
         CommandGroup(after: .newItem) {
             Divider()
 
-            ConnectionStationTimetableMenu(title: "Station Timetable") { destination in
+            StationTimetableOpenActions(titleStyle: .full) { destination in
                 context?.open(destination)
             }
             .disabled(context?.isAvailable != true)

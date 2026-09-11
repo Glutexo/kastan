@@ -257,7 +257,11 @@ structural predicates that matched, while `.fallback` records that no specific t
 fallback meaning. Because the rule is recomputed from the source text rather than encoded, stored results remain
 compatible; an absent service-information field in older encoded results decodes as an empty array. Encoded
 connection-leg platform values retain IDOS's compact source notation, while `summaryLine` expands railway pairs such
-as `2/3` to the unambiguous human-readable `platform 2 track 3`.
+as `2/3` to the unambiguous human-readable `platform 2 track 3`. When supplied by the provider,
+`TransitConnection.departureDate` identifies the civil day of the first displayed departure and each
+`TransitConnectionLeg.departureDate` identifies the day of that particular service. This preserves different result
+days and legs crossing midnight without requiring clients to parse opaque identifiers. Older encoded results without
+these optional fields continue to decode them as `nil`.
 
 The language-aware `findConnectionsPage(request:language:)` and
 `findDeparturesPage(request:language:)` overloads request platform-supplied result text in English or Czech and

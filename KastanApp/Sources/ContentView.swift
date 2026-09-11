@@ -276,13 +276,15 @@ final class AppDataSourceWorkspace: ObservableObject, Identifiable {
     /// Moves the completed connection route into the editable Station Timetables form in this window.
     @discardableResult
     func showStationTimetableForConnectionSearch() -> Bool {
+        guard let selection = stationTimetableSelectionForConnectionSearch() else { return false }
+        return showStationTimetable(selection)
+    }
+
+    /// Replaces this window's station-timetable form with a connection or service transfer.
+    @discardableResult
+    func showStationTimetable(_ transferredSelection: StationTimetableSelection) -> Bool {
         guard availableSections.contains(.stationTimetables),
-              stationTimetablesModel.presentConnectionSearch(
-                  timetable: connectionsModel.timetable,
-                  from: connectionsModel.from,
-                  to: connectionsModel.to,
-                  date: connectionsModel.date
-              )
+              stationTimetablesModel.present(transferredSelection)
         else {
             return false
         }
@@ -293,22 +295,13 @@ final class AppDataSourceWorkspace: ObservableObject, Identifiable {
 
     /// Builds the editable station-timetable draft transferred into another main window or tab.
     func stationTimetableSelectionForConnectionSearch() -> StationTimetableSelection? {
-        guard availableSections.contains(.stationTimetables),
-              let timetable = stationTimetablesModel.timetables.first(where: {
-                  $0.appIdentity == connectionsModel.timetable.appIdentity
-              })
-        else {
-            return nil
-        }
-
-        return StationTimetableSelection(
-            timetable: timetable,
-            municipality: client.defaultStationTimetableMunicipality(for: timetable),
-            line: "",
+        guard availableSections.contains(.stationTimetables) else { return nil }
+        return StationTimetableSelectionFactory.search(
+            timetable: connectionsModel.timetable,
             from: connectionsModel.from,
             to: connectionsModel.to,
             serviceDate: TransitRequestFormatting.serviceDate(from: connectionsModel.date),
-            wholeWeek: false
+            client: client
         )
     }
 }
@@ -560,8 +553,8 @@ private struct ProviderSearchWorkspaceView: View {
                     showsServiceInformationText: showsServiceInformationText,
                     showsStopNoteText: showsStopNoteText,
                     openStationTimetable: workspace.availableSections.contains(.stationTimetables)
-                        ? { destination in
-                            openConnectionStationTimetable(destination)
+                        ? { selection, destination in
+                            openStationTimetable(selection, at: destination)
                         }
                         : nil
                 )
@@ -588,17 +581,15 @@ private struct ProviderSearchWorkspaceView: View {
         }
     }
 
-    /// Reuses the focused search in place or seeds an independent native tab or window.
-    private func openConnectionStationTimetable(
-        _ destination: ConnectionStationTimetableDestination
+    /// Reuses a prepared result in place or seeds an independent native tab or window.
+    private func openStationTimetable(
+        _ selection: StationTimetableSelection,
+        at destination: StationTimetableOpenDestination
     ) {
         switch destination {
         case .currentTab:
-            _ = workspace.showStationTimetableForConnectionSearch()
+            _ = workspace.showStationTimetable(selection)
         case .newTab, .newWindow:
-            guard let selection = workspace.stationTimetableSelectionForConnectionSearch() else {
-                return
-            }
             let sceneValue = MainWindowSceneValue(
                 dataSourceID: selection.dataSourceID,
                 initialStationTimetableSelection: selection

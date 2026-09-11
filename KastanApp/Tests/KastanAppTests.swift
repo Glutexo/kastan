@@ -40,6 +40,9 @@ final class KastanAppTests: XCTestCase {
             "Share Link",
             "Share Text",
             "Favorite timetables",
+            "Open Station Timetable",
+            "Open Station Timetable in New Tab",
+            "Open Station Timetable in New Window",
         ]
 
         for key in actionKeys {
@@ -436,43 +439,48 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testFileMenuOffersEveryStationTimetableDestinationWithAnUnabbreviatedName() async throws {
+    func testFileMenuOffersEveryStationTimetableDestinationAsAnUnabbreviatedRootAction() async throws {
         try await Task.sleep(for: .milliseconds(250))
 
-        let menuTitle = AppLocalization.string("Station Timetable")
-        let destinationTitles = [
-            "Open",
-            "Open in new tab",
-            "Open in new window",
-        ].map { AppLocalization.string($0) }
+        let actionKeys = [
+            "Open Station Timetable",
+            "Open Station Timetable in New Tab",
+            "Open Station Timetable in New Window",
+        ]
+        let actionTitles = actionKeys.map { AppLocalization.string($0) }
         let fileMenu = try XCTUnwrap(
             NSApplication.shared.mainMenu?.items
                 .compactMap(\.submenu)
-                .first { menu in menu.items.contains { $0.title == menuTitle } }
+                .first { menu in menu.items.contains { $0.title == actionTitles[0] } }
         )
-        let stationTimetableItem = try XCTUnwrap(
-            fileMenu.items.first { $0.title == menuTitle }
-        )
-        let stationTimetableMenu = try XCTUnwrap(stationTimetableItem.submenu)
 
-        XCTAssertEqual(stationTimetableMenu.items.map(\.title), destinationTitles)
+        for title in actionTitles {
+            let items = fileMenu.items.filter { $0.title == title }
+            XCTAssertEqual(items.count, 1)
+            XCTAssertNil(items.first?.submenu)
+        }
 
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         XCTAssertEqual(
-            czech.localizedString(forKey: "Station Timetable", value: nil, table: nil),
-            "Zastávkový jízdní řád"
+            actionKeys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
+            [
+                "Otevřít zastávkový jízdní řád",
+                "Otevřít zastávkový jízdní řád v novém panelu",
+                "Otevřít zastávkový jízdní řád v novém okně",
+            ]
         )
+        let contextualKeys = [
+            "Open station timetable",
+            "Open station timetable in new tab",
+            "Open station timetable in new window",
+        ]
         XCTAssertEqual(
-            czech.localizedString(forKey: "Station timetable", value: nil, table: nil),
-            "Zastávkový JŘ"
-        )
-        XCTAssertEqual(
-            czech.localizedString(forKey: "Open in new tab", value: nil, table: nil),
-            "Otevřít v novém panelu"
-        )
-        XCTAssertEqual(
-            czech.localizedString(forKey: "Open in new window", value: nil, table: nil),
-            "Otevřít v novém okně"
+            contextualKeys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
+            [
+                "Otevřít zastávkový JŘ",
+                "Otevřít zastávkový JŘ v novém panelu",
+                "Otevřít zastávkový JŘ v novém okně",
+            ]
         )
     }
 
@@ -2226,8 +2234,9 @@ final class KastanAppTests: XCTestCase {
             ResultContextTarget.connection.openInNewWindowTitleKey,
             "Preview service",
             ResultContextTarget.service.openInNewWindowTitleKey,
-            "Open in new window",
-            "Station timetable",
+            "Open station timetable",
+            "Open station timetable in new tab",
+            "Open station timetable in new window",
         ]
         XCTAssertEqual(
             keys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
@@ -2235,8 +2244,9 @@ final class KastanAppTests: XCTestCase {
                 "Otevřít v novém okně",
                 "Náhled spoje",
                 "Otevřít spoj v novém okně",
-                "Otevřít v novém okně",
-                "Zastávkový JŘ",
+                "Otevřít zastávkový JŘ",
+                "Otevřít zastávkový JŘ v novém panelu",
+                "Otevřít zastávkový JŘ v novém okně",
             ]
         )
         XCTAssertEqual(
@@ -5733,7 +5743,9 @@ final class KastanAppTests: XCTestCase {
             openService: { _ in },
             performEmailAction: { _ in },
             performCalendarAction: { _ in },
-            performPDFAction: { _ in }
+            performPDFAction: { _ in },
+            stationTimetableFallbackDate: nil,
+            openStationTimetable: nil
         )
         let hostingView = NSHostingView(rootView: card.frame(width: 700))
         hostingView.frame = NSRect(x: 0, y: 0, width: 700, height: 300)
@@ -5803,7 +5815,9 @@ final class KastanAppTests: XCTestCase {
                 openService: { _ in },
                 performEmailAction: { _ in },
                 performCalendarAction: { _ in },
-                performPDFAction: { _ in }
+                performPDFAction: { _ in },
+                stationTimetableFallbackDate: nil,
+                openStationTimetable: nil
             )
             let hostingView = NSHostingView(rootView: card.frame(width: 700))
             hostingView.frame = NSRect(x: 0, y: 0, width: 700, height: 180)
@@ -8997,6 +9011,7 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(independentWorkspace.selection, .stationTimetables)
         XCTAssertFalse(independentWorkspace.stationTimetablesModel.startsWithInitialSelection)
+        XCTAssertTrue(independentWorkspace.stationTimetablesModel.startsWithLineFocus)
         XCTAssertEqual(independentWorkspace.stationTimetablesModel.timetable, timetable)
         XCTAssertTrue(independentWorkspace.stationTimetablesModel.line.isEmpty)
         XCTAssertEqual(
@@ -9017,13 +9032,91 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(stationTimetables.line.isEmpty)
         XCTAssertEqual(stationTimetables.from, "Frýdek,Na Veselé")
         XCTAssertEqual(stationTimetables.to, "Místek,Ostravská")
-        XCTAssertEqual(stationTimetables.date, selectedDate)
+        XCTAssertEqual(
+            TransitRequestFormatting.serviceDate(from: stationTimetables.date),
+            TransitDate(year: 2026, month: 9, day: 11)
+        )
         XCTAssertFalse(stationTimetables.wholeWeek)
         XCTAssertFalse(stationTimetables.canSearch)
+        XCTAssertTrue(stationTimetables.startsWithLineFocus)
         XCTAssertNil(stationTimetables.result)
         XCTAssertNil(stationTimetables.errorMessage)
         let requestAfterTransition = await client.lastStationTimetableRequest
         XCTAssertEqual(requestAfterTransition, previousRequest)
+    }
+
+    func testConnectionAndServiceStationTimetableTransfersUseMatchedResultValues() async throws {
+        let client = MockIDOSClient()
+        let timetable = try IDOSTimetable.resolve("frydekmistek")
+        let connectionDate = TransitDate(year: 2026, month: 9, day: 11)
+        let serviceDate = TransitDate(year: 2026, month: 9, day: 12)
+        let leg = TransitConnectionLeg(
+            name: "Bus 980",
+            id: "frydekmistek:0-980-12.09.2026 00:13:00",
+            transportMode: .bus,
+            departureDate: serviceDate,
+            departureTime: "00:13",
+            fromStation: "Frýdek-Místek,Místek,Anenská",
+            arrivalTime: "00:31",
+            toStation: "Ostrava,Hrabůvka,Benzina"
+        )
+        let connection = TransitConnection(
+            timetableIdentifier: timetable.identifier,
+            id: "overnight-connection",
+            departureDate: connectionDate,
+            departureTime: "23:53",
+            departureStation: "Frýdek,Na Veselé (spárovaná)",
+            arrivalTime: "00:31",
+            arrivalStation: "Ostrava,Hrabůvka,Benzina (spárovaná)",
+            duration: "38 min",
+            legs: [leg]
+        )
+        let fallbackDate = TransitDate(year: 2026, month: 9, day: 10)
+
+        let connectionSelection = try XCTUnwrap(
+            StationTimetableSelectionFactory.connection(
+                connection,
+                timetable: timetable,
+                fallbackServiceDate: fallbackDate,
+                client: client
+            )
+        )
+        XCTAssertTrue(connectionSelection.line.isEmpty)
+        XCTAssertEqual(connectionSelection.from, connection.departureStation)
+        XCTAssertEqual(connectionSelection.to, connection.arrivalStation)
+        XCTAssertEqual(connectionSelection.serviceDate, connectionDate)
+
+        let serviceSelection = try XCTUnwrap(
+            StationTimetableSelectionFactory.service(
+                leg,
+                in: connection,
+                timetable: timetable,
+                fallbackServiceDate: fallbackDate,
+                client: client
+            )
+        )
+        XCTAssertEqual(serviceSelection.line, "Bus 980")
+        XCTAssertEqual(serviceSelection.from, leg.fromStation)
+        XCTAssertEqual(serviceSelection.to, leg.toStation)
+        XCTAssertEqual(serviceSelection.serviceDate, serviceDate)
+
+        let independentWorkspace = AppDataSourceWorkspace(
+            client: client,
+            initialStationTimetableSelection: serviceSelection
+        )
+        XCTAssertEqual(independentWorkspace.selection, .stationTimetables)
+        XCTAssertTrue(independentWorkspace.stationTimetablesModel.startsWithInitialSelection)
+        XCTAssertFalse(independentWorkspace.stationTimetablesModel.startsWithLineFocus)
+
+        await independentWorkspace.stationTimetablesModel.loadInitialSelectionIfNeeded()
+
+        let capturedRequest = await client.lastStationTimetableRequest
+        let request = try XCTUnwrap(capturedRequest)
+        XCTAssertEqual(request.line, "Bus 980")
+        XCTAssertEqual(request.from, leg.fromStation)
+        XCTAssertEqual(request.to, leg.toStation)
+        XCTAssertEqual(request.serviceDate, serviceDate)
+        XCTAssertNotNil(independentWorkspace.stationTimetablesModel.result)
     }
 
     func testConnectionSummaryDoesNotOfferAnUnsupportedStationTimetableCatalog() {
@@ -9726,7 +9819,9 @@ private func connectionCardOpenCount(
         openService: { _ in },
         performEmailAction: { _ in },
         performCalendarAction: { _ in },
-        performPDFAction: { _ in }
+        performPDFAction: { _ in },
+        stationTimetableFallbackDate: nil,
+        openStationTimetable: nil
     )
     let hostingView = NSHostingView(
         rootView: card.frame(width: 700, height: 140, alignment: .topLeading)

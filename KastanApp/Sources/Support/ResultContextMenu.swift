@@ -117,6 +117,7 @@ struct ConnectionContextMenuContent: View {
     let shareText: String
     let isPerformingAction: Bool
     let openInNewWindow: () -> Void
+    let openStationTimetable: ((StationTimetableOpenDestination) -> Void)?
     let performEmailAction: (ConnectionEmailAction) -> Void
     let performCalendarAction: (CalendarExportAction) -> Void
     let performPDFAction: (PDFExportAction) -> Void
@@ -142,6 +143,12 @@ struct ConnectionContextMenuContent: View {
                 ResultContextActionLabel(action: action, target: .connection)
             }
         case .separator:
+            if let openStationTimetable {
+                StationTimetableOpenActions(
+                    titleStyle: .abbreviated,
+                    open: openStationTimetable
+                )
+            }
             Divider()
         case .detail(.sendByEmail):
             ConnectionEmailButton(
@@ -202,6 +209,19 @@ struct ServiceContextMenuContent: View {
     @ObservedObject var model: ServiceDetailViewModel
     let showPreview: () -> Void
     let openInNewWindow: () -> Void
+    let openStationTimetable: ((StationTimetableOpenDestination) -> Void)?
+
+    init(
+        model: ServiceDetailViewModel,
+        showPreview: @escaping () -> Void,
+        openInNewWindow: @escaping () -> Void,
+        openStationTimetable: ((StationTimetableOpenDestination) -> Void)? = nil
+    ) {
+        self.model = model
+        self.showPreview = showPreview
+        self.openInNewWindow = openInNewWindow
+        self.openStationTimetable = openStationTimetable
+    }
 
     var body: some View {
         ForEach(
@@ -231,6 +251,12 @@ struct ServiceContextMenuContent: View {
                 ResultContextActionLabel(action: action, target: .service)
             }
         case .separator:
+            if let openStationTimetable {
+                StationTimetableOpenActions(
+                    titleStyle: .abbreviated,
+                    open: openStationTimetable
+                )
+            }
             Divider()
         case .detail(.sendByEmail):
             EmptyView()

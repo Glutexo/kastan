@@ -246,7 +246,7 @@ struct ConnectionsView: View {
     let showsItemDetails: Bool
     let showsServiceInformationText: Bool
     let showsStopNoteText: Bool
-    let openStationTimetable: ((ConnectionStationTimetableDestination) -> Void)?
+    let openStationTimetable: ((StationTimetableSelection, StationTimetableOpenDestination) -> Void)?
     @State private var isJourneyOptionsExpanded = false
     @State private var hasUsedDirectConnectionsShortcut = false
     @State private var isSearchFormCollapsed = false
@@ -262,7 +262,7 @@ struct ConnectionsView: View {
         showsItemDetails: Bool,
         showsServiceInformationText: Bool,
         showsStopNoteText: Bool,
-        openStationTimetable: ((ConnectionStationTimetableDestination) -> Void)? = nil
+        openStationTimetable: ((StationTimetableSelection, StationTimetableOpenDestination) -> Void)? = nil
     ) {
         self.model = model
         self.client = client
@@ -511,14 +511,14 @@ struct ConnectionsView: View {
     /// Keeps every route transition in the summary's context menu without adding a visible control.
     @ViewBuilder
     private var connectionSearchSummaryBar: some View {
-        if canOpenStationTimetable, let openStationTimetable {
+        if let selection = connectionSearchStationTimetableSelection,
+           let openStationTimetable {
             searchSummaryBar
                 .contentShape(Rectangle())
                 .contextMenu {
-                    ConnectionStationTimetableMenu(
-                        title: "Station timetable",
-                        open: openStationTimetable
-                    )
+                    StationTimetableOpenActions(titleStyle: .abbreviated) { destination in
+                        openStationTimetable(selection, destination)
+                    }
                 }
         } else {
             searchSummaryBar
@@ -535,17 +535,25 @@ struct ConnectionsView: View {
 
     /// Offers the transition only when the connection catalog is accepted by Station Timetables.
     private var canOpenStationTimetable: Bool {
-        openStationTimetable != nil && AppTimetableGroup.stationTimetables(in: client.timetables).contains {
-            $0.appIdentity == model.timetable.appIdentity
-        }
+        openStationTimetable != nil && connectionSearchStationTimetableSelection != nil
+    }
+
+    private var connectionSearchStationTimetableSelection: StationTimetableSelection? {
+        StationTimetableSelectionFactory.search(
+            timetable: model.timetable,
+            from: model.from,
+            to: model.to,
+            serviceDate: TransitRequestFormatting.serviceDate(from: model.date),
+            client: client
+        )
     }
 
     private var connectionStationTimetableCommandContext: ConnectionStationTimetableCommandContext {
         ConnectionStationTimetableCommandContext(
             isAvailable: isSearchFormCollapsed && canOpenStationTimetable,
             open: { destination in
-                guard canOpenStationTimetable else { return }
-                openStationTimetable?(destination)
+                guard let selection = connectionSearchStationTimetableSelection else { return }
+                openStationTimetable?(selection, destination)
             }
         )
     }
@@ -1113,7 +1121,11 @@ struct ConnectionsView: View {
                                     for: connection
                                 )
                             }
-                        }
+                        },
+                        stationTimetableFallbackDate: TransitRequestFormatting.serviceDate(
+                            from: model.date
+                        ),
+                        openStationTimetable: openStationTimetable
                     )
                 }
             }
@@ -1668,6 +1680,8 @@ struct ConnectionCard: View {
     let performEmailAction: (ConnectionEmailAction) -> Void
     let performCalendarAction: (CalendarExportAction) -> Void
     let performPDFAction: (PDFExportAction) -> Void
+    let stationTimetableFallbackDate: TransitDate?
+    let openStationTimetable: ((StationTimetableSelection, StationTimetableOpenDestination) -> Void)?
 
     @ViewBuilder
     var body: some View {
@@ -1795,12 +1809,15 @@ struct ConnectionCard: View {
                         ForEach(Array(connection.legs.enumerated()), id: \.offset) { index, leg in
                             ConnectionLegRow(
                                 leg: leg,
+                                connection: connection,
                                 timetable: timetable,
                                 client: client,
                                 showsItemDetails: showsItemDetails,
                                 showsServiceInformationText: showsServiceInformationText,
                                 showsStopNoteText: showsStopNoteText,
-                                openService: openService
+                                openService: openService,
+                                stationTimetableFallbackDate: stationTimetableFallbackDate,
+                                openStationTimetable: openStationTimetable
                             )
                             .alternatingRowBackground(at: index)
                             .id("\(index):\(leg.id ?? "unavailable")")
@@ -1832,10 +1849,26 @@ struct ConnectionCard: View {
             shareText: connectionShareText,
             isPerformingAction: isPerformingAction,
             openInNewWindow: openInNewWindow,
+            openStationTimetable: connectionStationTimetableAction,
             performEmailAction: performEmailAction,
             performCalendarAction: performCalendarAction,
             performPDFAction: performPDFAction
         )
+    }
+
+    private var connectionStationTimetableAction: ((StationTimetableOpenDestination) -> Void)? {
+        guard let selection = StationTimetableSelectionFactory.connection(
+            connection,
+            timetable: timetable,
+            fallbackServiceDate: stationTimetableFallbackDate,
+            client: client
+        ), let openStationTimetable else {
+            return nil
+        }
+
+        return { destination in
+            openStationTimetable(selection, destination)
+        }
     }
 }
 
@@ -1943,7 +1976,9 @@ struct ConnectionDetailView: View {
                                 for: selection.connection
                             )
                         }
-                    }
+                    },
+                    stationTimetableFallbackDate: nil,
+                    openStationTimetable: nil
                 )
             }
             .padding(24)
@@ -2177,32 +2212,41 @@ struct ConnectionDetailView: View {
 
 private struct ConnectionLegRow: View {
     let leg: TransitConnectionLeg
+    let connection: TransitConnection
     let timetable: TransitTimetable
     let client: any TransitDataSource
     let showsItemDetails: Bool
     let showsServiceInformationText: Bool
     let showsStopNoteText: Bool
     let openService: (ServiceSelection) -> Void
+    let stationTimetableFallbackDate: TransitDate?
+    let openStationTimetable: ((StationTimetableSelection, StationTimetableOpenDestination) -> Void)?
     @StateObject private var contextMenuModel: ServiceDetailViewModel
     @State private var suppressesPrimaryAction = false
     @State private var isPreviewPresented = false
 
     init(
         leg: TransitConnectionLeg,
+        connection: TransitConnection,
         timetable: TransitTimetable,
         client: any TransitDataSource,
         showsItemDetails: Bool,
         showsServiceInformationText: Bool,
         showsStopNoteText: Bool,
-        openService: @escaping (ServiceSelection) -> Void
+        openService: @escaping (ServiceSelection) -> Void,
+        stationTimetableFallbackDate: TransitDate?,
+        openStationTimetable: ((StationTimetableSelection, StationTimetableOpenDestination) -> Void)?
     ) {
         self.leg = leg
+        self.connection = connection
         self.timetable = timetable
         self.client = client
         self.showsItemDetails = showsItemDetails
         self.showsServiceInformationText = showsServiceInformationText
         self.showsStopNoteText = showsStopNoteText
         self.openService = openService
+        self.stationTimetableFallbackDate = stationTimetableFallbackDate
+        self.openStationTimetable = openStationTimetable
         _contextMenuModel = StateObject(
             wrappedValue: ServiceDetailViewModel(
                 id: leg.id ?? "",
@@ -2220,7 +2264,8 @@ private struct ConnectionLegRow: View {
                         ServiceContextMenuContent(
                             model: contextMenuModel,
                             showPreview: { isPreviewPresented = true },
-                            openInNewWindow: { openService(selection) }
+                            openInNewWindow: { openService(selection) },
+                            openStationTimetable: stationTimetableAction
                         )
                     }
             } else {
@@ -2244,6 +2289,22 @@ private struct ConnectionLegRow: View {
                     toStop: leg.toStation
                 )
             )
+        }
+    }
+
+    private var stationTimetableAction: ((StationTimetableOpenDestination) -> Void)? {
+        guard let selection = StationTimetableSelectionFactory.service(
+            leg,
+            in: connection,
+            timetable: timetable,
+            fallbackServiceDate: stationTimetableFallbackDate,
+            client: client
+        ), let openStationTimetable else {
+            return nil
+        }
+
+        return { destination in
+            openStationTimetable(selection, destination)
         }
     }
 
