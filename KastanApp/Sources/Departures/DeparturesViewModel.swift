@@ -2,10 +2,44 @@ import Foundation
 import Kastan
 
 /// Transfers one already resolved provider station-board result into Departures without repeating its request.
-struct ResolvedDepartureSearch {
+struct ResolvedDepartureSearch: Sendable {
     let request: TransitDeparturesRequest
     let page: TransitDeparturePage
     let dateAndTime: Date
+
+    /// Accepts a transfer only when its request and provider-owned page belong to the same source.
+    var dataSourceID: TransitDataSourceID? {
+        guard request.timetable.dataSourceID == page.dataSourceID else { return nil }
+        return page.dataSourceID
+    }
+}
+
+/// Retains resolved provider state just long enough for a value-based main-window scene to adopt it.
+///
+/// The scene value carries only the transfer identifier because provider paging continuations are deliberately opaque
+/// and cannot be serialized. Keeping the original value in memory preserves those continuations without another
+/// provider request; the scene discards the entry as soon as its workspace appears.
+@MainActor
+final class ResolvedDepartureSearchTransferStore {
+    static let shared = ResolvedDepartureSearchTransferStore()
+
+    private var searches: [UUID: ResolvedDepartureSearch] = [:]
+
+    @discardableResult
+    func store(_ search: ResolvedDepartureSearch) -> UUID {
+        let id = UUID()
+        searches[id] = search
+        return id
+    }
+
+    func search(for id: UUID?) -> ResolvedDepartureSearch? {
+        id.flatMap { searches[$0] }
+    }
+
+    func discard(_ id: UUID?) {
+        guard let id else { return }
+        searches.removeValue(forKey: id)
+    }
 }
 
 /// Owns a station-board query for either departures or arrivals.

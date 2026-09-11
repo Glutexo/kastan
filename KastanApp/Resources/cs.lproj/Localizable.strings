@@ -82,6 +82,9 @@
 "Email Sent" = "E-mail odeslán";
 "Find a connection" = "Vyhledat spojení";
 "Find a public transport journey through IDOS." = "Vyhledejte cestu veřejnou dopravou přes IDOS.";
+"Find service in Departures" = "Vyhledat spoj v Odjezdech";
+"Find service in Departures in new tab" = "Vyhledat spoj v Odjezdech v novém panelu";
+"Find service in Departures in new window" = "Vyhledat spoj v Odjezdech v novém okně";
 "Favorites" = "Oblíbené";
 "Favorite timetables" = "Oblíbené jízdní řády";
 "Fill Current" = "Vyplnit aktuální";

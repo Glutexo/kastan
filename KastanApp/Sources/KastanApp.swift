@@ -23,21 +23,24 @@ enum AppWindow {
 ///
 /// The unique identifier keeps two windows that use the same provider distinct when they are opened through
 /// SwiftUI's value-based window API. The provider identifier remains mutable so a regular provider change can be
-/// persisted as part of the scene's restoration value. A station-timetable selection seeds a newly opened window and
-/// is cleared after its workspace has adopted the query.
+/// persisted as part of the scene's restoration value. A station-timetable selection or a temporary resolved-
+/// departures transfer seeds a newly opened window and is cleared after its workspace has adopted the query.
 struct MainWindowSceneValue: Codable, Hashable {
     let id: UUID
     var dataSourceID: TransitDataSourceID
     var initialStationTimetableSelection: StationTimetableSelection?
+    var initialDepartureSearchTransferID: UUID?
 
     init(
         id: UUID = UUID(),
         dataSourceID: TransitDataSourceID,
-        initialStationTimetableSelection: StationTimetableSelection? = nil
+        initialStationTimetableSelection: StationTimetableSelection? = nil,
+        initialDepartureSearchTransferID: UUID? = nil
     ) {
         self.id = id
         self.dataSourceID = dataSourceID
         self.initialStationTimetableSelection = initialStationTimetableSelection
+        self.initialDepartureSearchTransferID = initialDepartureSearchTransferID
     }
 }
 
@@ -216,6 +219,56 @@ enum StationTimetableOpenDestination: CaseIterable, Hashable, Identifiable {
             "rectangle.on.rectangle"
         case .newWindow:
             "macwindow"
+        }
+    }
+}
+
+/// Identifies where one resolved station-timetable departure should open its Departures result.
+enum DepartureSearchOpenDestination: CaseIterable, Hashable, Identifiable {
+    case currentWindow
+    case newWindow
+    case newTab
+
+    var id: Self { self }
+
+    var localizationKey: String {
+        switch self {
+        case .currentWindow:
+            "Find service in Departures"
+        case .newWindow:
+            "Find service in Departures in new window"
+        case .newTab:
+            "Find service in Departures in new tab"
+        }
+    }
+
+    var title: LocalizedStringKey {
+        LocalizedStringKey(localizationKey)
+    }
+
+    var systemImage: String {
+        switch self {
+        case .currentWindow:
+            AppSection.departures.systemImage
+        case .newWindow:
+            "macwindow"
+        case .newTab:
+            "rectangle.on.rectangle"
+        }
+    }
+}
+
+/// Places all destinations for a resolved Departures search directly in its containing menu.
+struct DepartureSearchOpenActions: View {
+    let open: (DepartureSearchOpenDestination) -> Void
+
+    var body: some View {
+        ForEach(DepartureSearchOpenDestination.allCases) { destination in
+            Button {
+                open(destination)
+            } label: {
+                Label(destination.title, systemImage: destination.systemImage)
+            }
         }
     }
 }

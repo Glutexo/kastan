@@ -258,19 +258,27 @@ final class AppDataSourceWorkspace: ObservableObject, Identifiable {
 
     init(
         client: any TransitDataSource,
-        initialStationTimetableSelection: StationTimetableSelection? = nil
+        initialStationTimetableSelection: StationTimetableSelection? = nil,
+        initialDepartureSearch: ResolvedDepartureSearch? = nil
     ) {
         self.client = client
         availableSections = AppSection.available(for: client.descriptor)
         let opensStationTimetable = initialStationTimetableSelection?.dataSourceID == client.descriptor.id &&
             availableSections.contains(.stationTimetables)
-        selection = opensStationTimetable ? .stationTimetables : availableSections.first ?? .connections
+        let opensDepartures = initialDepartureSearch?.dataSourceID == client.descriptor.id &&
+            availableSections.contains(.departures)
+        selection = opensDepartures
+            ? .departures
+            : opensStationTimetable ? .stationTimetables : availableSections.first ?? .connections
         connectionsModel = ConnectionsViewModel(client: client)
         departuresModel = DeparturesViewModel(client: client)
         stationTimetablesModel = StationTimetablesViewModel(
             client: client,
             initialSelection: opensStationTimetable ? initialStationTimetableSelection : nil
         )
+        if opensDepartures, let initialDepartureSearch {
+            departuresModel.present(initialDepartureSearch)
+        }
     }
 
     /// Moves the completed connection route into the editable Station Timetables form in this window.
@@ -290,6 +298,20 @@ final class AppDataSourceWorkspace: ObservableObject, Identifiable {
         }
 
         selection = .stationTimetables
+        return true
+    }
+
+    /// Moves an already resolved station board into Departures without repeating its provider request.
+    @discardableResult
+    func showDepartures(_ search: ResolvedDepartureSearch) -> Bool {
+        guard availableSections.contains(.departures),
+              search.dataSourceID == client.descriptor.id
+        else {
+            return false
+        }
+
+        departuresModel.present(search)
+        selection = .departures
         return true
     }
 
@@ -317,7 +339,8 @@ final class AppDataSourceSelection: ObservableObject {
     init(
         registry: TransitDataSourceRegistry,
         initialDataSourceID: TransitDataSourceID? = nil,
-        initialStationTimetableSelection: StationTimetableSelection? = nil
+        initialStationTimetableSelection: StationTimetableSelection? = nil,
+        initialDepartureSearch: ResolvedDepartureSearch? = nil
     ) {
         self.registry = registry
         descriptors = registry.descriptors
@@ -328,7 +351,8 @@ final class AppDataSourceSelection: ObservableObject {
             ?? registry.defaultDataSource
         workspace = AppDataSourceWorkspace(
             client: initialDataSource,
-            initialStationTimetableSelection: initialStationTimetableSelection
+            initialStationTimetableSelection: initialStationTimetableSelection,
+            initialDepartureSearch: initialDepartureSearch
         )
     }
 
@@ -450,12 +474,16 @@ struct ContentView: View {
         showsServiceInformationText: Bool,
         showsStopNoteText: Bool
     ) {
+        let initialDepartureSearch = ResolvedDepartureSearchTransferStore.shared.search(
+            for: sceneValue.wrappedValue.initialDepartureSearchTransferID
+        )
         _sceneValue = sceneValue
         _dataSourceSelection = StateObject(
             wrappedValue: AppDataSourceSelection(
                 registry: dataSources,
                 initialDataSourceID: sceneValue.wrappedValue.dataSourceID,
-                initialStationTimetableSelection: sceneValue.wrappedValue.initialStationTimetableSelection
+                initialStationTimetableSelection: sceneValue.wrappedValue.initialStationTimetableSelection,
+                initialDepartureSearch: initialDepartureSearch
             )
         )
         self.lastClosedDataSource = lastClosedDataSource
@@ -497,6 +525,10 @@ struct ContentView: View {
             }
             if sceneValue.initialStationTimetableSelection != nil {
                 sceneValue.initialStationTimetableSelection = nil
+            }
+            if let transferID = sceneValue.initialDepartureSearchTransferID {
+                sceneValue.initialDepartureSearchTransferID = nil
+                ResolvedDepartureSearchTransferStore.shared.discard(transferID)
             }
         }
     }
@@ -572,9 +604,8 @@ private struct ProviderSearchWorkspaceView: View {
                     client: client,
                     showsItemDetails: showsItemDetails,
                     showsStopNoteText: showsStopNoteText,
-                    showInDepartures: { search in
-                        workspace.departuresModel.present(search)
-                        workspace.selection = .departures
+                    showInDepartures: { search, destination in
+                        openDepartures(search, at: destination)
                     }
                 )
             }
@@ -593,6 +624,37 @@ private struct ProviderSearchWorkspaceView: View {
             let sceneValue = MainWindowSceneValue(
                 dataSourceID: selection.dataSourceID,
                 initialStationTimetableSelection: selection
+            )
+
+            if destination == .newTab {
+                AppWindowActions.newTab {
+                    openWindow(id: AppWindow.main, value: sceneValue)
+                }
+            } else {
+                openWindow(id: AppWindow.main, value: sceneValue)
+            }
+        }
+    }
+
+    /// Reuses the resolved station board here or transfers its complete provider state to another scene.
+    private func openDepartures(
+        _ search: ResolvedDepartureSearch,
+        at destination: DepartureSearchOpenDestination
+    ) {
+        switch destination {
+        case .currentWindow:
+            _ = workspace.showDepartures(search)
+        case .newWindow, .newTab:
+            guard let dataSourceID = search.dataSourceID,
+                  dataSourceID == client.descriptor.id,
+                  workspace.availableSections.contains(.departures)
+            else {
+                return
+            }
+            let transferID = ResolvedDepartureSearchTransferStore.shared.store(search)
+            let sceneValue = MainWindowSceneValue(
+                dataSourceID: dataSourceID,
+                initialDepartureSearchTransferID: transferID
             )
 
             if destination == .newTab {

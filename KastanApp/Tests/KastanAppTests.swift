@@ -1341,12 +1341,16 @@ final class KastanAppTests: XCTestCase {
 
     func testOptionClickingStationTimetableTimeRequestsItsDepartureSearch() throws {
         var searchedIndex: Int?
+        var searchedDestination: DepartureSearchOpenDestination?
         let departures = StationTimetableDepartureTimes(
             values: ["13", "35A"],
             explanations: ["A: runs only to stop Háje"],
             hour: "5",
             selectDeparture: { _ in XCTFail("Option-click must not perform the ordinary action.") },
-            searchDeparture: { searchedIndex = $0 }
+            searchDeparture: { index, destination in
+                searchedIndex = index
+                searchedDestination = destination
+            }
         )
         let hostingView = NSHostingView(
             rootView: departures.frame(width: 90, height: 30, alignment: .topLeading)
@@ -1388,6 +1392,7 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertNil(firstClickView.process(optionClick))
         XCTAssertEqual(searchedIndex, 0)
+        XCTAssertEqual(searchedDestination, .currentWindow)
 
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         XCTAssertEqual(
@@ -1397,6 +1402,33 @@ final class KastanAppTests: XCTestCase {
                 table: nil
             ),
             "Podržte Option a kliknutím vyhledejte tento spoj v Odjezdech."
+        )
+    }
+
+    func testStationTimetableDepartureSearchMenuUsesWindowBeforeTabOrder() throws {
+        XCTAssertEqual(
+            DepartureSearchOpenDestination.allCases,
+            [.currentWindow, .newWindow, .newTab]
+        )
+
+        let keys = DepartureSearchOpenDestination.allCases.map(\.localizationKey)
+        XCTAssertEqual(
+            keys,
+            [
+                "Find service in Departures",
+                "Find service in Departures in new window",
+                "Find service in Departures in new tab",
+            ]
+        )
+
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        XCTAssertEqual(
+            keys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
+            [
+                "Vyhledat spoj v Odjezdech",
+                "Vyhledat spoj v Odjezdech v novém okně",
+                "Vyhledat spoj v Odjezdech v novém panelu",
+            ]
         )
     }
 
@@ -5056,6 +5088,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNotEqual(first, second)
         XCTAssertEqual(first.dataSourceID, second.dataSourceID)
         XCTAssertNil(second.initialStationTimetableSelection)
+        XCTAssertNil(second.initialDepartureSearchTransferID)
         XCTAssertEqual(
             try JSONDecoder().decode(
                 MainWindowSceneValue.self,
@@ -9232,6 +9265,15 @@ final class KastanAppTests: XCTestCase {
         departuresModel.isArrival = true
         departuresModel.present(search)
 
+        let transferStore = ResolvedDepartureSearchTransferStore()
+        let transferID = transferStore.store(search)
+        let independentWorkspace = AppDataSourceWorkspace(
+            client: client,
+            initialDepartureSearch: transferStore.search(for: transferID)
+        )
+
+        XCTAssertEqual(independentWorkspace.selection, .departures)
+        XCTAssertEqual(independentWorkspace.departuresModel.departures, [matchingDeparture])
         XCTAssertEqual(departuresModel.timetable.slug, "pid")
         XCTAssertEqual(departuresModel.station, "Strašnická")
         XCTAssertNil(departuresModel.stationSelection)
@@ -9244,6 +9286,9 @@ final class KastanAppTests: XCTestCase {
         let requests = await client.departureRequests
         XCTAssertEqual(requests.count, 1)
         XCTAssertEqual(requests.first, search.request)
+
+        transferStore.discard(transferID)
+        XCTAssertNil(transferStore.search(for: transferID))
     }
 
     func testWholeWeekMinuteUsesTheNearestConcreteOccurrence() async throws {

@@ -10,7 +10,7 @@ struct StationTimetablesView: View {
     let client: any TransitDataSource
     let showsItemDetails: Bool
     let showsStopNoteText: Bool
-    let showInDepartures: (ResolvedDepartureSearch) -> Void
+    let showInDepartures: (ResolvedDepartureSearch, DepartureSearchOpenDestination) -> Void
     @State private var isSearchFormCollapsed: Bool
     @State private var isNotesExpanded = false
     @State private var isExplanationsExpanded = false
@@ -21,7 +21,10 @@ struct StationTimetablesView: View {
         client: any TransitDataSource,
         showsItemDetails: Bool,
         showsStopNoteText: Bool,
-        showInDepartures: @escaping (ResolvedDepartureSearch) -> Void = { _ in }
+        showInDepartures: @escaping (
+            ResolvedDepartureSearch,
+            DepartureSearchOpenDestination
+        ) -> Void = { _, _ in }
     ) {
         self.model = model
         self.client = client
@@ -663,7 +666,7 @@ struct StationTimetablesView: View {
             if model.canOpenDepartureServices {
                 openService(departure)
             } else {
-                searchInDepartures(departure)
+                searchInDepartures(departure, at: .currentWindow)
             }
         }
     }
@@ -672,9 +675,9 @@ struct StationTimetablesView: View {
         scheduleIndex: Int,
         schedule: TransitStationTimetableSchedule,
         hourIndex: Int
-    ) -> ((Int) -> Void)? {
+    ) -> ((Int, DepartureSearchOpenDestination) -> Void)? {
         guard model.canFindDepartureResults else { return nil }
-        return { departureIndex in
+        return { departureIndex, destination in
             guard let departure = StationTimetableDepartureReference(
                 scheduleIndex: scheduleIndex,
                 schedule: schedule,
@@ -683,7 +686,7 @@ struct StationTimetablesView: View {
             ) else {
                 return
             }
-            searchInDepartures(departure)
+            searchInDepartures(departure, at: destination)
         }
     }
 
@@ -732,10 +735,13 @@ struct StationTimetablesView: View {
     }
 
     /// Switches search modes only after the data source has identified the concrete dated run.
-    private func searchInDepartures(_ departure: StationTimetableDepartureReference) {
+    private func searchInDepartures(
+        _ departure: StationTimetableDepartureReference,
+        at destination: DepartureSearchOpenDestination
+    ) {
         Task {
             guard let search = await model.departureSearch(for: departure) else { return }
-            showInDepartures(search)
+            showInDepartures(search, destination)
         }
     }
 
@@ -814,7 +820,7 @@ struct StationTimetableDepartureTimes: View {
     let resolvingIndex: Int?
     let departuresAreEnabled: Bool
     let selectDeparture: ((Int) -> Void)?
-    let searchDeparture: ((Int) -> Void)?
+    let searchDeparture: ((Int, DepartureSearchOpenDestination) -> Void)?
     let previewDeparture: ((Int) -> StationTimetableDeparturePreviewConfiguration?)?
 
     init(
@@ -824,7 +830,7 @@ struct StationTimetableDepartureTimes: View {
         resolvingIndex: Int? = nil,
         departuresAreEnabled: Bool = true,
         selectDeparture: ((Int) -> Void)? = nil,
-        searchDeparture: ((Int) -> Void)? = nil,
+        searchDeparture: ((Int, DepartureSearchOpenDestination) -> Void)? = nil,
         previewDeparture: ((Int) -> StationTimetableDeparturePreviewConfiguration?)? = nil
     ) {
         self.values = values
@@ -852,7 +858,7 @@ struct StationTimetableDepartureTimes: View {
                         { selectDeparture(index) }
                     },
                     searchInDepartures: searchDeparture.map { searchDeparture in
-                        { searchDeparture(index) }
+                        { destination in searchDeparture(index, destination) }
                     },
                     preview: previewDeparture?(index)
                 )
@@ -886,7 +892,7 @@ private struct StationTimetableDepartureTime: View {
     let isResolving: Bool
     let isEnabled: Bool
     let action: (() -> Void)?
-    let searchInDepartures: (() -> Void)?
+    let searchInDepartures: ((DepartureSearchOpenDestination) -> Void)?
     let preview: StationTimetableDeparturePreviewConfiguration?
     @State private var previewSelection: ServiceSelection?
     @State private var isPreviewPresented = false
@@ -942,7 +948,9 @@ private struct StationTimetableDepartureTime: View {
         .accessibilityLabel(Text(verbatim: accessibilityLabel))
         .overlay {
             if let searchInDepartures {
-                OptionClickOverlay(action: searchInDepartures)
+                OptionClickOverlay {
+                    searchInDepartures(.currentWindow)
+                }
             }
         }
         .forceClickPreview(
@@ -957,7 +965,7 @@ private struct StationTimetableDepartureTime: View {
             previewPresentationChanged(isPresented)
         }
 
-        if preview == nil {
+        if preview == nil, searchInDepartures == nil {
             button
         } else {
             button.contextMenu {
@@ -968,6 +976,15 @@ private struct StationTimetableDepartureTime: View {
 
     @ViewBuilder
     private var serviceActionMenu: some View {
+        if let searchInDepartures {
+            DepartureSearchOpenActions(open: searchInDepartures)
+                .disabled(!isEnabled || isPerformingContextAction)
+
+            if preview?.contextActions.isEmpty == false {
+                Divider()
+            }
+        }
+
         if let preview {
             ForEach(preview.contextActions) { action in
                 serviceActionControl(action, preview: preview)
