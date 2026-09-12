@@ -10,7 +10,6 @@ struct DeparturesView: View {
     let showsItemDetails: Bool
     let showsServiceInformationText: Bool
     let showsStopNoteText: Bool
-    @State private var isSearchFormCollapsed = false
     @State private var showsSearchShortcuts = SearchShortcutPresentation.isVisible(
         for: NSEvent.modifierFlags
     )
@@ -21,7 +20,7 @@ struct DeparturesView: View {
 
             SearchWorkspace(
                 layout: layout,
-                searchVerticalPadding: isSearchFormCollapsed ? 10 : 18,
+                searchVerticalPadding: model.isSearchFormCollapsed ? 10 : 18,
                 canLoadEarlier: model.canLoadEarlier,
                 canLoadLater: model.canLoadLater,
                 isLoadingEarlier: model.isLoadingEarlier,
@@ -29,7 +28,7 @@ struct DeparturesView: View {
                 loadEarlier: { await model.loadMore(.earlier) },
                 loadLater: { await model.loadMore(.later) }
             ) {
-                if isSearchFormCollapsed {
+                if model.isSearchFormCollapsed {
                     SearchSummaryBar(
                         summary: searchSummary,
                         systemImage: "list.bullet.rectangle",
@@ -48,7 +47,7 @@ struct DeparturesView: View {
                 height: geometry.size.height,
                 alignment: .topLeading
             )
-            .animation(.easeInOut(duration: 0.18), value: isSearchFormCollapsed)
+            .animation(.easeInOut(duration: 0.18), value: model.isSearchFormCollapsed)
             .onAppear {
                 model.refreshCurrentDateAndTime()
             }
@@ -160,14 +159,14 @@ struct DeparturesView: View {
         guard model.canSearch else { return }
         model.refreshCurrentDateAndTime()
         withAnimation(.easeInOut(duration: 0.18)) {
-            isSearchFormCollapsed = true
+            model.collapseSearchForm()
         }
         Task { await model.search() }
     }
 
     private func editSearch() {
         withAnimation(.easeInOut(duration: 0.18)) {
-            isSearchFormCollapsed = false
+            model.revealSearchForm()
         }
     }
 

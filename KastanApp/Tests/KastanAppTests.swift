@@ -9154,6 +9154,22 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(workspace.stationTimetablesModel.isSearchFormCollapsed)
     }
 
+    func testDepartureSearchHeaderStateSurvivesSwitchingSearchModes() {
+        let workspace = AppDataSourceWorkspace(client: MockIDOSClient())
+
+        workspace.departuresModel.collapseSearchForm()
+        workspace.selection = .stationTimetables
+        workspace.selection = .departures
+
+        XCTAssertTrue(workspace.departuresModel.isSearchFormCollapsed)
+
+        workspace.departuresModel.revealSearchForm()
+        workspace.selection = .connections
+        workspace.selection = .departures
+
+        XCTAssertFalse(workspace.departuresModel.isSearchFormCollapsed)
+    }
+
     func testConnectionAndServiceStationTimetableTransfersUseMatchedResultValues() async throws {
         let client = MockIDOSClient()
         let timetable = try IDOSTimetable.resolve("frydekmistek")
@@ -9359,8 +9375,10 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(TransitRequestFormatting.displayTime(from: departuresModel.time), "5:13")
         XCTAssertFalse(departuresModel.isArrival)
         XCTAssertFalse(departuresModel.usesCurrentDateAndTime)
+        XCTAssertTrue(departuresModel.isSearchFormCollapsed)
         XCTAssertEqual(departuresModel.departures, [matchingDeparture])
         XCTAssertNil(departuresModel.errorMessage)
+        XCTAssertTrue(independentWorkspace.departuresModel.isSearchFormCollapsed)
         let requests = await client.departureRequests
         XCTAssertEqual(requests.count, 1)
         XCTAssertEqual(requests.first, search.request)

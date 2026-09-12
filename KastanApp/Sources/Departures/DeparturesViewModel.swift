@@ -69,6 +69,8 @@ final class DeparturesViewModel: ObservableObject {
     /// Distinguishes the live current-moment default from a board instant deliberately chosen or submitted.
     @Published private(set) var usesCurrentDateAndTime = true
     @Published var isArrival = false
+    /// Retains the passenger's summary-or-editor choice while the main window displays another search mode.
+    @Published private(set) var isSearchFormCollapsed = false
     @Published private(set) var departures: [TransitDeparture] = []
     @Published private(set) var isSearching = false
     @Published private(set) var isLoadingEarlier = false
@@ -150,6 +152,17 @@ final class DeparturesViewModel: ObservableObject {
         isLoadingEarlier = false
         isLoadingLater = false
         errorMessage = nil
+        isSearchFormCollapsed = true
+    }
+
+    /// Replaces the submitted station-board editor with its compact result summary.
+    func collapseSearchForm() {
+        isSearchFormCollapsed = true
+    }
+
+    /// Restores the submitted station-board editor for deliberate query changes.
+    func revealSearchForm() {
+        isSearchFormCollapsed = false
     }
 
     func search() async {
