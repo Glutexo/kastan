@@ -120,6 +120,8 @@ final class StationTimetablesViewModel: ObservableObject {
     @Published var wholeWeek = false
     /// Retains the passenger's summary-or-editor choice while the main window displays another search mode.
     @Published private(set) var isSearchFormCollapsed = false
+    /// Retains the selected compact result section while the main window displays another search mode.
+    @Published var selectedResultSection = StationTimetableResultSection.stops
     @Published private(set) var result: TransitStationTimetable?
     @Published private(set) var isSearching = false
     @Published private(set) var resolvingDeparture: StationTimetableDepartureReference?

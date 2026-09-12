@@ -9140,6 +9140,7 @@ final class KastanAppTests: XCTestCase {
 
     func testStationTimetableSearchHeaderStateSurvivesSwitchingSearchModes() {
         let workspace = AppDataSourceWorkspace(client: MockIDOSClient())
+        workspace.selection = .stationTimetables
 
         workspace.stationTimetablesModel.collapseSearchForm()
         workspace.selection = .connections
@@ -9154,8 +9155,21 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(workspace.stationTimetablesModel.isSearchFormCollapsed)
     }
 
+    func testStationTimetableResultSectionSurvivesSwitchingSearchModes() {
+        let workspace = AppDataSourceWorkspace(client: MockIDOSClient())
+        workspace.selection = .stationTimetables
+
+        XCTAssertEqual(workspace.stationTimetablesModel.selectedResultSection, .stops)
+        workspace.stationTimetablesModel.selectedResultSection = .timetable
+        workspace.selection = .connections
+        workspace.selection = .stationTimetables
+
+        XCTAssertEqual(workspace.stationTimetablesModel.selectedResultSection, .timetable)
+    }
+
     func testDepartureSearchHeaderStateSurvivesSwitchingSearchModes() {
         let workspace = AppDataSourceWorkspace(client: MockIDOSClient())
+        workspace.selection = .departures
 
         workspace.departuresModel.collapseSearchForm()
         workspace.selection = .stationTimetables

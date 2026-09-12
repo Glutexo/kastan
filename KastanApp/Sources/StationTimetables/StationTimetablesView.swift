@@ -13,7 +13,6 @@ struct StationTimetablesView: View {
     let showInDepartures: (ResolvedDepartureSearch, DepartureSearchOpenDestination) -> Void
     @State private var isNotesExpanded = false
     @State private var isExplanationsExpanded = false
-    @State private var selectedResultSection = StationTimetableResultSection.stops
 
     init(
         model: StationTimetablesViewModel,
@@ -349,7 +348,7 @@ struct StationTimetablesView: View {
 
     @ViewBuilder
     private func compactResultSection(_ result: TransitStationTimetable) -> some View {
-        switch selectedResultSection {
+        switch model.selectedResultSection {
         case .stops:
             stops(result)
         case .timetable:
@@ -402,7 +401,7 @@ struct StationTimetablesView: View {
             }
 
             if showsSectionPicker {
-                StationTimetableResultSectionPicker(selection: $selectedResultSection)
+                StationTimetableResultSectionPicker(selection: $model.selectedResultSection)
             }
         }
     }
