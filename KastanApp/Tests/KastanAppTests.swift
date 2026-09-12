@@ -6136,6 +6136,77 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(AppTimetableGroup.stationTimetables.first?.slug, "vlaky")
     }
 
+    func testLastSelectedTimetablePersistsPerDataSourceAndRemovesStaleValues() throws {
+        let suiteName = "cz.glutexo.kastan.tests.last-timetable.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let trains = try XCTUnwrap(TransitTimetable.known.first { $0.identifier == "vlaky" })
+        let pid = try XCTUnwrap(TransitTimetable.known.first { $0.identifier == "pid" })
+        let municipal = TransitTimetable(
+            dataSourceID: "municipal",
+            identifier: "network",
+            displayName: "Municipal Network"
+        )
+        let preference = LastSelectedTimetable(defaults: defaults)
+
+        preference.remember(pid)
+        preference.remember(municipal)
+
+        let restored = LastSelectedTimetable(defaults: defaults)
+        XCTAssertEqual(restored.timetable(for: .idos, in: [trains, pid]), pid)
+        XCTAssertEqual(restored.timetable(for: "municipal", in: [municipal]), municipal)
+        XCTAssertNil(restored.timetable(for: .idos, in: [trains]))
+        XCTAssertNil(LastSelectedTimetable(defaults: defaults).timetable(for: .idos, in: [trains, pid]))
+        XCTAssertEqual(
+            LastSelectedTimetable(defaults: defaults).timetable(for: "municipal", in: [municipal]),
+            municipal
+        )
+    }
+
+    func testEverySearchModeUpdatesAndNewWorkspaceRestoresLastSelectedTimetable() throws {
+        let suiteName = "cz.glutexo.kastan.tests.workspace-timetable.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let client = MockIDOSClient()
+        let pid = try XCTUnwrap(TransitTimetable.known.first { $0.identifier == "pid" })
+        let odis = try XCTUnwrap(TransitTimetable.known.first { $0.identifier == "odis" })
+        let preference = LastSelectedTimetable(defaults: defaults)
+        let workspace = AppDataSourceWorkspace(
+            client: client,
+            lastSelectedTimetable: preference
+        )
+
+        workspace.connectionsModel.timetable = pid
+        XCTAssertEqual(
+            LastSelectedTimetable(defaults: defaults).timetable(for: .idos, in: TransitTimetable.known),
+            pid
+        )
+
+        workspace.departuresModel.timetable = odis
+        XCTAssertEqual(
+            LastSelectedTimetable(defaults: defaults).timetable(for: .idos, in: TransitTimetable.known),
+            odis
+        )
+
+        workspace.stationTimetablesModel.selectTimetable(slug: pid.identifier)
+        XCTAssertEqual(
+            LastSelectedTimetable(defaults: defaults).timetable(for: .idos, in: TransitTimetable.known),
+            pid
+        )
+
+        let restoredWorkspace = AppDataSourceWorkspace(
+            client: client,
+            lastSelectedTimetable: LastSelectedTimetable(defaults: defaults)
+        )
+        XCTAssertEqual(restoredWorkspace.connectionsModel.timetable, pid)
+        XCTAssertEqual(restoredWorkspace.departuresModel.timetable, pid)
+        XCTAssertEqual(restoredWorkspace.stationTimetablesModel.timetable, pid)
+    }
+
     func testFavoriteTimetablesPersistKnownUniqueSlugsInOrder() {
         var favorites = TimetableFavorites(slugs: ["vlaky", "unknown", "vlaky", "odis"])
 

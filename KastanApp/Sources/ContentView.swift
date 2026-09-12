@@ -260,10 +260,18 @@ final class AppDataSourceWorkspace: ObservableObject, Identifiable {
         client: any TransitDataSource,
         initialStationTimetableSelection: StationTimetableSelection? = nil,
         initialDepartureSelection: DepartureSearchSelection? = nil,
-        initialDepartureSearch: ResolvedDepartureSearch? = nil
+        initialDepartureSearch: ResolvedDepartureSearch? = nil,
+        lastSelectedTimetable: LastSelectedTimetable? = nil
     ) {
         self.client = client
         availableSections = AppSection.available(for: client.descriptor)
+        let preferredTimetable = lastSelectedTimetable?.timetable(
+            for: client.descriptor.id,
+            in: client.timetables
+        )
+        let rememberTimetable: (TransitTimetable) -> Void = { timetable in
+            lastSelectedTimetable?.remember(timetable)
+        }
         let opensStationTimetable = initialStationTimetableSelection?.dataSourceID == client.descriptor.id &&
             availableSections.contains(.stationTimetables)
         let opensResolvedDepartures = initialDepartureSearch?.dataSourceID == client.descriptor.id &&
@@ -275,14 +283,22 @@ final class AppDataSourceWorkspace: ObservableObject, Identifiable {
         selection = opensDepartures
             ? .departures
             : opensStationTimetable ? .stationTimetables : availableSections.first ?? .connections
-        connectionsModel = ConnectionsViewModel(client: client)
+        connectionsModel = ConnectionsViewModel(
+            client: client,
+            preferredTimetable: preferredTimetable,
+            rememberTimetable: rememberTimetable
+        )
         departuresModel = DeparturesViewModel(
             client: client,
-            initialSelection: opensSelectedDepartures ? initialDepartureSelection : nil
+            initialSelection: opensSelectedDepartures ? initialDepartureSelection : nil,
+            preferredTimetable: preferredTimetable,
+            rememberTimetable: rememberTimetable
         )
         stationTimetablesModel = StationTimetablesViewModel(
             client: client,
-            initialSelection: opensStationTimetable ? initialStationTimetableSelection : nil
+            initialSelection: opensStationTimetable ? initialStationTimetableSelection : nil,
+            preferredTimetable: preferredTimetable,
+            rememberTimetable: rememberTimetable
         )
         if opensResolvedDepartures, let initialDepartureSearch {
             departuresModel.present(initialDepartureSearch)
@@ -356,15 +372,18 @@ final class AppDataSourceSelection: ObservableObject {
     let descriptors: [TransitDataSourceDescriptor]
     let timetables: [TransitTimetable]
     @Published private(set) var workspace: AppDataSourceWorkspace
+    private let lastSelectedTimetable: LastSelectedTimetable?
 
     init(
         registry: TransitDataSourceRegistry,
+        lastSelectedTimetable: LastSelectedTimetable? = nil,
         initialDataSourceID: TransitDataSourceID? = nil,
         initialStationTimetableSelection: StationTimetableSelection? = nil,
         initialDepartureSelection: DepartureSearchSelection? = nil,
         initialDepartureSearch: ResolvedDepartureSearch? = nil
     ) {
         self.registry = registry
+        self.lastSelectedTimetable = lastSelectedTimetable
         descriptors = registry.descriptors
         timetables = registry.descriptors.flatMap { descriptor in
             registry.dataSource(for: descriptor.id)?.timetables ?? []
@@ -375,7 +394,8 @@ final class AppDataSourceSelection: ObservableObject {
             client: initialDataSource,
             initialStationTimetableSelection: initialStationTimetableSelection,
             initialDepartureSelection: initialDepartureSelection,
-            initialDepartureSearch: initialDepartureSearch
+            initialDepartureSearch: initialDepartureSearch,
+            lastSelectedTimetable: lastSelectedTimetable
         )
     }
 
@@ -400,7 +420,10 @@ final class AppDataSourceSelection: ObservableObject {
             return false
         }
 
-        workspace = AppDataSourceWorkspace(client: dataSource)
+        workspace = AppDataSourceWorkspace(
+            client: dataSource,
+            lastSelectedTimetable: lastSelectedTimetable
+        )
         return true
     }
 }
@@ -492,6 +515,7 @@ struct ContentView: View {
         sceneValue: Binding<MainWindowSceneValue>,
         dataSources: TransitDataSourceRegistry,
         lastClosedDataSource: LastClosedMainWindowDataSource,
+        lastSelectedTimetable: LastSelectedTimetable,
         showsConnectionBadges: Bool,
         showsItemDetails: Bool,
         showsServiceInformationText: Bool,
@@ -504,6 +528,7 @@ struct ContentView: View {
         _dataSourceSelection = StateObject(
             wrappedValue: AppDataSourceSelection(
                 registry: dataSources,
+                lastSelectedTimetable: lastSelectedTimetable,
                 initialDataSourceID: sceneValue.wrappedValue.dataSourceID,
                 initialStationTimetableSelection: sceneValue.wrappedValue.initialStationTimetableSelection,
                 initialDepartureSelection: sceneValue.wrappedValue.initialDepartureSelection,

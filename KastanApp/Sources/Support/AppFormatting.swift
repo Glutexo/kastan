@@ -498,16 +498,66 @@ private struct TimetableFavoriteReference: Codable, Equatable, Hashable {
     }
 }
 
+/// Persists the last timetable chosen for each data source without retaining provider-owned display text.
+@MainActor
+final class LastSelectedTimetable: ObservableObject {
+    static let storageKey = "lastSelectedTimetableIdentifiersByDataSource"
+
+    private let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    /// Resolves stored identity against the current provider catalog and removes a stale value.
+    func timetable(
+        for dataSourceID: TransitDataSourceID,
+        in catalog: [TransitTimetable]
+    ) -> TransitTimetable? {
+        var identifiers = storedIdentifiers
+        guard let identifier = identifiers[dataSourceID.rawValue] else { return nil }
+        if let timetable = catalog.first(where: {
+            $0.dataSourceID == dataSourceID && $0.identifier == identifier
+        }) {
+            return timetable
+        }
+
+        identifiers[dataSourceID.rawValue] = nil
+        defaults.set(identifiers, forKey: Self.storageKey)
+        return nil
+    }
+
+    /// Records only stable provider identity so renamed timetable labels follow the current catalog.
+    func remember(_ timetable: TransitTimetable) {
+        var identifiers = storedIdentifiers
+        guard identifiers[timetable.dataSourceID.rawValue] != timetable.identifier else { return }
+        identifiers[timetable.dataSourceID.rawValue] = timetable.identifier
+        defaults.set(identifiers, forKey: Self.storageKey)
+    }
+
+    private var storedIdentifiers: [String: String] {
+        guard let values = defaults.dictionary(forKey: Self.storageKey) else { return [:] }
+        return values.compactMapValues { $0 as? String }
+    }
+}
+
 /// Keeps every macOS search mode aligned on the narrowest useful timetable available to all of them.
 enum AppTimetableDefaults {
     static let search = TransitTimetable.known.first { $0.slug == "vlaky" }
         ?? TransitTimetable(slug: "vlaky", displayName: "Trains")
 
-    /// Prefers the established train catalog when a provider offers it, then falls back to its declared default.
+    /// Restores a supported preferred catalog before applying the established train and provider fallbacks.
     static func search(
         in timetables: [TransitTimetable],
-        defaultTimetable: TransitTimetable
+        defaultTimetable: TransitTimetable,
+        preferredTimetable: TransitTimetable? = nil
     ) -> TransitTimetable {
+        if let preferredTimetable,
+           let selected = timetables.first(where: {
+               $0.appIdentity == preferredTimetable.appIdentity
+           }) {
+            return selected
+        }
         guard defaultTimetable.dataSourceID == .idos else { return defaultTimetable }
         return timetables.first {
             $0.dataSourceID == .idos && $0.identifier == "vlaky"

@@ -114,7 +114,12 @@ final class StationTimetablesViewModel: ObservableObject {
     @Published var line = ""
     @Published var from = ""
     @Published var to = ""
-    @Published var timetable: TransitTimetable
+    @Published var timetable: TransitTimetable {
+        didSet {
+            guard timetable != oldValue else { return }
+            rememberTimetable(timetable)
+        }
+    }
     @Published var municipality: TransitStationTimetableMunicipality?
     @Published var date = Date()
     @Published var wholeWeek = false
@@ -128,6 +133,7 @@ final class StationTimetablesViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     let client: any TransitDataSource
+    private let rememberTimetable: (TransitTimetable) -> Void
     private var resultSearchDate: TransitDate?
     private var resultUsesWholeWeek = false
     private var resultRequest: TransitStationTimetableRequest?
@@ -141,12 +147,17 @@ final class StationTimetablesViewModel: ObservableObject {
 
     init(
         client: any TransitDataSource,
-        initialSelection: StationTimetableSelection? = nil
+        initialSelection: StationTimetableSelection? = nil,
+        preferredTimetable: TransitTimetable? = nil,
+        rememberTimetable: @escaping (TransitTimetable) -> Void = { _ in }
     ) {
         self.client = client
+        self.rememberTimetable = rememberTimetable
+        let availableTimetables = AppTimetableGroup.stationTimetables(in: client.timetables)
         timetable = AppTimetableDefaults.search(
-            in: client.timetables,
-            defaultTimetable: client.defaultTimetable
+            in: availableTimetables,
+            defaultTimetable: client.defaultTimetable,
+            preferredTimetable: preferredTimetable
         )
         municipality = client.defaultStationTimetableMunicipality(for: timetable)
 

@@ -1138,6 +1138,7 @@ struct KastanApp: App {
     /// Registers concrete providers once and routes restorable results back to the source that issued them.
     private let dataSources = TransitDataSourceRegistry.builtIn
     @StateObject private var lastClosedDataSource = LastClosedMainWindowDataSource()
+    @StateObject private var lastSelectedTimetable = LastSelectedTimetable()
 
     init() {
         SymbolTextPreference.migrateLegacyValues()
@@ -1154,6 +1155,7 @@ struct KastanApp: App {
                 sceneValue: sceneValue,
                 dataSources: dataSources,
                 lastClosedDataSource: lastClosedDataSource,
+                lastSelectedTimetable: lastSelectedTimetable,
                 showsConnectionBadges: showsConnectionBadges,
                 showsItemDetails: showsItemDetails,
                 showsServiceInformationText: showsSymbolsAsText,

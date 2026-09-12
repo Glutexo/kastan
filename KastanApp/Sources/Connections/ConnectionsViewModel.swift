@@ -519,6 +519,7 @@ final class ConnectionsViewModel: ObservableObject {
                 journeyOptions[index].viaSelection = nil
             }
             removeJourneyOptionsUnavailableForCurrentTimetable()
+            rememberTimetable(timetable)
         }
     }
     @Published var date = Date() {
@@ -546,6 +547,7 @@ final class ConnectionsViewModel: ObservableObject {
     @Published private(set) var actionError: ResultActionError?
 
     let client: any TransitDataSource
+    private let rememberTimetable: (TransitTimetable) -> Void
     private let calendarImporter: any CalendarImporting
     private let calendarSaver: any CalendarSaving
     private let pdfOpener: any PDFOpening
@@ -558,6 +560,8 @@ final class ConnectionsViewModel: ObservableObject {
 
     init(
         client: any TransitDataSource,
+        preferredTimetable: TransitTimetable? = nil,
+        rememberTimetable: @escaping (TransitTimetable) -> Void = { _ in },
         calendarImporter: any CalendarImporting = WorkspaceCalendarImporter(),
         calendarSaver: any CalendarSaving = WorkspaceCalendarSaver(),
         pdfOpener: any PDFOpening = WorkspacePDFOpener(),
@@ -566,9 +570,11 @@ final class ConnectionsViewModel: ObservableObject {
         currentLocationProvider: any CurrentLocationProviding = SystemCurrentLocationProvider()
     ) {
         self.client = client
+        self.rememberTimetable = rememberTimetable
         let selectedTimetable = AppTimetableDefaults.search(
             in: client.timetables,
-            defaultTimetable: client.defaultTimetable
+            defaultTimetable: client.defaultTimetable,
+            preferredTimetable: preferredTimetable
         )
         // An empty via field is an inactive affordance. Every other editor carries a meaningful default value,
         // so sources without via support start with no row until the user explicitly adds a condition.

@@ -157,6 +157,7 @@ final class DeparturesViewModel: ObservableObject {
         didSet {
             guard timetable != oldValue else { return }
             stationSelection = nil
+            rememberTimetable(timetable)
         }
     }
     @Published var date = Date() {
@@ -177,18 +178,23 @@ final class DeparturesViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     let client: any TransitDataSource
+    private let rememberTimetable: (TransitTimetable) -> Void
     private var resultPage: TransitDeparturePage?
     private var isRefreshingCurrentDateAndTime = false
     private var hasPendingInitialSelection = false
 
     init(
         client: any TransitDataSource,
-        initialSelection: DepartureSearchSelection? = nil
+        initialSelection: DepartureSearchSelection? = nil,
+        preferredTimetable: TransitTimetable? = nil,
+        rememberTimetable: @escaping (TransitTimetable) -> Void = { _ in }
     ) {
         self.client = client
+        self.rememberTimetable = rememberTimetable
         timetable = AppTimetableDefaults.search(
             in: client.timetables,
-            defaultTimetable: client.defaultTimetable
+            defaultTimetable: client.defaultTimetable,
+            preferredTimetable: preferredTimetable
         )
 
         if let initialSelection {
