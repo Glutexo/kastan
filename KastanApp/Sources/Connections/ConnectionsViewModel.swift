@@ -531,6 +531,8 @@ final class ConnectionsViewModel: ObservableObject {
     @Published private(set) var usesCurrentDateAndTime = true
     @Published var isArrival = false
     @Published private(set) var onlyDirect = false
+    /// Retains the passenger's summary-or-editor choice while the main window displays another search mode.
+    @Published private(set) var isSearchFormCollapsed = false
     @Published private(set) var connections: [TransitConnection] = []
     @Published private(set) var hasCompletedSearch = false
     @Published private(set) var isSearching = false
@@ -580,6 +582,16 @@ final class ConnectionsViewModel: ObservableObject {
         self.pdfExporter = pdfExporter
         self.emailMailComposer = emailMailComposer
         self.currentLocationProvider = currentLocationProvider
+    }
+
+    /// Replaces the submitted connection editor with its compact result summary.
+    func collapseSearchForm() {
+        isSearchFormCollapsed = true
+    }
+
+    /// Restores the submitted connection editor for deliberate query changes.
+    func revealSearchForm() {
+        isSearchFormCollapsed = false
     }
 
     var timetables: [TransitTimetable] {

@@ -249,7 +249,6 @@ struct ConnectionsView: View {
     let openStationTimetable: ((StationTimetableSelection, StationTimetableOpenDestination) -> Void)?
     @State private var isJourneyOptionsExpanded = false
     @State private var hasUsedDirectConnectionsShortcut = false
-    @State private var isSearchFormCollapsed = false
     @State private var emailSelection: ConnectionSelection?
     @State private var optionIsPressed = SearchShortcutPresentation.isVisible(
         for: NSEvent.modifierFlags
@@ -279,7 +278,7 @@ struct ConnectionsView: View {
 
             SearchWorkspace(
                 layout: layout,
-                searchVerticalPadding: isSearchFormCollapsed ? 10 : 18,
+                searchVerticalPadding: model.isSearchFormCollapsed ? 10 : 18,
                 canLoadEarlier: model.canLoadEarlier,
                 canLoadLater: model.canLoadLater,
                 isLoadingEarlier: model.isLoadingEarlier,
@@ -287,7 +286,7 @@ struct ConnectionsView: View {
                 loadEarlier: { await model.loadMore(.earlier) },
                 loadLater: { await model.loadMore(.later) }
             ) {
-                if isSearchFormCollapsed {
+                if model.isSearchFormCollapsed {
                     connectionSearchSummaryBar
                     .transition(.opacity)
                 } else {
@@ -302,7 +301,7 @@ struct ConnectionsView: View {
                 height: geometry.size.height,
                 alignment: .topLeading
             )
-            .animation(.easeInOut(duration: 0.18), value: isSearchFormCollapsed)
+            .animation(.easeInOut(duration: 0.18), value: model.isSearchFormCollapsed)
         }
         .background {
             OptionModifierMonitor(isPressed: $optionIsPressed)
@@ -550,7 +549,7 @@ struct ConnectionsView: View {
 
     private var connectionStationTimetableCommandContext: ConnectionStationTimetableCommandContext {
         ConnectionStationTimetableCommandContext(
-            isAvailable: isSearchFormCollapsed && canOpenStationTimetable,
+            isAvailable: model.isSearchFormCollapsed && canOpenStationTimetable,
             open: { destination in
                 guard let selection = connectionSearchStationTimetableSelection else { return }
                 openStationTimetable?(selection, destination)
@@ -601,14 +600,14 @@ struct ConnectionsView: View {
         guard model.canSearch else { return }
         model.refreshCurrentDateAndTime()
         withAnimation(.easeInOut(duration: 0.18)) {
-            isSearchFormCollapsed = true
+            model.collapseSearchForm()
         }
         Task { await model.search() }
     }
 
     private func editSearch() {
         withAnimation(.easeInOut(duration: 0.18)) {
-            isSearchFormCollapsed = false
+            model.revealSearchForm()
         }
     }
 

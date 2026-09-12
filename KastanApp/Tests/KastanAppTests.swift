@@ -9121,6 +9121,22 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(requestAfterTransition, previousRequest)
     }
 
+    func testConnectionSearchHeaderStateSurvivesSwitchingSearchModes() {
+        let workspace = AppDataSourceWorkspace(client: MockIDOSClient())
+
+        workspace.connectionsModel.collapseSearchForm()
+        workspace.selection = .departures
+        workspace.selection = .connections
+
+        XCTAssertTrue(workspace.connectionsModel.isSearchFormCollapsed)
+
+        workspace.connectionsModel.revealSearchForm()
+        workspace.selection = .stationTimetables
+        workspace.selection = .connections
+
+        XCTAssertFalse(workspace.connectionsModel.isSearchFormCollapsed)
+    }
+
     func testConnectionAndServiceStationTimetableTransfersUseMatchedResultValues() async throws {
         let client = MockIDOSClient()
         let timetable = try IDOSTimetable.resolve("frydekmistek")
