@@ -1345,17 +1345,19 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(selectedIndex, 1)
     }
 
-    func testOptionClickingStationTimetableTimeRequestsItsDepartureSearch() throws {
-        var searchedIndex: Int?
-        var searchedDestination: DepartureSearchOpenDestination?
+    func testModifierClickingStationTimetableTimeRoutesItsSearchAndDestination() throws {
+        var departureSearches: [(Int, DepartureSearchOpenDestination)] = []
+        var connectionSearches: [(Int, ConnectionSearchOpenDestination)] = []
         let departures = StationTimetableDepartureTimes(
             values: ["13", "35A"],
             explanations: ["A: runs only to stop Háje"],
             hour: "5",
-            selectDeparture: { _ in XCTFail("Option-click must not perform the ordinary action.") },
+            selectDeparture: { _ in XCTFail("A modified click must not perform the ordinary action.") },
             searchDeparture: { index, destination in
-                searchedIndex = index
-                searchedDestination = destination
+                departureSearches.append((index, destination))
+            },
+            searchConnection: { index, destination in
+                connectionSearches.append((index, destination))
             }
         )
         let hostingView = NSHostingView(
@@ -1381,24 +1383,53 @@ final class KastanAppTests: XCTestCase {
             hostingView.convert(lhs.bounds, from: lhs).midX <
                 hostingView.convert(rhs.bounds, from: rhs).midX
         })
-        let optionClick = try XCTUnwrap(NSEvent.mouseEvent(
-            with: .leftMouseDown,
-            location: firstClickView.convert(
+        let clickLocation = firstClickView.convert(
                 NSPoint(x: firstClickView.bounds.midX, y: firstClickView.bounds.midY),
                 to: nil
-            ),
-            modifierFlags: [.option],
-            timestamp: 0,
-            windowNumber: window.windowNumber,
-            context: nil,
-            eventNumber: 1,
-            clickCount: 1,
-            pressure: 1
-        ))
+            )
+        let departureCases: [(NSEvent.ModifierFlags, DepartureSearchOpenDestination)] = [
+            ([.option], .currentWindow),
+            ([.option, .command], .newTab),
+            ([.option, .command, .shift], .newWindow),
+        ]
+        for (eventNumber, testCase) in departureCases.enumerated() {
+            let click = try XCTUnwrap(NSEvent.mouseEvent(
+                with: .leftMouseDown,
+                location: clickLocation,
+                modifierFlags: testCase.0,
+                timestamp: 0,
+                windowNumber: window.windowNumber,
+                context: nil,
+                eventNumber: eventNumber,
+                clickCount: 1,
+                pressure: 1
+            ))
+            XCTAssertNil(firstClickView.process(click))
+        }
+        let connectionCases: [(NSEvent.ModifierFlags, ConnectionSearchOpenDestination)] = [
+            ([.control, .option], .currentWindow),
+            ([.control, .option, .command], .newTab),
+            ([.control, .option, .command, .shift], .newWindow),
+        ]
+        for (eventNumber, testCase) in connectionCases.enumerated() {
+            let click = try XCTUnwrap(NSEvent.mouseEvent(
+                with: .leftMouseDown,
+                location: clickLocation,
+                modifierFlags: testCase.0,
+                timestamp: 0,
+                windowNumber: window.windowNumber,
+                context: nil,
+                eventNumber: eventNumber + departureCases.count,
+                clickCount: 1,
+                pressure: 1
+            ))
+            XCTAssertNil(firstClickView.process(click))
+        }
 
-        XCTAssertNil(firstClickView.process(optionClick))
-        XCTAssertEqual(searchedIndex, 0)
-        XCTAssertEqual(searchedDestination, .currentWindow)
+        XCTAssertEqual(departureSearches.map(\.0), [0, 0, 0])
+        XCTAssertEqual(departureSearches.map(\.1), departureCases.map(\.1))
+        XCTAssertEqual(connectionSearches.map(\.0), [0, 0, 0])
+        XCTAssertEqual(connectionSearches.map(\.1), connectionCases.map(\.1))
 
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         XCTAssertEqual(
@@ -1409,32 +1440,88 @@ final class KastanAppTests: XCTestCase {
             ),
             "Podržte Option a kliknutím vyhledejte tento spoj v Odjezdech."
         )
+        XCTAssertEqual(
+            czech.localizedString(
+                forKey: "Hold Control and Option and click to find a connection.",
+                value: nil,
+                table: nil
+            ),
+            "Podržte Control a Option a kliknutím vyhledejte spojení."
+        )
     }
 
-    func testStationTimetableDepartureSearchMenuUsesWindowBeforeTabOrder() throws {
+    func testStationTimetableSearchMenusUseWindowBeforeTabOrder() throws {
         XCTAssertEqual(
             DepartureSearchOpenDestination.allCases,
             [.currentWindow, .newWindow, .newTab]
         )
-
-        let keys = DepartureSearchOpenDestination.allCases.map(\.localizationKey)
         XCTAssertEqual(
-            keys,
+            ConnectionSearchOpenDestination.allCases,
+            [.currentWindow, .newWindow, .newTab]
+        )
+
+        let departureKeys = DepartureSearchOpenDestination.allCases.map(\.localizationKey)
+        XCTAssertEqual(
+            departureKeys,
             [
                 "Find departures",
                 "Find departures in new window",
                 "Find departures in new tab",
             ]
         )
+        let connectionKeys = ConnectionSearchOpenDestination.allCases.map(\.localizationKey)
+        XCTAssertEqual(
+            connectionKeys,
+            [
+                "Find a connection",
+                "Find a connection in new window",
+                "Find a connection in new tab",
+            ]
+        )
 
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         XCTAssertEqual(
-            keys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
+            departureKeys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
             [
                 "Vyhledat odjezdy",
                 "Vyhledat odjezdy v novém okně",
                 "Vyhledat odjezdy v novém panelu",
             ]
+        )
+        XCTAssertEqual(
+            connectionKeys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
+            [
+                "Vyhledat spojení",
+                "Vyhledat spojení v novém okně",
+                "Vyhledat spojení v novém panelu",
+            ]
+        )
+    }
+
+    func testTransferredSearchDestinationsFollowCommandClickConvention() {
+        XCTAssertEqual(MainSearchOpenDestination.preferred(for: []), .current)
+        XCTAssertEqual(MainSearchOpenDestination.preferred(for: [.command]), .newTab)
+        XCTAssertEqual(
+            MainSearchOpenDestination.preferred(for: [.command, .shift]),
+            .newWindow
+        )
+        XCTAssertEqual(
+            DepartureSearchOpenDestination.currentWindow.resolvingCurrentAction(for: [.command]),
+            .newTab
+        )
+        XCTAssertEqual(
+            ConnectionSearchOpenDestination.currentWindow.resolvingCurrentAction(
+                for: [.command, .shift]
+            ),
+            .newWindow
+        )
+        XCTAssertEqual(
+            StationTimetableOpenDestination.currentTab.resolvingCurrentAction(for: [.command]),
+            .newTab
+        )
+        XCTAssertEqual(
+            StationTimetableOpenDestination.newWindow.resolvingCurrentAction(for: [.command]),
+            .newWindow
         )
     }
 
@@ -5136,6 +5223,7 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertNotEqual(first, second)
         XCTAssertEqual(first.dataSourceID, second.dataSourceID)
+        XCTAssertNil(second.initialConnectionSelection)
         XCTAssertNil(second.initialStationTimetableSelection)
         XCTAssertNil(second.initialDepartureSelection)
         XCTAssertNil(second.initialDepartureSearchTransferID)
@@ -9582,6 +9670,85 @@ final class KastanAppTests: XCTestCase {
 
         transferStore.discard(transferID)
         XCTAssertNil(transferStore.search(for: transferID))
+    }
+
+    func testStationTimetableMinuteStartsAConnectionSearchFromItsMatchedRun() async throws {
+        let client = MockIDOSClient()
+        let stationTimetableModel = StationTimetablesViewModel(client: client)
+        stationTimetableModel.date = try XCTUnwrap(Calendar.current.date(from: DateComponents(
+            year: 2026,
+            month: 8,
+            day: 31
+        )))
+        stationTimetableModel.selectTimetable(slug: "pid")
+        stationTimetableModel.selectLineSuggestion(IDOSSuggestion(
+            text: "Bus 154",
+            from: "Strašnická",
+            to: "Sídliště Libuš"
+        ))
+        await client.configureDepartureResponses([
+            "31.8.2026": [
+                IDOSDeparture(
+                    timetableIdentifier: "pid",
+                    id: "pid:0-54986-31.08.2026 05:13:00",
+                    stationName: "Strašnická",
+                    time: "5:13",
+                    lineName: "Bus 154",
+                    destination: "Sídliště Libuš"
+                ),
+            ],
+        ])
+
+        await stationTimetableModel.search()
+        let result = try XCTUnwrap(stationTimetableModel.result)
+        let departure = try XCTUnwrap(StationTimetableDepartureReference(
+            scheduleIndex: 0,
+            schedule: result.schedules[0],
+            hourIndex: 0,
+            departureIndex: 0
+        ))
+        let resolvedSelection = await stationTimetableModel.connectionSearch(for: departure)
+        let selection = try XCTUnwrap(resolvedSelection)
+
+        XCTAssertEqual(selection.timetable.identifier, "pid")
+        XCTAssertEqual(selection.from, "Strašnická")
+        XCTAssertEqual(selection.to, "Sídliště Libuš")
+        XCTAssertEqual(selection.serviceDate, TransitDate(year: 2026, month: 8, day: 31))
+        XCTAssertEqual(selection.serviceTime, TransitTime(hour: 5, minute: 13))
+
+        let sceneValue = MainWindowSceneValue(
+            dataSourceID: .idos,
+            initialConnectionSelection: selection
+        )
+        XCTAssertEqual(
+            try JSONDecoder().decode(
+                MainWindowSceneValue.self,
+                from: JSONEncoder().encode(sceneValue)
+            ),
+            sceneValue
+        )
+
+        let independentWorkspace = AppDataSourceWorkspace(
+            client: client,
+            initialConnectionSelection: selection
+        )
+        XCTAssertEqual(independentWorkspace.selection, .connections)
+        XCTAssertTrue(independentWorkspace.connectionsModel.startsWithInitialSelection)
+        XCTAssertTrue(independentWorkspace.connectionsModel.isSearchFormCollapsed)
+
+        await independentWorkspace.connectionsModel.loadInitialSelectionIfNeeded()
+
+        let request = await client.lastConnectionRequest
+        XCTAssertEqual(request?.timetable.identifier, "pid")
+        XCTAssertEqual(request?.from, "Strašnická")
+        XCTAssertEqual(request?.to, "Sídliště Libuš")
+        XCTAssertEqual(request?.serviceDate, selection.serviceDate)
+        XCTAssertEqual(request?.serviceTime, selection.serviceTime)
+        XCTAssertFalse(request?.isArrival ?? true)
+        XCTAssertFalse(independentWorkspace.connectionsModel.startsWithInitialSelection)
+        XCTAssertFalse(independentWorkspace.connectionsModel.usesCurrentDateAndTime)
+        XCTAssertTrue(independentWorkspace.connectionsModel.hasCompletedSearch)
+        XCTAssertNil(independentWorkspace.connectionsModel.errorMessage)
     }
 
     func testWholeWeekMinuteUsesTheNearestConcreteOccurrence() async throws {

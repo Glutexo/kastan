@@ -1,6 +1,60 @@
 import Foundation
 import Kastan
 
+/// Preserves one complete connection query while opening it in another main window or tab.
+struct ConnectionSearchSelection: Codable, Hashable {
+    let timetable: TransitTimetable
+    let from: String
+    let to: String
+    let serviceDate: TransitDate
+    let serviceTime: TransitTime
+
+    var dataSourceID: TransitDataSourceID { timetable.dataSourceID }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(timetable.dataSourceID)
+        hasher.combine(timetable.identifier)
+        hasher.combine(timetable.displayName)
+        hasher.combine(from)
+        hasher.combine(to)
+        hasher.combine(serviceDate)
+        hasher.combine(serviceTime.hour)
+        hasher.combine(serviceTime.minute)
+    }
+}
+
+/// Builds a connection query from a provider-matched station-timetable departure.
+enum ConnectionSearchSelectionFactory {
+    static func stationTimetable(
+        timetable requestedTimetable: TransitTimetable,
+        from requestedFrom: String,
+        to requestedTo: String,
+        serviceDate: TransitDate,
+        serviceTime: TransitTime,
+        client: any TransitDataSource
+    ) -> ConnectionSearchSelection? {
+        let from = requestedFrom.trimmingCharacters(in: .whitespacesAndNewlines)
+        let to = requestedTo.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard client.descriptor.supports(.connections),
+              !from.isEmpty,
+              !to.isEmpty,
+              let timetable = client.timetables.first(where: {
+                  $0.appIdentity == requestedTimetable.appIdentity
+              })
+        else {
+            return nil
+        }
+
+        return ConnectionSearchSelection(
+            timetable: timetable,
+            from: from,
+            to: to,
+            serviceDate: serviceDate,
+            serviceTime: serviceTime
+        )
+    }
+}
+
 /// Groups the extensible journey-option catalog using the corresponding IDOS advanced-form sections.
 enum JourneyOptionGroup: CaseIterable {
     case transfers
@@ -557,9 +611,11 @@ final class ConnectionsViewModel: ObservableObject {
     private var resultPage: TransitConnectionPage?
     private var isRefreshingCurrentDateAndTime = false
     private var rememberedTransferValues = RememberedTransferValues()
+    private var hasPendingInitialSelection = false
 
     init(
         client: any TransitDataSource,
+        initialSelection: ConnectionSearchSelection? = nil,
         preferredTimetable: TransitTimetable? = nil,
         rememberTimetable: @escaping (TransitTimetable) -> Void = { _ in },
         calendarImporter: any CalendarImporting = WorkspaceCalendarImporter(),
@@ -576,11 +632,7 @@ final class ConnectionsViewModel: ObservableObject {
             defaultTimetable: client.defaultTimetable,
             preferredTimetable: preferredTimetable
         )
-        // An empty via field is an inactive affordance. Every other editor carries a meaningful default value,
-        // so sources without via support start with no row until the user explicitly adds a condition.
-        journeyOptions = client.supportsConnectionOption(.via, for: selectedTimetable)
-            ? [JourneyOptionEntry(kind: .via)]
-            : []
+        journeyOptions = Self.initialJourneyOptions(client: client, timetable: selectedTimetable)
         timetable = selectedTimetable
         self.calendarImporter = calendarImporter
         self.calendarSaver = calendarSaver
@@ -588,6 +640,20 @@ final class ConnectionsViewModel: ObservableObject {
         self.pdfExporter = pdfExporter
         self.emailMailComposer = emailMailComposer
         self.currentLocationProvider = currentLocationProvider
+
+        if let initialSelection {
+            _ = present(initialSelection)
+        }
+    }
+
+    /// Starts with one inactive via affordance only when the selected catalog supports it.
+    private static func initialJourneyOptions(
+        client: any TransitDataSource,
+        timetable: TransitTimetable
+    ) -> [JourneyOptionEntry] {
+        client.supportsConnectionOption(.via, for: timetable)
+            ? [JourneyOptionEntry(kind: .via)]
+            : []
     }
 
     /// Replaces the submitted connection editor with its compact result summary.
@@ -602,6 +668,62 @@ final class ConnectionsViewModel: ObservableObject {
 
     var timetables: [TransitTimetable] {
         client.timetables
+    }
+
+    /// Replaces the editable journey and starts a transferred query when the view next appears.
+    @discardableResult
+    func present(_ selection: ConnectionSearchSelection) -> Bool {
+        guard selection.dataSourceID == client.descriptor.id,
+              client.descriptor.supports(.connections),
+              let selectedTimetable = timetables.first(where: {
+                  $0.appIdentity == selection.timetable.appIdentity
+              }),
+              let dateAndTime = TransitRequestFormatting.displayDateAndTime(
+                  serviceDate: selection.serviceDate,
+                  serviceTime: selection.serviceTime
+              )
+        else {
+            return false
+        }
+
+        timetable = selectedTimetable
+        from = selection.from
+        to = selection.to
+        fromSelection = nil
+        toSelection = nil
+        usesCurrentDateAndTime = false
+        date = dateAndTime
+        time = dateAndTime
+        isArrival = false
+        onlyDirect = false
+        rememberedTransferValues = RememberedTransferValues()
+        journeyOptions = Self.initialJourneyOptions(client: client, timetable: selectedTimetable)
+        connections = []
+        hasCompletedSearch = false
+        resultPage = nil
+        isSearching = false
+        isLoadingEarlier = false
+        isLoadingLater = false
+        processingEmailConnectionID = nil
+        processingCalendarConnectionID = nil
+        processingPDFConnectionID = nil
+        errorMessage = nil
+        actionError = nil
+        hasPendingInitialSelection = canSearch
+        isSearchFormCollapsed = hasPendingInitialSelection
+        return true
+    }
+
+    /// Starts a complete query carried by another search mode exactly once.
+    func loadInitialSelectionIfNeeded() async {
+        guard hasPendingInitialSelection else { return }
+        hasPendingInitialSelection = false
+        await search()
+    }
+
+    /// Indicates whether a complete transferred query is still waiting for its automatic search.
+    var startsWithInitialSelection: Bool {
+        hasPendingInitialSelection
     }
 
     /// Limits the extensible editor to fields the provider promises to interpret for the selected timetable.
@@ -1203,6 +1325,7 @@ final class ConnectionsViewModel: ObservableObject {
     }
 
     func search() async {
+        hasPendingInitialSelection = false
         let enteredDeparture = from.trimmingCharacters(in: .whitespacesAndNewlines)
         let enteredArrival = to.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !enteredDeparture.isEmpty, !enteredArrival.isEmpty else {

@@ -143,6 +143,7 @@ final class StationTimetablesViewModel: ObservableObject {
     private struct DepartureResolution {
         let selection: ServiceSelection
         let search: ResolvedDepartureSearch
+        let connectionSearch: ConnectionSearchSelection?
     }
 
     init(
@@ -247,6 +248,11 @@ final class StationTimetablesViewModel: ObservableObject {
     var canFindDepartureResults: Bool {
         client.descriptor.supports(.stationTimetableDepartureResolution) &&
             client.descriptor.supports(.departures)
+    }
+
+    /// Indicates whether a matched timetable minute can seed an exact journey search.
+    var canFindConnectionResults: Bool {
+        canFindDepartureResults && client.descriptor.supports(.connections)
     }
 
     /// Indicates whether a matched timetable minute can continue into a complete service route.
@@ -369,6 +375,14 @@ final class StationTimetablesViewModel: ObservableObject {
         return await resolveDeparture(departure)?.search
     }
 
+    /// Resolves one timetable minute into a journey from its matched stop to the displayed route destination.
+    func connectionSearch(
+        for departure: StationTimetableDepartureReference
+    ) async -> ConnectionSearchSelection? {
+        guard canFindConnectionResults else { return nil }
+        return await resolveDeparture(departure)?.connectionSearch
+    }
+
     private func resolveDeparture(
         _ departure: StationTimetableDepartureReference
     ) async -> DepartureResolution? {
@@ -416,10 +430,11 @@ final class StationTimetablesViewModel: ObservableObject {
                 serviceDate: resolution.serviceDate,
                 serviceTime: resolution.serviceTime
             ) ?? date
+            let timetable = resolution.departure.appTimetable(in: client.timetables)
             return DepartureResolution(
                 selection: ServiceSelection(
                     id: resolution.departure.id,
-                    timetable: resolution.departure.appTimetable(in: client.timetables),
+                    timetable: timetable,
                     highlight: ServiceRouteHighlight(
                         fromStop: selectedStop.name,
                         toStop: sourceResult.toStop
@@ -429,6 +444,14 @@ final class StationTimetablesViewModel: ObservableObject {
                     request: resolution.request,
                     page: resolution.page,
                     dateAndTime: dateAndTime
+                ),
+                connectionSearch: ConnectionSearchSelectionFactory.stationTimetable(
+                    timetable: timetable,
+                    from: selectedStop.name,
+                    to: sourceResult.toStop,
+                    serviceDate: resolution.serviceDate,
+                    serviceTime: resolution.serviceTime,
+                    client: client
                 )
             )
         } catch {

@@ -1214,11 +1214,31 @@ struct CommandClickOverlay: NSViewRepresentable {
     let action: () -> Void
 
     func makeNSView(context: Context) -> ModifierClickCaptureView {
-        ModifierClickCaptureView(requiredModifierFlags: .command) { _ in action() }
+        ModifierClickCaptureView(
+            requiredModifierFlags: .command,
+            action: { _ in action() }
+        )
     }
 
     func updateNSView(_ nsView: ModifierClickCaptureView, context: Context) {
         nsView.action = { _ in action() }
+    }
+}
+
+/// Captures one modifier-click and retains the complete modifier set for destination routing.
+struct ModifierClickOverlay: NSViewRepresentable {
+    let requiredModifierFlags: NSEvent.ModifierFlags
+    let action: (NSEvent.ModifierFlags) -> Void
+
+    func makeNSView(context: Context) -> ModifierClickCaptureView {
+        ModifierClickCaptureView(
+            requiredModifierFlags: requiredModifierFlags,
+            modifierAction: action
+        )
+    }
+
+    func updateNSView(_ nsView: ModifierClickCaptureView, context: Context) {
+        nsView.modifierAction = action
     }
 }
 
@@ -1239,6 +1259,7 @@ struct OptionClickPopoverAnchorOverlay: NSViewRepresentable {
 /// independent action or preserves a linked-text action for the original handler.
 final class ModifierClickCaptureView: NSView {
     var action: (UnitPoint) -> Void
+    var modifierAction: ((NSEvent.ModifierFlags) -> Void)?
     let requiredModifierFlags: NSEvent.ModifierFlags
     let consumesEvent: Bool
     /// AppKit creates and consumes this opaque token exclusively on the main thread.
@@ -1252,6 +1273,19 @@ final class ModifierClickCaptureView: NSView {
         self.requiredModifierFlags = requiredModifierFlags
         self.consumesEvent = consumesEvent
         self.action = action
+        modifierAction = nil
+        super.init(frame: .zero)
+    }
+
+    init(
+        requiredModifierFlags: NSEvent.ModifierFlags,
+        consumesEvent: Bool = true,
+        modifierAction: @escaping (NSEvent.ModifierFlags) -> Void
+    ) {
+        self.requiredModifierFlags = requiredModifierFlags
+        self.consumesEvent = consumesEvent
+        action = { _ in }
+        self.modifierAction = modifierAction
         super.init(frame: .zero)
     }
 
@@ -1300,7 +1334,11 @@ final class ModifierClickCaptureView: NSView {
     /// Mirrors the local event monitor so its anchoring and event-preservation decisions stay testable.
     func process(_ event: NSEvent) -> NSEvent? {
         guard let anchor = anchor(for: event) else { return event }
-        action(anchor)
+        if let modifierAction {
+            modifierAction(event.modifierFlags)
+        } else {
+            action(anchor)
+        }
         return consumesEvent ? nil : event
     }
 

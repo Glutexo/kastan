@@ -23,11 +23,12 @@ enum AppWindow {
 ///
 /// The unique identifier keeps two windows that use the same provider distinct when they are opened through
 /// SwiftUI's value-based window API. The provider identifier remains mutable so a regular provider change can be
-/// persisted as part of the scene's restoration value. A station-timetable selection, departure-board selection,
-/// or temporary resolved-departures transfer seeds a newly opened window and is cleared after adoption.
+/// persisted as part of the scene's restoration value. A connection, station-timetable, or departure-board selection,
+/// or a temporary resolved-departures transfer seeds a newly opened window and is cleared after adoption.
 struct MainWindowSceneValue: Codable, Hashable {
     let id: UUID
     var dataSourceID: TransitDataSourceID
+    var initialConnectionSelection: ConnectionSearchSelection?
     var initialStationTimetableSelection: StationTimetableSelection?
     var initialDepartureSelection: DepartureSearchSelection?
     var initialDepartureSearchTransferID: UUID?
@@ -35,12 +36,14 @@ struct MainWindowSceneValue: Codable, Hashable {
     init(
         id: UUID = UUID(),
         dataSourceID: TransitDataSourceID,
+        initialConnectionSelection: ConnectionSearchSelection? = nil,
         initialStationTimetableSelection: StationTimetableSelection? = nil,
         initialDepartureSelection: DepartureSearchSelection? = nil,
         initialDepartureSearchTransferID: UUID? = nil
     ) {
         self.id = id
         self.dataSourceID = dataSourceID
+        self.initialConnectionSelection = initialConnectionSelection
         self.initialStationTimetableSelection = initialStationTimetableSelection
         self.initialDepartureSelection = initialDepartureSelection
         self.initialDepartureSearchTransferID = initialDepartureSearchTransferID
@@ -239,6 +242,31 @@ enum StationTimetableOpenDestination: CaseIterable, Hashable, Identifiable {
             "macwindow"
         }
     }
+
+    /// Applies the shared Command-click convention only to the action that normally reuses this tab.
+    func resolvingCurrentAction(for modifierFlags: NSEvent.ModifierFlags) -> Self {
+        guard self == .currentTab else { return self }
+        return switch MainSearchOpenDestination.preferred(for: modifierFlags) {
+        case .current:
+            .currentTab
+        case .newTab:
+            .newTab
+        case .newWindow:
+            .newWindow
+        }
+    }
+}
+
+/// Maps macOS click modifiers to the three destinations supported by transferred searches.
+enum MainSearchOpenDestination: Equatable {
+    case current
+    case newTab
+    case newWindow
+
+    static func preferred(for modifierFlags: NSEvent.ModifierFlags) -> Self {
+        guard modifierFlags.contains(.command) else { return .current }
+        return modifierFlags.contains(.shift) ? .newWindow : .newTab
+    }
 }
 
 /// Identifies where a prepared departure-board search should open.
@@ -274,6 +302,19 @@ enum DepartureSearchOpenDestination: CaseIterable, Hashable, Identifiable {
             "rectangle.on.rectangle"
         }
     }
+
+    /// Applies the shared Command-click convention only to the action that normally reuses this window.
+    func resolvingCurrentAction(for modifierFlags: NSEvent.ModifierFlags) -> Self {
+        guard self == .currentWindow else { return self }
+        return switch MainSearchOpenDestination.preferred(for: modifierFlags) {
+        case .current:
+            .currentWindow
+        case .newTab:
+            .newTab
+        case .newWindow:
+            .newWindow
+        }
+    }
 }
 
 /// Places all destinations for a Departures search directly in its containing menu.
@@ -283,7 +324,70 @@ struct DepartureSearchOpenActions: View {
     var body: some View {
         ForEach(DepartureSearchOpenDestination.allCases) { destination in
             Button {
-                open(destination)
+                open(destination.resolvingCurrentAction(for: NSEvent.modifierFlags))
+            } label: {
+                Label(destination.title, systemImage: destination.systemImage)
+            }
+        }
+    }
+}
+
+/// Identifies where a prepared connection search should open.
+enum ConnectionSearchOpenDestination: CaseIterable, Hashable, Identifiable {
+    case currentWindow
+    case newWindow
+    case newTab
+
+    var id: Self { self }
+
+    var localizationKey: String {
+        switch self {
+        case .currentWindow:
+            "Find a connection"
+        case .newWindow:
+            "Find a connection in new window"
+        case .newTab:
+            "Find a connection in new tab"
+        }
+    }
+
+    var title: LocalizedStringKey {
+        LocalizedStringKey(localizationKey)
+    }
+
+    var systemImage: String {
+        switch self {
+        case .currentWindow:
+            AppSection.connections.systemImage
+        case .newWindow:
+            "macwindow"
+        case .newTab:
+            "rectangle.on.rectangle"
+        }
+    }
+
+    /// Applies the shared Command-click convention only to the action that normally reuses this window.
+    func resolvingCurrentAction(for modifierFlags: NSEvent.ModifierFlags) -> Self {
+        guard self == .currentWindow else { return self }
+        return switch MainSearchOpenDestination.preferred(for: modifierFlags) {
+        case .current:
+            .currentWindow
+        case .newTab:
+            .newTab
+        case .newWindow:
+            .newWindow
+        }
+    }
+}
+
+/// Places all destinations for a Connections search directly in its containing menu.
+struct ConnectionSearchOpenActions: View {
+    let open: (ConnectionSearchOpenDestination) -> Void
+
+    var body: some View {
+        ForEach(ConnectionSearchOpenDestination.allCases) { destination in
+            Button {
+                open(destination.resolvingCurrentAction(for: NSEvent.modifierFlags))
             } label: {
                 Label(destination.title, systemImage: destination.systemImage)
             }
@@ -330,7 +434,7 @@ struct StationTimetableOpenActions: View {
     var body: some View {
         ForEach(StationTimetableOpenDestination.allCases) { destination in
             Button {
-                open(destination)
+                open(destination.resolvingCurrentAction(for: NSEvent.modifierFlags))
             } label: {
                 Label(
                     destination.title,

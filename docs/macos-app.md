@@ -132,6 +132,9 @@ manager and show their source when more than one ordinary provider is registered
   the submitted query or another result. Each concrete service row offers both groups as well; its Station timetable
   transfer uses that leg's line, matched endpoints, and own departure day, while its departure search uses the leg's
   matched origin and own departure instant. Every complete transfer searches immediately in the chosen destination.
+  For every transferred-search action that supports all three destinations, activating its current-window item while
+  holding Command opens a new tab; adding Shift opens a new window. Explicit new-window and new-tab items keep their
+  stated destinations regardless of held modifiers.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, optional tariff zones and platforms or stands, lockout labels, keyed departure explanations,
@@ -145,7 +148,8 @@ manager and show their source when more than one ordinary provider is registered
   supplied by IDOS, such as 🚌 for a bus or 🚋 for a tram, instead of presenting the line as a generic place. At compact
   widths, the Stops/Timetable result choice survives visiting another search mode in the same window. An
   ordinary route-stop click selects that stop in the current timetable. Every stop, including the currently selected
-  one, offers Open in new window from its context menu; Command-click performs the same action. The
+  one, offers Open in new window from its context menu; Command-click opens it in a new tab and Shift-Command-click
+  opens it in a new window. The
   independent main window retains the submitted catalog, municipality, line, direction, date, and whole-week setting
   while selecting the requested stop. Schedule
   headings keep the numeric date and follow the selected language's weekday capitalization, such as lowercase Czech
@@ -161,8 +165,11 @@ manager and show their source when more than one ordinary provider is registered
   rendered departure asks that provider to resolve its dated run on demand and opens the complete route,
   with the selected stop highlighted through the searched direction. Option-clicking it instead switches to
   Departures and presents the already resolved station board for the same stop, date, time, and timetable without
-  repeating the provider request. Its context menu offers Find departures in the current window, a new window, or a
-  new tab, in that order, and transfers the resolved provider result to every destination without another request.
+  repeating the provider request. Control-Option-clicking starts a Connections search from the provider-matched stop
+  to the displayed route destination at that run's exact date and time. Adding Command to either search gesture opens
+  a new tab; adding Shift as well opens a new window. Its context menu exposes the current-window, new-window, and
+  new-tab actions for Departures followed by the same three actions for Connections. Every complete transfer searches
+  immediately in its destination.
   Force Clicking it performs the same on-demand lookup and presents a compact
   complete-route preview at the detail view's minimum supported width without also opening a window. Right-clicking
   a departure separates those navigation choices from its calendar, PDF, and sharing actions; the selected export or

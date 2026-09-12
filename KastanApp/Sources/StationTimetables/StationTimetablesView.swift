@@ -11,6 +11,7 @@ struct StationTimetablesView: View {
     let showsItemDetails: Bool
     let showsStopNoteText: Bool
     let showInDepartures: (ResolvedDepartureSearch, DepartureSearchOpenDestination) -> Void
+    let showInConnections: (ConnectionSearchSelection, ConnectionSearchOpenDestination) -> Void
     @State private var isNotesExpanded = false
     @State private var isExplanationsExpanded = false
 
@@ -22,6 +23,10 @@ struct StationTimetablesView: View {
         showInDepartures: @escaping (
             ResolvedDepartureSearch,
             DepartureSearchOpenDestination
+        ) -> Void = { _, _ in },
+        showInConnections: @escaping (
+            ConnectionSearchSelection,
+            ConnectionSearchOpenDestination
         ) -> Void = { _, _ in }
     ) {
         self.model = model
@@ -29,6 +34,7 @@ struct StationTimetablesView: View {
         self.showsItemDetails = showsItemDetails
         self.showsStopNoteText = showsStopNoteText
         self.showInDepartures = showInDepartures
+        self.showInConnections = showInConnections
     }
 
     var body: some View {
@@ -434,7 +440,7 @@ struct StationTimetablesView: View {
                     )
                     VStack(alignment: .leading, spacing: 0) {
                         Button {
-                            Task { await model.selectStop(at: index) }
+                            openStop(at: index, destination: .current)
                         } label: {
                             HStack(
                                 alignment: .top,
@@ -487,8 +493,13 @@ struct StationTimetablesView: View {
                         .buttonStyle(StationTimetableStopButtonStyle())
                         .disabled(model.isSearching)
                         .overlay {
-                            CommandClickOverlay {
-                                openStopInNewWindow(at: index)
+                            ModifierClickOverlay(requiredModifierFlags: .command) { modifierFlags in
+                                openStop(
+                                    at: index,
+                                    destination: MainSearchOpenDestination.preferred(
+                                        for: modifierFlags
+                                    )
+                                )
                             }
                         }
 
@@ -511,7 +522,7 @@ struct StationTimetablesView: View {
                     )
                     .contextMenu {
                         Button {
-                            openStopInNewWindow(at: index)
+                            openStop(at: index, destination: .newWindow)
                         } label: {
                             Label("Open in new window", systemImage: "macwindow")
                         }
@@ -529,15 +540,24 @@ struct StationTimetablesView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func openStopInNewWindow(at index: Int) {
+    /// Reuses the current timetable or opens its selected stop in the requested main-window destination.
+    private func openStop(at index: Int, destination: MainSearchOpenDestination) {
+        guard destination != .current else {
+            Task { await model.selectStop(at: index) }
+            return
+        }
         guard let selection = model.newWindowSelection(forStopAt: index) else { return }
-        openWindow(
-            id: AppWindow.main,
-            value: MainWindowSceneValue(
-                dataSourceID: selection.dataSourceID,
-                initialStationTimetableSelection: selection
-            )
+        let sceneValue = MainWindowSceneValue(
+            dataSourceID: selection.dataSourceID,
+            initialStationTimetableSelection: selection
         )
+        if destination == .newTab {
+            AppWindowActions.newTab {
+                openWindow(id: AppWindow.main, value: sceneValue)
+            }
+        } else {
+            openWindow(id: AppWindow.main, value: sceneValue)
+        }
     }
 
     private func schedules(_ result: TransitStationTimetable) -> some View {
@@ -626,6 +646,11 @@ struct StationTimetablesView: View {
                                     schedule: schedule,
                                     hourIndex: index
                                 ),
+                                searchConnection: connectionSearchAction(
+                                    scheduleIndex: scheduleIndex,
+                                    schedule: schedule,
+                                    hourIndex: index
+                                ),
                                 previewDeparture: departurePreview(
                                     scheduleIndex: scheduleIndex,
                                     schedule: schedule,
@@ -687,6 +712,25 @@ struct StationTimetablesView: View {
         }
     }
 
+    private func connectionSearchAction(
+        scheduleIndex: Int,
+        schedule: TransitStationTimetableSchedule,
+        hourIndex: Int
+    ) -> ((Int, ConnectionSearchOpenDestination) -> Void)? {
+        guard model.canFindConnectionResults else { return nil }
+        return { departureIndex, destination in
+            guard let departure = StationTimetableDepartureReference(
+                scheduleIndex: scheduleIndex,
+                schedule: schedule,
+                hourIndex: hourIndex,
+                departureIndex: departureIndex
+            ) else {
+                return
+            }
+            searchInConnections(departure, at: destination)
+        }
+    }
+
     private func departurePreview(
         scheduleIndex: Int,
         schedule: TransitStationTimetableSchedule,
@@ -739,6 +783,17 @@ struct StationTimetablesView: View {
         Task {
             guard let search = await model.departureSearch(for: departure) else { return }
             showInDepartures(search, destination)
+        }
+    }
+
+    /// Starts a journey search only after the source has matched the displayed minute to a concrete run.
+    private func searchInConnections(
+        _ departure: StationTimetableDepartureReference,
+        at destination: ConnectionSearchOpenDestination
+    ) {
+        Task {
+            guard let search = await model.connectionSearch(for: departure) else { return }
+            showInConnections(search, destination)
         }
     }
 
@@ -818,6 +873,7 @@ struct StationTimetableDepartureTimes: View {
     let departuresAreEnabled: Bool
     let selectDeparture: ((Int) -> Void)?
     let searchDeparture: ((Int, DepartureSearchOpenDestination) -> Void)?
+    let searchConnection: ((Int, ConnectionSearchOpenDestination) -> Void)?
     let previewDeparture: ((Int) -> StationTimetableDeparturePreviewConfiguration?)?
 
     init(
@@ -828,6 +884,7 @@ struct StationTimetableDepartureTimes: View {
         departuresAreEnabled: Bool = true,
         selectDeparture: ((Int) -> Void)? = nil,
         searchDeparture: ((Int, DepartureSearchOpenDestination) -> Void)? = nil,
+        searchConnection: ((Int, ConnectionSearchOpenDestination) -> Void)? = nil,
         previewDeparture: ((Int) -> StationTimetableDeparturePreviewConfiguration?)? = nil
     ) {
         self.values = values
@@ -837,6 +894,7 @@ struct StationTimetableDepartureTimes: View {
         self.departuresAreEnabled = departuresAreEnabled
         self.selectDeparture = selectDeparture
         self.searchDeparture = searchDeparture
+        self.searchConnection = searchConnection
         self.previewDeparture = previewDeparture
     }
 
@@ -856,6 +914,9 @@ struct StationTimetableDepartureTimes: View {
                     },
                     searchInDepartures: searchDeparture.map { searchDeparture in
                         { destination in searchDeparture(index, destination) }
+                    },
+                    searchInConnections: searchConnection.map { searchConnection in
+                        { destination in searchConnection(index, destination) }
                     },
                     preview: previewDeparture?(index)
                 )
@@ -890,6 +951,7 @@ private struct StationTimetableDepartureTime: View {
     let isEnabled: Bool
     let action: (() -> Void)?
     let searchInDepartures: ((DepartureSearchOpenDestination) -> Void)?
+    let searchInConnections: ((ConnectionSearchOpenDestination) -> Void)?
     let preview: StationTimetableDeparturePreviewConfiguration?
     @State private var previewSelection: ServiceSelection?
     @State private var isPreviewPresented = false
@@ -926,10 +988,23 @@ private struct StationTimetableDepartureTime: View {
         let searchHint = searchInDepartures.map { _ in
             AppLocalization.string("Hold Option and click to find this service in Departures.")
         }
+        let connectionSearchHint = searchInConnections.map { _ in
+            AppLocalization.string("Hold Control and Option and click to find a connection.")
+        }
+        let destinationHint = searchInDepartures != nil || searchInConnections != nil
+            ? AppLocalization.string(
+                "Add Command for a new tab, or Shift-Command for a new window."
+            )
+            : nil
         let accessibilityLabel = [actionLabel, presentation.explanation]
             .compactMap(\.self)
             .joined(separator: ". ")
-        let helpText = [presentation.explanation ?? actionLabel, searchHint]
+        let helpText = [
+            presentation.explanation ?? actionLabel,
+            searchHint,
+            connectionSearchHint,
+            destinationHint,
+        ]
             .compactMap(\.self)
             .joined(separator: "\n")
         let button = Button {
@@ -944,9 +1019,17 @@ private struct StationTimetableDepartureTime: View {
         .help(Text(verbatim: helpText))
         .accessibilityLabel(Text(verbatim: accessibilityLabel))
         .overlay {
-            if let searchInDepartures {
-                OptionClickOverlay {
-                    searchInDepartures(.currentWindow)
+            if searchInDepartures != nil || searchInConnections != nil {
+                ModifierClickOverlay(requiredModifierFlags: .option) { modifierFlags in
+                    if modifierFlags.contains(.control) {
+                        searchInConnections?(
+                            .currentWindow.resolvingCurrentAction(for: modifierFlags)
+                        )
+                    } else {
+                        searchInDepartures?(
+                            .currentWindow.resolvingCurrentAction(for: modifierFlags)
+                        )
+                    }
                 }
             }
         }
@@ -962,7 +1045,7 @@ private struct StationTimetableDepartureTime: View {
             previewPresentationChanged(isPresented)
         }
 
-        if preview == nil, searchInDepartures == nil {
+        if preview == nil, searchInDepartures == nil, searchInConnections == nil {
             button
         } else {
             button.contextMenu {
@@ -977,9 +1060,19 @@ private struct StationTimetableDepartureTime: View {
             DepartureSearchOpenActions(open: searchInDepartures)
                 .disabled(!isEnabled || isPerformingContextAction)
 
-            if preview?.contextActions.isEmpty == false {
+            if searchInConnections != nil {
                 Divider()
             }
+        }
+
+        if let searchInConnections {
+            ConnectionSearchOpenActions(open: searchInConnections)
+                .disabled(!isEnabled || isPerformingContextAction)
+        }
+
+        if (searchInDepartures != nil || searchInConnections != nil),
+           preview?.contextActions.isEmpty == false {
+            Divider()
         }
 
         if let preview {

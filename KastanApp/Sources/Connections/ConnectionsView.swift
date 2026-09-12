@@ -335,6 +335,9 @@ struct ConnectionsView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             model.refreshCurrentDateAndTime()
         }
+        .task {
+            await model.loadInitialSelectionIfNeeded()
+        }
     }
 
     private var resultsPanel: some View {
