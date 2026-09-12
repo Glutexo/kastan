@@ -431,6 +431,9 @@ The checked-in bitmap renditions use the same source artwork and remain reproduc
 Installation also unregisters every other live build product and stale Launch Services records left by products
 that were already removed from temporary or Derived Data locations. It removes the prior copy long enough for
 Spotlight to discard its metadata identity, then asks Finder to perform a coordinated installation of the new build.
+After copying, it explicitly registers the installed path and removes obsolete Launch Services records. The
+installation therefore remains usable from Spotlight when its metadata index is temporarily read-only; the command
+reports that fallback and still completes its cleanup.
 Xcode retains its intermediate files and recreates a removed product when needed. The first run may ask for
 permission to control Finder; this access is required for the coordinated replacement. Run the command again after
 local changes whenever the Spotlight copy should be updated. Set `APP_INSTALL_DIR` to choose a different destination

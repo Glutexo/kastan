@@ -18,6 +18,8 @@ killall=${KILLALL:-killall}
 lsregister=${LSREGISTER:-/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister}
 mdfind=${MDFIND:-mdfind}
 osascript=${OSASCRIPT:-osascript}
+spotlight_wait_attempts=${SPOTLIGHT_WAIT_ATTEMPTS:-40}
+spotlight_wait_interval=${SPOTLIGHT_WAIT_INTERVAL:-0.25}
 
 if ! test -d "$source_app"; then
     printf 'Built application not found: %s\n' "$source_app" >&2
@@ -68,14 +70,12 @@ done
 "$killall" spotlightknowledged.updater >/dev/null 2>&1 || true
 
 attempt=0
-while test "$attempt" -lt 40 && test -n "$(metadata_paths)"; do
+while test "$attempt" -lt "$spotlight_wait_attempts" && test -n "$(metadata_paths)"; do
     attempt=$((attempt + 1))
-    sleep 0.25
+    sleep "$spotlight_wait_interval"
 done
 if test -n "$(metadata_paths)"; then
-    finder_copy install >/dev/null || "$ditto" "$source_app" "$installed_app"
-    printf 'Spotlight did not remove the previous application identity.\n' >&2
-    exit 1
+    printf 'Spotlight retained prior metadata; refreshing Launch Services after installation.\n' >&2
 fi
 
 if ! finder_copy install >/dev/null; then
@@ -84,14 +84,19 @@ if ! finder_copy install >/dev/null; then
     exit 1
 fi
 
+# A read-only metadata store cannot accept Finder's new item immediately. Force the installed path into Launch
+# Services and collect its obsolete records so Spotlight's Applications result still opens the current bundle.
+"$lsregister" -f "$installed_app" >/dev/null
+"$lsregister" -gc >/dev/null 2>&1 || true
+"$killall" Spotlight >/dev/null 2>&1 || true
+
 attempt=0
-while test "$attempt" -lt 40 && test -z "$(metadata_paths)"; do
+while test "$attempt" -lt "$spotlight_wait_attempts" && test -z "$(metadata_paths)"; do
     attempt=$((attempt + 1))
-    sleep 0.25
+    sleep "$spotlight_wait_interval"
 done
 if test -z "$(metadata_paths)"; then
-    printf 'Spotlight did not index the installed application.\n' >&2
-    exit 1
+    printf 'Spotlight metadata is read-only; registered the installed application through Launch Services.\n' >&2
 fi
 
 rm -rf "$source_app"

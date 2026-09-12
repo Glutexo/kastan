@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Verifies that installation waits for removal and indexing while delegating the replacement to Finder.
+# Verifies Finder replacement, Launch Services refresh, and the read-only Spotlight index fallback.
 set -eu
 
 script_directory=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
@@ -16,7 +16,9 @@ printf 'previous build\n' > "$installed_app/Contents/version"
 printf 'obsolete build\n' > "$obsolete_app/Contents/version"
 
 unregistered_file="$temporary_directory/unregistered.txt"
+registered_file="$temporary_directory/registered.txt"
 killed_file="$temporary_directory/killed.txt"
+garbage_collected_file="$temporary_directory/garbage-collected.txt"
 fake_lsregister="$temporary_directory/lsregister"
 fake_killall="$temporary_directory/killall"
 fake_mdfind="$temporary_directory/mdfind"
@@ -24,14 +26,20 @@ fake_osascript="$temporary_directory/osascript"
 
 printf '%s\n' \
     '#!/bin/sh' \
-    'test "$1" = -u' \
-    'printf "%s\\n" "$2" >> "$FAKE_UNREGISTERED"' > "$fake_lsregister"
+    'case "$1" in' \
+    '    -u) printf "%s\\n" "$2" >> "$FAKE_UNREGISTERED" ;;' \
+    '    -f) printf "%s\\n" "$2" >> "$FAKE_REGISTERED" ;;' \
+    '    -gc) printf "gc\\n" >> "$FAKE_GARBAGE_COLLECTED" ;;' \
+    '    *) exit 64 ;;' \
+    'esac' > "$fake_lsregister"
 printf '%s\n' \
     '#!/bin/sh' \
     'printf "%s\\n" "$1" >> "$FAKE_KILLED"' > "$fake_killall"
 printf '%s\n' \
     '#!/bin/sh' \
-    'if test -d "$FAKE_INSTALLED_APP"; then printf "%s\\n" "$FAKE_INSTALLED_APP"; fi' > "$fake_mdfind"
+    'if test "${FAKE_READ_ONLY_INDEX:-0}" != 1 && test -d "$FAKE_INSTALLED_APP"; then' \
+    '    printf "%s\\n" "$FAKE_INSTALLED_APP"' \
+    'fi' > "$fake_mdfind"
 printf '%s\n' \
     '#!/bin/sh' \
     'test "$1" = -' \
@@ -43,7 +51,9 @@ printf '%s\n' \
 chmod +x "$fake_lsregister" "$fake_killall" "$fake_mdfind" "$fake_osascript"
 
 FAKE_INSTALLED_APP="$installed_app" \
+FAKE_GARBAGE_COLLECTED="$garbage_collected_file" \
 FAKE_KILLED="$killed_file" \
+FAKE_REGISTERED="$registered_file" \
 FAKE_UNREGISTERED="$unregistered_file" \
 KILLALL="$fake_killall" \
 LSREGISTER="$fake_lsregister" \
@@ -59,7 +69,45 @@ grep -Fqx "$source_app" "$unregistered_file"
 grep -Fqx "$installed_app" "$unregistered_file"
 grep -Fqx "$obsolete_app" "$unregistered_file"
 test "$(wc -l < "$unregistered_file" | tr -d ' ')" = 3
-grep -Fqx 'Spotlight' "$killed_file"
+grep -Fqx "$installed_app" "$registered_file"
+grep -Fqx 'gc' "$garbage_collected_file"
+test "$(grep -Fxc 'Spotlight' "$killed_file")" = 2
 grep -Fqx 'spotlightknowledged' "$killed_file"
 grep -Fqx 'spotlightknowledged.updater' "$killed_file"
-test "$(wc -l < "$killed_file" | tr -d ' ')" = 3
+test "$(wc -l < "$killed_file" | tr -d ' ')" = 4
+
+mkdir -p "$source_app/Contents"
+printf 'read-only index build\n' > "$source_app/Contents/version"
+: > "$unregistered_file"
+: > "$registered_file"
+: > "$killed_file"
+: > "$garbage_collected_file"
+
+read_only_output=$(
+    FAKE_INSTALLED_APP="$installed_app" \
+    FAKE_GARBAGE_COLLECTED="$garbage_collected_file" \
+    FAKE_KILLED="$killed_file" \
+    FAKE_READ_ONLY_INDEX=1 \
+    FAKE_REGISTERED="$registered_file" \
+    FAKE_UNREGISTERED="$unregistered_file" \
+    KILLALL="$fake_killall" \
+    LSREGISTER="$fake_lsregister" \
+    MDFIND="$fake_mdfind" \
+    OSASCRIPT="$fake_osascript" \
+    SPOTLIGHT_WAIT_ATTEMPTS=1 \
+    SPOTLIGHT_WAIT_INTERVAL=0 \
+        sh "$script_directory/install-app-for-spotlight.sh" \
+            cz.glutexo.kastan "$source_app" "$installed_app" 2>&1
+)
+
+test "$(cat "$installed_app/Contents/version")" = 'read-only index build'
+test ! -e "$source_app"
+grep -Fqx "$source_app" "$unregistered_file"
+grep -Fqx "$installed_app" "$unregistered_file"
+test "$(wc -l < "$unregistered_file" | tr -d ' ')" = 2
+grep -Fqx "$installed_app" "$registered_file"
+grep -Fqx 'gc' "$garbage_collected_file"
+test "$(grep -Fxc 'Spotlight' "$killed_file")" = 2
+test "$(wc -l < "$killed_file" | tr -d ' ')" = 4
+printf '%s\n' "$read_only_output" | grep -Fq \
+    'Spotlight metadata is read-only; registered the installed application through Launch Services.'
