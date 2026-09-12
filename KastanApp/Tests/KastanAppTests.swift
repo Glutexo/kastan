@@ -1415,9 +1415,9 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(
             keys,
             [
-                "Find service in Departures",
-                "Find service in Departures in new window",
-                "Find service in Departures in new tab",
+                "Find departures",
+                "Find departures in new window",
+                "Find departures in new tab",
             ]
         )
 
@@ -1425,9 +1425,9 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(
             keys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
             [
-                "Vyhledat spoj v Odjezdech",
-                "Vyhledat spoj v Odjezdech v novém okně",
-                "Vyhledat spoj v Odjezdech v novém panelu",
+                "Vyhledat odjezdy",
+                "Vyhledat odjezdy v novém okně",
+                "Vyhledat odjezdy v novém panelu",
             ]
         )
     }

@@ -234,11 +234,11 @@ enum DepartureSearchOpenDestination: CaseIterable, Hashable, Identifiable {
     var localizationKey: String {
         switch self {
         case .currentWindow:
-            "Find service in Departures"
+            "Find departures"
         case .newWindow:
-            "Find service in Departures in new window"
+            "Find departures in new window"
         case .newTab:
-            "Find service in Departures in new tab"
+            "Find departures in new tab"
         }
     }
 

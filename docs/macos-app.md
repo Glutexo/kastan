@@ -156,7 +156,7 @@ manager and show their source when more than one ordinary provider is registered
   rendered departure asks that provider to resolve its dated run on demand and opens the complete route,
   with the selected stop highlighted through the searched direction. Option-clicking it instead switches to
   Departures and presents the already resolved station board for the same stop, date, time, and timetable without
-  repeating the provider request. Its context menu offers the same result in the current window, a new window, or a
+  repeating the provider request. Its context menu offers Find departures in the current window, a new window, or a
   new tab, in that order, and transfers the resolved provider result to every destination without another request.
   Force Clicking it performs the same on-demand lookup and presents a compact
   complete-route preview at the detail view's minimum supported width without also opening a window. Right-clicking
