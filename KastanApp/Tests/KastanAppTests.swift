@@ -40,9 +40,12 @@ final class KastanAppTests: XCTestCase {
             "Share Link",
             "Share Text",
             "Favorite timetables",
-            "Open Station Timetable",
-            "Open Station Timetable in New Tab",
-            "Open Station Timetable in New Window",
+            "Find departures",
+            "Find departures in new window",
+            "Find departures in new tab",
+            "Open station timetable",
+            "Open station timetable in new tab",
+            "Open station timetable in new window",
         ]
 
         for key in actionKeys {
@@ -439,14 +442,12 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testFileMenuOffersEveryStationTimetableDestinationAsAnUnabbreviatedRootAction() async throws {
+    func testFileMenuOffersDeparturesBeforeStationTimetablesAsRootActions() async throws {
         try await Task.sleep(for: .milliseconds(250))
 
-        let actionKeys = [
-            "Open Station Timetable",
-            "Open Station Timetable in New Tab",
-            "Open Station Timetable in New Window",
-        ]
+        let departureActionKeys = DepartureSearchOpenDestination.allCases.map(\.localizationKey)
+        let stationTimetableActionKeys = StationTimetableOpenDestination.allCases.map(\.localizationKey)
+        let actionKeys = departureActionKeys + stationTimetableActionKeys
         let actionTitles = actionKeys.map { AppLocalization.string($0) }
         let fileMenu = try XCTUnwrap(
             NSApplication.shared.mainMenu?.items
@@ -460,23 +461,28 @@ final class KastanAppTests: XCTestCase {
             XCTAssertNil(items.first?.submenu)
         }
 
+        let relevantTitles = Set(actionTitles)
+        XCTAssertEqual(
+            fileMenu.items.map(\.title).filter { relevantTitles.contains($0) },
+            actionTitles
+        )
+
+        let lastDepartureIndex = try XCTUnwrap(
+            fileMenu.items.firstIndex { $0.title == actionTitles[departureActionKeys.count - 1] }
+        )
+        let firstStationTimetableIndex = try XCTUnwrap(
+            fileMenu.items.firstIndex { $0.title == actionTitles[departureActionKeys.count] }
+        )
+        XCTAssertEqual(firstStationTimetableIndex, lastDepartureIndex + 2)
+        XCTAssertTrue(fileMenu.items[lastDepartureIndex + 1].isSeparatorItem)
+
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         XCTAssertEqual(
             actionKeys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
             [
-                "Otevřít zastávkový jízdní řád",
-                "Otevřít zastávkový jízdní řád v novém panelu",
-                "Otevřít zastávkový jízdní řád v novém okně",
-            ]
-        )
-        let contextualKeys = [
-            "Open station timetable",
-            "Open station timetable in new tab",
-            "Open station timetable in new window",
-        ]
-        XCTAssertEqual(
-            contextualKeys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
-            [
+                "Vyhledat odjezdy",
+                "Vyhledat odjezdy v novém okně",
+                "Vyhledat odjezdy v novém panelu",
                 "Otevřít zastávkový JŘ",
                 "Otevřít zastávkový JŘ v novém panelu",
                 "Otevřít zastávkový JŘ v novém okně",

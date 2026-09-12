@@ -315,6 +315,10 @@ struct ConnectionsView: View {
             \.connectionStationTimetableCommandContext,
             connectionStationTimetableCommandContext
         )
+        .focusedSceneValue(
+            \.connectionDepartureCommandContext,
+            connectionDepartureCommandContext
+        )
         .sheet(item: $emailSelection) { selection in
             ConnectionEmailView(
                 connection: selection.connection,
@@ -518,10 +522,10 @@ struct ConnectionsView: View {
             searchSummaryBar
                 .contentShape(Rectangle())
                 .contextMenu {
-                    if let selection = connectionSearchStationTimetableSelection,
-                       let openStationTimetable {
-                        StationTimetableOpenActions(titleStyle: .abbreviated) { destination in
-                            openStationTimetable(selection, destination)
+                    if let selection = connectionSearchDepartureSelection,
+                       let openDepartures {
+                        DepartureSearchOpenActions { destination in
+                            openDepartures(selection, destination)
                         }
                     }
 
@@ -530,10 +534,10 @@ struct ConnectionsView: View {
                         Divider()
                     }
 
-                    if let selection = connectionSearchDepartureSelection,
-                       let openDepartures {
-                        DepartureSearchOpenActions { destination in
-                            openDepartures(selection, destination)
+                    if let selection = connectionSearchStationTimetableSelection,
+                       let openStationTimetable {
+                        StationTimetableOpenActions { destination in
+                            openStationTimetable(selection, destination)
                         }
                     }
                 }
@@ -582,6 +586,16 @@ struct ConnectionsView: View {
             open: { destination in
                 guard let selection = connectionSearchStationTimetableSelection else { return }
                 openStationTimetable?(selection, destination)
+            }
+        )
+    }
+
+    private var connectionDepartureCommandContext: ConnectionDepartureCommandContext {
+        ConnectionDepartureCommandContext(
+            isAvailable: model.isSearchFormCollapsed && connectionSearchDepartureSelection != nil,
+            open: { destination in
+                guard let selection = connectionSearchDepartureSelection else { return }
+                openDepartures?(selection, destination)
             }
         )
     }

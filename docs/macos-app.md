@@ -122,17 +122,16 @@ manager and show their source when more than one ordinary provider is registered
   removes the zero-transfer row. The previous positive transfer count and both time values remain remembered; manually
   adding any of these subchoices later restores its last value instead of its default. A source that advertises Direct
   connections only without the maximum-transfer option still gets the checkbox, without an unsupported synthetic row.
-  After a supported search, right-clicking its compact summary offers three Station timetable actions without adding
-  another visible control. The File menu exposes the same current-tab, new-native-tab, and new-window destinations as
-  three root actions with the unabbreviated name. A search-level action carries over its timetable, date, and submitted
-  direction stops, clears any older result, and focuses the empty required Line field. The summary menu also offers
-  Find departures in the current window, a new window, or a new tab, in that order, using the submitted origin, date,
-  time, and timetable. Every displayed connection adds both three-action groups to its ellipsis and whole-card context
-  menus. Its departure search uses the connection's matched origin and exact departure day and time, which may differ
-  from the submitted query or another result. Each concrete service row offers both groups as well; its Station
-  timetable transfer uses that leg's line, matched endpoints, and own departure day, while its departure search uses
-  the leg's matched origin and own departure instant. Every complete transfer searches immediately in the chosen
-  destination.
+  After a supported search, right-clicking its compact summary offers Find departures in the current window, a new
+  window, or a new tab, followed by the three Station timetable actions, without adding another visible control. The
+  File menu exposes both groups as root actions in the same order and with the same labels. A search-level Station
+  timetable action carries over its timetable, date, and submitted direction stops, clears any older result, and
+  focuses the empty required Line field. A departure action uses the submitted origin, date, time, and timetable.
+  Every displayed connection adds both three-action groups in that order to its ellipsis and whole-card context menus.
+  Its departure search uses the connection's matched origin and exact departure day and time, which may differ from
+  the submitted query or another result. Each concrete service row offers both groups as well; its Station timetable
+  transfer uses that leg's line, matched endpoints, and own departure day, while its departure search uses the leg's
+  matched origin and own departure instant. Every complete transfer searches immediately in the chosen destination.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, optional tariff zones and platforms or stands, lockout labels, keyed departure explanations,

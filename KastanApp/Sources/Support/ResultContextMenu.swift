@@ -141,17 +141,14 @@ struct ConnectionContextMenuContent: View {
             }
         case .separator:
             Divider()
-            if let openStationTimetable {
-                StationTimetableOpenActions(
-                    titleStyle: .abbreviated,
-                    open: openStationTimetable
-                )
-                if openDepartures != nil {
+            if let openDepartures {
+                DepartureSearchOpenActions(open: openDepartures)
+                if openStationTimetable != nil {
                     Divider()
                 }
             }
-            if let openDepartures {
-                DepartureSearchOpenActions(open: openDepartures)
+            if let openStationTimetable {
+                StationTimetableOpenActions(open: openStationTimetable)
             }
             if openStationTimetable != nil || openDepartures != nil {
                 Divider()
@@ -256,17 +253,14 @@ struct ServiceContextMenuContent: View {
             EmptyView()
         case .separator:
             Divider()
-            if let openStationTimetable {
-                StationTimetableOpenActions(
-                    titleStyle: .abbreviated,
-                    open: openStationTimetable
-                )
-                if openDepartures != nil {
+            if let openDepartures {
+                DepartureSearchOpenActions(open: openDepartures)
+                if openStationTimetable != nil {
                     Divider()
                 }
             }
-            if let openDepartures {
-                DepartureSearchOpenActions(open: openDepartures)
+            if let openStationTimetable {
+                StationTimetableOpenActions(open: openStationTimetable)
             }
             if openStationTimetable != nil || openDepartures != nil {
                 Divider()

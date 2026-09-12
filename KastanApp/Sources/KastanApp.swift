@@ -214,6 +214,21 @@ enum StationTimetableOpenDestination: CaseIterable, Hashable, Identifiable {
 
     var id: Self { self }
 
+    var localizationKey: String {
+        switch self {
+        case .currentTab:
+            "Open station timetable"
+        case .newTab:
+            "Open station timetable in new tab"
+        case .newWindow:
+            "Open station timetable in new window"
+        }
+    }
+
+    var title: LocalizedStringKey {
+        LocalizedStringKey(localizationKey)
+    }
+
     var systemImage: String {
         switch self {
         case .currentTab:
@@ -276,37 +291,24 @@ struct DepartureSearchOpenActions: View {
     }
 }
 
-/// Chooses concise contextual wording or the fully written File-menu wording.
-enum StationTimetableOpenActionTitleStyle {
-    case abbreviated
-    case full
-
-    func title(for destination: StationTimetableOpenDestination) -> LocalizedStringKey {
-        switch (self, destination) {
-        case (.abbreviated, .currentTab):
-            "Open station timetable"
-        case (.abbreviated, .newTab):
-            "Open station timetable in new tab"
-        case (.abbreviated, .newWindow):
-            "Open station timetable in new window"
-        case (.full, .currentTab):
-            "Open Station Timetable"
-        case (.full, .newTab):
-            "Open Station Timetable in New Tab"
-        case (.full, .newWindow):
-            "Open Station Timetable in New Window"
-        }
-    }
-}
-
 /// Connects the File menu to the supported connection search in the focused main window.
 struct ConnectionStationTimetableCommandContext {
     let isAvailable: Bool
     let open: (StationTimetableOpenDestination) -> Void
 }
 
+/// Connects the File menu to the supported departure search in the focused main window.
+struct ConnectionDepartureCommandContext {
+    let isAvailable: Bool
+    let open: (DepartureSearchOpenDestination) -> Void
+}
+
 struct ConnectionStationTimetableCommandContextKey: FocusedValueKey {
     typealias Value = ConnectionStationTimetableCommandContext
+}
+
+struct ConnectionDepartureCommandContextKey: FocusedValueKey {
+    typealias Value = ConnectionDepartureCommandContext
 }
 
 extension FocusedValues {
@@ -314,11 +316,15 @@ extension FocusedValues {
         get { self[ConnectionStationTimetableCommandContextKey.self] }
         set { self[ConnectionStationTimetableCommandContextKey.self] = newValue }
     }
+
+    var connectionDepartureCommandContext: ConnectionDepartureCommandContext? {
+        get { self[ConnectionDepartureCommandContextKey.self] }
+        set { self[ConnectionDepartureCommandContextKey.self] = newValue }
+    }
 }
 
 /// Places the three station-timetable destinations directly in their containing menu.
 struct StationTimetableOpenActions: View {
-    let titleStyle: StationTimetableOpenActionTitleStyle
     let open: (StationTimetableOpenDestination) -> Void
 
     var body: some View {
@@ -327,7 +333,7 @@ struct StationTimetableOpenActions: View {
                 open(destination)
             } label: {
                 Label(
-                    titleStyle.title(for: destination),
+                    destination.title,
                     systemImage: destination.systemImage
                 )
             }
@@ -335,18 +341,26 @@ struct StationTimetableOpenActions: View {
     }
 }
 
-/// Adds the focused connection's station-timetable destinations to the File menu.
-struct ConnectionStationTimetableCommands: Commands {
-    @FocusedValue(\.connectionStationTimetableCommandContext) private var context
+/// Adds the focused connection search's route transitions to the File menu in their contextual order.
+struct ConnectionSearchCommands: Commands {
+    @FocusedValue(\.connectionDepartureCommandContext) private var departureContext
+    @FocusedValue(\.connectionStationTimetableCommandContext) private var stationTimetableContext
 
     var body: some Commands {
         CommandGroup(after: .newItem) {
             Divider()
 
-            StationTimetableOpenActions(titleStyle: .full) { destination in
-                context?.open(destination)
+            DepartureSearchOpenActions { destination in
+                departureContext?.open(destination)
             }
-            .disabled(context?.isAvailable != true)
+            .disabled(departureContext?.isAvailable != true)
+
+            Divider()
+
+            StationTimetableOpenActions { destination in
+                stationTimetableContext?.open(destination)
+            }
+            .disabled(stationTimetableContext?.isAvailable != true)
         }
     }
 }
@@ -1166,7 +1180,7 @@ struct KastanApp: App {
                 dataSources: dataSources,
                 lastClosedDataSource: lastClosedDataSource
             )
-            ConnectionStationTimetableCommands()
+            ConnectionSearchCommands()
             ResultDetailCommands()
             AppSectionCommands(
                 showsConnectionBadges: $showsConnectionBadges,
