@@ -3828,11 +3828,25 @@ final class KastanAppTests: XCTestCase {
 
         let timetableOnly = model([.stationTimetables])
         XCTAssertFalse(timetableOnly.canFindDepartureResults)
+        XCTAssertFalse(timetableOnly.canFindHeaderDepartureResults)
+        XCTAssertFalse(timetableOnly.canFindHeaderConnectionResults)
         XCTAssertFalse(timetableOnly.canOpenDepartureServices)
 
         let departuresWithoutResolution = model([.stationTimetables, .departures])
         XCTAssertFalse(departuresWithoutResolution.canFindDepartureResults)
+        XCTAssertTrue(departuresWithoutResolution.canFindHeaderDepartureResults)
+        XCTAssertFalse(departuresWithoutResolution.canFindHeaderConnectionResults)
         XCTAssertFalse(departuresWithoutResolution.canOpenDepartureServices)
+
+        let headerSearchesWithoutResolution = model([
+            .stationTimetables,
+            .departures,
+            .connections,
+        ])
+        XCTAssertFalse(headerSearchesWithoutResolution.canFindDepartureResults)
+        XCTAssertFalse(headerSearchesWithoutResolution.canFindConnectionResults)
+        XCTAssertTrue(headerSearchesWithoutResolution.canFindHeaderDepartureResults)
+        XCTAssertTrue(headerSearchesWithoutResolution.canFindHeaderConnectionResults)
 
         let departures = model([
             .stationTimetables,
@@ -3840,6 +3854,8 @@ final class KastanAppTests: XCTestCase {
             .departures,
         ])
         XCTAssertTrue(departures.canFindDepartureResults)
+        XCTAssertTrue(departures.canFindHeaderDepartureResults)
+        XCTAssertFalse(departures.canFindHeaderConnectionResults)
         XCTAssertFalse(departures.canOpenDepartureServices)
 
         let services = model([
@@ -9217,6 +9233,54 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(language, AppLanguagePreference.transitLanguage)
         XCTAssertEqual(model.result?.selectedStop?.name, "Strašnická")
         XCTAssertNil(model.errorMessage)
+    }
+
+    func testStationTimetableHeadersBuildSearchesFromTheirVisibleRoutes() async throws {
+        let client = MockIDOSClient()
+        let model = StationTimetablesViewModel(client: client)
+        let serviceDate = TransitDate(year: 2026, month: 9, day: 11)
+        let currentTime = TransitTime(hour: 14, minute: 37)
+        model.date = try XCTUnwrap(TransitRequestFormatting.displayDateAndTime(
+            serviceDate: serviceDate,
+            serviceTime: TransitTime(hour: 12, minute: 0)
+        ))
+        let now = try XCTUnwrap(TransitRequestFormatting.displayDateAndTime(
+            serviceDate: serviceDate,
+            serviceTime: currentTime
+        ))
+        model.selectTimetable(slug: "pid")
+        model.selectLineSuggestion(IDOSSuggestion(
+            text: "Bus 154",
+            from: "Strašnická",
+            to: "Sídliště Libuš"
+        ))
+
+        let submittedDeparture = try XCTUnwrap(model.submittedHeaderDepartureSearch(now: now))
+        let submittedConnection = try XCTUnwrap(model.submittedHeaderConnectionSearch(now: now))
+        XCTAssertEqual(submittedDeparture.timetable.slug, "pid")
+        XCTAssertEqual(submittedDeparture.station, "Strašnická")
+        XCTAssertEqual(submittedDeparture.serviceDate, serviceDate)
+        XCTAssertEqual(submittedDeparture.serviceTime, currentTime)
+        XCTAssertEqual(submittedConnection.timetable.slug, "pid")
+        XCTAssertEqual(submittedConnection.from, "Strašnická")
+        XCTAssertEqual(submittedConnection.to, "Sídliště Libuš")
+        XCTAssertEqual(submittedConnection.serviceDate, serviceDate)
+        XCTAssertEqual(submittedConnection.serviceTime, currentTime)
+
+        await model.search()
+        let result = try XCTUnwrap(model.result)
+        model.from = "Edited origin"
+        model.to = "Edited destination"
+
+        let resultDeparture = try XCTUnwrap(model.resultHeaderDepartureSearch(for: result, now: now))
+        let resultConnection = try XCTUnwrap(model.resultHeaderConnectionSearch(for: result, now: now))
+        XCTAssertEqual(resultDeparture.station, result.fromStop)
+        XCTAssertEqual(resultDeparture.serviceDate, serviceDate)
+        XCTAssertEqual(resultDeparture.serviceTime, currentTime)
+        XCTAssertEqual(resultConnection.from, result.fromStop)
+        XCTAssertEqual(resultConnection.to, result.toStop)
+        XCTAssertEqual(resultConnection.serviceDate, serviceDate)
+        XCTAssertEqual(resultConnection.serviceTime, currentTime)
     }
 
     func testConnectionSummaryPreparesAStationTimetableWithoutStartingAnIncompleteSearch() async throws {

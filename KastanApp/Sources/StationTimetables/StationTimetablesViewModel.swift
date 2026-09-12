@@ -255,6 +255,16 @@ final class StationTimetablesViewModel: ObservableObject {
         canFindDepartureResults && client.descriptor.supports(.connections)
     }
 
+    /// Indicates whether a timetable header can start a station-board search without resolving a specific minute.
+    var canFindHeaderDepartureResults: Bool {
+        client.descriptor.supports(.departures)
+    }
+
+    /// Indicates whether a timetable header can start a journey search without resolving a specific minute.
+    var canFindHeaderConnectionResults: Bool {
+        client.descriptor.supports(.connections)
+    }
+
     /// Indicates whether a matched timetable minute can continue into a complete service route.
     var canOpenDepartureServices: Bool {
         canFindDepartureResults && client.descriptor.supports(.serviceDetails)
@@ -357,6 +367,60 @@ final class StationTimetablesViewModel: ObservableObject {
         } catch {
             errorMessage = AppErrorPresentation.message(for: error)
         }
+    }
+
+    /// Builds a station-board query from the submitted route and current clock time on its selected service day.
+    func submittedHeaderDepartureSearch(now: Date = .now) -> DepartureSearchSelection? {
+        DepartureSearchSelectionFactory.search(
+            timetable: timetable,
+            station: from,
+            serviceDate: TransitRequestFormatting.serviceDate(from: date),
+            serviceTime: TransitRequestFormatting.serviceTime(from: now),
+            client: client
+        )
+    }
+
+    /// Builds a journey query from the submitted route and current clock time on its selected service day.
+    func submittedHeaderConnectionSearch(now: Date = .now) -> ConnectionSearchSelection? {
+        ConnectionSearchSelectionFactory.stationTimetable(
+            timetable: timetable,
+            from: from,
+            to: to,
+            serviceDate: TransitRequestFormatting.serviceDate(from: date),
+            serviceTime: TransitRequestFormatting.serviceTime(from: now),
+            client: client
+        )
+    }
+
+    /// Uses the provider-returned origin from the visible result header for a station-board query.
+    func resultHeaderDepartureSearch(
+        for visibleResult: TransitStationTimetable,
+        now: Date = .now
+    ) -> DepartureSearchSelection? {
+        guard result == visibleResult, let resultSearchDate else { return nil }
+        return DepartureSearchSelectionFactory.search(
+            timetable: visibleResult.timetable,
+            station: visibleResult.fromStop,
+            serviceDate: resultSearchDate,
+            serviceTime: TransitRequestFormatting.serviceTime(from: now),
+            client: client
+        )
+    }
+
+    /// Uses both provider-returned endpoints from the visible result header for a journey query.
+    func resultHeaderConnectionSearch(
+        for visibleResult: TransitStationTimetable,
+        now: Date = .now
+    ) -> ConnectionSearchSelection? {
+        guard result == visibleResult, let resultSearchDate else { return nil }
+        return ConnectionSearchSelectionFactory.stationTimetable(
+            timetable: visibleResult.timetable,
+            from: visibleResult.fromStop,
+            to: visibleResult.toStop,
+            serviceDate: resultSearchDate,
+            serviceTime: TransitRequestFormatting.serviceTime(from: now),
+            client: client
+        )
     }
 
     /// Resolves one displayed value to the provider's dated service identifier only when the passenger opens it.

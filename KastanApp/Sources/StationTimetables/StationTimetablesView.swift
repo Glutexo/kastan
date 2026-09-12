@@ -10,6 +10,7 @@ struct StationTimetablesView: View {
     let client: any TransitDataSource
     let showsItemDetails: Bool
     let showsStopNoteText: Bool
+    let showDepartureSearch: (DepartureSearchSelection, DepartureSearchOpenDestination) -> Void
     let showInDepartures: (ResolvedDepartureSearch, DepartureSearchOpenDestination) -> Void
     let showInConnections: (ConnectionSearchSelection, ConnectionSearchOpenDestination) -> Void
     @State private var isNotesExpanded = false
@@ -20,6 +21,10 @@ struct StationTimetablesView: View {
         client: any TransitDataSource,
         showsItemDetails: Bool,
         showsStopNoteText: Bool,
+        showDepartureSearch: @escaping (
+            DepartureSearchSelection,
+            DepartureSearchOpenDestination
+        ) -> Void = { _, _ in },
         showInDepartures: @escaping (
             ResolvedDepartureSearch,
             DepartureSearchOpenDestination
@@ -33,6 +38,7 @@ struct StationTimetablesView: View {
         self.client = client
         self.showsItemDetails = showsItemDetails
         self.showsStopNoteText = showsStopNoteText
+        self.showDepartureSearch = showDepartureSearch
         self.showInDepartures = showInDepartures
         self.showInConnections = showInConnections
     }
@@ -46,12 +52,8 @@ struct StationTimetablesView: View {
                 searchVerticalPadding: model.isSearchFormCollapsed ? 10 : 18
             ) {
                 if model.isSearchFormCollapsed {
-                    SearchSummaryBar(
-                        summary: searchSummary,
-                        systemImage: "calendar",
-                        edit: editSearch
-                    )
-                    .transition(.opacity)
+                    contextualSearchSummaryHeader
+                        .transition(.opacity)
                 } else {
                     searchPanel(usesCompactLayout: layout.usesStackedSearchControls)
                         .transition(.opacity)
@@ -244,6 +246,49 @@ struct StationTimetablesView: View {
         )
     }
 
+    private var searchSummaryHeader: some View {
+        SearchSummaryBar(
+            summary: searchSummary,
+            systemImage: "calendar",
+            edit: editSearch
+        )
+    }
+
+    /// Offers both route transitions from the compact header that replaces the submitted form.
+    @ViewBuilder
+    private var contextualSearchSummaryHeader: some View {
+        if model.canFindHeaderDepartureResults || model.canFindHeaderConnectionResults {
+            searchSummaryHeader
+                .contentShape(Rectangle())
+                .contextMenu {
+                    submittedHeaderSearchActions
+                }
+        } else {
+            searchSummaryHeader
+        }
+    }
+
+    @ViewBuilder
+    private var submittedHeaderSearchActions: some View {
+        if model.canFindHeaderDepartureResults {
+            DepartureSearchOpenActions { destination in
+                guard let selection = model.submittedHeaderDepartureSearch() else { return }
+                showDepartureSearch(selection, destination)
+            }
+        }
+
+        if model.canFindHeaderDepartureResults && model.canFindHeaderConnectionResults {
+            Divider()
+        }
+
+        if model.canFindHeaderConnectionResults {
+            ConnectionSearchOpenActions { destination in
+                guard let selection = model.submittedHeaderConnectionSearch() else { return }
+                showInConnections(selection, destination)
+            }
+        }
+    }
+
     private var timetableBinding: Binding<TransitTimetable> {
         Binding(
             get: { model.timetable },
@@ -373,41 +418,86 @@ struct StationTimetablesView: View {
             title = result.lineName
         }
         return VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .center, spacing: 10) {
-                StationTimetableRouteHeading(
-                    lineTitle: title,
-                    route: "\(result.fromStop) → \(result.toStop)",
-                    isLockout: result.isLockout
-                )
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                Button {
-                    Task { await model.reverseDirection() }
-                } label: {
-                    Label("Reverse direction", systemImage: "arrow.triangle.swap")
-                }
-                .buttonStyle(.bordered)
-                .disabled(model.isSearching)
-
-                if let value = result.shareURL,
-                   let url = AppLanguagePreference.localizedResultURL(from: value)
-                {
-                    ResultShareButton(
-                        link: url,
-                        text: nil,
-                        placement: .toolbar,
-                        offersTextAlternate: false
-                    ) { _ in
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                    .buttonStyle(.borderless)
-                    .accessibilityLabel("Share Link")
-                    .help("Share Link")
-                }
-            }
+            contextualResultTitleBar(result, title: title)
 
             if showsSectionPicker {
                 StationTimetableResultSectionPicker(selection: $model.selectedResultSection)
+            }
+        }
+    }
+
+    /// Offers the same transitions from the line-and-direction header using its provider-returned stops.
+    @ViewBuilder
+    private func contextualResultTitleBar(
+        _ result: TransitStationTimetable,
+        title: String
+    ) -> some View {
+        if model.canFindHeaderDepartureResults || model.canFindHeaderConnectionResults {
+            resultTitleBar(result, title: title)
+                .contentShape(Rectangle())
+                .contextMenu {
+                    resultHeaderSearchActions(result)
+                }
+        } else {
+            resultTitleBar(result, title: title)
+        }
+    }
+
+    private func resultTitleBar(
+        _ result: TransitStationTimetable,
+        title: String
+    ) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            StationTimetableRouteHeading(
+                lineTitle: title,
+                route: "\(result.fromStop) → \(result.toStop)",
+                isLockout: result.isLockout
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button {
+                Task { await model.reverseDirection() }
+            } label: {
+                Label("Reverse direction", systemImage: "arrow.triangle.swap")
+            }
+            .buttonStyle(.bordered)
+            .disabled(model.isSearching)
+
+            if let value = result.shareURL,
+               let url = AppLanguagePreference.localizedResultURL(from: value)
+            {
+                ResultShareButton(
+                    link: url,
+                    text: nil,
+                    placement: .toolbar,
+                    offersTextAlternate: false
+                ) { _ in
+                    Image(systemName: "square.and.arrow.up")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel("Share Link")
+                .help("Share Link")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func resultHeaderSearchActions(_ result: TransitStationTimetable) -> some View {
+        if model.canFindHeaderDepartureResults {
+            DepartureSearchOpenActions { destination in
+                guard let selection = model.resultHeaderDepartureSearch(for: result) else { return }
+                showDepartureSearch(selection, destination)
+            }
+        }
+
+        if model.canFindHeaderDepartureResults && model.canFindHeaderConnectionResults {
+            Divider()
+        }
+
+        if model.canFindHeaderConnectionResults {
+            ConnectionSearchOpenActions { destination in
+                guard let selection = model.resultHeaderConnectionSearch(for: result) else { return }
+                showInConnections(selection, destination)
             }
         }
     }

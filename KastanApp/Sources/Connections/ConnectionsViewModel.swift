@@ -23,7 +23,7 @@ struct ConnectionSearchSelection: Codable, Hashable {
     }
 }
 
-/// Builds a connection query from a provider-matched station-timetable departure.
+/// Builds a connection query from a station-timetable route or provider-matched departure.
 enum ConnectionSearchSelectionFactory {
     static func stationTimetable(
         timetable requestedTimetable: TransitTimetable,

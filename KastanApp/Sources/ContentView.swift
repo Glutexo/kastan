@@ -686,6 +686,9 @@ private struct ProviderSearchWorkspaceView: View {
                     client: client,
                     showsItemDetails: showsItemDetails,
                     showsStopNoteText: showsStopNoteText,
+                    showDepartureSearch: { selection, destination in
+                        openDepartures(selection, at: destination)
+                    },
                     showInDepartures: { search, destination in
                         openDepartures(search, at: destination)
                     },

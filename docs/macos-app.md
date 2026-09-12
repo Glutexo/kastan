@@ -146,8 +146,13 @@ manager and show their source when more than one ordinary provider is registered
   width, directly associating the local catalog with its available lines.
   They align below Timetable and Date and reuse the matching control widths. Line suggestions use the transport icon
   supplied by IDOS, such as 🚌 for a bus or 🚋 for a tram, instead of presenting the line as a generic place. At compact
-  widths, the Stops/Timetable result choice survives visiting another search mode in the same window. An
-  ordinary route-stop click selects that stop in the current timetable. Every stop, including the currently selected
+  widths, the Stops/Timetable result choice survives visiting another search mode in the same window. Both the compact
+  submitted-search header and the line-and-direction result header offer the three Departures actions followed by the
+  three Connections actions. The submitted header uses its entered endpoints, while the result header uses the
+  endpoints returned by the provider. Because a station timetable selects a date without a time, both transitions use
+  the current clock time on that service day. Their current-window actions follow the same Command-click destination
+  convention as other transferred searches. An ordinary route-stop click selects that stop in the current timetable.
+  Every stop, including the currently selected
   one, offers Open in new window from its context menu; Command-click opens it in a new tab and Shift-Command-click
   opens it in a new window. The
   independent main window retains the submitted catalog, municipality, line, direction, date, and whole-week setting
