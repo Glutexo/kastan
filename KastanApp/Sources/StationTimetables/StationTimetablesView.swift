@@ -11,7 +11,6 @@ struct StationTimetablesView: View {
     let showsItemDetails: Bool
     let showsStopNoteText: Bool
     let showInDepartures: (ResolvedDepartureSearch, DepartureSearchOpenDestination) -> Void
-    @State private var isSearchFormCollapsed: Bool
     @State private var isNotesExpanded = false
     @State private var isExplanationsExpanded = false
     @State private var selectedResultSection = StationTimetableResultSection.stops
@@ -31,7 +30,6 @@ struct StationTimetablesView: View {
         self.showsItemDetails = showsItemDetails
         self.showsStopNoteText = showsStopNoteText
         self.showInDepartures = showInDepartures
-        _isSearchFormCollapsed = State(initialValue: model.startsWithInitialSelection)
     }
 
     var body: some View {
@@ -40,9 +38,9 @@ struct StationTimetablesView: View {
 
             SearchWorkspace(
                 layout: layout,
-                searchVerticalPadding: isSearchFormCollapsed ? 10 : 18
+                searchVerticalPadding: model.isSearchFormCollapsed ? 10 : 18
             ) {
-                if isSearchFormCollapsed {
+                if model.isSearchFormCollapsed {
                     SearchSummaryBar(
                         summary: searchSummary,
                         systemImage: "calendar",
@@ -61,7 +59,7 @@ struct StationTimetablesView: View {
                 height: geometry.size.height,
                 alignment: .topLeading
             )
-            .animation(.easeInOut(duration: 0.18), value: isSearchFormCollapsed)
+            .animation(.easeInOut(duration: 0.18), value: model.isSearchFormCollapsed)
         }
         .focusedSceneValue(\.searchEditCommandContext, searchEditCommandContext)
         .task {
@@ -289,14 +287,14 @@ struct StationTimetablesView: View {
     private func performSearch() {
         guard model.canSearch else { return }
         withAnimation(.easeInOut(duration: 0.18)) {
-            isSearchFormCollapsed = true
+            model.collapseSearchForm()
         }
         Task { await model.search() }
     }
 
     private func editSearch() {
         withAnimation(.easeInOut(duration: 0.18)) {
-            isSearchFormCollapsed = false
+            model.revealSearchForm()
         }
     }
 

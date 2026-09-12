@@ -52,8 +52,8 @@ manager and show their source when more than one ordinary provider is registered
   is visually separated from the native Select All command. Both search commands reveal a collapsed active search
   before applying an action; Connections support every current value and swapping, Departures support the three temporal
   values, and Station Timetables support Date and swapping while unsupported commands stay visibly disabled. A submitted
-  Connections search retains its compact summary when another search mode is selected and the passenger returns; an
-  explicitly reopened editor remains open across the same switch. Searches also
+  search in Connections or Station Timetables retains its compact summary when another search mode is selected and the
+  passenger returns; an explicitly reopened editor remains open across the same switch. Searches also
   support arrival mode and an extensible journey-options builder modeled after native macOS rule editors. The active
   provider advertises every supported journey option independently; the app omits Direct connections only and each
   unsupported condition instead of assuming that connection search implies the complete IDOS option set. Selecting

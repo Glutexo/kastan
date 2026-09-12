@@ -9088,6 +9088,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(independentWorkspace.selection, .stationTimetables)
         XCTAssertFalse(independentWorkspace.stationTimetablesModel.startsWithInitialSelection)
         XCTAssertTrue(independentWorkspace.stationTimetablesModel.startsWithLineFocus)
+        XCTAssertFalse(independentWorkspace.stationTimetablesModel.isSearchFormCollapsed)
         XCTAssertEqual(independentWorkspace.stationTimetablesModel.timetable, timetable)
         XCTAssertTrue(independentWorkspace.stationTimetablesModel.line.isEmpty)
         XCTAssertEqual(
@@ -9135,6 +9136,22 @@ final class KastanAppTests: XCTestCase {
         workspace.selection = .connections
 
         XCTAssertFalse(workspace.connectionsModel.isSearchFormCollapsed)
+    }
+
+    func testStationTimetableSearchHeaderStateSurvivesSwitchingSearchModes() {
+        let workspace = AppDataSourceWorkspace(client: MockIDOSClient())
+
+        workspace.stationTimetablesModel.collapseSearchForm()
+        workspace.selection = .connections
+        workspace.selection = .stationTimetables
+
+        XCTAssertTrue(workspace.stationTimetablesModel.isSearchFormCollapsed)
+
+        workspace.stationTimetablesModel.revealSearchForm()
+        workspace.selection = .departures
+        workspace.selection = .stationTimetables
+
+        XCTAssertFalse(workspace.stationTimetablesModel.isSearchFormCollapsed)
     }
 
     func testConnectionAndServiceStationTimetableTransfersUseMatchedResultValues() async throws {
@@ -9199,6 +9216,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(independentWorkspace.selection, .stationTimetables)
         XCTAssertTrue(independentWorkspace.stationTimetablesModel.startsWithInitialSelection)
         XCTAssertFalse(independentWorkspace.stationTimetablesModel.startsWithLineFocus)
+        XCTAssertTrue(independentWorkspace.stationTimetablesModel.isSearchFormCollapsed)
 
         await independentWorkspace.stationTimetablesModel.loadInitialSelectionIfNeeded()
 
@@ -9209,6 +9227,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(request.to, leg.toStation)
         XCTAssertEqual(request.serviceDate, serviceDate)
         XCTAssertNotNil(independentWorkspace.stationTimetablesModel.result)
+        XCTAssertTrue(independentWorkspace.stationTimetablesModel.isSearchFormCollapsed)
     }
 
     func testConnectionSummaryDoesNotOfferAnUnsupportedStationTimetableCatalog() {

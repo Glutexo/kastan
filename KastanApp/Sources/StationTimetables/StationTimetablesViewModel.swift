@@ -118,6 +118,8 @@ final class StationTimetablesViewModel: ObservableObject {
     @Published var municipality: TransitStationTimetableMunicipality?
     @Published var date = Date()
     @Published var wholeWeek = false
+    /// Retains the passenger's summary-or-editor choice while the main window displays another search mode.
+    @Published private(set) var isSearchFormCollapsed = false
     @Published private(set) var result: TransitStationTimetable?
     @Published private(set) var isSearching = false
     @Published private(set) var resolvingDeparture: StationTimetableDepartureReference?
@@ -187,8 +189,19 @@ final class StationTimetablesViewModel: ObservableObject {
         resolvingDeparture = nil
         errorMessage = nil
         hasPendingInitialSelection = canSearch
+        isSearchFormCollapsed = hasPendingInitialSelection
         requestsLineFocus = line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         return true
+    }
+
+    /// Replaces the submitted station-timetable editor with its compact result summary.
+    func collapseSearchForm() {
+        isSearchFormCollapsed = true
+    }
+
+    /// Restores the submitted station-timetable editor for deliberate query changes.
+    func revealSearchForm() {
+        isSearchFormCollapsed = false
     }
 
     /// Starts a complete query carried by a newly opened main window exactly once.
@@ -198,7 +211,7 @@ final class StationTimetablesViewModel: ObservableObject {
         await search()
     }
 
-    /// Lets a complete form begin with its compact summary while the new window loads the result.
+    /// Indicates whether a complete transferred query is still waiting for its one automatic search.
     var startsWithInitialSelection: Bool {
         hasPendingInitialSelection
     }
