@@ -6269,6 +6269,38 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testLastSelectedTimetableNeverPersistsTheMockCatalog() throws {
+        let suiteName = "cz.glutexo.kastan.tests.last-mock-timetable.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let pid = try XCTUnwrap(TransitTimetable.known.first { $0.identifier == "pid" })
+        defaults.set(
+            [
+                TransitDataSourceID.idos.rawValue: pid.identifier,
+                TransitDataSourceID.mock.rawValue: MockTransitDataSource.timetable.identifier,
+            ],
+            forKey: LastSelectedTimetable.storageKey
+        )
+
+        let preference = LastSelectedTimetable(defaults: defaults)
+        XCTAssertEqual(preference.timetable(for: .idos, in: TransitTimetable.known), pid)
+        XCTAssertNil(preference.timetable(for: .mock, in: [MockTransitDataSource.timetable]))
+        XCTAssertNil(
+            defaults.dictionary(forKey: LastSelectedTimetable.storageKey)?[
+                TransitDataSourceID.mock.rawValue
+            ]
+        )
+
+        preference.remember(MockTransitDataSource.timetable)
+        XCTAssertNil(
+            defaults.dictionary(forKey: LastSelectedTimetable.storageKey)?[
+                TransitDataSourceID.mock.rawValue
+            ]
+        )
+    }
+
     func testEverySearchModeUpdatesAndNewWorkspaceRestoresLastSelectedTimetable() throws {
         let suiteName = "cz.glutexo.kastan.tests.workspace-timetable.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))

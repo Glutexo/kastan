@@ -224,7 +224,8 @@ manager and show their source when more than one ordinary provider is registered
 - Timetable menus grouped into general rail and bus choices, integrated transport systems, and city networks.
   Trains is selected until the user chooses another timetable; the most recent valid choice for each data source
   initializes new workspaces, including after app relaunch. If that choice is no longer in the current catalog, the
-  search mode uses its regular default. Station Timetables offer that shared rail default together
+  search mode uses its regular default. The deterministic mock catalog is excluded from this preference and always
+  uses its declared default after relaunch. Station Timetables offer that shared rail default together
   with the complete current IDOS integrated-system catalog — PID, IDS JMK, ODIS, IDOL, IDSOK, IREDO, DÚK, IDPK,
   IDZK, and IDESKA — and all 106 standalone city networks currently published by IDOS while omitting unsupported
   broad combinations such as All timetables. Prague remains available through PID rather than a duplicate standalone

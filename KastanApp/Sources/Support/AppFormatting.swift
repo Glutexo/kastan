@@ -498,7 +498,7 @@ private struct TimetableFavoriteReference: Codable, Equatable, Hashable {
     }
 }
 
-/// Persists the last timetable chosen for each data source without retaining provider-owned display text.
+/// Persists the last timetable chosen for each non-mock data source without retaining provider-owned display text.
 @MainActor
 final class LastSelectedTimetable: ObservableObject {
     static let storageKey = "lastSelectedTimetableIdentifiersByDataSource"
@@ -507,6 +507,7 @@ final class LastSelectedTimetable: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        removeStoredMockTimetable()
     }
 
     /// Resolves stored identity against the current provider catalog and removes a stale value.
@@ -514,6 +515,7 @@ final class LastSelectedTimetable: ObservableObject {
         for dataSourceID: TransitDataSourceID,
         in catalog: [TransitTimetable]
     ) -> TransitTimetable? {
+        guard dataSourceID != .mock else { return nil }
         var identifiers = storedIdentifiers
         guard let identifier = identifiers[dataSourceID.rawValue] else { return nil }
         if let timetable = catalog.first(where: {
@@ -527,11 +529,19 @@ final class LastSelectedTimetable: ObservableObject {
         return nil
     }
 
-    /// Records only stable provider identity so renamed timetable labels follow the current catalog.
+    /// Records only stable, non-mock provider identity so renamed timetable labels follow the current catalog.
     func remember(_ timetable: TransitTimetable) {
+        guard timetable.dataSourceID != .mock else { return }
         var identifiers = storedIdentifiers
         guard identifiers[timetable.dataSourceID.rawValue] != timetable.identifier else { return }
         identifiers[timetable.dataSourceID.rawValue] = timetable.identifier
+        defaults.set(identifiers, forKey: Self.storageKey)
+    }
+
+    /// Removes the mock value written by versions that persisted every provider indiscriminately.
+    private func removeStoredMockTimetable() {
+        var identifiers = storedIdentifiers
+        guard identifiers.removeValue(forKey: TransitDataSourceID.mock.rawValue) != nil else { return }
         defaults.set(identifiers, forKey: Self.storageKey)
     }
 
