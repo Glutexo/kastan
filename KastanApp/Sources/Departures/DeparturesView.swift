@@ -60,6 +60,9 @@ struct DeparturesView: View {
                 .frame(width: 0, height: 0)
         }
         .focusedSceneValue(\.searchEditCommandContext, searchEditCommandContext)
+        .task {
+            await model.loadInitialSelectionIfNeeded()
+        }
     }
 
     private var resultsPanel: some View {

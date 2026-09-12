@@ -1,6 +1,105 @@
 import Foundation
 import Kastan
 
+/// Preserves one complete departure-board query while opening it in another main window or tab.
+struct DepartureSearchSelection: Codable, Hashable {
+    let timetable: TransitTimetable
+    let station: String
+    let serviceDate: TransitDate
+    let serviceTime: TransitTime
+
+    var dataSourceID: TransitDataSourceID { timetable.dataSourceID }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(timetable.dataSourceID)
+        hasher.combine(timetable.identifier)
+        hasher.combine(timetable.displayName)
+        hasher.combine(station)
+        hasher.combine(serviceDate)
+        hasher.combine(serviceTime.hour)
+        hasher.combine(serviceTime.minute)
+    }
+}
+
+/// Builds departure-board queries from each level of a completed connection result.
+enum DepartureSearchSelectionFactory {
+    static func search(
+        timetable: TransitTimetable,
+        station: String,
+        serviceDate: TransitDate,
+        serviceTime: TransitTime,
+        client: any TransitDataSource
+    ) -> DepartureSearchSelection? {
+        make(
+            timetable: timetable,
+            station: station,
+            serviceDate: serviceDate,
+            serviceTime: serviceTime,
+            client: client
+        )
+    }
+
+    /// Uses the result's matched origin and exact departure instant instead of the broader submitted search.
+    static func connection(
+        _ connection: TransitConnection,
+        timetable: TransitTimetable,
+        fallbackServiceDate: TransitDate?,
+        client: any TransitDataSource
+    ) -> DepartureSearchSelection? {
+        make(
+            timetable: timetable,
+            station: connection.departureStation,
+            serviceDate: connection.departureDate ?? fallbackServiceDate,
+            serviceTime: TransitRequestFormatting.serviceTime(from: connection.departureTime),
+            client: client
+        )
+    }
+
+    /// Uses the concrete service's matched origin and own departure instant.
+    static func service(
+        _ leg: TransitConnectionLeg,
+        in connection: TransitConnection,
+        timetable: TransitTimetable,
+        fallbackServiceDate: TransitDate?,
+        client: any TransitDataSource
+    ) -> DepartureSearchSelection? {
+        make(
+            timetable: timetable,
+            station: leg.fromStation,
+            serviceDate: leg.departureDate ?? connection.departureDate ?? fallbackServiceDate,
+            serviceTime: TransitRequestFormatting.serviceTime(from: leg.departureTime),
+            client: client
+        )
+    }
+
+    private static func make(
+        timetable requestedTimetable: TransitTimetable,
+        station: String,
+        serviceDate: TransitDate?,
+        serviceTime: TransitTime?,
+        client: any TransitDataSource
+    ) -> DepartureSearchSelection? {
+        let station = station.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard client.descriptor.supports(.departures),
+              !station.isEmpty,
+              let serviceDate,
+              let serviceTime,
+              let timetable = client.timetables.first(where: {
+                  $0.appIdentity == requestedTimetable.appIdentity
+              })
+        else {
+            return nil
+        }
+
+        return DepartureSearchSelection(
+            timetable: timetable,
+            station: station,
+            serviceDate: serviceDate,
+            serviceTime: serviceTime
+        )
+    }
+}
+
 /// Transfers one already resolved provider station-board result into Departures without repeating its request.
 struct ResolvedDepartureSearch: Sendable {
     let request: TransitDeparturesRequest
@@ -80,13 +179,21 @@ final class DeparturesViewModel: ObservableObject {
     let client: any TransitDataSource
     private var resultPage: TransitDeparturePage?
     private var isRefreshingCurrentDateAndTime = false
+    private var hasPendingInitialSelection = false
 
-    init(client: any TransitDataSource) {
+    init(
+        client: any TransitDataSource,
+        initialSelection: DepartureSearchSelection? = nil
+    ) {
         self.client = client
         timetable = AppTimetableDefaults.search(
             in: client.timetables,
             defaultTimetable: client.defaultTimetable
         )
+
+        if let initialSelection {
+            _ = present(initialSelection)
+        }
     }
 
     var timetables: [TransitTimetable] {
@@ -137,6 +244,40 @@ final class DeparturesViewModel: ObservableObject {
         time = now
     }
 
+    /// Replaces the editable station-board form and starts the transferred query when the view next appears.
+    @discardableResult
+    func present(_ selection: DepartureSearchSelection) -> Bool {
+        guard selection.dataSourceID == client.descriptor.id,
+              client.descriptor.supports(.departures),
+              let selectedTimetable = timetables.first(where: {
+                  $0.appIdentity == selection.timetable.appIdentity
+              }),
+              let dateAndTime = TransitRequestFormatting.displayDateAndTime(
+                  serviceDate: selection.serviceDate,
+                  serviceTime: selection.serviceTime
+              )
+        else {
+            return false
+        }
+
+        timetable = selectedTimetable
+        station = selection.station
+        stationSelection = nil
+        usesCurrentDateAndTime = false
+        date = dateAndTime
+        time = dateAndTime
+        isArrival = false
+        departures = []
+        resultPage = nil
+        isSearching = false
+        isLoadingEarlier = false
+        isLoadingLater = false
+        errorMessage = nil
+        hasPendingInitialSelection = true
+        isSearchFormCollapsed = true
+        return true
+    }
+
     /// Presents a concrete departure lookup handed off by another search mode.
     func present(_ search: ResolvedDepartureSearch) {
         timetable = search.request.timetable
@@ -152,7 +293,20 @@ final class DeparturesViewModel: ObservableObject {
         isLoadingEarlier = false
         isLoadingLater = false
         errorMessage = nil
+        hasPendingInitialSelection = false
         isSearchFormCollapsed = true
+    }
+
+    /// Starts a complete query carried by a connection result exactly once.
+    func loadInitialSelectionIfNeeded() async {
+        guard hasPendingInitialSelection else { return }
+        hasPendingInitialSelection = false
+        await search()
+    }
+
+    /// Indicates whether a complete transferred query is still waiting for its one automatic search.
+    var startsWithInitialSelection: Bool {
+        hasPendingInitialSelection
     }
 
     /// Replaces the submitted station-board editor with its compact result summary.
@@ -166,6 +320,7 @@ final class DeparturesViewModel: ObservableObject {
     }
 
     func search() async {
+        hasPendingInitialSelection = false
         let station = station.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !station.isEmpty else {
             errorMessage = AppLocalization.string("Enter a station or stop.")

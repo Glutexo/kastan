@@ -5131,6 +5131,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNotEqual(first, second)
         XCTAssertEqual(first.dataSourceID, second.dataSourceID)
         XCTAssertNil(second.initialStationTimetableSelection)
+        XCTAssertNil(second.initialDepartureSelection)
         XCTAssertNil(second.initialDepartureSearchTransferID)
         XCTAssertEqual(
             try JSONDecoder().decode(
@@ -5820,8 +5821,9 @@ final class KastanAppTests: XCTestCase {
             performEmailAction: { _ in },
             performCalendarAction: { _ in },
             performPDFAction: { _ in },
-            stationTimetableFallbackDate: nil,
-            openStationTimetable: nil
+            fallbackServiceDate: nil,
+            openStationTimetable: nil,
+            openDepartures: nil
         )
         let hostingView = NSHostingView(rootView: card.frame(width: 700))
         hostingView.frame = NSRect(x: 0, y: 0, width: 700, height: 300)
@@ -5892,8 +5894,9 @@ final class KastanAppTests: XCTestCase {
                 performEmailAction: { _ in },
                 performCalendarAction: { _ in },
                 performPDFAction: { _ in },
-                stationTimetableFallbackDate: nil,
-                openStationTimetable: nil
+                fallbackServiceDate: nil,
+                openStationTimetable: nil,
+                openDepartures: nil
             )
             let hostingView = NSHostingView(rootView: card.frame(width: 700))
             hostingView.frame = NSRect(x: 0, y: 0, width: 700, height: 180)
@@ -9260,6 +9263,106 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(independentWorkspace.stationTimetablesModel.isSearchFormCollapsed)
     }
 
+    func testConnectionDepartureTransfersUseTheExactOriginAndDepartureInstant() async throws {
+        let client = MockIDOSClient()
+        let timetable = try IDOSTimetable.resolve("frydekmistek")
+        let submittedDate = TransitDate(year: 2026, month: 9, day: 10)
+        let connectionDate = TransitDate(year: 2026, month: 9, day: 11)
+        let serviceDate = TransitDate(year: 2026, month: 9, day: 12)
+        let leg = TransitConnectionLeg(
+            name: "Bus 980",
+            id: "frydekmistek:0-980-12.09.2026 00:13:00",
+            transportMode: .bus,
+            departureDate: serviceDate,
+            departureTime: "00:13",
+            fromStation: "Frýdek-Místek,Místek,Anenská",
+            arrivalTime: "00:31",
+            toStation: "Ostrava,Hrabůvka,Benzina"
+        )
+        let connection = TransitConnection(
+            timetableIdentifier: timetable.identifier,
+            id: "overnight-departures",
+            departureDate: connectionDate,
+            departureTime: "23:53",
+            departureStation: "Frýdek,Na Veselé (spárovaná)",
+            arrivalTime: "00:31",
+            arrivalStation: "Ostrava,Hrabůvka,Benzina (spárovaná)",
+            duration: "38 min",
+            legs: [leg]
+        )
+
+        let searchSelection = try XCTUnwrap(
+            DepartureSearchSelectionFactory.search(
+                timetable: timetable,
+                station: "  Frýdek-Místek  ",
+                serviceDate: submittedDate,
+                serviceTime: TransitTime(hour: 22, minute: 45),
+                client: client
+            )
+        )
+        XCTAssertEqual(searchSelection.station, "Frýdek-Místek")
+        XCTAssertEqual(searchSelection.serviceDate, submittedDate)
+        XCTAssertEqual(searchSelection.serviceTime, TransitTime(hour: 22, minute: 45))
+
+        let connectionSelection = try XCTUnwrap(
+            DepartureSearchSelectionFactory.connection(
+                connection,
+                timetable: timetable,
+                fallbackServiceDate: submittedDate,
+                client: client
+            )
+        )
+        XCTAssertEqual(connectionSelection.station, connection.departureStation)
+        XCTAssertEqual(connectionSelection.serviceDate, connectionDate)
+        XCTAssertEqual(connectionSelection.serviceTime, TransitTime(hour: 23, minute: 53))
+
+        let serviceSelection = try XCTUnwrap(
+            DepartureSearchSelectionFactory.service(
+                leg,
+                in: connection,
+                timetable: timetable,
+                fallbackServiceDate: submittedDate,
+                client: client
+            )
+        )
+        XCTAssertEqual(serviceSelection.station, leg.fromStation)
+        XCTAssertEqual(serviceSelection.serviceDate, serviceDate)
+        XCTAssertEqual(serviceSelection.serviceTime, TransitTime(hour: 0, minute: 13))
+
+        let sceneValue = MainWindowSceneValue(
+            dataSourceID: .idos,
+            initialDepartureSelection: serviceSelection
+        )
+        XCTAssertEqual(
+            try JSONDecoder().decode(
+                MainWindowSceneValue.self,
+                from: JSONEncoder().encode(sceneValue)
+            ),
+            sceneValue
+        )
+
+        let independentWorkspace = AppDataSourceWorkspace(
+            client: client,
+            initialDepartureSelection: serviceSelection
+        )
+        XCTAssertEqual(independentWorkspace.selection, .departures)
+        XCTAssertTrue(independentWorkspace.departuresModel.startsWithInitialSelection)
+        XCTAssertTrue(independentWorkspace.departuresModel.isSearchFormCollapsed)
+
+        await independentWorkspace.departuresModel.loadInitialSelectionIfNeeded()
+
+        let capturedRequest = await client.lastDeparturesRequest
+        let request = try XCTUnwrap(capturedRequest)
+        XCTAssertEqual(request.timetable, timetable)
+        XCTAssertEqual(request.station, leg.fromStation)
+        XCTAssertEqual(request.serviceDate, serviceDate)
+        XCTAssertEqual(request.serviceTime, TransitTime(hour: 0, minute: 13))
+        XCTAssertFalse(request.isArrival)
+        XCTAssertFalse(independentWorkspace.departuresModel.startsWithInitialSelection)
+        XCTAssertFalse(independentWorkspace.departuresModel.departures.isEmpty)
+        XCTAssertTrue(independentWorkspace.departuresModel.isSearchFormCollapsed)
+    }
+
     func testConnectionSummaryDoesNotOfferAnUnsupportedStationTimetableCatalog() {
         let workspace = AppDataSourceWorkspace(client: MockIDOSClient())
         workspace.connectionsModel.timetable = .defaultTimetable
@@ -9975,8 +10078,9 @@ private func connectionCardOpenCount(
         performEmailAction: { _ in },
         performCalendarAction: { _ in },
         performPDFAction: { _ in },
-        stationTimetableFallbackDate: nil,
-        openStationTimetable: nil
+        fallbackServiceDate: nil,
+        openStationTimetable: nil,
+        openDepartures: nil
     )
     let hostingView = NSHostingView(
         rootView: card.frame(width: 700, height: 140, alignment: .topLeading)

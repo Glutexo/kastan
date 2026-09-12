@@ -114,6 +114,7 @@ struct ConnectionContextMenuContent: View {
     let isPerformingAction: Bool
     let openInNewWindow: () -> Void
     let openStationTimetable: ((StationTimetableOpenDestination) -> Void)?
+    let openDepartures: ((DepartureSearchOpenDestination) -> Void)?
     let performEmailAction: (ConnectionEmailAction) -> Void
     let performCalendarAction: (CalendarExportAction) -> Void
     let performPDFAction: (PDFExportAction) -> Void
@@ -145,6 +146,14 @@ struct ConnectionContextMenuContent: View {
                     titleStyle: .abbreviated,
                     open: openStationTimetable
                 )
+                if openDepartures != nil {
+                    Divider()
+                }
+            }
+            if let openDepartures {
+                DepartureSearchOpenActions(open: openDepartures)
+            }
+            if openStationTimetable != nil || openDepartures != nil {
                 Divider()
             }
         case .detail(.sendByEmail):
@@ -206,15 +215,18 @@ struct ServiceContextMenuContent: View {
     @ObservedObject var model: ServiceDetailViewModel
     let showPreview: () -> Void
     let openStationTimetable: ((StationTimetableOpenDestination) -> Void)?
+    let openDepartures: ((DepartureSearchOpenDestination) -> Void)?
 
     init(
         model: ServiceDetailViewModel,
         showPreview: @escaping () -> Void,
-        openStationTimetable: ((StationTimetableOpenDestination) -> Void)? = nil
+        openStationTimetable: ((StationTimetableOpenDestination) -> Void)? = nil,
+        openDepartures: ((DepartureSearchOpenDestination) -> Void)? = nil
     ) {
         self.model = model
         self.showPreview = showPreview
         self.openStationTimetable = openStationTimetable
+        self.openDepartures = openDepartures
     }
 
     var body: some View {
@@ -249,6 +261,14 @@ struct ServiceContextMenuContent: View {
                     titleStyle: .abbreviated,
                     open: openStationTimetable
                 )
+                if openDepartures != nil {
+                    Divider()
+                }
+            }
+            if let openDepartures {
+                DepartureSearchOpenActions(open: openDepartures)
+            }
+            if openStationTimetable != nil || openDepartures != nil {
                 Divider()
             }
         case .detail(.sendByEmail):

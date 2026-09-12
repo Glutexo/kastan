@@ -259,24 +259,32 @@ final class AppDataSourceWorkspace: ObservableObject, Identifiable {
     init(
         client: any TransitDataSource,
         initialStationTimetableSelection: StationTimetableSelection? = nil,
+        initialDepartureSelection: DepartureSearchSelection? = nil,
         initialDepartureSearch: ResolvedDepartureSearch? = nil
     ) {
         self.client = client
         availableSections = AppSection.available(for: client.descriptor)
         let opensStationTimetable = initialStationTimetableSelection?.dataSourceID == client.descriptor.id &&
             availableSections.contains(.stationTimetables)
-        let opensDepartures = initialDepartureSearch?.dataSourceID == client.descriptor.id &&
+        let opensResolvedDepartures = initialDepartureSearch?.dataSourceID == client.descriptor.id &&
             availableSections.contains(.departures)
+        let opensSelectedDepartures = !opensResolvedDepartures &&
+            initialDepartureSelection?.dataSourceID == client.descriptor.id &&
+            availableSections.contains(.departures)
+        let opensDepartures = opensResolvedDepartures || opensSelectedDepartures
         selection = opensDepartures
             ? .departures
             : opensStationTimetable ? .stationTimetables : availableSections.first ?? .connections
         connectionsModel = ConnectionsViewModel(client: client)
-        departuresModel = DeparturesViewModel(client: client)
+        departuresModel = DeparturesViewModel(
+            client: client,
+            initialSelection: opensSelectedDepartures ? initialDepartureSelection : nil
+        )
         stationTimetablesModel = StationTimetablesViewModel(
             client: client,
             initialSelection: opensStationTimetable ? initialStationTimetableSelection : nil
         )
-        if opensDepartures, let initialDepartureSearch {
+        if opensResolvedDepartures, let initialDepartureSearch {
             departuresModel.present(initialDepartureSearch)
         }
     }
@@ -298,6 +306,19 @@ final class AppDataSourceWorkspace: ObservableObject, Identifiable {
         }
 
         selection = .stationTimetables
+        return true
+    }
+
+    /// Moves a connection result's complete departure-board query into this window.
+    @discardableResult
+    func showDepartures(_ transferredSelection: DepartureSearchSelection) -> Bool {
+        guard availableSections.contains(.departures),
+              departuresModel.present(transferredSelection)
+        else {
+            return false
+        }
+
+        selection = .departures
         return true
     }
 
@@ -340,6 +361,7 @@ final class AppDataSourceSelection: ObservableObject {
         registry: TransitDataSourceRegistry,
         initialDataSourceID: TransitDataSourceID? = nil,
         initialStationTimetableSelection: StationTimetableSelection? = nil,
+        initialDepartureSelection: DepartureSearchSelection? = nil,
         initialDepartureSearch: ResolvedDepartureSearch? = nil
     ) {
         self.registry = registry
@@ -352,6 +374,7 @@ final class AppDataSourceSelection: ObservableObject {
         workspace = AppDataSourceWorkspace(
             client: initialDataSource,
             initialStationTimetableSelection: initialStationTimetableSelection,
+            initialDepartureSelection: initialDepartureSelection,
             initialDepartureSearch: initialDepartureSearch
         )
     }
@@ -483,6 +506,7 @@ struct ContentView: View {
                 registry: dataSources,
                 initialDataSourceID: sceneValue.wrappedValue.dataSourceID,
                 initialStationTimetableSelection: sceneValue.wrappedValue.initialStationTimetableSelection,
+                initialDepartureSelection: sceneValue.wrappedValue.initialDepartureSelection,
                 initialDepartureSearch: initialDepartureSearch
             )
         )
@@ -525,6 +549,9 @@ struct ContentView: View {
             }
             if sceneValue.initialStationTimetableSelection != nil {
                 sceneValue.initialStationTimetableSelection = nil
+            }
+            if sceneValue.initialDepartureSelection != nil {
+                sceneValue.initialDepartureSelection = nil
             }
             if let transferID = sceneValue.initialDepartureSearchTransferID {
                 sceneValue.initialDepartureSearchTransferID = nil
@@ -588,6 +615,11 @@ private struct ProviderSearchWorkspaceView: View {
                         ? { selection, destination in
                             openStationTimetable(selection, at: destination)
                         }
+                        : nil,
+                    openDepartures: workspace.availableSections.contains(.departures)
+                        ? { selection, destination in
+                            openDepartures(selection, at: destination)
+                        }
                         : nil
                 )
             case .departures:
@@ -624,6 +656,35 @@ private struct ProviderSearchWorkspaceView: View {
             let sceneValue = MainWindowSceneValue(
                 dataSourceID: selection.dataSourceID,
                 initialStationTimetableSelection: selection
+            )
+
+            if destination == .newTab {
+                AppWindowActions.newTab {
+                    openWindow(id: AppWindow.main, value: sceneValue)
+                }
+            } else {
+                openWindow(id: AppWindow.main, value: sceneValue)
+            }
+        }
+    }
+
+    /// Starts a connection result's departure-board query here or in an independent scene.
+    private func openDepartures(
+        _ selection: DepartureSearchSelection,
+        at destination: DepartureSearchOpenDestination
+    ) {
+        switch destination {
+        case .currentWindow:
+            _ = workspace.showDepartures(selection)
+        case .newWindow, .newTab:
+            guard selection.dataSourceID == client.descriptor.id,
+                  workspace.availableSections.contains(.departures)
+            else {
+                return
+            }
+            let sceneValue = MainWindowSceneValue(
+                dataSourceID: selection.dataSourceID,
+                initialDepartureSelection: selection
             )
 
             if destination == .newTab {

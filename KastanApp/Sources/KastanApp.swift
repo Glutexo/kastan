@@ -23,23 +23,26 @@ enum AppWindow {
 ///
 /// The unique identifier keeps two windows that use the same provider distinct when they are opened through
 /// SwiftUI's value-based window API. The provider identifier remains mutable so a regular provider change can be
-/// persisted as part of the scene's restoration value. A station-timetable selection or a temporary resolved-
-/// departures transfer seeds a newly opened window and is cleared after its workspace has adopted the query.
+/// persisted as part of the scene's restoration value. A station-timetable selection, departure-board selection,
+/// or temporary resolved-departures transfer seeds a newly opened window and is cleared after adoption.
 struct MainWindowSceneValue: Codable, Hashable {
     let id: UUID
     var dataSourceID: TransitDataSourceID
     var initialStationTimetableSelection: StationTimetableSelection?
+    var initialDepartureSelection: DepartureSearchSelection?
     var initialDepartureSearchTransferID: UUID?
 
     init(
         id: UUID = UUID(),
         dataSourceID: TransitDataSourceID,
         initialStationTimetableSelection: StationTimetableSelection? = nil,
+        initialDepartureSelection: DepartureSearchSelection? = nil,
         initialDepartureSearchTransferID: UUID? = nil
     ) {
         self.id = id
         self.dataSourceID = dataSourceID
         self.initialStationTimetableSelection = initialStationTimetableSelection
+        self.initialDepartureSelection = initialDepartureSelection
         self.initialDepartureSearchTransferID = initialDepartureSearchTransferID
     }
 }
@@ -223,7 +226,7 @@ enum StationTimetableOpenDestination: CaseIterable, Hashable, Identifiable {
     }
 }
 
-/// Identifies where one resolved station-timetable departure should open its Departures result.
+/// Identifies where a prepared departure-board search should open.
 enum DepartureSearchOpenDestination: CaseIterable, Hashable, Identifiable {
     case currentWindow
     case newWindow
@@ -258,7 +261,7 @@ enum DepartureSearchOpenDestination: CaseIterable, Hashable, Identifiable {
     }
 }
 
-/// Places all destinations for a resolved Departures search directly in its containing menu.
+/// Places all destinations for a Departures search directly in its containing menu.
 struct DepartureSearchOpenActions: View {
     let open: (DepartureSearchOpenDestination) -> Void
 
