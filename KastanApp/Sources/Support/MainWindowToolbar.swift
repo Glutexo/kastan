@@ -184,6 +184,7 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
 
             uninstall()
             self.window = window
+            let topLeft = NSPoint(x: window.frame.minX, y: window.frame.maxY)
             window.titleVisibility = .hidden
             window.toolbarStyle = .unified
             window.toolbar = toolbar
@@ -191,6 +192,7 @@ struct MainWindowToolbarInstaller: NSViewRepresentable {
                 to: window,
                 minimumContentWidth: KastanApp.minimumMainWindowWidth
             )
+            window.setFrameTopLeftPoint(topLeft)
         }
 
         func uninstall() {
