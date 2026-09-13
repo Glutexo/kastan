@@ -1134,28 +1134,9 @@ private struct StationTimetableDepartureTime: View {
         displayedTime: String
     ) -> some View {
         let actionLabel = AppLocalization.string("Open service at %@", displayedTime)
-        let searchHint = searchInDepartures.map { _ in
-            AppLocalization.string("Hold Option and click to find this service in Departures.")
-        }
-        let connectionSearchHint = searchInConnections.map { _ in
-            AppLocalization.string("Hold Control and Option and click to find a connection.")
-        }
-        let destinationHint = searchInDepartures != nil || searchInConnections != nil
-            ? AppLocalization.string(
-                "Add Command for a new tab, or Shift-Command for a new window."
-            )
-            : nil
         let accessibilityLabel = [actionLabel, presentation.explanation]
             .compactMap(\.self)
             .joined(separator: ". ")
-        let helpText = [
-            presentation.explanation ?? actionLabel,
-            searchHint,
-            connectionSearchHint,
-            destinationHint,
-        ]
-            .compactMap(\.self)
-            .joined(separator: "\n")
         let button = Button {
             guard !suppressesPrimaryAction else { return }
             action()
@@ -1165,23 +1146,8 @@ private struct StationTimetableDepartureTime: View {
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
-        .help(Text(verbatim: helpText))
+        .help(Text(verbatim: presentation.explanation ?? actionLabel))
         .accessibilityLabel(Text(verbatim: accessibilityLabel))
-        .overlay {
-            if searchInDepartures != nil || searchInConnections != nil {
-                ModifierClickOverlay(requiredModifierFlags: .option) { modifierFlags in
-                    if modifierFlags.contains(.control) {
-                        searchInConnections?(
-                            .currentWindow.resolvingCurrentAction(for: modifierFlags)
-                        )
-                    } else {
-                        searchInDepartures?(
-                            .currentWindow.resolvingCurrentAction(for: modifierFlags)
-                        )
-                    }
-                }
-            }
-        }
         .forceClickPreview(
             size: ResultPreviewLayout.serviceSize,
             isEnabled: isEnabled && preview != nil,

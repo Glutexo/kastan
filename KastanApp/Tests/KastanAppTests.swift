@@ -1436,19 +1436,18 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(selectedIndex, 1)
     }
 
-    func testModifierClickingStationTimetableTimeRoutesItsSearchAndDestination() throws {
-        var departureSearches: [(Int, DepartureSearchOpenDestination)] = []
-        var connectionSearches: [(Int, ConnectionSearchOpenDestination)] = []
+    func testOptionClickingStationTimetableTimeUsesItsOrdinaryAction() {
+        var selectedIndex: Int?
         let departures = StationTimetableDepartureTimes(
             values: ["13", "35A"],
             explanations: ["A: runs only to stop Háje"],
             hour: "5",
-            selectDeparture: { _ in XCTFail("A modified click must not perform the ordinary action.") },
-            searchDeparture: { index, destination in
-                departureSearches.append((index, destination))
+            selectDeparture: { selectedIndex = $0 },
+            searchDeparture: { _, _ in
+                XCTFail("Option-click must not search Departures.")
             },
-            searchConnection: { index, destination in
-                connectionSearches.append((index, destination))
+            searchConnection: { _, _ in
+                XCTFail("Option-click must not search Connections.")
             }
         )
         let hostingView = NSHostingView(
@@ -1466,79 +1465,29 @@ final class KastanAppTests: XCTestCase {
         hostingView.layoutSubtreeIfNeeded()
         defer { window.orderOut(nil) }
 
-        let clickViews = hostingView.allDescendantViews.compactMap {
+        XCTAssertTrue(hostingView.allDescendantViews.compactMap {
             $0 as? OptionClickCaptureView
-        }
-        XCTAssertEqual(clickViews.count, 2)
-        let firstClickView = try XCTUnwrap(clickViews.min { lhs, rhs in
-            hostingView.convert(lhs.bounds, from: lhs).midX <
-                hostingView.convert(rhs.bounds, from: rhs).midX
-        })
-        let clickLocation = firstClickView.convert(
-                NSPoint(x: firstClickView.bounds.midX, y: firstClickView.bounds.midY),
-                to: nil
+        }.isEmpty)
+
+        let secondDeparture = NSPoint(x: 60, y: hostingView.bounds.midY)
+        for eventType in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            let event = NSEvent.mouseEvent(
+                with: eventType,
+                location: secondDeparture,
+                modifierFlags: [.option],
+                timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                clickCount: 1,
+                pressure: eventType == .leftMouseDown ? 1 : 0
             )
-        let departureCases: [(NSEvent.ModifierFlags, DepartureSearchOpenDestination)] = [
-            ([.option], .currentWindow),
-            ([.option, .command], .newTab),
-            ([.option, .command, .shift], .newWindow),
-        ]
-        for (eventNumber, testCase) in departureCases.enumerated() {
-            let click = try XCTUnwrap(NSEvent.mouseEvent(
-                with: .leftMouseDown,
-                location: clickLocation,
-                modifierFlags: testCase.0,
-                timestamp: 0,
-                windowNumber: window.windowNumber,
-                context: nil,
-                eventNumber: eventNumber,
-                clickCount: 1,
-                pressure: 1
-            ))
-            XCTAssertNil(firstClickView.process(click))
-        }
-        let connectionCases: [(NSEvent.ModifierFlags, ConnectionSearchOpenDestination)] = [
-            ([.control, .option], .currentWindow),
-            ([.control, .option, .command], .newTab),
-            ([.control, .option, .command, .shift], .newWindow),
-        ]
-        for (eventNumber, testCase) in connectionCases.enumerated() {
-            let click = try XCTUnwrap(NSEvent.mouseEvent(
-                with: .leftMouseDown,
-                location: clickLocation,
-                modifierFlags: testCase.0,
-                timestamp: 0,
-                windowNumber: window.windowNumber,
-                context: nil,
-                eventNumber: eventNumber + departureCases.count,
-                clickCount: 1,
-                pressure: 1
-            ))
-            XCTAssertNil(firstClickView.process(click))
+            if let event {
+                window.sendEvent(event)
+            }
         }
 
-        XCTAssertEqual(departureSearches.map(\.0), [0, 0, 0])
-        XCTAssertEqual(departureSearches.map(\.1), departureCases.map(\.1))
-        XCTAssertEqual(connectionSearches.map(\.0), [0, 0, 0])
-        XCTAssertEqual(connectionSearches.map(\.1), connectionCases.map(\.1))
-
-        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
-        XCTAssertEqual(
-            czech.localizedString(
-                forKey: "Hold Option and click to find this service in Departures.",
-                value: nil,
-                table: nil
-            ),
-            "Podržte Option a kliknutím vyhledejte tento spoj v Odjezdech."
-        )
-        XCTAssertEqual(
-            czech.localizedString(
-                forKey: "Hold Control and Option and click to find a connection.",
-                value: nil,
-                table: nil
-            ),
-            "Podržte Control a Option a kliknutím vyhledejte spojení."
-        )
+        XCTAssertEqual(selectedIndex, 1)
     }
 
     func testStationTimetableSearchMenusUseWindowBeforeTabOrder() throws {

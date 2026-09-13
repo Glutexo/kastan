@@ -1,5 +1,4 @@
 "About Kaštan" = "O aplikaci Kaštan";
-"Add Command for a new tab, or Shift-Command for a new window." = "Přidáním Command otevřete vyhledávání v novém panelu, přidáním Shift + Command v novém okně.";
 "Add to Calendar" = "Přidat do Kalendáře";
 "Additionally runs %@" = "Navíc jede %@";
 "Additional parameters" = "Další možnosti";
@@ -95,8 +94,6 @@
 "From" = "Odkud";
 "From Place" = "Místo odkud";
 "Here" = "Tady";
-"Hold Control and Option and click to find a connection." = "Podržte Control a Option a kliknutím vyhledejte spojení.";
-"Hold Option and click to find this service in Departures." = "Podržte Option a kliknutím vyhledejte tento spoj v Odjezdech.";
 "Information unavailable" = "Informace nejsou k dispozici";
 "IDOS could not generate a station timetable for this line, direction, and date." = "IDOS nemohl pro tuto linku, směr a datum vytvořit zastávkový jízdní řád.";
 "%@ could not identify this station-timetable departure." = "%@ nedokázal určit spoj pro tento odjezd v zastávkovém jízdním řádu.";

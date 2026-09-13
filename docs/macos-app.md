@@ -181,13 +181,9 @@ one ordinary provider is registered.
   smaller secondary information attached to its minute without shifting later departures and reveals the matching
   explanation on hover. When the active data source advertises Station Timetable departure resolution, selecting a
   rendered departure asks that provider to resolve its dated run on demand and opens the complete route,
-  with the selected stop highlighted through the searched direction. Option-clicking it instead switches to
-  Departures and presents the already resolved station board for the same stop, date, time, and timetable without
-  repeating the provider request. Control-Option-clicking starts a Connections search from the provider-matched stop
-  to the displayed route destination at that run's exact date and time. Adding Command to either search gesture opens
-  a new tab; adding Shift as well opens a new window. Its context menu exposes the current-window, new-window, and
-  new-tab actions for Connections followed by the same three actions for Departures. Every complete transfer searches
-  immediately in its destination.
+  with the selected stop highlighted through the searched direction. Its context menu provides the explicit choice
+  between current-window, new-window, and new-tab searches for Connections followed by the same three choices for
+  Departures. Every complete transfer searches immediately in its destination.
   Force Clicking it performs the same on-demand lookup and presents a compact
   complete-route preview at the detail view's minimum supported width without also opening a window. Right-clicking
   a departure separates those navigation choices from its calendar, PDF, and sharing actions; the selected export or
