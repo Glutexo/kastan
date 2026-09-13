@@ -5252,7 +5252,7 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testLastClosedMainWindowDataSourcePersistsMockAndRejectsRemovedSources() throws {
+    func testLastClosedMainWindowDataSourceIgnoresMockAndRejectsRemovedSources() throws {
         let suiteName = "cz.glutexo.kastan.tests.last-closed.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -5264,13 +5264,23 @@ final class KastanAppTests: XCTestCase {
             TransitDataSourceID.idos
         )
 
+        preference.remember(.idos)
         preference.remember(.mock)
-        XCTAssertEqual(preference.dataSourceID, .mock)
+        XCTAssertEqual(preference.dataSourceID, .idos)
         XCTAssertEqual(
             LastClosedMainWindowDataSource(defaults: defaults)
                 .resolvedDataSourceID(in: .builtIn),
-            TransitDataSourceID.mock
+            TransitDataSourceID.idos
         )
+
+        defaults.set(
+            TransitDataSourceID.mock.rawValue,
+            forKey: LastClosedMainWindowDataSource.storageKey
+        )
+        let migratedPreference = LastClosedMainWindowDataSource(defaults: defaults)
+        XCTAssertNil(migratedPreference.dataSourceID)
+        XCTAssertNil(defaults.string(forKey: LastClosedMainWindowDataSource.storageKey))
+        XCTAssertEqual(migratedPreference.resolvedDataSourceID(in: .builtIn), .idos)
 
         defaults.set("removed-provider", forKey: LastClosedMainWindowDataSource.storageKey)
         XCTAssertEqual(

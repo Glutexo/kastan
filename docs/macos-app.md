@@ -20,10 +20,11 @@ ordinary toolbar picker or the favorite-timetable catalog, but an explicitly ope
 that source.
 
 macOS restores every main window and native tab together with its provider choice. If there is no window to restore,
-the initial window uses the provider from the main window that closed most recently, including an explicitly selected
-mock provider. If that provider is no longer registered, the registry default is used. With the current ordinary
-catalog that default remains IDOS. Favorite timetables from every ordinary provider remain available in the shared
-manager and show their source when more than one ordinary provider is registered.
+the initial window uses the non-mock provider from the main window that closed most recently. Closing a temporary mock
+window does not replace that choice; if no ordinary choice is stored, the registry default is used. A provider that is
+no longer registered also falls back to that default. With the current ordinary catalog it remains IDOS. Favorite
+timetables from every ordinary provider remain available in the shared manager and show their source when more than
+one ordinary provider is registered.
 
 ## Features
 

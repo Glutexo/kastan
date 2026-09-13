@@ -50,7 +50,7 @@ struct MainWindowSceneValue: Codable, Hashable {
     }
 }
 
-/// Remembers the provider from the main window that actually closed most recently.
+/// Remembers the non-mock provider from the main window that actually closed most recently.
 @MainActor
 final class LastClosedMainWindowDataSource: ObservableObject {
     static let storageKey = "lastClosedMainWindowDataSourceID"
@@ -60,11 +60,19 @@ final class LastClosedMainWindowDataSource: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        dataSourceID = defaults.string(forKey: Self.storageKey).map { TransitDataSourceID($0) }
+        let storedDataSourceID = defaults.string(forKey: Self.storageKey)
+            .map { TransitDataSourceID($0) }
+        if storedDataSourceID == .mock {
+            dataSourceID = nil
+            defaults.removeObject(forKey: Self.storageKey)
+        } else {
+            dataSourceID = storedDataSourceID
+        }
     }
 
-    /// Records regular and explicit-only providers alike because restoration follows the last closed window exactly.
+    /// Keeps a temporary mock window from replacing the provider used for the next fresh launch.
     func remember(_ dataSourceID: TransitDataSourceID) {
+        guard dataSourceID != .mock else { return }
         guard self.dataSourceID != dataSourceID else { return }
         self.dataSourceID = dataSourceID
         defaults.set(dataSourceID.rawValue, forKey: Self.storageKey)
