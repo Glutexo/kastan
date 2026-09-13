@@ -433,7 +433,11 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             MainWindowTitlePresentation.departures(station: " Brno hl.n. ", isArrival: false, bundle: czech),
-            "Brno hl.n. · Odjezdy"
+            "Brno hl.n. · odjezdy"
+        )
+        XCTAssertEqual(
+            MainWindowTitlePresentation.departures(station: " Brno hl.n. ", isArrival: true, bundle: czech),
+            "Brno hl.n. · příjezdy"
         )
         XCTAssertEqual(
             MainWindowTitlePresentation.departures(station: "", isArrival: true, bundle: english),

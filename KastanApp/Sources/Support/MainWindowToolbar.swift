@@ -31,7 +31,8 @@ enum MainWindowTitlePresentation {
         let mode = localized(isArrival ? "Arrivals" : "Departures", bundle: bundle)
         let station = cleaned(station)
         guard !station.isEmpty else { return mode }
-        return "\(station) · \(mode)"
+        let inlineMode = mode.lowercased(with: AppLocalization.locale(for: bundle))
+        return "\(station) · \(inlineMode)"
     }
 
     static func stationTimetable(
