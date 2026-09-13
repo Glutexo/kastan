@@ -9377,6 +9377,62 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(resultConnection.serviceTime, currentTime)
     }
 
+    func testStationTimetableStopsBuildSearchesFromTheirProviderMatchedRoutes() async throws {
+        let client = MockIDOSClient()
+        let model = StationTimetablesViewModel(client: client)
+        let serviceDate = TransitDate(year: 2026, month: 9, day: 11)
+        let currentTime = TransitTime(hour: 16, minute: 24)
+        model.date = try XCTUnwrap(TransitRequestFormatting.displayDateAndTime(
+            serviceDate: serviceDate,
+            serviceTime: TransitTime(hour: 12, minute: 0)
+        ))
+        let now = try XCTUnwrap(TransitRequestFormatting.displayDateAndTime(
+            serviceDate: serviceDate,
+            serviceTime: currentTime
+        ))
+        model.selectTimetable(slug: "pid")
+        model.selectLineSuggestion(IDOSSuggestion(
+            text: "Bus 154",
+            from: "Strašnická",
+            to: "Sídliště Libuš"
+        ))
+        await model.search()
+
+        let result = try XCTUnwrap(model.result)
+        let intermediateIndex = try XCTUnwrap(
+            result.stops.indices.dropFirst().dropLast().first
+        )
+        let terminalIndex = try XCTUnwrap(result.stops.indices.last)
+        model.from = "Edited origin"
+        model.to = "Edited destination"
+
+        let departure = try XCTUnwrap(model.departureSearch(
+            forStopAt: intermediateIndex,
+            now: now
+        ))
+        let connection = try XCTUnwrap(model.connectionSearch(
+            forStopAt: intermediateIndex,
+            now: now
+        ))
+        let reverseConnection = try XCTUnwrap(model.connectionSearch(
+            forStopAt: terminalIndex,
+            now: now
+        ))
+
+        XCTAssertEqual(departure.timetable.slug, "pid")
+        XCTAssertEqual(departure.station, result.stops[intermediateIndex].name)
+        XCTAssertEqual(departure.serviceDate, serviceDate)
+        XCTAssertEqual(departure.serviceTime, currentTime)
+        XCTAssertEqual(connection.from, result.stops[intermediateIndex].name)
+        XCTAssertEqual(connection.to, result.toStop)
+        XCTAssertEqual(connection.serviceDate, serviceDate)
+        XCTAssertEqual(connection.serviceTime, currentTime)
+        XCTAssertEqual(reverseConnection.from, result.stops[terminalIndex].name)
+        XCTAssertEqual(reverseConnection.to, result.fromStop)
+        XCTAssertNil(model.departureSearch(forStopAt: -1, now: now))
+        XCTAssertNil(model.connectionSearch(forStopAt: result.stops.endIndex, now: now))
+    }
+
     func testConnectionSummaryPreparesAStationTimetableWithoutStartingAnIncompleteSearch() async throws {
         let client = MockIDOSClient()
         let workspace = AppDataSourceWorkspace(client: client)

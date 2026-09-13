@@ -601,6 +601,28 @@ struct StationTimetablesView: View {
                         in: RoundedRectangle(cornerRadius: 6)
                     )
                     .contextMenu {
+                        StationTimetableSearchOpenActions(
+                            canOpenConnections: model.canFindHeaderConnectionResults,
+                            canOpenDepartures: model.canFindHeaderDepartureResults,
+                            openConnections: { destination in
+                                guard let selection = model.connectionSearch(
+                                    forStopAt: index
+                                ) else { return }
+                                showInConnections(selection, destination)
+                            },
+                            openDepartures: { destination in
+                                guard let selection = model.departureSearch(
+                                    forStopAt: index
+                                ) else { return }
+                                showDepartureSearch(selection, destination)
+                            }
+                        )
+
+                        if model.canFindHeaderConnectionResults ||
+                            model.canFindHeaderDepartureResults {
+                            Divider()
+                        }
+
                         ForEach(StationTimetableStopOpenAction.allCases) { action in
                             Button {
                                 openStop(at: index, destination: action.destination)

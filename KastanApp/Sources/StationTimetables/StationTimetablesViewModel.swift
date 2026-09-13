@@ -423,6 +423,50 @@ final class StationTimetablesViewModel: ObservableObject {
         )
     }
 
+    /// Builds a station-board query for one provider-returned stop on the displayed service day.
+    func departureSearch(
+        forStopAt index: Int,
+        now: Date = .now
+    ) -> DepartureSearchSelection? {
+        guard let result,
+              let resultSearchDate,
+              result.stops.indices.contains(index)
+        else {
+            return nil
+        }
+        return DepartureSearchSelectionFactory.search(
+            timetable: result.timetable,
+            station: result.stops[index].name,
+            serviceDate: resultSearchDate,
+            serviceTime: TransitRequestFormatting.serviceTime(from: now),
+            client: client
+        )
+    }
+
+    /// Builds a journey from one route stop toward the displayed direction's opposite endpoint.
+    func connectionSearch(
+        forStopAt index: Int,
+        now: Date = .now
+    ) -> ConnectionSearchSelection? {
+        guard let result,
+              let resultSearchDate,
+              result.stops.indices.contains(index)
+        else {
+            return nil
+        }
+        let destination = index == result.stops.index(before: result.stops.endIndex)
+            ? result.fromStop
+            : result.toStop
+        return ConnectionSearchSelectionFactory.stationTimetable(
+            timetable: result.timetable,
+            from: result.stops[index].name,
+            to: destination,
+            serviceDate: resultSearchDate,
+            serviceTime: TransitRequestFormatting.serviceTime(from: now),
+            client: client
+        )
+    }
+
     /// Resolves one displayed value to the provider's dated service identifier only when the passenger opens it.
     func serviceSelection(
         for departure: StationTimetableDepartureReference
