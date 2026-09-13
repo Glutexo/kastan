@@ -1736,7 +1736,7 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testServiceStopRoutesPreserveTheHighlightedJourneyBeforeUsingFullEndpoints() throws {
+    func testServiceStopRoutesKeepTheSearchedDestinationUntilPassingIt() throws {
         let client = MockIDOSClient()
         let timetable = try IDOSTimetable.resolve("frydekmistek")
         let service = TransitServiceDetail(
@@ -1745,21 +1745,22 @@ final class KastanAppTests: XCTestCase {
             name: "Bus 980",
             date: "13. 9. 2026",
             stops: [
-                TransitServiceStop(name: "Výchozí zastávka", departureTime: "08:00"),
-                TransitServiceStop(name: "Původní nástup", departureTime: "08:10"),
-                TransitServiceStop(name: "Uvnitř úseku", departureTime: "08:20"),
+                TransitServiceStop(name: "Frýdek,Dobrovského", departureTime: "08:00"),
+                TransitServiceStop(name: "Frýdek,rest.U Gustlíčka", departureTime: "08:05"),
+                TransitServiceStop(name: "Frýdek,Na Veselé", departureTime: "08:10"),
+                TransitServiceStop(name: "Frýdek,žel.st.", departureTime: "08:20"),
                 TransitServiceStop(
-                    name: "Původní cíl",
+                    name: "Místek,Ostravská",
                     arrivalTime: "08:30",
                     departureTime: "08:31"
                 ),
-                TransitServiceStop(name: "Za rozsahem", departureTime: "08:40"),
-                TransitServiceStop(name: "Konečná", arrivalTime: "08:50"),
+                TransitServiceStop(name: "Místek,Frýdlantská", departureTime: "08:40"),
+                TransitServiceStop(name: "Místek,Riviéra", arrivalTime: "08:50"),
             ]
         )
         let highlight = ServiceRouteHighlight(
-            fromStop: "Původní nástup",
-            toStop: "Původní cíl"
+            fromStop: "Frýdek,Na Veselé",
+            toStop: "Místek,Ostravská"
         )
 
         func selections(at index: Int) -> ServiceStopSearchSelections {
@@ -1771,36 +1772,44 @@ final class KastanAppTests: XCTestCase {
             )
         }
 
-        let inside = selections(at: 2)
-        XCTAssertEqual(inside.connection?.from, "Uvnitř úseku")
-        XCTAssertEqual(inside.connection?.to, "Původní cíl")
+        let inside = selections(at: 3)
+        XCTAssertEqual(inside.connection?.from, "Frýdek,žel.st.")
+        XCTAssertEqual(inside.connection?.to, "Místek,Ostravská")
         XCTAssertEqual(inside.connection?.serviceTime, TransitTime(hour: 8, minute: 20))
-        XCTAssertEqual(inside.stationTimetable?.from, "Uvnitř úseku")
-        XCTAssertEqual(inside.stationTimetable?.to, "Původní cíl")
-        XCTAssertEqual(inside.departure?.station, "Uvnitř úseku")
+        XCTAssertEqual(inside.stationTimetable?.from, "Frýdek,žel.st.")
+        XCTAssertEqual(inside.stationTimetable?.to, "Místek,Ostravská")
+        XCTAssertEqual(inside.departure?.station, "Frýdek,žel.st.")
 
-        let originalDestination = selections(at: 3)
-        XCTAssertEqual(originalDestination.connection?.from, "Původní nástup")
-        XCTAssertEqual(originalDestination.connection?.to, "Původní cíl")
+        let originalDestination = selections(at: 4)
+        XCTAssertEqual(originalDestination.connection?.from, "Frýdek,Na Veselé")
+        XCTAssertEqual(originalDestination.connection?.to, "Místek,Ostravská")
         XCTAssertEqual(
             originalDestination.connection?.serviceTime,
             TransitTime(hour: 8, minute: 10)
         )
-        XCTAssertEqual(originalDestination.stationTimetable?.from, "Původní nástup")
-        XCTAssertEqual(originalDestination.stationTimetable?.to, "Původní cíl")
+        XCTAssertEqual(originalDestination.stationTimetable?.from, "Frýdek,Na Veselé")
+        XCTAssertEqual(originalDestination.stationTimetable?.to, "Místek,Ostravská")
 
-        let beforeRange = selections(at: 0)
-        XCTAssertEqual(beforeRange.connection?.from, "Výchozí zastávka")
-        XCTAssertEqual(beforeRange.connection?.to, "Konečná")
-        XCTAssertEqual(beforeRange.stationTimetable?.from, "Výchozí zastávka")
-        XCTAssertEqual(beforeRange.stationTimetable?.to, "Konečná")
+        let beforeRange = selections(at: 1)
+        XCTAssertEqual(beforeRange.connection?.from, "Frýdek,rest.U Gustlíčka")
+        XCTAssertEqual(beforeRange.connection?.to, "Místek,Ostravská")
+        XCTAssertEqual(beforeRange.connection?.serviceTime, TransitTime(hour: 8, minute: 5))
+        XCTAssertEqual(beforeRange.stationTimetable?.from, "Frýdek,rest.U Gustlíčka")
+        XCTAssertEqual(beforeRange.stationTimetable?.to, "Místek,Ostravská")
 
-        let afterRange = selections(at: 4)
-        XCTAssertEqual(afterRange.connection?.from, "Výchozí zastávka")
-        XCTAssertEqual(afterRange.connection?.to, "Za rozsahem")
-        XCTAssertEqual(afterRange.connection?.serviceTime, TransitTime(hour: 8, minute: 0))
-        XCTAssertEqual(afterRange.stationTimetable?.from, "Výchozí zastávka")
-        XCTAssertEqual(afterRange.stationTimetable?.to, "Za rozsahem")
+        let afterRange = selections(at: 5)
+        XCTAssertEqual(afterRange.connection?.from, "Místek,Frýdlantská")
+        XCTAssertEqual(afterRange.connection?.to, "Místek,Riviéra")
+        XCTAssertEqual(afterRange.connection?.serviceTime, TransitTime(hour: 8, minute: 40))
+        XCTAssertEqual(afterRange.stationTimetable?.from, "Místek,Frýdlantská")
+        XCTAssertEqual(afterRange.stationTimetable?.to, "Místek,Riviéra")
+
+        let terminal = selections(at: 6)
+        XCTAssertEqual(terminal.connection?.from, "Frýdek,Dobrovského")
+        XCTAssertEqual(terminal.connection?.to, "Místek,Riviéra")
+        XCTAssertEqual(terminal.connection?.serviceTime, TransitTime(hour: 8, minute: 0))
+        XCTAssertEqual(terminal.stationTimetable?.from, "Frýdek,Dobrovského")
+        XCTAssertEqual(terminal.stationTimetable?.to, "Místek,Riviéra")
     }
 
     func testServiceStopSearchesRecoverTheInitialDateFromAnIDOSServiceIdentifier() throws {

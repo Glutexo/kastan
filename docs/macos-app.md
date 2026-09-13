@@ -358,11 +358,11 @@ one ordinary provider is registered.
   when the active provider supports them. Departures uses that stop's departure time, or its arrival time when no
   departure is shown. Connections uses the chosen direction's origin time; every transfer advances the service's
   initial date after a midnight crossing.
-  Within the highlighted segment, Connections and Station timetable searches continue toward the destination of the
-  originating search; invoking either action on that destination uses the highlighted origin. A stop before the
-  highlighted segment continues to the service terminus, while a stop after it uses the service origin, so every
-  generated direction follows the service. Without an originating segment, the complete route endpoints provide the
-  same fallback.
+  Connections and Station timetable searches from any earlier stop, including one before the highlighted segment,
+  continue toward the destination of the originating search; invoking either action on that destination uses the
+  highlighted origin. Stops after that destination continue toward the service terminus. At the terminus itself, the
+  service origin supplies the other endpoint. Without an originating segment, the same complete-route fallback
+  applies.
 - Complete service information starts collapsed beneath a disclosure heading at the same level as Stops. Expanding it
   reveals selectable text whose visibly separated rows use semantic emoji for replacement buses,
   onboard amenities, sleeping and couchette cars, through coaches, on-route train-designation changes,

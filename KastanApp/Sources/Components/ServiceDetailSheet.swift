@@ -491,7 +491,7 @@ enum ServiceStopSearchSelectionFactory {
         let toIndex: Int
     }
 
-    /// Keeps stops inside the searched segment aimed at its destination and expands only outside that segment.
+    /// Keeps every earlier stop aimed at the searched destination, then continues later stops to the terminus.
     private static func searchRoute(
         forStopAt index: Int,
         in stops: [TransitServiceStop],
@@ -502,18 +502,16 @@ enum ServiceStopSearchSelectionFactory {
         let lastIndex = stops.index(before: stops.endIndex)
 
         if let highlightedRange = routeHighlight?.range(in: stops) {
-            if highlightedRange.contains(index) {
-                if index < highlightedRange.upperBound {
-                    return SearchRoute(fromIndex: index, toIndex: highlightedRange.upperBound)
-                }
-                if highlightedRange.lowerBound < index {
-                    return SearchRoute(fromIndex: highlightedRange.lowerBound, toIndex: index)
-                }
-                return nil
+            if index < highlightedRange.upperBound {
+                return SearchRoute(fromIndex: index, toIndex: highlightedRange.upperBound)
             }
-            return index < highlightedRange.lowerBound
-                ? SearchRoute(fromIndex: index, toIndex: lastIndex)
-                : SearchRoute(fromIndex: firstIndex, toIndex: index)
+            if index == highlightedRange.upperBound,
+               highlightedRange.lowerBound < highlightedRange.upperBound {
+                return SearchRoute(
+                    fromIndex: highlightedRange.lowerBound,
+                    toIndex: highlightedRange.upperBound
+                )
+            }
         }
 
         return index == lastIndex
