@@ -289,12 +289,19 @@ struct StationTimetablesView: View {
         StationTimetableSearchOpenActions(
             canOpenConnections: model.canFindHeaderConnectionResults,
             canOpenDepartures: model.canFindHeaderDepartureResults,
+            canOpenArrivals: model.canFindHeaderDepartureResults,
             openConnections: { destination in
                 guard let selection = model.submittedHeaderConnectionSearch() else { return }
                 showInConnections(selection, destination)
             },
             openDepartures: { destination in
                 guard let selection = model.submittedHeaderDepartureSearch() else { return }
+                showDepartureSearch(selection, destination)
+            },
+            openArrivals: { destination in
+                guard let selection = model.submittedHeaderDepartureSearch(
+                    isArrival: true
+                ) else { return }
                 showDepartureSearch(selection, destination)
             }
         )
@@ -497,12 +504,20 @@ struct StationTimetablesView: View {
         StationTimetableSearchOpenActions(
             canOpenConnections: model.canFindHeaderConnectionResults,
             canOpenDepartures: model.canFindHeaderDepartureResults,
+            canOpenArrivals: model.canFindHeaderDepartureResults,
             openConnections: { destination in
                 guard let selection = model.resultHeaderConnectionSearch(for: result) else { return }
                 showInConnections(selection, destination)
             },
             openDepartures: { destination in
                 guard let selection = model.resultHeaderDepartureSearch(for: result) else { return }
+                showDepartureSearch(selection, destination)
+            },
+            openArrivals: { destination in
+                guard let selection = model.resultHeaderDepartureSearch(
+                    for: result,
+                    isArrival: true
+                ) else { return }
                 showDepartureSearch(selection, destination)
             }
         )
@@ -620,6 +635,7 @@ struct StationTimetablesView: View {
                         StationTimetableSearchOpenActions(
                             canOpenConnections: model.canFindHeaderConnectionResults,
                             canOpenDepartures: model.canFindHeaderDepartureResults,
+                            canOpenArrivals: model.canFindHeaderDepartureResults,
                             openConnections: { destination in
                                 guard let selection = model.connectionSearch(
                                     forStopAt: index
@@ -629,6 +645,13 @@ struct StationTimetablesView: View {
                             openDepartures: { destination in
                                 guard let selection = model.departureSearch(
                                     forStopAt: index
+                                ) else { return }
+                                showDepartureSearch(selection, destination)
+                            },
+                            openArrivals: { destination in
+                                guard let selection = model.departureSearch(
+                                    forStopAt: index,
+                                    isArrival: true
                                 ) else { return }
                                 showDepartureSearch(selection, destination)
                             }
@@ -753,6 +776,11 @@ struct StationTimetablesView: View {
                                     schedule: schedule,
                                     hourIndex: index
                                 ),
+                                searchArrival: arrivalSearchAction(
+                                    scheduleIndex: scheduleIndex,
+                                    schedule: schedule,
+                                    hourIndex: index
+                                ),
                                 searchConnection: connectionSearchAction(
                                     scheduleIndex: scheduleIndex,
                                     schedule: schedule,
@@ -816,6 +844,25 @@ struct StationTimetablesView: View {
                 return
             }
             searchInDepartures(departure, at: destination)
+        }
+    }
+
+    private func arrivalSearchAction(
+        scheduleIndex: Int,
+        schedule: TransitStationTimetableSchedule,
+        hourIndex: Int
+    ) -> ((Int, DepartureSearchOpenDestination) -> Void)? {
+        guard model.canFindDepartureResults else { return nil }
+        return { departureIndex, destination in
+            guard let departure = StationTimetableDepartureReference(
+                scheduleIndex: scheduleIndex,
+                schedule: schedule,
+                hourIndex: hourIndex,
+                departureIndex: departureIndex
+            ) else {
+                return
+            }
+            searchInArrivals(departure, at: destination)
         }
     }
 
@@ -893,6 +940,17 @@ struct StationTimetablesView: View {
         }
     }
 
+    /// Resolves the displayed minute before searching arrivals at the selected timetable stop.
+    private func searchInArrivals(
+        _ departure: StationTimetableDepartureReference,
+        at destination: DepartureSearchOpenDestination
+    ) {
+        Task {
+            guard let selection = await model.arrivalSearch(for: departure) else { return }
+            showDepartureSearch(selection, destination)
+        }
+    }
+
     /// Starts a journey search only after the source has matched the displayed minute to a concrete run.
     private func searchInConnections(
         _ departure: StationTimetableDepartureReference,
@@ -923,8 +981,10 @@ struct StationTimetablesView: View {
 struct StationTimetableSearchOpenActions: View {
     let canOpenConnections: Bool
     let canOpenDepartures: Bool
+    let canOpenArrivals: Bool
     let openConnections: (ConnectionSearchOpenDestination) -> Void
     let openDepartures: (DepartureSearchOpenDestination) -> Void
+    let openArrivals: (DepartureSearchOpenDestination) -> Void
 
     var orderedSections: [AppSection] {
         AppSection.allCases.filter { section in
@@ -932,7 +992,7 @@ struct StationTimetableSearchOpenActions: View {
             case .connections:
                 canOpenConnections
             case .departures:
-                canOpenDepartures
+                canOpenDepartures || canOpenArrivals
             case .stationTimetables:
                 false
             }
@@ -951,7 +1011,10 @@ struct StationTimetableSearchOpenActions: View {
         case .connections:
             ConnectionSearchOpenActions(open: openConnections)
         case .departures:
-            DepartureSearchOpenActions(open: openDepartures)
+            DepartureArrivalSearchOpenActions(
+                openDepartures: canOpenDepartures ? openDepartures : nil,
+                openArrivals: canOpenArrivals ? openArrivals : nil
+            )
         case .stationTimetables:
             EmptyView()
         }
@@ -1019,6 +1082,7 @@ struct StationTimetableDepartureTimes: View {
     let departuresAreEnabled: Bool
     let selectDeparture: ((Int) -> Void)?
     let searchDeparture: ((Int, DepartureSearchOpenDestination) -> Void)?
+    let searchArrival: ((Int, DepartureSearchOpenDestination) -> Void)?
     let searchConnection: ((Int, ConnectionSearchOpenDestination) -> Void)?
     let previewDeparture: ((Int) -> StationTimetableDeparturePreviewConfiguration?)?
 
@@ -1030,6 +1094,7 @@ struct StationTimetableDepartureTimes: View {
         departuresAreEnabled: Bool = true,
         selectDeparture: ((Int) -> Void)? = nil,
         searchDeparture: ((Int, DepartureSearchOpenDestination) -> Void)? = nil,
+        searchArrival: ((Int, DepartureSearchOpenDestination) -> Void)? = nil,
         searchConnection: ((Int, ConnectionSearchOpenDestination) -> Void)? = nil,
         previewDeparture: ((Int) -> StationTimetableDeparturePreviewConfiguration?)? = nil
     ) {
@@ -1040,6 +1105,7 @@ struct StationTimetableDepartureTimes: View {
         self.departuresAreEnabled = departuresAreEnabled
         self.selectDeparture = selectDeparture
         self.searchDeparture = searchDeparture
+        self.searchArrival = searchArrival
         self.searchConnection = searchConnection
         self.previewDeparture = previewDeparture
     }
@@ -1060,6 +1126,9 @@ struct StationTimetableDepartureTimes: View {
                     },
                     searchInDepartures: searchDeparture.map { searchDeparture in
                         { destination in searchDeparture(index, destination) }
+                    },
+                    searchInArrivals: searchArrival.map { searchArrival in
+                        { destination in searchArrival(index, destination) }
                     },
                     searchInConnections: searchConnection.map { searchConnection in
                         { destination in searchConnection(index, destination) }
@@ -1097,6 +1166,7 @@ private struct StationTimetableDepartureTime: View {
     let isEnabled: Bool
     let action: (() -> Void)?
     let searchInDepartures: ((DepartureSearchOpenDestination) -> Void)?
+    let searchInArrivals: ((DepartureSearchOpenDestination) -> Void)?
     let searchInConnections: ((ConnectionSearchOpenDestination) -> Void)?
     let preview: StationTimetableDeparturePreviewConfiguration?
     @State private var previewSelection: ServiceSelection?
@@ -1157,7 +1227,11 @@ private struct StationTimetableDepartureTime: View {
             previewPresentationChanged(isPresented)
         }
 
-        if preview == nil, searchInDepartures == nil, searchInConnections == nil {
+        if preview == nil,
+           searchInDepartures == nil,
+           searchInArrivals == nil,
+           searchInConnections == nil
+        {
             button
         } else {
             button.contextMenu {
@@ -1171,12 +1245,14 @@ private struct StationTimetableDepartureTime: View {
         StationTimetableSearchOpenActions(
             canOpenConnections: searchInConnections != nil,
             canOpenDepartures: searchInDepartures != nil,
+            canOpenArrivals: searchInArrivals != nil,
             openConnections: { destination in searchInConnections?(destination) },
-            openDepartures: { destination in searchInDepartures?(destination) }
+            openDepartures: { destination in searchInDepartures?(destination) },
+            openArrivals: { destination in searchInArrivals?(destination) }
         )
         .disabled(!isEnabled || isPerformingContextAction)
 
-        if (searchInDepartures != nil || searchInConnections != nil),
+        if (searchInDepartures != nil || searchInArrivals != nil || searchInConnections != nil),
            preview?.contextActions.isEmpty == false {
             Divider()
         }

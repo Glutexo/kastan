@@ -128,12 +128,13 @@ enum DepartureSearchSelectionFactory {
         )
     }
 
-    /// Uses a station-board row's matched stop, displayed instant, and owning timetable.
+    /// Uses a station-board row's matched stop, displayed instant, mode, and owning timetable.
     static func departure(
         _ departure: TransitDeparture,
         station: String,
         timetable: TransitTimetable,
         fallbackServiceDate: TransitDate?,
+        isArrival: Bool = false,
         client: any TransitDataSource
     ) -> DepartureSearchSelection? {
         make(
@@ -141,6 +142,7 @@ enum DepartureSearchSelectionFactory {
             station: station,
             serviceDate: departure.serviceDate ?? fallbackServiceDate,
             serviceTime: TransitRequestFormatting.serviceTime(from: departure.time),
+            isArrival: isArrival,
             client: client
         )
     }
@@ -410,13 +412,14 @@ final class DeparturesViewModel: ObservableObject {
             !departures.isEmpty && resultPage?.canLoadLater == true && !isSearching && !isLoadingEarlier
     }
 
-    /// Recreates the submitted board as a departures query for any supported destination.
-    func submittedHeaderDepartureSearch() -> DepartureSearchSelection? {
+    /// Recreates the submitted station and instant as either board mode for any supported destination.
+    func submittedHeaderDepartureSearch(isArrival: Bool = false) -> DepartureSearchSelection? {
         DepartureSearchSelectionFactory.search(
             timetable: timetable,
             station: station,
             serviceDate: TransitRequestFormatting.serviceDate(from: date),
             serviceTime: TransitRequestFormatting.serviceTime(from: time),
+            isArrival: isArrival,
             client: client
         )
     }
@@ -431,13 +434,17 @@ final class DeparturesViewModel: ObservableObject {
         )
     }
 
-    /// Builds a departures query from one provider-returned service row and its exact board instant.
-    func departureSearch(for departure: TransitDeparture) -> DepartureSearchSelection? {
+    /// Builds either board query from one provider-returned service row and its exact displayed instant.
+    func departureSearch(
+        for departure: TransitDeparture,
+        isArrival: Bool = false
+    ) -> DepartureSearchSelection? {
         DepartureSearchSelectionFactory.departure(
             departure,
             station: departure.stationName ?? station,
             timetable: departure.appTimetable(in: timetables),
             fallbackServiceDate: TransitRequestFormatting.serviceDate(from: date),
+            isArrival: isArrival,
             client: client
         )
     }

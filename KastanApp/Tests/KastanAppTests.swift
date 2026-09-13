@@ -1648,20 +1648,29 @@ final class KastanAppTests: XCTestCase {
     func testDepartureBoardSearchMenusFollowToolbarModeOrder() {
         let departuresOnly = DepartureBoardSearchOpenActions(
             openDepartures: { _ in },
+            openArrivals: nil,
+            openStationTimetable: nil
+        )
+        let arrivalsOnly = DepartureBoardSearchOpenActions(
+            openDepartures: nil,
+            openArrivals: { _ in },
             openStationTimetable: nil
         )
         let stationTimetablesOnly = DepartureBoardSearchOpenActions(
             openDepartures: nil,
+            openArrivals: nil,
             openStationTimetable: { _ in }
         )
-        let both = DepartureBoardSearchOpenActions(
+        let all = DepartureBoardSearchOpenActions(
             openDepartures: { _ in },
+            openArrivals: { _ in },
             openStationTimetable: { _ in }
         )
 
         XCTAssertEqual(departuresOnly.availableSections, [.departures])
+        XCTAssertEqual(arrivalsOnly.availableSections, [.departures])
         XCTAssertEqual(stationTimetablesOnly.availableSections, [.stationTimetables])
-        XCTAssertEqual(both.availableSections, [.departures, .stationTimetables])
+        XCTAssertEqual(all.availableSections, [.departures, .stationTimetables])
     }
 
     func testServiceStopSearchesUseTheStopInstantAndToolbarModeOrder() throws {
@@ -1860,26 +1869,33 @@ final class KastanAppTests: XCTestCase {
     func testStationTimetableSearchMenusFollowToolbarModeOrder() {
         func actions(
             connections: Bool,
-            departures: Bool
+            departures: Bool,
+            arrivals: Bool
         ) -> StationTimetableSearchOpenActions {
             StationTimetableSearchOpenActions(
                 canOpenConnections: connections,
                 canOpenDepartures: departures,
+                canOpenArrivals: arrivals,
                 openConnections: { _ in },
-                openDepartures: { _ in }
+                openDepartures: { _ in },
+                openArrivals: { _ in }
             )
         }
 
         XCTAssertEqual(
-            actions(connections: true, departures: true).orderedSections,
+            actions(connections: true, departures: true, arrivals: true).orderedSections,
             [.connections, .departures]
         )
         XCTAssertEqual(
-            actions(connections: true, departures: false).orderedSections,
+            actions(connections: true, departures: false, arrivals: false).orderedSections,
             [.connections]
         )
         XCTAssertEqual(
-            actions(connections: false, departures: true).orderedSections,
+            actions(connections: false, departures: true, arrivals: false).orderedSections,
+            [.departures]
+        )
+        XCTAssertEqual(
+            actions(connections: false, departures: false, arrivals: true).orderedSections,
             [.departures]
         )
     }
@@ -9666,11 +9682,21 @@ final class KastanAppTests: XCTestCase {
         ))
 
         let submittedDeparture = try XCTUnwrap(model.submittedHeaderDepartureSearch(now: now))
+        let submittedArrival = try XCTUnwrap(model.submittedHeaderDepartureSearch(
+            now: now,
+            isArrival: true
+        ))
         let submittedConnection = try XCTUnwrap(model.submittedHeaderConnectionSearch(now: now))
         XCTAssertEqual(submittedDeparture.timetable.slug, "pid")
         XCTAssertEqual(submittedDeparture.station, "Strašnická")
         XCTAssertEqual(submittedDeparture.serviceDate, serviceDate)
         XCTAssertEqual(submittedDeparture.serviceTime, currentTime)
+        XCTAssertFalse(submittedDeparture.isArrival)
+        XCTAssertEqual(submittedArrival.timetable.slug, "pid")
+        XCTAssertEqual(submittedArrival.station, "Sídliště Libuš")
+        XCTAssertEqual(submittedArrival.serviceDate, serviceDate)
+        XCTAssertEqual(submittedArrival.serviceTime, currentTime)
+        XCTAssertTrue(submittedArrival.isArrival)
         XCTAssertEqual(submittedConnection.timetable.slug, "pid")
         XCTAssertEqual(submittedConnection.from, "Strašnická")
         XCTAssertEqual(submittedConnection.to, "Sídliště Libuš")
@@ -9683,10 +9709,20 @@ final class KastanAppTests: XCTestCase {
         model.to = "Edited destination"
 
         let resultDeparture = try XCTUnwrap(model.resultHeaderDepartureSearch(for: result, now: now))
+        let resultArrival = try XCTUnwrap(model.resultHeaderDepartureSearch(
+            for: result,
+            now: now,
+            isArrival: true
+        ))
         let resultConnection = try XCTUnwrap(model.resultHeaderConnectionSearch(for: result, now: now))
         XCTAssertEqual(resultDeparture.station, result.fromStop)
         XCTAssertEqual(resultDeparture.serviceDate, serviceDate)
         XCTAssertEqual(resultDeparture.serviceTime, currentTime)
+        XCTAssertFalse(resultDeparture.isArrival)
+        XCTAssertEqual(resultArrival.station, result.toStop)
+        XCTAssertEqual(resultArrival.serviceDate, serviceDate)
+        XCTAssertEqual(resultArrival.serviceTime, currentTime)
+        XCTAssertTrue(resultArrival.isArrival)
         XCTAssertEqual(resultConnection.from, result.fromStop)
         XCTAssertEqual(resultConnection.to, result.toStop)
         XCTAssertEqual(resultConnection.serviceDate, serviceDate)
@@ -9726,6 +9762,11 @@ final class KastanAppTests: XCTestCase {
             forStopAt: intermediateIndex,
             now: now
         ))
+        let arrival = try XCTUnwrap(model.departureSearch(
+            forStopAt: intermediateIndex,
+            now: now,
+            isArrival: true
+        ))
         let connection = try XCTUnwrap(model.connectionSearch(
             forStopAt: intermediateIndex,
             now: now
@@ -9739,6 +9780,11 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(departure.station, result.stops[intermediateIndex].name)
         XCTAssertEqual(departure.serviceDate, serviceDate)
         XCTAssertEqual(departure.serviceTime, currentTime)
+        XCTAssertFalse(departure.isArrival)
+        XCTAssertEqual(arrival.station, result.stops[intermediateIndex].name)
+        XCTAssertEqual(arrival.serviceDate, serviceDate)
+        XCTAssertEqual(arrival.serviceTime, currentTime)
+        XCTAssertTrue(arrival.isArrival)
         XCTAssertEqual(connection.from, result.stops[intermediateIndex].name)
         XCTAssertEqual(connection.to, result.toStop)
         XCTAssertEqual(connection.serviceDate, serviceDate)
@@ -9746,6 +9792,11 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(reverseConnection.from, result.stops[terminalIndex].name)
         XCTAssertEqual(reverseConnection.to, result.fromStop)
         XCTAssertNil(model.departureSearch(forStopAt: -1, now: now))
+        XCTAssertNil(model.departureSearch(
+            forStopAt: -1,
+            now: now,
+            isArrival: true
+        ))
         XCTAssertNil(model.connectionSearch(forStopAt: result.stops.endIndex, now: now))
     }
 
@@ -10168,12 +10219,20 @@ final class KastanAppTests: XCTestCase {
         model.time = submittedInstant
 
         let headerDepartures = try XCTUnwrap(model.submittedHeaderDepartureSearch())
+        let headerArrivals = try XCTUnwrap(
+            model.submittedHeaderDepartureSearch(isArrival: true)
+        )
         let departureHeaderTimetable = try XCTUnwrap(
             model.submittedHeaderStationTimetableSelection()
         )
         XCTAssertEqual(headerDepartures.station, "Strašnická")
         XCTAssertEqual(headerDepartures.serviceDate, submittedDate)
         XCTAssertEqual(headerDepartures.serviceTime, TransitTime(hour: 23, minute: 45))
+        XCTAssertFalse(headerDepartures.isArrival)
+        XCTAssertEqual(headerArrivals.station, "Strašnická")
+        XCTAssertEqual(headerArrivals.serviceDate, submittedDate)
+        XCTAssertEqual(headerArrivals.serviceTime, TransitTime(hour: 23, minute: 45))
+        XCTAssertTrue(headerArrivals.isArrival)
         XCTAssertTrue(departureHeaderTimetable.line.isEmpty)
         XCTAssertEqual(departureHeaderTimetable.from, "Strašnická")
         XCTAssertTrue(departureHeaderTimetable.to.isEmpty)
@@ -10189,12 +10248,20 @@ final class KastanAppTests: XCTestCase {
             destination: "Sídliště Libuš"
         )
         let rowDepartures = try XCTUnwrap(model.departureSearch(for: departure))
+        let rowArrivals = try XCTUnwrap(
+            model.departureSearch(for: departure, isArrival: true)
+        )
         let departureRowTimetable = try XCTUnwrap(
             model.stationTimetableSelection(for: departure)
         )
         XCTAssertEqual(rowDepartures.station, "Strašnická (spárovaná)")
         XCTAssertEqual(rowDepartures.serviceDate, rowDate)
         XCTAssertEqual(rowDepartures.serviceTime, TransitTime(hour: 0, minute: 13))
+        XCTAssertFalse(rowDepartures.isArrival)
+        XCTAssertEqual(rowArrivals.station, "Strašnická (spárovaná)")
+        XCTAssertEqual(rowArrivals.serviceDate, rowDate)
+        XCTAssertEqual(rowArrivals.serviceTime, TransitTime(hour: 0, minute: 13))
+        XCTAssertTrue(rowArrivals.isArrival)
         XCTAssertEqual(departureRowTimetable.line, "Bus 154")
         XCTAssertEqual(departureRowTimetable.from, "Strašnická (spárovaná)")
         XCTAssertEqual(departureRowTimetable.to, "Sídliště Libuš")
@@ -10322,6 +10389,8 @@ final class KastanAppTests: XCTestCase {
         ))
         let resolvedSearch = await stationTimetableModel.departureSearch(for: departure)
         let search = try XCTUnwrap(resolvedSearch)
+        let resolvedArrivalSelection = await stationTimetableModel.arrivalSearch(for: departure)
+        let arrivalSelection = try XCTUnwrap(resolvedArrivalSelection)
         let departuresModel = DeparturesViewModel(client: client)
         departuresModel.isArrival = true
         departuresModel.present(search)
@@ -10335,6 +10404,11 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertEqual(independentWorkspace.selection, .departures)
         XCTAssertEqual(independentWorkspace.departuresModel.departures, [matchingDeparture])
+        XCTAssertEqual(arrivalSelection.timetable.slug, "pid")
+        XCTAssertEqual(arrivalSelection.station, "Strašnická")
+        XCTAssertEqual(arrivalSelection.serviceDate, TransitDate(year: 2026, month: 8, day: 31))
+        XCTAssertEqual(arrivalSelection.serviceTime, TransitTime(hour: 5, minute: 13))
+        XCTAssertTrue(arrivalSelection.isArrival)
         XCTAssertEqual(departuresModel.timetable.slug, "pid")
         XCTAssertEqual(departuresModel.station, "Strašnická")
         XCTAssertNil(departuresModel.stationSelection)
@@ -10347,8 +10421,8 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(departuresModel.errorMessage)
         XCTAssertTrue(independentWorkspace.departuresModel.isSearchFormCollapsed)
         let requests = await client.departureRequests
-        XCTAssertEqual(requests.count, 1)
-        XCTAssertEqual(requests.first, search.request)
+        XCTAssertEqual(requests.count, 2)
+        XCTAssertTrue(requests.allSatisfy { $0 == search.request })
 
         transferStore.discard(transferID)
         XCTAssertNil(transferStore.search(for: transferID))

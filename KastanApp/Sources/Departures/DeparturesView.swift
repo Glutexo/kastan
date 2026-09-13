@@ -163,15 +163,19 @@ struct DeparturesView: View {
         )
     }
 
-    /// Offers both station-board transitions from the compact submitted-search header.
+    /// Offers both board modes and the station timetable from the compact submitted-search header.
     @ViewBuilder
     private var contextualSearchSummaryBar: some View {
-        if headerDepartureAction != nil || headerStationTimetableAction != nil {
+        if headerDepartureAction != nil ||
+            headerArrivalAction != nil ||
+            headerStationTimetableAction != nil
+        {
             searchSummaryBar
                 .contentShape(Rectangle())
                 .contextMenu {
                     DepartureBoardSearchOpenActions(
                         openDepartures: headerDepartureAction,
+                        openArrivals: headerArrivalAction,
                         openStationTimetable: headerStationTimetableAction
                     )
                 }
@@ -182,6 +186,15 @@ struct DeparturesView: View {
 
     private var headerDepartureAction: ((DepartureSearchOpenDestination) -> Void)? {
         guard let selection = model.submittedHeaderDepartureSearch(),
+              let openDepartures
+        else {
+            return nil
+        }
+        return { destination in openDepartures(selection, destination) }
+    }
+
+    private var headerArrivalAction: ((DepartureSearchOpenDestination) -> Void)? {
+        guard let selection = model.submittedHeaderDepartureSearch(isArrival: true),
               let openDepartures
         else {
             return nil
@@ -269,6 +282,10 @@ struct DeparturesView: View {
                         showsServiceInformationText: showsServiceInformationText,
                         showsStopNoteText: showsStopNoteText,
                         departureSearchSelection: model.departureSearch(for: departure),
+                        arrivalSearchSelection: model.departureSearch(
+                            for: departure,
+                            isArrival: true
+                        ),
                         stationTimetableSelection: model.stationTimetableSelection(for: departure),
                         openDepartures: openDepartures,
                         openStationTimetable: openStationTimetable
@@ -292,6 +309,7 @@ struct DeparturesView: View {
 /// Keeps transfers from a station board in the same order as the main toolbar modes.
 struct DepartureBoardSearchOpenActions: View {
     let openDepartures: ((DepartureSearchOpenDestination) -> Void)?
+    let openArrivals: ((DepartureSearchOpenDestination) -> Void)?
     let openStationTimetable: ((StationTimetableOpenDestination) -> Void)?
 
     var availableSections: [AppSection] {
@@ -300,7 +318,7 @@ struct DepartureBoardSearchOpenActions: View {
             case .connections:
                 false
             case .departures:
-                openDepartures != nil
+                openDepartures != nil || openArrivals != nil
             case .stationTimetables:
                 openStationTimetable != nil
             }
@@ -313,9 +331,10 @@ struct DepartureBoardSearchOpenActions: View {
             case .connections:
                 EmptyView()
             case .departures:
-                if let openDepartures {
-                    DepartureSearchOpenActions(open: openDepartures)
-                }
+                DepartureArrivalSearchOpenActions(
+                    openDepartures: openDepartures,
+                    openArrivals: openArrivals
+                )
             case .stationTimetables:
                 if let openStationTimetable {
                     StationTimetableOpenActions(open: openStationTimetable)
@@ -333,6 +352,7 @@ private struct DepartureRow: View {
     let showsServiceInformationText: Bool
     let showsStopNoteText: Bool
     let departureSearchSelection: DepartureSearchSelection?
+    let arrivalSearchSelection: DepartureSearchSelection?
     let stationTimetableSelection: StationTimetableSelection?
     let openDepartures: ((DepartureSearchSelection, DepartureSearchOpenDestination) -> Void)?
     let openStationTimetable: ((StationTimetableSelection, StationTimetableOpenDestination) -> Void)?
@@ -349,6 +369,7 @@ private struct DepartureRow: View {
         showsServiceInformationText: Bool,
         showsStopNoteText: Bool,
         departureSearchSelection: DepartureSearchSelection?,
+        arrivalSearchSelection: DepartureSearchSelection?,
         stationTimetableSelection: StationTimetableSelection?,
         openDepartures: ((DepartureSearchSelection, DepartureSearchOpenDestination) -> Void)?,
         openStationTimetable: ((StationTimetableSelection, StationTimetableOpenDestination) -> Void)?,
@@ -361,6 +382,7 @@ private struct DepartureRow: View {
         self.showsServiceInformationText = showsServiceInformationText
         self.showsStopNoteText = showsStopNoteText
         self.departureSearchSelection = departureSearchSelection
+        self.arrivalSearchSelection = arrivalSearchSelection
         self.stationTimetableSelection = stationTimetableSelection
         self.openDepartures = openDepartures
         self.openStationTimetable = openStationTimetable
@@ -446,11 +468,13 @@ private struct DepartureRow: View {
                     model: contextMenuModel,
                     showPreview: { isPreviewPresented = true },
                     openStationTimetable: stationTimetableAction,
-                    openDepartures: departureAction
+                    openDepartures: departureAction,
+                    openArrivals: arrivalAction
                 )
             } else if hasSearchActions {
                 DepartureBoardSearchOpenActions(
                     openDepartures: departureAction,
+                    openArrivals: arrivalAction,
                     openStationTimetable: stationTimetableAction
                 )
             }
@@ -483,12 +507,17 @@ private struct DepartureRow: View {
         return { destination in openDepartures(departureSearchSelection, destination) }
     }
 
+    private var arrivalAction: ((DepartureSearchOpenDestination) -> Void)? {
+        guard let arrivalSearchSelection, let openDepartures else { return nil }
+        return { destination in openDepartures(arrivalSearchSelection, destination) }
+    }
+
     private var stationTimetableAction: ((StationTimetableOpenDestination) -> Void)? {
         guard let stationTimetableSelection, let openStationTimetable else { return nil }
         return { destination in openStationTimetable(stationTimetableSelection, destination) }
     }
 
     private var hasSearchActions: Bool {
-        departureAction != nil || stationTimetableAction != nil
+        departureAction != nil || arrivalAction != nil || stationTimetableAction != nil
     }
 }

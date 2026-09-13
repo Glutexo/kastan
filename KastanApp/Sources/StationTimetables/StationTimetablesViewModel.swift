@@ -204,6 +204,7 @@ final class StationTimetablesViewModel: ObservableObject {
     private struct DepartureResolution {
         let selection: ServiceSelection
         let search: ResolvedDepartureSearch
+        let arrivalSearch: DepartureSearchSelection?
         let connectionSearch: ConnectionSearchSelection?
     }
 
@@ -430,13 +431,17 @@ final class StationTimetablesViewModel: ObservableObject {
         }
     }
 
-    /// Builds a station-board query from the submitted route and current clock time on its selected service day.
-    func submittedHeaderDepartureSearch(now: Date = .now) -> DepartureSearchSelection? {
+    /// Builds either station-board mode from the matching endpoint of the submitted direction.
+    func submittedHeaderDepartureSearch(
+        now: Date = .now,
+        isArrival: Bool = false
+    ) -> DepartureSearchSelection? {
         DepartureSearchSelectionFactory.search(
             timetable: timetable,
-            station: from,
+            station: isArrival ? to : from,
             serviceDate: TransitRequestFormatting.serviceDate(from: date),
             serviceTime: TransitRequestFormatting.serviceTime(from: now),
+            isArrival: isArrival,
             client: client
         )
     }
@@ -453,17 +458,19 @@ final class StationTimetablesViewModel: ObservableObject {
         )
     }
 
-    /// Uses the provider-returned origin from the visible result header for a station-board query.
+    /// Uses the matching provider-returned endpoint from the visible result header for either board mode.
     func resultHeaderDepartureSearch(
         for visibleResult: TransitStationTimetable,
-        now: Date = .now
+        now: Date = .now,
+        isArrival: Bool = false
     ) -> DepartureSearchSelection? {
         guard result == visibleResult, let resultSearchDate else { return nil }
         return DepartureSearchSelectionFactory.search(
             timetable: visibleResult.timetable,
-            station: visibleResult.fromStop,
+            station: isArrival ? visibleResult.toStop : visibleResult.fromStop,
             serviceDate: resultSearchDate,
             serviceTime: TransitRequestFormatting.serviceTime(from: now),
+            isArrival: isArrival,
             client: client
         )
     }
@@ -484,10 +491,11 @@ final class StationTimetablesViewModel: ObservableObject {
         )
     }
 
-    /// Builds a station-board query for one provider-returned stop on the displayed service day.
+    /// Builds either station-board mode for one provider-returned stop on the displayed service day.
     func departureSearch(
         forStopAt index: Int,
-        now: Date = .now
+        now: Date = .now,
+        isArrival: Bool = false
     ) -> DepartureSearchSelection? {
         guard let result,
               let resultSearchDate,
@@ -500,6 +508,7 @@ final class StationTimetablesViewModel: ObservableObject {
             station: result.stops[index].name,
             serviceDate: resultSearchDate,
             serviceTime: TransitRequestFormatting.serviceTime(from: now),
+            isArrival: isArrival,
             client: client
         )
     }
@@ -542,6 +551,14 @@ final class StationTimetablesViewModel: ObservableObject {
     ) async -> ResolvedDepartureSearch? {
         guard canFindDepartureResults else { return nil }
         return await resolveDeparture(departure)?.search
+    }
+
+    /// Resolves a timetable minute before starting an arrivals board at the same stop and instant.
+    func arrivalSearch(
+        for departure: StationTimetableDepartureReference
+    ) async -> DepartureSearchSelection? {
+        guard canFindDepartureResults else { return nil }
+        return await resolveDeparture(departure)?.arrivalSearch
     }
 
     /// Resolves one timetable minute into a journey from its matched stop to the displayed route destination.
@@ -613,6 +630,14 @@ final class StationTimetablesViewModel: ObservableObject {
                     request: resolution.request,
                     page: resolution.page,
                     dateAndTime: dateAndTime
+                ),
+                arrivalSearch: DepartureSearchSelectionFactory.search(
+                    timetable: timetable,
+                    station: resolution.departure.stationName ?? selectedStop.name,
+                    serviceDate: resolution.serviceDate,
+                    serviceTime: resolution.serviceTime,
+                    isArrival: true,
+                    client: client
                 ),
                 connectionSearch: ConnectionSearchSelectionFactory.stationTimetable(
                     timetable: timetable,

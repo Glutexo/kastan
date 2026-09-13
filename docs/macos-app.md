@@ -142,12 +142,12 @@ one ordinary provider is registered.
   mode as their titles so parallel searches remain distinguishable; station-board titles append a lower-case
   departures or arrivals label to the station name.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
-  After a supported search, the compact submitted-search header and every service row offer one Departures action
-  followed by one Station timetable action. The header reuses its submitted stop, day, and time;
+  After a supported search, the compact submitted-search header and every service row offer Departures and Arrivals
+  actions followed by one Station timetable action. Both board modes reuse the visible stop, day, and time;
   opening a Station timetable places that stop at the start of the direction, clears the other side, and focuses the
   empty Line field. A service-row transfer uses the provider-matched stop, displayed time and exact
   civil day when supplied, plus the row's line and opposite endpoint. Its complete Station timetable opens
-  immediately. Both actions reuse the established Option and Option-Shift destination alternatives.
+  immediately. Every action reuses the established Option and Option-Shift destination alternatives.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, optional tariff zones and platforms or stands, lockout labels, keyed departure explanations,
   timetable-wide notes, and links back to the matching IDOS result. Selecting ODIS, IDOL, IDSOK, IREDO, DÚK, IDPK,
@@ -159,13 +159,14 @@ one ordinary provider is registered.
   They align below Timetable and Date and reuse the matching control widths. Line suggestions use the transport icon
   supplied by IDOS, such as 🚌 for a bus or 🚋 for a tram, instead of presenting the line as a generic place. At compact
   widths, the Stops/Timetable result choice survives visiting another search mode in the same window. Both the compact
-  submitted-search header and the line-and-direction result header offer one Connections action followed by one
-  Departures action. The submitted header uses its entered endpoints, while the result header uses the
-  endpoints returned by the provider. Because a station timetable selects a date without a time, both transitions use
-  the current clock time on that service day. Their menu actions follow the same modifier alternatives as other
+  submitted-search header and the line-and-direction result header offer one Connections action followed by
+  Departures and Arrivals. The submitted header uses its entered endpoints, while the result header uses the
+  endpoints returned by the provider; departures use the direction's origin and arrivals its destination. Because a
+  station timetable selects a date without a time, all three transitions use the current clock time on that service
+  day. Their menu actions follow the same modifier alternatives as other
   transferred searches. An ordinary route-stop click selects that stop in the current timetable.
-  Every stop, including the currently selected one, offers one Connections action followed by one Departures action
-  in its context menu. Both use the provider-returned stop and the timetable's selected service day
+  Every stop, including the currently selected one, offers Connections, Departures, and Arrivals actions
+  in its context menu. All use the provider-returned stop and the timetable's selected service day
   with the current clock time; Connections continues toward the displayed destination, or back toward the opposite
   endpoint when invoked on the terminal stop. An ordinary click selects the stop in the current timetable,
   Command-click opens it in a new tab, and Shift-Command-click opens it in a new window. The independent main window
@@ -182,9 +183,10 @@ one ordinary provider is registered.
   smaller secondary information attached to its minute without shifting later departures and reveals the matching
   explanation on hover. When the active data source advertises Station Timetable departure resolution, selecting a
   rendered departure asks that provider to resolve its dated run on demand and opens the complete route,
-  with the selected stop highlighted through the searched direction. Its context menu provides one Connections action
-  followed by one Departures action, with the shared modifier alternatives for choosing their destinations. Every
-  complete transfer searches immediately in its destination.
+  with the selected stop highlighted through the searched direction. Its context menu provides Connections,
+  Departures, and Arrivals actions, with the shared modifier alternatives for choosing their destinations. The
+  provider-resolved stop, date, and timetable minute also seed the arrivals query. Every complete transfer searches
+  immediately in its destination.
   Force Clicking it performs the same on-demand lookup and presents a compact
   complete-route preview at the detail view's minimum supported width without also opening a window. Right-clicking
   a departure separates those navigation choices from its calendar, PDF, and sharing actions; the selected export or
