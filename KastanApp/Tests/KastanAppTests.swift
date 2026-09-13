@@ -57,12 +57,30 @@ final class KastanAppTests: XCTestCase {
             )
         }
 
-        for key in ["Compose in Mail", "Download ICS File", "Download PDF File", "Share Text"] {
+        let optionAlternateKeys = [
+            "Compose in Mail",
+            "Download ICS File",
+            "Download PDF File",
+            "Share Text",
+            "Find departures in new tab",
+            "Open station timetable in new tab",
+        ]
+        for key in optionAlternateKeys {
             let alternateItem = try XCTUnwrap(
                 menuItems.first { $0.title == AppLocalization.string(key) }
             )
             XCTAssertTrue(alternateItem.isAlternate)
             XCTAssertTrue(alternateItem.keyEquivalentModifierMask.contains(.option))
+            XCTAssertFalse(alternateItem.keyEquivalentModifierMask.contains(.shift))
+        }
+
+        for key in ["Find departures in new window", "Open station timetable in new window"] {
+            let alternateItem = try XCTUnwrap(
+                menuItems.first { $0.title == AppLocalization.string(key) }
+            )
+            XCTAssertTrue(alternateItem.isAlternate)
+            XCTAssertTrue(alternateItem.keyEquivalentModifierMask.contains(.option))
+            XCTAssertTrue(alternateItem.keyEquivalentModifierMask.contains(.shift))
         }
 
         XCTAssertFalse(
@@ -533,7 +551,7 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testFileMenuOffersDeparturesBeforeStationTimetablesAsRootActions() async throws {
+    func testFileMenuCondensesSearchDestinationsIntoOptionAlternates() async throws {
         try await Task.sleep(for: .milliseconds(250))
 
         let departureActionKeys = DepartureSearchOpenDestination.allCases.map(\.localizationKey)
@@ -553,19 +571,48 @@ final class KastanAppTests: XCTestCase {
         }
 
         let relevantTitles = Set(actionTitles)
+        let primaryTitles = [
+            AppLocalization.string("Find departures"),
+            AppLocalization.string("Open station timetable"),
+        ]
         XCTAssertEqual(
-            fileMenu.items.map(\.title).filter { relevantTitles.contains($0) },
-            actionTitles
+            fileMenu.items.filter {
+                relevantTitles.contains($0.title) && !$0.isAlternate
+            }.map(\.title),
+            primaryTitles
         )
 
-        let lastDepartureIndex = try XCTUnwrap(
-            fileMenu.items.firstIndex { $0.title == actionTitles[departureActionKeys.count - 1] }
+        let departureIndex = try XCTUnwrap(
+            fileMenu.items.firstIndex { $0.title == primaryTitles[0] }
         )
-        let firstStationTimetableIndex = try XCTUnwrap(
-            fileMenu.items.firstIndex { $0.title == actionTitles[departureActionKeys.count] }
+        let stationTimetableIndex = try XCTUnwrap(
+            fileMenu.items.firstIndex { $0.title == primaryTitles[1] }
         )
-        XCTAssertEqual(firstStationTimetableIndex, lastDepartureIndex + 2)
-        XCTAssertTrue(fileMenu.items[lastDepartureIndex + 1].isSeparatorItem)
+        XCTAssertTrue(
+            fileMenu.items[(departureIndex + 1)..<stationTimetableIndex]
+                .contains(where: \.isSeparatorItem)
+        )
+
+        let tabTitles = [
+            AppLocalization.string("Find departures in new tab"),
+            AppLocalization.string("Open station timetable in new tab"),
+        ]
+        let windowTitles = [
+            AppLocalization.string("Find departures in new window"),
+            AppLocalization.string("Open station timetable in new window"),
+        ]
+        for title in tabTitles {
+            let item = try XCTUnwrap(fileMenu.items.first { $0.title == title })
+            XCTAssertTrue(item.isAlternate)
+            XCTAssertTrue(item.keyEquivalentModifierMask.contains(.option))
+            XCTAssertFalse(item.keyEquivalentModifierMask.contains(.shift))
+        }
+        for title in windowTitles {
+            let item = try XCTUnwrap(fileMenu.items.first { $0.title == title })
+            XCTAssertTrue(item.isAlternate)
+            XCTAssertTrue(item.keyEquivalentModifierMask.contains(.option))
+            XCTAssertTrue(item.keyEquivalentModifierMask.contains(.shift))
+        }
 
         let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
         XCTAssertEqual(
@@ -1490,32 +1537,44 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(selectedIndex, 1)
     }
 
-    func testStationTimetableSearchMenusUseWindowBeforeTabOrder() throws {
-        XCTAssertEqual(
-            DepartureSearchOpenDestination.allCases,
-            [.currentWindow, .newWindow, .newTab]
-        )
-        XCTAssertEqual(
-            ConnectionSearchOpenDestination.allCases,
-            [.currentWindow, .newWindow, .newTab]
-        )
-
-        let departureKeys = DepartureSearchOpenDestination.allCases.map(\.localizationKey)
+    func testSearchMenuDestinationsFollowOptionThenShiftOptionOrder() throws {
+        let departureKeys = [
+            DepartureSearchOpenDestination.currentWindow,
+            .newTab,
+            .newWindow,
+        ].map(\.localizationKey)
         XCTAssertEqual(
             departureKeys,
             [
                 "Find departures",
-                "Find departures in new window",
                 "Find departures in new tab",
+                "Find departures in new window",
             ]
         )
-        let connectionKeys = ConnectionSearchOpenDestination.allCases.map(\.localizationKey)
+        let connectionKeys = [
+            ConnectionSearchOpenDestination.currentWindow,
+            .newTab,
+            .newWindow,
+        ].map(\.localizationKey)
         XCTAssertEqual(
             connectionKeys,
             [
                 "Find a connection",
-                "Find a connection in new window",
                 "Find a connection in new tab",
+                "Find a connection in new window",
+            ]
+        )
+        let stationTimetableKeys = [
+            StationTimetableOpenDestination.currentTab,
+            .newTab,
+            .newWindow,
+        ].map(\.localizationKey)
+        XCTAssertEqual(
+            stationTimetableKeys,
+            [
+                "Open station timetable",
+                "Open station timetable in new tab",
+                "Open station timetable in new window",
             ]
         )
 
@@ -1524,16 +1583,26 @@ final class KastanAppTests: XCTestCase {
             departureKeys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
             [
                 "Vyhledat odjezdy",
-                "Vyhledat odjezdy v novém okně",
                 "Vyhledat odjezdy v novém panelu",
+                "Vyhledat odjezdy v novém okně",
             ]
         )
         XCTAssertEqual(
             connectionKeys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
             [
                 "Vyhledat spojení",
-                "Vyhledat spojení v novém okně",
                 "Vyhledat spojení v novém panelu",
+                "Vyhledat spojení v novém okně",
+            ]
+        )
+        XCTAssertEqual(
+            stationTimetableKeys.map {
+                czech.localizedString(forKey: $0, value: nil, table: nil)
+            },
+            [
+                "Otevřít zastávkový JŘ",
+                "Otevřít zastávkový JŘ v novém panelu",
+                "Otevřít zastávkový JŘ v novém okně",
             ]
         )
     }
@@ -1676,29 +1745,11 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
-    func testTransferredSearchDestinationsFollowCommandClickConvention() {
+    func testStationTimetableStopDestinationsFollowCommandClickConvention() {
         XCTAssertEqual(MainSearchOpenDestination.preferred(for: []), .current)
         XCTAssertEqual(MainSearchOpenDestination.preferred(for: [.command]), .newTab)
         XCTAssertEqual(
             MainSearchOpenDestination.preferred(for: [.command, .shift]),
-            .newWindow
-        )
-        XCTAssertEqual(
-            DepartureSearchOpenDestination.currentWindow.resolvingCurrentAction(for: [.command]),
-            .newTab
-        )
-        XCTAssertEqual(
-            ConnectionSearchOpenDestination.currentWindow.resolvingCurrentAction(
-                for: [.command, .shift]
-            ),
-            .newWindow
-        )
-        XCTAssertEqual(
-            StationTimetableOpenDestination.currentTab.resolvingCurrentAction(for: [.command]),
-            .newTab
-        )
-        XCTAssertEqual(
-            StationTimetableOpenDestination.newWindow.resolvingCurrentAction(for: [.command]),
             .newWindow
         )
     }

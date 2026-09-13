@@ -307,19 +307,6 @@ enum StationTimetableOpenDestination: CaseIterable, Hashable, Identifiable {
             "macwindow"
         }
     }
-
-    /// Applies the shared Command-click convention only to the action that normally reuses this tab.
-    func resolvingCurrentAction(for modifierFlags: NSEvent.ModifierFlags) -> Self {
-        guard self == .currentTab else { return self }
-        return switch MainSearchOpenDestination.preferred(for: modifierFlags) {
-        case .current:
-            .currentTab
-        case .newTab:
-            .newTab
-        case .newWindow:
-            .newWindow
-        }
-    }
 }
 
 /// Maps macOS click modifiers to the three destinations supported by transferred searches.
@@ -367,32 +354,22 @@ enum DepartureSearchOpenDestination: CaseIterable, Hashable, Identifiable {
             "rectangle.on.rectangle"
         }
     }
-
-    /// Applies the shared Command-click convention only to the action that normally reuses this window.
-    func resolvingCurrentAction(for modifierFlags: NSEvent.ModifierFlags) -> Self {
-        guard self == .currentWindow else { return self }
-        return switch MainSearchOpenDestination.preferred(for: modifierFlags) {
-        case .current:
-            .currentWindow
-        case .newTab:
-            .newTab
-        case .newWindow:
-            .newWindow
-        }
-    }
 }
 
-/// Places all destinations for a Departures search directly in its containing menu.
+/// Presents one Departures action whose native Option alternates select a tab or window.
 struct DepartureSearchOpenActions: View {
     let open: (DepartureSearchOpenDestination) -> Void
 
     var body: some View {
-        ForEach(DepartureSearchOpenDestination.allCases) { destination in
-            Button {
-                open(destination.resolvingCurrentAction(for: NSEvent.modifierFlags))
-            } label: {
-                Label(destination.title, systemImage: destination.systemImage)
-            }
+        OptionAlternateButton(
+            placement: .menu,
+            primaryAction: DepartureSearchOpenDestination.currentWindow,
+            alternateAction: .newTab,
+            shiftAlternateAction: .newWindow,
+            title: { $0.title },
+            perform: open
+        ) { destination in
+            Label(destination.title, systemImage: destination.systemImage)
         }
     }
 }
@@ -430,32 +407,22 @@ enum ConnectionSearchOpenDestination: CaseIterable, Hashable, Identifiable {
             "rectangle.on.rectangle"
         }
     }
-
-    /// Applies the shared Command-click convention only to the action that normally reuses this window.
-    func resolvingCurrentAction(for modifierFlags: NSEvent.ModifierFlags) -> Self {
-        guard self == .currentWindow else { return self }
-        return switch MainSearchOpenDestination.preferred(for: modifierFlags) {
-        case .current:
-            .currentWindow
-        case .newTab:
-            .newTab
-        case .newWindow:
-            .newWindow
-        }
-    }
 }
 
-/// Places all destinations for a Connections search directly in its containing menu.
+/// Presents one Connections action whose native Option alternates select a tab or window.
 struct ConnectionSearchOpenActions: View {
     let open: (ConnectionSearchOpenDestination) -> Void
 
     var body: some View {
-        ForEach(ConnectionSearchOpenDestination.allCases) { destination in
-            Button {
-                open(destination.resolvingCurrentAction(for: NSEvent.modifierFlags))
-            } label: {
-                Label(destination.title, systemImage: destination.systemImage)
-            }
+        OptionAlternateButton(
+            placement: .menu,
+            primaryAction: ConnectionSearchOpenDestination.currentWindow,
+            alternateAction: .newTab,
+            shiftAlternateAction: .newWindow,
+            title: { $0.title },
+            perform: open
+        ) { destination in
+            Label(destination.title, systemImage: destination.systemImage)
         }
     }
 }
@@ -492,20 +459,20 @@ extension FocusedValues {
     }
 }
 
-/// Places the three station-timetable destinations directly in their containing menu.
+/// Presents one Station timetable action whose native Option alternates select a tab or window.
 struct StationTimetableOpenActions: View {
     let open: (StationTimetableOpenDestination) -> Void
 
     var body: some View {
-        ForEach(StationTimetableOpenDestination.allCases) { destination in
-            Button {
-                open(destination.resolvingCurrentAction(for: NSEvent.modifierFlags))
-            } label: {
-                Label(
-                    destination.title,
-                    systemImage: destination.systemImage
-                )
-            }
+        OptionAlternateButton(
+            placement: .menu,
+            primaryAction: StationTimetableOpenDestination.currentTab,
+            alternateAction: .newTab,
+            shiftAlternateAction: .newWindow,
+            title: { $0.title },
+            perform: open
+        ) { destination in
+            Label(destination.title, systemImage: destination.systemImage)
         }
     }
 }

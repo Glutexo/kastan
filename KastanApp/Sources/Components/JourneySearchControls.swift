@@ -664,11 +664,23 @@ struct SearchFieldHeader: View {
 }
 
 /// Mirrors the live Option state into SwiftUI for controls with modifier-dependent presentations.
-struct OptionModifierMonitor: NSViewRepresentable {
+struct OptionModifierMonitor: View {
     @Binding var isPressed: Bool
 
+    var body: some View {
+        ModifierStateMonitor(value: $isPressed) { modifierFlags in
+            modifierFlags.contains(.option)
+        }
+    }
+}
+
+/// Mirrors any presentation value derived from the live macOS modifier flags into SwiftUI.
+struct ModifierStateMonitor<Value: Equatable>: NSViewRepresentable {
+    @Binding var value: Value
+    let resolve: (NSEvent.ModifierFlags) -> Value
+
     func makeCoordinator() -> Coordinator {
-        Coordinator(isPressed: $isPressed)
+        Coordinator(value: $value, resolve: resolve)
     }
 
     func makeNSView(context: Context) -> NSView {
@@ -677,7 +689,8 @@ struct OptionModifierMonitor: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        context.coordinator.isPressed = $isPressed
+        context.coordinator.value = $value
+        context.coordinator.resolve = resolve
     }
 
     static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
@@ -685,11 +698,16 @@ struct OptionModifierMonitor: NSViewRepresentable {
     }
 
     final class Coordinator: NSObject {
-        var isPressed: Binding<Bool>
+        var value: Binding<Value>
+        var resolve: (NSEvent.ModifierFlags) -> Value
         private var eventMonitor: Any?
 
-        init(isPressed: Binding<Bool>) {
-            self.isPressed = isPressed
+        init(
+            value: Binding<Value>,
+            resolve: @escaping (NSEvent.ModifierFlags) -> Value
+        ) {
+            self.value = value
+            self.resolve = resolve
         }
 
         func startMonitoring() {
@@ -697,7 +715,7 @@ struct OptionModifierMonitor: NSViewRepresentable {
 
             eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) {
                 [weak self] event in
-                self?.update(event.modifierFlags.contains(.option))
+                self?.update(event.modifierFlags)
                 return event
             }
 
@@ -724,16 +742,17 @@ struct OptionModifierMonitor: NSViewRepresentable {
         }
 
         @objc private func applicationDidBecomeActive() {
-            update(NSEvent.modifierFlags.contains(.option))
+            update(NSEvent.modifierFlags)
         }
 
         @objc private func applicationDidResignActive() {
-            update(false)
+            update([])
         }
 
-        private func update(_ newValue: Bool) {
-            guard isPressed.wrappedValue != newValue else { return }
-            isPressed.wrappedValue = newValue
+        private func update(_ modifierFlags: NSEvent.ModifierFlags) {
+            let newValue = resolve(modifierFlags)
+            guard value.wrappedValue != newValue else { return }
+            value.wrappedValue = newValue
         }
     }
 }
