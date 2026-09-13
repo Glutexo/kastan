@@ -344,7 +344,7 @@ final class AppDataSourceWorkspace: ObservableObject, Identifiable {
         return true
     }
 
-    /// Moves a connection result's complete departure-board query into this window.
+    /// Moves a complete departures-or-arrivals board query into this window.
     @discardableResult
     func showDepartures(_ transferredSelection: DepartureSearchSelection) -> Bool {
         guard availableSections.contains(.departures),
@@ -765,7 +765,7 @@ private struct ProviderSearchWorkspaceView: View {
         }
     }
 
-    /// Starts a connection result's departure-board query here or in an independent scene.
+    /// Starts a departures-or-arrivals board query here or in an independent scene.
     private func openDepartures(
         _ selection: DepartureSearchSelection,
         at destination: DepartureSearchOpenDestination

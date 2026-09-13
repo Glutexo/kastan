@@ -43,6 +43,9 @@ final class KastanAppTests: XCTestCase {
             "Find departures",
             "Find departures in new window",
             "Find departures in new tab",
+            "Find arrivals",
+            "Find arrivals in new window",
+            "Find arrivals in new tab",
             "Open station timetable",
             "Open station timetable in new tab",
             "Open station timetable in new window",
@@ -63,6 +66,7 @@ final class KastanAppTests: XCTestCase {
             "Download PDF File",
             "Share Text",
             "Find departures in new tab",
+            "Find arrivals in new tab",
             "Open station timetable in new tab",
         ]
         for key in optionAlternateKeys {
@@ -74,7 +78,11 @@ final class KastanAppTests: XCTestCase {
             XCTAssertFalse(alternateItem.keyEquivalentModifierMask.contains(.shift))
         }
 
-        for key in ["Find departures in new window", "Open station timetable in new window"] {
+        for key in [
+            "Find departures in new window",
+            "Find arrivals in new window",
+            "Open station timetable in new window",
+        ] {
             let alternateItem = try XCTUnwrap(
                 menuItems.first { $0.title == AppLocalization.string(key) }
             )
@@ -555,8 +563,11 @@ final class KastanAppTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(250))
 
         let departureActionKeys = DepartureSearchOpenDestination.allCases.map(\.localizationKey)
+        let arrivalActionKeys = DepartureSearchOpenDestination.allCases.map {
+            $0.localizationKey(for: .arrivals)
+        }
         let stationTimetableActionKeys = StationTimetableOpenDestination.allCases.map(\.localizationKey)
-        let actionKeys = departureActionKeys + stationTimetableActionKeys
+        let actionKeys = departureActionKeys + arrivalActionKeys + stationTimetableActionKeys
         let actionTitles = actionKeys.map { AppLocalization.string($0) }
         let fileMenu = try XCTUnwrap(
             NSApplication.shared.mainMenu?.items
@@ -573,6 +584,7 @@ final class KastanAppTests: XCTestCase {
         let relevantTitles = Set(actionTitles)
         let primaryTitles = [
             AppLocalization.string("Find departures"),
+            AppLocalization.string("Find arrivals"),
             AppLocalization.string("Open station timetable"),
         ]
         XCTAssertEqual(
@@ -586,7 +598,7 @@ final class KastanAppTests: XCTestCase {
             fileMenu.items.firstIndex { $0.title == primaryTitles[0] }
         )
         let stationTimetableIndex = try XCTUnwrap(
-            fileMenu.items.firstIndex { $0.title == primaryTitles[1] }
+            fileMenu.items.firstIndex { $0.title == primaryTitles[2] }
         )
         XCTAssertFalse(
             fileMenu.items[(departureIndex + 1)..<stationTimetableIndex]
@@ -595,10 +607,12 @@ final class KastanAppTests: XCTestCase {
 
         let tabTitles = [
             AppLocalization.string("Find departures in new tab"),
+            AppLocalization.string("Find arrivals in new tab"),
             AppLocalization.string("Open station timetable in new tab"),
         ]
         let windowTitles = [
             AppLocalization.string("Find departures in new window"),
+            AppLocalization.string("Find arrivals in new window"),
             AppLocalization.string("Open station timetable in new window"),
         ]
         for title in tabTitles {
@@ -621,6 +635,9 @@ final class KastanAppTests: XCTestCase {
                 "Vyhledat odjezdy",
                 "Vyhledat odjezdy v novém okně",
                 "Vyhledat odjezdy v novém panelu",
+                "Vyhledat příjezdy",
+                "Vyhledat příjezdy v novém okně",
+                "Vyhledat příjezdy v novém panelu",
                 "Otevřít zastávkový JŘ",
                 "Otevřít zastávkový JŘ v novém panelu",
                 "Otevřít zastávkový JŘ v novém okně",
@@ -1551,6 +1568,19 @@ final class KastanAppTests: XCTestCase {
                 "Find departures in new window",
             ]
         )
+        let arrivalKeys = [
+            DepartureSearchOpenDestination.currentWindow,
+            .newTab,
+            .newWindow,
+        ].map { $0.localizationKey(for: .arrivals) }
+        XCTAssertEqual(
+            arrivalKeys,
+            [
+                "Find arrivals",
+                "Find arrivals in new tab",
+                "Find arrivals in new window",
+            ]
+        )
         let connectionKeys = [
             ConnectionSearchOpenDestination.currentWindow,
             .newTab,
@@ -1585,6 +1615,14 @@ final class KastanAppTests: XCTestCase {
                 "Vyhledat odjezdy",
                 "Vyhledat odjezdy v novém panelu",
                 "Vyhledat odjezdy v novém okně",
+            ]
+        )
+        XCTAssertEqual(
+            arrivalKeys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
+            [
+                "Vyhledat příjezdy",
+                "Vyhledat příjezdy v novém panelu",
+                "Vyhledat příjezdy v novém okně",
             ]
         )
         XCTAssertEqual(
@@ -9822,7 +9860,7 @@ final class KastanAppTests: XCTestCase {
         XCTAssertTrue(independentWorkspace.stationTimetablesModel.isSearchFormCollapsed)
     }
 
-    func testConnectionDepartureTransfersUseTheExactOriginAndDepartureInstant() async throws {
+    func testConnectionStationBoardTransfersUseTheExactEndpointInstantAndMode() async throws {
         let client = MockIDOSClient()
         let timetable = try IDOSTimetable.resolve("frydekmistek")
         let submittedDate = TransitDate(year: 2026, month: 9, day: 10)
@@ -9862,6 +9900,20 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(searchSelection.station, "Frýdek-Místek")
         XCTAssertEqual(searchSelection.serviceDate, submittedDate)
         XCTAssertEqual(searchSelection.serviceTime, TransitTime(hour: 22, minute: 45))
+        XCTAssertFalse(searchSelection.isArrival)
+
+        let searchArrivalSelection = try XCTUnwrap(
+            DepartureSearchSelectionFactory.search(
+                timetable: timetable,
+                station: "  Ostrava  ",
+                serviceDate: submittedDate,
+                serviceTime: TransitTime(hour: 22, minute: 45),
+                isArrival: true,
+                client: client
+            )
+        )
+        XCTAssertEqual(searchArrivalSelection.station, "Ostrava")
+        XCTAssertTrue(searchArrivalSelection.isArrival)
 
         let connectionSelection = try XCTUnwrap(
             DepartureSearchSelectionFactory.connection(
@@ -9874,6 +9926,21 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(connectionSelection.station, connection.departureStation)
         XCTAssertEqual(connectionSelection.serviceDate, connectionDate)
         XCTAssertEqual(connectionSelection.serviceTime, TransitTime(hour: 23, minute: 53))
+        XCTAssertFalse(connectionSelection.isArrival)
+
+        let connectionArrivalSelection = try XCTUnwrap(
+            DepartureSearchSelectionFactory.connection(
+                connection,
+                timetable: timetable,
+                fallbackServiceDate: submittedDate,
+                isArrival: true,
+                client: client
+            )
+        )
+        XCTAssertEqual(connectionArrivalSelection.station, connection.arrivalStation)
+        XCTAssertEqual(connectionArrivalSelection.serviceDate, serviceDate)
+        XCTAssertEqual(connectionArrivalSelection.serviceTime, TransitTime(hour: 0, minute: 31))
+        XCTAssertTrue(connectionArrivalSelection.isArrival)
 
         let serviceSelection = try XCTUnwrap(
             DepartureSearchSelectionFactory.service(
@@ -9887,6 +9954,22 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(serviceSelection.station, leg.fromStation)
         XCTAssertEqual(serviceSelection.serviceDate, serviceDate)
         XCTAssertEqual(serviceSelection.serviceTime, TransitTime(hour: 0, minute: 13))
+        XCTAssertFalse(serviceSelection.isArrival)
+
+        let serviceArrivalSelection = try XCTUnwrap(
+            DepartureSearchSelectionFactory.service(
+                leg,
+                in: connection,
+                timetable: timetable,
+                fallbackServiceDate: submittedDate,
+                isArrival: true,
+                client: client
+            )
+        )
+        XCTAssertEqual(serviceArrivalSelection.station, leg.toStation)
+        XCTAssertEqual(serviceArrivalSelection.serviceDate, serviceDate)
+        XCTAssertEqual(serviceArrivalSelection.serviceTime, TransitTime(hour: 0, minute: 31))
+        XCTAssertTrue(serviceArrivalSelection.isArrival)
 
         let sceneValue = MainWindowSceneValue(
             dataSourceID: .idos,
@@ -9898,6 +9981,18 @@ final class KastanAppTests: XCTestCase {
                 from: JSONEncoder().encode(sceneValue)
             ),
             sceneValue
+        )
+
+        let arrivalSceneValue = MainWindowSceneValue(
+            dataSourceID: .idos,
+            initialDepartureSelection: serviceArrivalSelection
+        )
+        XCTAssertEqual(
+            try JSONDecoder().decode(
+                MainWindowSceneValue.self,
+                from: JSONEncoder().encode(arrivalSceneValue)
+            ),
+            arrivalSceneValue
         )
 
         let independentWorkspace = AppDataSourceWorkspace(
@@ -9920,6 +10015,40 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(independentWorkspace.departuresModel.startsWithInitialSelection)
         XCTAssertFalse(independentWorkspace.departuresModel.departures.isEmpty)
         XCTAssertTrue(independentWorkspace.departuresModel.isSearchFormCollapsed)
+
+        let arrivalWorkspace = AppDataSourceWorkspace(
+            client: client,
+            initialDepartureSelection: serviceArrivalSelection
+        )
+        XCTAssertTrue(arrivalWorkspace.departuresModel.isArrival)
+        await arrivalWorkspace.departuresModel.loadInitialSelectionIfNeeded()
+
+        let capturedArrivalRequest = await client.lastDeparturesRequest
+        let arrivalRequest = try XCTUnwrap(capturedArrivalRequest)
+        XCTAssertEqual(arrivalRequest.station, leg.toStation)
+        XCTAssertEqual(arrivalRequest.serviceDate, serviceDate)
+        XCTAssertEqual(arrivalRequest.serviceTime, TransitTime(hour: 0, minute: 31))
+        XCTAssertTrue(arrivalRequest.isArrival)
+    }
+
+    func testLegacyDepartureSearchSelectionDefaultsToDepartures() throws {
+        let selection = DepartureSearchSelection(
+            timetable: .defaultTimetable,
+            station: "Praha hl.n.",
+            serviceDate: TransitDate(year: 2026, month: 9, day: 13),
+            serviceTime: TransitTime(hour: 17, minute: 30),
+            isArrival: true
+        )
+        let encoded = try JSONEncoder().encode(selection)
+        var legacyObject = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+        )
+        legacyObject.removeValue(forKey: "isArrival")
+        let legacyData = try JSONSerialization.data(withJSONObject: legacyObject)
+
+        let decoded = try JSONDecoder().decode(DepartureSearchSelection.self, from: legacyData)
+
+        XCTAssertFalse(decoded.isArrival)
     }
 
     func testDepartureBoardHeadersAndRowsBuildTransfersFromTheirVisibleValues() throws {

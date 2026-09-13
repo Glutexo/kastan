@@ -321,7 +321,7 @@ enum MainSearchOpenDestination: Equatable {
     }
 }
 
-/// Identifies where a prepared departure-board search should open.
+/// Identifies where a prepared departures-or-arrivals board search should open.
 enum DepartureSearchOpenDestination: CaseIterable, Hashable, Identifiable {
     case currentWindow
     case newWindow
@@ -330,18 +330,30 @@ enum DepartureSearchOpenDestination: CaseIterable, Hashable, Identifiable {
     var id: Self { self }
 
     var localizationKey: String {
+        localizationKey(for: .departures)
+    }
+
+    func localizationKey(for mode: DepartureBoardMode) -> String {
         switch self {
         case .currentWindow:
-            "Find departures"
+            mode == .arrivals ? "Find arrivals" : "Find departures"
         case .newWindow:
-            "Find departures in new window"
+            mode == .arrivals
+                ? "Find arrivals in new window"
+                : "Find departures in new window"
         case .newTab:
-            "Find departures in new tab"
+            mode == .arrivals
+                ? "Find arrivals in new tab"
+                : "Find departures in new tab"
         }
     }
 
     var title: LocalizedStringKey {
         LocalizedStringKey(localizationKey)
+    }
+
+    func title(for mode: DepartureBoardMode) -> LocalizedStringKey {
+        LocalizedStringKey(localizationKey(for: mode))
     }
 
     var systemImage: String {
@@ -356,9 +368,24 @@ enum DepartureSearchOpenDestination: CaseIterable, Hashable, Identifiable {
     }
 }
 
-/// Presents one Departures action whose native Option alternates select a tab or window.
+/// Distinguishes the two station-board queries available inside the Departures workspace.
+enum DepartureBoardMode: Equatable {
+    case departures
+    case arrivals
+}
+
+/// Presents one station-board action whose native Option alternates select a tab or window.
 struct DepartureSearchOpenActions: View {
+    let mode: DepartureBoardMode
     let open: (DepartureSearchOpenDestination) -> Void
+
+    init(
+        mode: DepartureBoardMode = .departures,
+        open: @escaping (DepartureSearchOpenDestination) -> Void
+    ) {
+        self.mode = mode
+        self.open = open
+    }
 
     var body: some View {
         OptionAlternateButton(
@@ -366,10 +393,25 @@ struct DepartureSearchOpenActions: View {
             primaryAction: DepartureSearchOpenDestination.currentWindow,
             alternateAction: .newTab,
             shiftAlternateAction: .newWindow,
-            title: { $0.title },
+            title: { $0.title(for: mode) },
             perform: open
         ) { destination in
-            Label(destination.title, systemImage: destination.systemImage)
+            Label(destination.title(for: mode), systemImage: destination.systemImage)
+        }
+    }
+}
+
+/// Keeps departures and arrivals beside each other while omitting unavailable board queries.
+struct DepartureArrivalSearchOpenActions: View {
+    let openDepartures: ((DepartureSearchOpenDestination) -> Void)?
+    let openArrivals: ((DepartureSearchOpenDestination) -> Void)?
+
+    var body: some View {
+        if let openDepartures {
+            DepartureSearchOpenActions(open: openDepartures)
+        }
+        if let openArrivals {
+            DepartureSearchOpenActions(mode: .arrivals, open: openArrivals)
         }
     }
 }
@@ -433,10 +475,12 @@ struct ConnectionStationTimetableCommandContext {
     let open: (StationTimetableOpenDestination) -> Void
 }
 
-/// Connects the File menu to the supported departure search in the focused main window.
+/// Connects the File menu to both station-board searches in the focused Connections window.
 struct ConnectionDepartureCommandContext {
-    let isAvailable: Bool
-    let open: (DepartureSearchOpenDestination) -> Void
+    let departuresAreAvailable: Bool
+    let arrivalsAreAvailable: Bool
+    let openDepartures: (DepartureSearchOpenDestination) -> Void
+    let openArrivals: (DepartureSearchOpenDestination) -> Void
 }
 
 struct ConnectionStationTimetableCommandContextKey: FocusedValueKey {
@@ -487,9 +531,14 @@ struct ConnectionSearchCommands: Commands {
             Divider()
 
             DepartureSearchOpenActions { destination in
-                departureContext?.open(destination)
+                departureContext?.openDepartures(destination)
             }
-            .disabled(departureContext?.isAvailable != true)
+            .disabled(departureContext?.departuresAreAvailable != true)
+
+            DepartureSearchOpenActions(mode: .arrivals) { destination in
+                departureContext?.openArrivals(destination)
+            }
+            .disabled(departureContext?.arrivalsAreAvailable != true)
 
             StationTimetableOpenActions { destination in
                 stationTimetableContext?.open(destination)

@@ -524,16 +524,15 @@ struct ConnectionsView: View {
     @ViewBuilder
     private var connectionSearchSummaryBar: some View {
         if canOpenStationTimetable ||
-            connectionSearchDepartureSelection != nil {
+            connectionSearchDepartureAction != nil ||
+            connectionSearchArrivalAction != nil {
             searchSummaryBar
                 .contentShape(Rectangle())
                 .contextMenu {
-                    if let selection = connectionSearchDepartureSelection,
-                       let openDepartures {
-                        DepartureSearchOpenActions { destination in
-                            openDepartures(selection, destination)
-                        }
-                    }
+                    DepartureArrivalSearchOpenActions(
+                        openDepartures: connectionSearchDepartureAction,
+                        openArrivals: connectionSearchArrivalAction
+                    )
 
                     if let selection = connectionSearchStationTimetableSelection,
                        let openStationTimetable {
@@ -581,6 +580,28 @@ struct ConnectionsView: View {
         )
     }
 
+    private var connectionSearchArrivalSelection: DepartureSearchSelection? {
+        guard openDepartures != nil else { return nil }
+        return DepartureSearchSelectionFactory.search(
+            timetable: model.timetable,
+            station: model.to,
+            serviceDate: TransitRequestFormatting.serviceDate(from: model.date),
+            serviceTime: TransitRequestFormatting.serviceTime(from: model.time),
+            isArrival: true,
+            client: client
+        )
+    }
+
+    private var connectionSearchDepartureAction: ((DepartureSearchOpenDestination) -> Void)? {
+        guard let selection = connectionSearchDepartureSelection, let openDepartures else { return nil }
+        return { destination in openDepartures(selection, destination) }
+    }
+
+    private var connectionSearchArrivalAction: ((DepartureSearchOpenDestination) -> Void)? {
+        guard let selection = connectionSearchArrivalSelection, let openDepartures else { return nil }
+        return { destination in openDepartures(selection, destination) }
+    }
+
     private var connectionStationTimetableCommandContext: ConnectionStationTimetableCommandContext {
         ConnectionStationTimetableCommandContext(
             isAvailable: model.isSearchFormCollapsed && canOpenStationTimetable,
@@ -593,11 +614,10 @@ struct ConnectionsView: View {
 
     private var connectionDepartureCommandContext: ConnectionDepartureCommandContext {
         ConnectionDepartureCommandContext(
-            isAvailable: model.isSearchFormCollapsed && connectionSearchDepartureSelection != nil,
-            open: { destination in
-                guard let selection = connectionSearchDepartureSelection else { return }
-                openDepartures?(selection, destination)
-            }
+            departuresAreAvailable: model.isSearchFormCollapsed && connectionSearchDepartureAction != nil,
+            arrivalsAreAvailable: model.isSearchFormCollapsed && connectionSearchArrivalAction != nil,
+            openDepartures: { destination in connectionSearchDepartureAction?(destination) },
+            openArrivals: { destination in connectionSearchArrivalAction?(destination) }
         )
     }
 
@@ -1897,6 +1917,7 @@ struct ConnectionCard: View {
             openInNewWindow: openInNewWindow,
             openStationTimetable: connectionStationTimetableAction,
             openDepartures: connectionDepartureAction,
+            openArrivals: connectionArrivalAction,
             performEmailAction: performEmailAction,
             performCalendarAction: performCalendarAction,
             performPDFAction: performPDFAction
@@ -1923,6 +1944,22 @@ struct ConnectionCard: View {
             connection,
             timetable: timetable,
             fallbackServiceDate: fallbackServiceDate,
+            client: client
+        ), let openDepartures else {
+            return nil
+        }
+
+        return { destination in
+            openDepartures(selection, destination)
+        }
+    }
+
+    private var connectionArrivalAction: ((DepartureSearchOpenDestination) -> Void)? {
+        guard let selection = DepartureSearchSelectionFactory.connection(
+            connection,
+            timetable: timetable,
+            fallbackServiceDate: fallbackServiceDate,
+            isArrival: true,
             client: client
         ), let openDepartures else {
             return nil
@@ -2331,7 +2368,8 @@ private struct ConnectionLegRow: View {
                             model: contextMenuModel,
                             showPreview: { isPreviewPresented = true },
                             openStationTimetable: stationTimetableAction,
-                            openDepartures: departureAction
+                            openDepartures: departureAction,
+                            openArrivals: arrivalAction
                         )
                     }
             } else {
@@ -2380,6 +2418,23 @@ private struct ConnectionLegRow: View {
             in: connection,
             timetable: timetable,
             fallbackServiceDate: fallbackServiceDate,
+            client: client
+        ), let openDepartures else {
+            return nil
+        }
+
+        return { destination in
+            openDepartures(selection, destination)
+        }
+    }
+
+    private var arrivalAction: ((DepartureSearchOpenDestination) -> Void)? {
+        guard let selection = DepartureSearchSelectionFactory.service(
+            leg,
+            in: connection,
+            timetable: timetable,
+            fallbackServiceDate: fallbackServiceDate,
+            isArrival: true,
             client: client
         ), let openDepartures else {
             return nil

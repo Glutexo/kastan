@@ -115,6 +115,7 @@ struct ConnectionContextMenuContent: View {
     let openInNewWindow: () -> Void
     let openStationTimetable: ((StationTimetableOpenDestination) -> Void)?
     let openDepartures: ((DepartureSearchOpenDestination) -> Void)?
+    let openArrivals: ((DepartureSearchOpenDestination) -> Void)?
     let performEmailAction: (ConnectionEmailAction) -> Void
     let performCalendarAction: (CalendarExportAction) -> Void
     let performPDFAction: (PDFExportAction) -> Void
@@ -141,13 +142,14 @@ struct ConnectionContextMenuContent: View {
             }
         case .separator:
             Divider()
-            if let openDepartures {
-                DepartureSearchOpenActions(open: openDepartures)
-            }
+            DepartureArrivalSearchOpenActions(
+                openDepartures: openDepartures,
+                openArrivals: openArrivals
+            )
             if let openStationTimetable {
                 StationTimetableOpenActions(open: openStationTimetable)
             }
-            if openStationTimetable != nil || openDepartures != nil {
+            if openStationTimetable != nil || openDepartures != nil || openArrivals != nil {
                 Divider()
             }
         case .detail(.sendByEmail):
@@ -210,17 +212,20 @@ struct ServiceContextMenuContent: View {
     let showPreview: () -> Void
     let openStationTimetable: ((StationTimetableOpenDestination) -> Void)?
     let openDepartures: ((DepartureSearchOpenDestination) -> Void)?
+    let openArrivals: ((DepartureSearchOpenDestination) -> Void)?
 
     init(
         model: ServiceDetailViewModel,
         showPreview: @escaping () -> Void,
         openStationTimetable: ((StationTimetableOpenDestination) -> Void)? = nil,
-        openDepartures: ((DepartureSearchOpenDestination) -> Void)? = nil
+        openDepartures: ((DepartureSearchOpenDestination) -> Void)? = nil,
+        openArrivals: ((DepartureSearchOpenDestination) -> Void)? = nil
     ) {
         self.model = model
         self.showPreview = showPreview
         self.openStationTimetable = openStationTimetable
         self.openDepartures = openDepartures
+        self.openArrivals = openArrivals
     }
 
     var body: some View {
@@ -250,13 +255,14 @@ struct ServiceContextMenuContent: View {
             EmptyView()
         case .separator:
             Divider()
-            if let openDepartures {
-                DepartureSearchOpenActions(open: openDepartures)
-            }
+            DepartureArrivalSearchOpenActions(
+                openDepartures: openDepartures,
+                openArrivals: openArrivals
+            )
             if let openStationTimetable {
                 StationTimetableOpenActions(open: openStationTimetable)
             }
-            if openStationTimetable != nil || openDepartures != nil {
+            if openStationTimetable != nil || openDepartures != nil || openArrivals != nil {
                 Divider()
             }
         case .detail(.sendByEmail):

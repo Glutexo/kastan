@@ -123,16 +123,17 @@ one ordinary provider is registered.
   removes the zero-transfer row. The previous positive transfer count and both time values remain remembered; manually
   adding any of these subchoices later restores its last value instead of its default. A source that advertises Direct
   connections only without the maximum-transfer option still gets the checkbox, without an unsupported synthetic row.
-  After a supported search, right-clicking its compact summary offers one Find departures action followed by one
-  Station timetable action, without adding another visible control. The File menu exposes both actions at its root in
+  After a supported search, right-clicking its compact summary offers Find departures, Find arrivals, and Station
+  timetable actions, without adding another visible control. The File menu exposes all three actions at its root in
   the same order and with the same labels. A search-level Station
   timetable action carries over its timetable, date, and submitted direction stops, clears any older result, and
-  focuses the empty required Line field. A departure action uses the submitted origin, date, time, and timetable.
-  Every displayed connection adds both actions in that order to its ellipsis and whole-card context menus.
-  Its departure search uses the connection's matched origin and exact departure day and time, which may differ from
-  the submitted query or another result. Each concrete service row offers both groups as well; its Station timetable
-  transfer uses that leg's line, matched endpoints, and own departure day, while its departure search uses the leg's
-  matched origin and own departure instant. Every complete transfer searches immediately in the chosen destination.
+  focuses the empty required Line field. The header's board actions use the submitted date, time, and timetable, with
+  the origin for departures and destination for arrivals. Every displayed connection adds all three actions in that
+  order to its ellipsis and whole-card context menus. Its board searches use the connection's matched origin and exact
+  departure instant or its matched destination and exact arrival instant, which may fall on another civil day. Each
+  concrete service row offers all three actions as well; its Station timetable transfer uses that leg's line, matched
+  endpoints, and own departure day, while its board searches use the matching endpoint, instant, and mode. Every
+  complete transfer searches immediately in the chosen destination.
   Every transferred-search menu condenses its three destinations into one item. Holding Option changes each item into
   its new-tab action and adding Shift changes it into its new-window action; the title and symbol follow the selected
   destination. When multiple search modes are available, their items form one uninterrupted group in toolbar order.
