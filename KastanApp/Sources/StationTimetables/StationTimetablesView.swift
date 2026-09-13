@@ -617,19 +617,6 @@ struct StationTimetablesView: View {
                                 showDepartureSearch(selection, destination)
                             }
                         )
-
-                        if model.canFindHeaderConnectionResults ||
-                            model.canFindHeaderDepartureResults {
-                            Divider()
-                        }
-
-                        ForEach(StationTimetableStopOpenAction.allCases) { action in
-                            Button {
-                                openStop(at: index, destination: action.destination)
-                            } label: {
-                                Label(action.title, systemImage: action.systemImage)
-                            }
-                        }
                     }
                     .alternatingRowBackground(at: index)
                     .overlay {
@@ -913,45 +900,6 @@ struct StationTimetablesView: View {
             stop.platform.map { AppLocalization.string("Station timetable platform %@", $0) },
         ].compactMap(\.self)
         return values.isEmpty ? nil : values.joined(separator: " · ")
-    }
-}
-
-/// Defines the independent destinations offered directly from a station-timetable stop.
-enum StationTimetableStopOpenAction: CaseIterable, Hashable, Identifiable {
-    case newWindow
-    case newTab
-
-    var id: Self { self }
-
-    var destination: MainSearchOpenDestination {
-        switch self {
-        case .newWindow:
-            .newWindow
-        case .newTab:
-            .newTab
-        }
-    }
-
-    var localizationKey: String {
-        switch self {
-        case .newWindow:
-            "Open in new window"
-        case .newTab:
-            "Open in new tab"
-        }
-    }
-
-    var title: LocalizedStringKey {
-        LocalizedStringKey(localizationKey)
-    }
-
-    var systemImage: String {
-        switch self {
-        case .newWindow:
-            "macwindow"
-        case .newTab:
-            "rectangle.on.rectangle"
-        }
     }
 }
 

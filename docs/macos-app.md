@@ -156,10 +156,10 @@ one ordinary provider is registered.
   Every stop, including the currently selected one, offers the three Connections actions followed by the three
   Departures actions in its context menu. Both use the provider-returned stop and the timetable's selected service day
   with the current clock time; Connections continues toward the displayed destination, or back toward the opposite
-  endpoint when invoked on the terminal stop. Open in new window and Open in new tab follow those search groups.
-  Command-clicking the stop opens it in a new tab and Shift-Command-click opens it in a new window. The independent
-  main window or tab retains the submitted catalog, municipality, line, direction, date, and whole-week setting while
-  selecting the requested stop. Schedule
+  endpoint when invoked on the terminal stop. An ordinary click selects the stop in the current timetable,
+  Command-click opens it in a new tab, and Shift-Command-click opens it in a new window. The independent main window
+  or tab retains the submitted catalog, municipality, line, direction, date, and whole-week setting while selecting
+  the requested stop. Schedule
   headings keep the numeric date and follow the selected language's weekday capitalization, such as lowercase Czech
   `středa` and uppercase English `Wednesday`. The route, explanations, and notes use icon headings. Route stops use
   the same connected circular timeline as complete service routes. Its neutral section
