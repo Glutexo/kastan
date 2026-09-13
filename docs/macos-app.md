@@ -153,11 +153,10 @@ one ordinary provider is registered.
   endpoints returned by the provider. Because a station timetable selects a date without a time, both transitions use
   the current clock time on that service day. Their current-window actions follow the same Command-click destination
   convention as other transferred searches. An ordinary route-stop click selects that stop in the current timetable.
-  Every stop, including the currently selected
-  one, offers Open in new window from its context menu; Command-click opens it in a new tab and Shift-Command-click
-  opens it in a new window. The
-  independent main window retains the submitted catalog, municipality, line, direction, date, and whole-week setting
-  while selecting the requested stop. Schedule
+  Every stop, including the currently selected one, offers Open in new window followed by Open in new tab from its
+  context menu; Command-click opens it in a new tab and Shift-Command-click opens it in a new window. The
+  independent main window or tab retains the submitted catalog, municipality, line, direction, date, and whole-week
+  setting while selecting the requested stop. Schedule
   headings keep the numeric date and follow the selected language's weekday capitalization, such as lowercase Czech
   `středa` and uppercase English `Wednesday`. The route, explanations, and notes use icon headings. Route stops use
   the same connected circular timeline as complete service routes. Its neutral section

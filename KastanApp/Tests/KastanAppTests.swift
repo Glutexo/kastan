@@ -1525,6 +1525,31 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testStationTimetableStopMenuOffersWindowThenTab() throws {
+        XCTAssertEqual(
+            StationTimetableStopOpenAction.allCases,
+            [.newWindow, .newTab]
+        )
+        XCTAssertEqual(
+            StationTimetableStopOpenAction.allCases.map(\.destination),
+            [.newWindow, .newTab]
+        )
+
+        let keys = StationTimetableStopOpenAction.allCases.map(\.localizationKey)
+        XCTAssertEqual(keys, ["Open in new window", "Open in new tab"])
+
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+        XCTAssertEqual(
+            keys.map { czech.localizedString(forKey: $0, value: nil, table: nil) },
+            ["Otevřít v novém okně", "Otevřít v novém panelu"]
+        )
+        XCTAssertEqual(
+            keys.map { english.localizedString(forKey: $0, value: nil, table: nil) },
+            keys
+        )
+    }
+
     func testTransferredSearchDestinationsFollowCommandClickConvention() {
         XCTAssertEqual(MainSearchOpenDestination.preferred(for: []), .current)
         XCTAssertEqual(MainSearchOpenDestination.preferred(for: [.command]), .newTab)
