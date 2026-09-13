@@ -355,10 +355,14 @@ one ordinary provider is registered.
   preserved. The search-relevant segment remains highlighted without implying live vehicle position. When scrolling hides a
   service date, the date moves into the window title until its content label is visible again. Right-clicking any
   stop-and-time row offers one Connections action, followed by one Departures action and one Station timetable action
-  when the active provider supports them. Each query uses that stop's departure time, or
-  its arrival time when no departure is shown, and advances the service's initial date after a midnight crossing.
-  Connections and Station timetable searches continue toward the final stop; at the final stop they point back to
-  the route's first stop.
+  when the active provider supports them. Departures uses that stop's departure time, or its arrival time when no
+  departure is shown. Connections uses the chosen direction's origin time; every transfer advances the service's
+  initial date after a midnight crossing.
+  Within the highlighted segment, Connections and Station timetable searches continue toward the destination of the
+  originating search; invoking either action on that destination uses the highlighted origin. A stop before the
+  highlighted segment continues to the service terminus, while a stop after it uses the service origin, so every
+  generated direction follows the service. Without an originating segment, the complete route endpoints provide the
+  same fallback.
 - Complete service information starts collapsed beneath a disclosure heading at the same level as Stops. Expanding it
   reveals selectable text whose visibly separated rows use semantic emoji for replacement buses,
   onboard amenities, sleeping and couchette cars, through coaches, on-route train-designation changes,

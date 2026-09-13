@@ -419,6 +419,7 @@ enum ServiceStopSearchSelectionFactory {
     static func selections(
         forStopAt index: Int,
         in service: TransitServiceDetail,
+        routeHighlight: ServiceRouteHighlight? = nil,
         client: any TransitDataSource
     ) -> ServiceStopSearchSelections {
         guard service.stops.indices.contains(index),
@@ -433,16 +434,29 @@ enum ServiceStopSearchSelectionFactory {
         }
 
         let stop = service.stops[index]
-        let oppositeEndpoint = oppositeEndpoint(forStopAt: index, in: service.stops)
-        let connection = oppositeEndpoint.flatMap { endpoint in
-            ConnectionSearchSelectionFactory.stationTimetable(
+        let route = searchRoute(
+            forStopAt: index,
+            in: service.stops,
+            routeHighlight: routeHighlight
+        )
+        let routeServiceDate = route.flatMap {
+            Self.serviceDate(forStopAt: $0.fromIndex, in: service)
+        }
+        let routeServiceTime = route.flatMap {
+            Self.serviceTime(for: service.stops[$0.fromIndex])
+        }
+        let connection: ConnectionSearchSelection?
+        if let route, let routeServiceDate, let routeServiceTime {
+            connection = ConnectionSearchSelectionFactory.stationTimetable(
                 timetable: service.timetable,
-                from: stop.name,
-                to: endpoint,
-                serviceDate: serviceDate,
-                serviceTime: serviceTime,
+                from: service.stops[route.fromIndex].name,
+                to: service.stops[route.toIndex].name,
+                serviceDate: routeServiceDate,
+                serviceTime: routeServiceTime,
                 client: client
             )
+        } else {
+            connection = nil
         }
         let departure = DepartureSearchSelectionFactory.search(
             timetable: service.timetable,
@@ -451,15 +465,18 @@ enum ServiceStopSearchSelectionFactory {
             serviceTime: serviceTime,
             client: client
         )
-        let stationTimetable = oppositeEndpoint.flatMap { endpoint in
-            StationTimetableSelectionFactory.serviceStop(
+        let stationTimetable: StationTimetableSelection?
+        if let route, let routeServiceDate {
+            stationTimetable = StationTimetableSelectionFactory.serviceStop(
                 timetable: service.timetable,
                 line: service.name,
-                from: stop.name,
-                to: endpoint,
-                serviceDate: serviceDate,
+                from: service.stops[route.fromIndex].name,
+                to: service.stops[route.toIndex].name,
+                serviceDate: routeServiceDate,
                 client: client
             )
+        } else {
+            stationTimetable = nil
         }
 
         return ServiceStopSearchSelections(
@@ -469,15 +486,39 @@ enum ServiceStopSearchSelectionFactory {
         )
     }
 
-    /// Follows the displayed route forward, or back to its first stop when invoked at the terminus.
-    private static func oppositeEndpoint(
+    private struct SearchRoute {
+        let fromIndex: Int
+        let toIndex: Int
+    }
+
+    /// Keeps stops inside the searched segment aimed at its destination and expands only outside that segment.
+    private static func searchRoute(
         forStopAt index: Int,
-        in stops: [TransitServiceStop]
-    ) -> String? {
+        in stops: [TransitServiceStop],
+        routeHighlight: ServiceRouteHighlight?
+    ) -> SearchRoute? {
         guard stops.count > 1 else { return nil }
-        return index == stops.index(before: stops.endIndex)
-            ? stops[stops.startIndex].name
-            : stops[stops.index(before: stops.endIndex)].name
+        let firstIndex = stops.startIndex
+        let lastIndex = stops.index(before: stops.endIndex)
+
+        if let highlightedRange = routeHighlight?.range(in: stops) {
+            if highlightedRange.contains(index) {
+                if index < highlightedRange.upperBound {
+                    return SearchRoute(fromIndex: index, toIndex: highlightedRange.upperBound)
+                }
+                if highlightedRange.lowerBound < index {
+                    return SearchRoute(fromIndex: highlightedRange.lowerBound, toIndex: index)
+                }
+                return nil
+            }
+            return index < highlightedRange.lowerBound
+                ? SearchRoute(fromIndex: index, toIndex: lastIndex)
+                : SearchRoute(fromIndex: firstIndex, toIndex: index)
+        }
+
+        return index == lastIndex
+            ? SearchRoute(fromIndex: firstIndex, toIndex: index)
+            : SearchRoute(fromIndex: index, toIndex: lastIndex)
     }
 
     /// Uses departure time where available and arrival time at stops without a departure.
@@ -1011,6 +1052,7 @@ struct ServiceDetailView: View {
             selections: ServiceStopSearchSelectionFactory.selections(
                 forStopAt: index,
                 in: service,
+                routeHighlight: routeHighlight,
                 client: client
             ),
             openConnection: openConnection,

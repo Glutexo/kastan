@@ -1724,10 +1724,83 @@ final class KastanAppTests: XCTestCase {
             in: service,
             client: client
         )
-        XCTAssertEqual(terminal.connection?.from, "Ostrava,Hrabůvka,Benzina")
-        XCTAssertEqual(terminal.connection?.to, "Frýdek,Na Veselé")
-        XCTAssertEqual(terminal.connection?.serviceTime, TransitTime(hour: 0, minute: 31))
-        XCTAssertEqual(terminal.stationTimetable?.to, "Frýdek,Na Veselé")
+        XCTAssertEqual(terminal.connection?.from, "Frýdek,Na Veselé")
+        XCTAssertEqual(terminal.connection?.to, "Ostrava,Hrabůvka,Benzina")
+        XCTAssertEqual(terminal.connection?.serviceDate, TransitDate(year: 2026, month: 9, day: 11))
+        XCTAssertEqual(terminal.connection?.serviceTime, TransitTime(hour: 23, minute: 45))
+        XCTAssertEqual(terminal.stationTimetable?.from, "Frýdek,Na Veselé")
+        XCTAssertEqual(terminal.stationTimetable?.to, "Ostrava,Hrabůvka,Benzina")
+        XCTAssertEqual(
+            terminal.stationTimetable?.serviceDate,
+            TransitDate(year: 2026, month: 9, day: 11)
+        )
+    }
+
+    func testServiceStopRoutesPreserveTheHighlightedJourneyBeforeUsingFullEndpoints() throws {
+        let client = MockIDOSClient()
+        let timetable = try IDOSTimetable.resolve("frydekmistek")
+        let service = TransitServiceDetail(
+            id: "highlighted-service-route",
+            timetable: timetable,
+            name: "Bus 980",
+            date: "13. 9. 2026",
+            stops: [
+                TransitServiceStop(name: "Výchozí zastávka", departureTime: "08:00"),
+                TransitServiceStop(name: "Původní nástup", departureTime: "08:10"),
+                TransitServiceStop(name: "Uvnitř úseku", departureTime: "08:20"),
+                TransitServiceStop(
+                    name: "Původní cíl",
+                    arrivalTime: "08:30",
+                    departureTime: "08:31"
+                ),
+                TransitServiceStop(name: "Za rozsahem", departureTime: "08:40"),
+                TransitServiceStop(name: "Konečná", arrivalTime: "08:50"),
+            ]
+        )
+        let highlight = ServiceRouteHighlight(
+            fromStop: "Původní nástup",
+            toStop: "Původní cíl"
+        )
+
+        func selections(at index: Int) -> ServiceStopSearchSelections {
+            ServiceStopSearchSelectionFactory.selections(
+                forStopAt: index,
+                in: service,
+                routeHighlight: highlight,
+                client: client
+            )
+        }
+
+        let inside = selections(at: 2)
+        XCTAssertEqual(inside.connection?.from, "Uvnitř úseku")
+        XCTAssertEqual(inside.connection?.to, "Původní cíl")
+        XCTAssertEqual(inside.connection?.serviceTime, TransitTime(hour: 8, minute: 20))
+        XCTAssertEqual(inside.stationTimetable?.from, "Uvnitř úseku")
+        XCTAssertEqual(inside.stationTimetable?.to, "Původní cíl")
+        XCTAssertEqual(inside.departure?.station, "Uvnitř úseku")
+
+        let originalDestination = selections(at: 3)
+        XCTAssertEqual(originalDestination.connection?.from, "Původní nástup")
+        XCTAssertEqual(originalDestination.connection?.to, "Původní cíl")
+        XCTAssertEqual(
+            originalDestination.connection?.serviceTime,
+            TransitTime(hour: 8, minute: 10)
+        )
+        XCTAssertEqual(originalDestination.stationTimetable?.from, "Původní nástup")
+        XCTAssertEqual(originalDestination.stationTimetable?.to, "Původní cíl")
+
+        let beforeRange = selections(at: 0)
+        XCTAssertEqual(beforeRange.connection?.from, "Výchozí zastávka")
+        XCTAssertEqual(beforeRange.connection?.to, "Konečná")
+        XCTAssertEqual(beforeRange.stationTimetable?.from, "Výchozí zastávka")
+        XCTAssertEqual(beforeRange.stationTimetable?.to, "Konečná")
+
+        let afterRange = selections(at: 4)
+        XCTAssertEqual(afterRange.connection?.from, "Výchozí zastávka")
+        XCTAssertEqual(afterRange.connection?.to, "Za rozsahem")
+        XCTAssertEqual(afterRange.connection?.serviceTime, TransitTime(hour: 8, minute: 0))
+        XCTAssertEqual(afterRange.stationTimetable?.from, "Výchozí zastávka")
+        XCTAssertEqual(afterRange.stationTimetable?.to, "Za rozsahem")
     }
 
     func testServiceStopSearchesRecoverTheInitialDateFromAnIDOSServiceIdentifier() throws {
