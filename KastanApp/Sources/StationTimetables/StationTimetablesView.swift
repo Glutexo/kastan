@@ -643,7 +643,7 @@ struct StationTimetablesView: View {
             initialStationTimetableSelection: selection
         )
         if destination == .newTab {
-            AppWindowActions.newTab {
+            AppWindowActions.newTab(sceneID: sceneValue.id) {
                 openWindow(id: AppWindow.main, value: sceneValue)
             }
         } else {

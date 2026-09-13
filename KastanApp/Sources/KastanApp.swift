@@ -149,8 +149,11 @@ private enum MainWindowCreationKind {
 /// Performs native tab and window operations for the active macOS window.
 @MainActor
 enum AppWindowActions {
-    /// Creates a fresh main search window and joins it to the active window as a native tab.
+    private static var pendingTabSources: [UUID: NSWindow] = [:]
+
+    /// Creates a fresh main search scene and assigns it to the active native tab group before it is shown.
     static func newTab(
+        sceneID: UUID,
         sourceWindow: NSWindow? = NSApplication.shared.keyWindow,
         openMainWindow: () -> Void
     ) {
@@ -159,11 +162,12 @@ enum AppWindowActions {
             return
         }
         let existingWindows = Set(NSApplication.shared.windows.map(ObjectIdentifier.init))
+        pendingTabSources[sceneID] = sourceWindow
 
         openMainWindow()
 
         attachNewWindow(
-            to: sourceWindow,
+            sceneID: sceneID,
             excluding: existingWindows,
             remainingAttempts: 8
         )
@@ -191,12 +195,31 @@ enum AppWindowActions {
         tabGroup ?? [selected]
     }
 
+    /// Consumes a requested tab destination while the new scene's window is still off screen.
+    @discardableResult
+    static func attachPendingTab(
+        _ newWindow: NSWindow,
+        sceneID: UUID,
+        attach: (NSWindow, NSWindow) -> Void = { sourceWindow, newWindow in
+            sourceWindow.addTabbedWindow(newWindow, ordered: .above)
+        }
+    ) -> Bool {
+        guard let sourceWindow = pendingTabSources.removeValue(forKey: sceneID),
+              sourceWindow !== newWindow
+        else {
+            return false
+        }
+        attach(sourceWindow, newWindow)
+        return true
+    }
+
     private static func attachNewWindow(
-        to sourceWindow: NSWindow,
+        sceneID: UUID,
         excluding existingWindows: Set<ObjectIdentifier>,
         remainingAttempts: Int
     ) {
         DispatchQueue.main.async {
+            guard pendingTabSources[sceneID] != nil else { return }
             let newWindow = NSApplication.shared.keyWindow.flatMap { window in
                 existingWindows.contains(ObjectIdentifier(window)) ? nil : window
             } ?? NSApplication.shared.windows.first { window in
@@ -204,15 +227,49 @@ enum AppWindowActions {
             }
 
             if let newWindow {
-                sourceWindow.addTabbedWindow(newWindow, ordered: .above)
-                newWindow.makeKeyAndOrderFront(nil)
+                if attachPendingTab(newWindow, sceneID: sceneID) {
+                    newWindow.makeKeyAndOrderFront(nil)
+                }
             } else if remainingAttempts > 1 {
                 attachNewWindow(
-                    to: sourceWindow,
+                    sceneID: sceneID,
                     excluding: existingWindows,
                     remainingAttempts: remainingAttempts - 1
                 )
+            } else {
+                pendingTabSources.removeValue(forKey: sceneID)
             }
+        }
+    }
+}
+
+/// Joins a newly constructed value-based main window to its requested tab group before its first display.
+struct MainWindowTabAttachment: NSViewRepresentable {
+    let sceneID: UUID
+
+    func makeNSView(context: Context) -> AttachmentView {
+        let view = AttachmentView()
+        view.sceneID = sceneID
+        return view
+    }
+
+    func updateNSView(_ nsView: AttachmentView, context: Context) {
+        nsView.sceneID = sceneID
+        nsView.attachIfPossible()
+    }
+
+    @MainActor
+    final class AttachmentView: NSView {
+        var sceneID: UUID?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            attachIfPossible()
+        }
+
+        func attachIfPossible() {
+            guard let window, let sceneID else { return }
+            AppWindowActions.attachPendingTab(window, sceneID: sceneID)
         }
     }
 }
@@ -738,7 +795,7 @@ struct AppWindowCommands: Commands {
             case .window:
                 openWindow(id: AppWindow.main, value: sceneValue)
             case .tab:
-                AppWindowActions.newTab {
+                AppWindowActions.newTab(sceneID: sceneValue.id) {
                     openWindow(id: AppWindow.main, value: sceneValue)
                 }
             }

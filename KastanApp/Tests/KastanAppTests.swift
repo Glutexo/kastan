@@ -374,11 +374,49 @@ final class KastanAppTests: XCTestCase {
     func testNewTabOpensAWindowWhenThereIsNoActiveWindowToAttachTo() {
         var openCount = 0
 
-        AppWindowActions.newTab(sourceWindow: nil) {
+        AppWindowActions.newTab(sceneID: UUID(), sourceWindow: nil) {
             openCount += 1
         }
 
         XCTAssertEqual(openCount, 1)
+    }
+
+    func testNewTabRequestsItsGroupBeforeTheCandidateWindowIsShown() {
+        let sourceWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 300),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: true
+        )
+        let candidateWindow = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 300, height: 300),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: true
+        )
+        let sceneID = UUID()
+        var openCount = 0
+        var attachedSourceID: ObjectIdentifier?
+        var attachedCandidateID: ObjectIdentifier?
+
+        AppWindowActions.newTab(sceneID: sceneID, sourceWindow: sourceWindow) {
+            openCount += 1
+        }
+
+        XCTAssertEqual(openCount, 1)
+        XCTAssertFalse(candidateWindow.isVisible)
+        XCTAssertTrue(AppWindowActions.attachPendingTab(
+            candidateWindow,
+            sceneID: sceneID
+        ) { sourceWindow, candidateWindow in
+            XCTAssertFalse(candidateWindow.isVisible)
+            attachedSourceID = ObjectIdentifier(sourceWindow)
+            attachedCandidateID = ObjectIdentifier(candidateWindow)
+        })
+        XCTAssertEqual(attachedSourceID, ObjectIdentifier(sourceWindow))
+        XCTAssertEqual(attachedCandidateID, ObjectIdentifier(candidateWindow))
+        XCTAssertFalse(candidateWindow.isVisible)
+        XCTAssertFalse(AppWindowActions.attachPendingTab(candidateWindow, sceneID: sceneID))
     }
 
     func testFileMenuOffersDirectCreationCommandsAndOptionOnlyMockAlternatesWithOneRegularSource() async throws {

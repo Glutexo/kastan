@@ -135,7 +135,8 @@ one ordinary provider is registered.
   matched origin and own departure instant. Every complete transfer searches immediately in the chosen destination.
   For every transferred-search action that supports all three destinations, activating its current-window item while
   holding Command opens a new tab; adding Shift opens a new window. Explicit new-window and new-tab items keep their
-  stated destinations regardless of held modifiers.
+  stated destinations regardless of held modifiers. A new tab joins the active native tab group before its first
+  display, without briefly appearing as a separate window.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, optional tariff zones and platforms or stands, lockout labels, keyed departure explanations,

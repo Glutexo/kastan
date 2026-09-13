@@ -583,6 +583,10 @@ struct ContentView: View {
         )
         .id(dataSourceSelection.workspace.id)
         .background {
+            MainWindowTabAttachment(sceneID: sceneValue.id)
+                .frame(width: 0, height: 0)
+        }
+        .background {
             MainWindowCloseObserver {
                 lastClosedDataSource.remember(dataSourceSelection.selectedDataSourceID)
             }
@@ -720,7 +724,7 @@ private struct ProviderSearchWorkspaceView: View {
             )
 
             if destination == .newTab {
-                AppWindowActions.newTab {
+                AppWindowActions.newTab(sceneID: sceneValue.id) {
                     openWindow(id: AppWindow.main, value: sceneValue)
                 }
             } else {
@@ -744,7 +748,7 @@ private struct ProviderSearchWorkspaceView: View {
             )
 
             if destination == .newTab {
-                AppWindowActions.newTab {
+                AppWindowActions.newTab(sceneID: sceneValue.id) {
                     openWindow(id: AppWindow.main, value: sceneValue)
                 }
             } else {
@@ -773,7 +777,7 @@ private struct ProviderSearchWorkspaceView: View {
             )
 
             if destination == .newTab {
-                AppWindowActions.newTab {
+                AppWindowActions.newTab(sceneID: sceneValue.id) {
                     openWindow(id: AppWindow.main, value: sceneValue)
                 }
             } else {
@@ -804,7 +808,7 @@ private struct ProviderSearchWorkspaceView: View {
             )
 
             if destination == .newTab {
-                AppWindowActions.newTab {
+                AppWindowActions.newTab(sceneID: sceneValue.id) {
                     openWindow(id: AppWindow.main, value: sceneValue)
                 }
             } else {
