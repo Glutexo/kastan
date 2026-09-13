@@ -354,10 +354,11 @@ one ordinary provider is registered.
   the departure is already the first stop or the complete route fits in the viewport, the natural position is
   preserved. The search-relevant segment remains highlighted without implying live vehicle position. When scrolling hides a
   service date, the date moves into the window title until its content label is visible again. Right-clicking any
-  stop-and-time row offers one Connections action, followed by one Departures action and one Station timetable action
-  when the active provider supports them. Departures uses that stop's departure time, or its arrival time when no
-  departure is shown. Connections uses the chosen direction's origin time; every transfer advances the service's
-  initial date after a midnight crossing.
+  stop-and-time row offers one Connections action, followed by Departures, Arrivals, and Station timetable actions
+  when the active provider supports them. Departures and Arrivals use the matching displayed event at that stop,
+  falling back to its other time when only one is available. Their civil dates remain distinct when a stop's dwell
+  crosses midnight. Connections uses the chosen direction's origin time; every transfer advances the service's initial
+  date after a midnight crossing.
   Connections and Station timetable searches from any earlier stop, including one before the highlighted segment,
   continue toward the destination of the originating search; invoking either action on that destination uses the
   highlighted origin. Stops after that destination continue toward the service terminus. At the terminus itself, the

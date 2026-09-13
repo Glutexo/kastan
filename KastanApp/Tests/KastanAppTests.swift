@@ -1698,6 +1698,13 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(departure.station, "Frýdek-Místek,Místek,Anenská")
         XCTAssertEqual(departure.serviceDate, TransitDate(year: 2026, month: 9, day: 12))
         XCTAssertEqual(departure.serviceTime, TransitTime(hour: 0, minute: 3))
+        XCTAssertFalse(departure.isArrival)
+
+        let arrival = try XCTUnwrap(middle.arrival)
+        XCTAssertEqual(arrival.station, "Frýdek-Místek,Místek,Anenská")
+        XCTAssertEqual(arrival.serviceDate, TransitDate(year: 2026, month: 9, day: 11))
+        XCTAssertEqual(arrival.serviceTime, TransitTime(hour: 23, minute: 58))
+        XCTAssertTrue(arrival.isArrival)
 
         let stationTimetable = try XCTUnwrap(middle.stationTimetable)
         XCTAssertEqual(stationTimetable.line, "Bus 980")
@@ -1734,6 +1741,10 @@ final class KastanAppTests: XCTestCase {
             terminal.stationTimetable?.serviceDate,
             TransitDate(year: 2026, month: 9, day: 11)
         )
+        XCTAssertEqual(terminal.arrival?.station, "Ostrava,Hrabůvka,Benzina")
+        XCTAssertEqual(terminal.arrival?.serviceDate, TransitDate(year: 2026, month: 9, day: 12))
+        XCTAssertEqual(terminal.arrival?.serviceTime, TransitTime(hour: 0, minute: 31))
+        XCTAssertEqual(terminal.arrival?.isArrival, true)
     }
 
     func testServiceStopRoutesKeepTheSearchedDestinationUntilPassingIt() throws {
@@ -1779,6 +1790,8 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(inside.stationTimetable?.from, "Frýdek,žel.st.")
         XCTAssertEqual(inside.stationTimetable?.to, "Místek,Ostravská")
         XCTAssertEqual(inside.departure?.station, "Frýdek,žel.st.")
+        XCTAssertEqual(inside.arrival?.station, "Frýdek,žel.st.")
+        XCTAssertEqual(inside.arrival?.isArrival, true)
 
         let originalDestination = selections(at: 4)
         XCTAssertEqual(originalDestination.connection?.from, "Frýdek,Na Veselé")
@@ -1836,6 +1849,12 @@ final class KastanAppTests: XCTestCase {
             TransitDate(year: 2026, month: 9, day: 12)
         )
         XCTAssertEqual(selections.departure?.serviceTime, TransitTime(hour: 0, minute: 31))
+        XCTAssertEqual(
+            selections.arrival?.serviceDate,
+            TransitDate(year: 2026, month: 9, day: 12)
+        )
+        XCTAssertEqual(selections.arrival?.serviceTime, TransitTime(hour: 0, minute: 31))
+        XCTAssertEqual(selections.arrival?.isArrival, true)
     }
 
     func testStationTimetableSearchMenusFollowToolbarModeOrder() {

@@ -398,6 +398,7 @@ struct ServiceDetailWindowContent: View {
 struct ServiceStopSearchSelections {
     let connection: ConnectionSearchSelection?
     let departure: DepartureSearchSelection?
+    let arrival: DepartureSearchSelection?
     let stationTimetable: StationTimetableSelection?
 
     var availableSections: [AppSection] {
@@ -406,7 +407,7 @@ struct ServiceStopSearchSelections {
             case .connections:
                 connection != nil
             case .departures:
-                departure != nil
+                departure != nil || arrival != nil
             case .stationTimetables:
                 stationTimetable != nil
             }
@@ -429,6 +430,7 @@ enum ServiceStopSearchSelectionFactory {
             return ServiceStopSearchSelections(
                 connection: nil,
                 departure: nil,
+                arrival: nil,
                 stationTimetable: nil
             )
         }
@@ -465,6 +467,23 @@ enum ServiceStopSearchSelectionFactory {
             serviceTime: serviceTime,
             client: client
         )
+        let arrival: DepartureSearchSelection?
+        if let arrivalDate = Self.serviceDate(
+            forStopAt: index,
+            in: service,
+            mode: .arrivals
+        ), let arrivalTime = Self.serviceTime(for: stop, mode: .arrivals) {
+            arrival = DepartureSearchSelectionFactory.search(
+                timetable: service.timetable,
+                station: stop.name,
+                serviceDate: arrivalDate,
+                serviceTime: arrivalTime,
+                isArrival: true,
+                client: client
+            )
+        } else {
+            arrival = nil
+        }
         let stationTimetable: StationTimetableSelection?
         if let route, let routeServiceDate {
             stationTimetable = StationTimetableSelectionFactory.serviceStop(
@@ -482,6 +501,7 @@ enum ServiceStopSearchSelectionFactory {
         return ServiceStopSearchSelections(
             connection: connection,
             departure: departure,
+            arrival: arrival,
             stationTimetable: stationTimetable
         )
     }
@@ -519,20 +539,43 @@ enum ServiceStopSearchSelectionFactory {
             : SearchRoute(fromIndex: index, toIndex: lastIndex)
     }
 
-    /// Uses departure time where available and arrival time at stops without a departure.
-    private static func serviceTime(for stop: TransitServiceStop) -> TransitTime? {
-        [stop.departureTime, stop.arrivalTime]
-            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .first { !$0.isEmpty }
-            .flatMap(TransitRequestFormatting.serviceTime)
+    /// Uses the requested station-board event and falls back to the other displayed event when necessary.
+    private static func serviceTime(
+        for stop: TransitServiceStop,
+        mode: DepartureBoardMode = .departures
+    ) -> TransitTime? {
+        let values = mode == .arrivals
+            ? [stop.arrivalTime, stop.departureTime]
+            : [stop.departureTime, stop.arrivalTime]
+        return values
+            .compactMap(parsedServiceTime)
+            .first
     }
 
-    /// Advances the initial service date whenever the ordered route crosses midnight.
+    private enum ServiceStopEvent: Equatable {
+        case arrival
+        case departure
+    }
+
+    private struct TimedServiceStopEvent {
+        let event: ServiceStopEvent
+        let time: TransitTime
+    }
+
+    /// Walks arrivals before departures so a midnight dwell can place them on different civil days.
     private static func serviceDate(
         forStopAt index: Int,
-        in service: TransitServiceDetail
+        in service: TransitServiceDetail,
+        mode: DepartureBoardMode = .departures
     ) -> TransitDate? {
         guard let initialDate = parsedServiceDate(in: service.date) ?? parsedServiceDate(in: service.id)
+        else {
+            return nil
+        }
+        let targetEvents = timedEvents(for: service.stops[index])
+        let preferredTargetEvent: ServiceStopEvent = mode == .arrivals ? .arrival : .departure
+        guard let targetEvent = targetEvents.first(where: { $0.event == preferredTargetEvent })
+            ?? targetEvents.first
         else {
             return nil
         }
@@ -540,14 +583,36 @@ enum ServiceStopSearchSelectionFactory {
         var previousMinuteOfDay: Int?
         var dayOffset = 0
         for stopIndex in service.stops.indices where stopIndex <= index {
-            guard let time = serviceTime(for: service.stops[stopIndex]) else { continue }
-            let minuteOfDay = time.hour * 60 + time.minute
-            if let previousMinuteOfDay, minuteOfDay < previousMinuteOfDay {
-                dayOffset += 1
+            for event in timedEvents(for: service.stops[stopIndex]) {
+                let minuteOfDay = event.time.hour * 60 + event.time.minute
+                if let previousMinuteOfDay, minuteOfDay < previousMinuteOfDay {
+                    dayOffset += 1
+                }
+                if stopIndex == index, event.event == targetEvent.event {
+                    return addingDays(dayOffset, to: initialDate)
+                }
+                previousMinuteOfDay = minuteOfDay
             }
-            previousMinuteOfDay = minuteOfDay
         }
-        return addingDays(dayOffset, to: initialDate)
+        return nil
+    }
+
+    private static func timedEvents(for stop: TransitServiceStop) -> [TimedServiceStopEvent] {
+        [
+            parsedServiceTime(stop.arrivalTime).map {
+                TimedServiceStopEvent(event: .arrival, time: $0)
+            },
+            parsedServiceTime(stop.departureTime).map {
+                TimedServiceStopEvent(event: .departure, time: $0)
+            },
+        ].compactMap { $0 }
+    }
+
+    private static func parsedServiceTime(_ value: String?) -> TransitTime? {
+        guard let value else { return nil }
+        return TransitRequestFormatting.serviceTime(
+            from: value.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
     }
 
     /// Accepts the numeric dates used by IDOS and structured providers, including spaces around separators.
@@ -613,6 +678,11 @@ struct ServiceStopSearchOpenActions: View {
             case .departures:
                 if let selection = selections.departure {
                     DepartureSearchOpenActions { destination in
+                        openDeparture(selection, destination)
+                    }
+                }
+                if let selection = selections.arrival {
+                    DepartureSearchOpenActions(mode: .arrivals) { destination in
                         openDeparture(selection, destination)
                     }
                 }
