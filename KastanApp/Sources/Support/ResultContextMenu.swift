@@ -143,9 +143,6 @@ struct ConnectionContextMenuContent: View {
             Divider()
             if let openDepartures {
                 DepartureSearchOpenActions(open: openDepartures)
-                if openStationTimetable != nil {
-                    Divider()
-                }
             }
             if let openStationTimetable {
                 StationTimetableOpenActions(open: openStationTimetable)
@@ -255,9 +252,6 @@ struct ServiceContextMenuContent: View {
             Divider()
             if let openDepartures {
                 DepartureSearchOpenActions(open: openDepartures)
-                if openStationTimetable != nil {
-                    Divider()
-                }
             }
             if let openStationTimetable {
                 StationTimetableOpenActions(open: openStationTimetable)

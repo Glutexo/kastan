@@ -309,9 +309,6 @@ struct DepartureBoardSearchOpenActions: View {
 
     var body: some View {
         ForEach(availableSections) { section in
-            if section != availableSections.first {
-                Divider()
-            }
             switch section {
             case .connections:
                 EmptyView()

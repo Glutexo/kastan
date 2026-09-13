@@ -588,7 +588,7 @@ final class KastanAppTests: XCTestCase {
         let stationTimetableIndex = try XCTUnwrap(
             fileMenu.items.firstIndex { $0.title == primaryTitles[1] }
         )
-        XCTAssertTrue(
+        XCTAssertFalse(
             fileMenu.items[(departureIndex + 1)..<stationTimetableIndex]
                 .contains(where: \.isSeparatorItem)
         )

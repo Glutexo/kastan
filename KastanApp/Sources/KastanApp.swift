@@ -491,8 +491,6 @@ struct ConnectionSearchCommands: Commands {
             }
             .disabled(departureContext?.isAvailable != true)
 
-            Divider()
-
             StationTimetableOpenActions { destination in
                 stationTimetableContext?.open(destination)
             }

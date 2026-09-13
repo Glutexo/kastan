@@ -941,9 +941,6 @@ struct StationTimetableSearchOpenActions: View {
 
     var body: some View {
         ForEach(orderedSections) { section in
-            if section != orderedSections.first {
-                Divider()
-            }
             actions(for: section)
         }
     }

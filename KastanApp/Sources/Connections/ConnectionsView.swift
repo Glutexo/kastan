@@ -535,11 +535,6 @@ struct ConnectionsView: View {
                         }
                     }
 
-                    if canOpenStationTimetable,
-                       connectionSearchDepartureSelection != nil {
-                        Divider()
-                    }
-
                     if let selection = connectionSearchStationTimetableSelection,
                        let openStationTimetable {
                         StationTimetableOpenActions { destination in

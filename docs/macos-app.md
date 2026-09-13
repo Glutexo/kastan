@@ -135,7 +135,8 @@ one ordinary provider is registered.
   matched origin and own departure instant. Every complete transfer searches immediately in the chosen destination.
   Every transferred-search menu condenses its three destinations into one item. Holding Option changes each item into
   its new-tab action and adding Shift changes it into its new-window action; the title and symbol follow the selected
-  destination. A new tab joins the active native tab group before its first
+  destination. When multiple search modes are available, their items form one uninterrupted group in toolbar order.
+  A new tab joins the active native tab group before its first
   display, without briefly appearing as a separate window. Main-window tabs use the active route, station, or search
   mode as their titles so parallel searches remain distinguishable; station-board titles append a lower-case
   departures or arrivals label to the station name.
