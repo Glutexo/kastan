@@ -338,6 +338,9 @@ struct ConnectionsView: View {
         .task {
             await model.loadInitialSelectionIfNeeded()
         }
+        .navigationTitle(
+            MainWindowTitlePresentation.connections(from: model.from, to: model.to)
+        )
     }
 
     private var resultsPanel: some View {

@@ -13,6 +13,57 @@ extension NSToolbarItem.Identifier {
     static let appInformation = NSToolbarItem.Identifier("cz.glutexo.kastan.app-information")
 }
 
+/// Gives every main window and native tab a compact title that identifies its active search.
+enum MainWindowTitlePresentation {
+    static func connections(
+        from: String,
+        to: String,
+        bundle: Bundle = .main
+    ) -> String {
+        route(from: from, to: to) ?? localized("Connections", bundle: bundle)
+    }
+
+    static func departures(
+        station: String,
+        isArrival: Bool,
+        bundle: Bundle = .main
+    ) -> String {
+        let mode = localized(isArrival ? "Arrivals" : "Departures", bundle: bundle)
+        let station = cleaned(station)
+        guard !station.isEmpty else { return mode }
+        return "\(station) · \(mode)"
+    }
+
+    static func stationTimetable(
+        line: String,
+        from: String,
+        to: String,
+        bundle: Bundle = .main
+    ) -> String {
+        let line = cleaned(line)
+        let mode = localized("Station timetables", bundle: bundle)
+        guard let route = route(from: from, to: to) else {
+            return line.isEmpty ? mode : "\(line) · \(mode)"
+        }
+        return line.isEmpty ? route : "\(line): \(route)"
+    }
+
+    private static func route(from: String, to: String) -> String? {
+        let from = cleaned(from)
+        let to = cleaned(to)
+        guard !from.isEmpty, !to.isEmpty else { return nil }
+        return "\(from) → \(to)"
+    }
+
+    private static func cleaned(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func localized(_ key: String, bundle: Bundle) -> String {
+        bundle.localizedString(forKey: key, value: key, table: nil)
+    }
+}
+
 /// Keeps restored main windows inside the width supported by every editable search form.
 @MainActor
 enum MainWindowWidthPresentation {

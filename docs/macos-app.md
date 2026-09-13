@@ -136,7 +136,8 @@ one ordinary provider is registered.
   For every transferred-search action that supports all three destinations, activating its current-window item while
   holding Command opens a new tab; adding Shift opens a new window. Explicit new-window and new-tab items keep their
   stated destinations regardless of held modifiers. A new tab joins the active native tab group before its first
-  display, without briefly appearing as a separate window.
+  display, without briefly appearing as a separate window. Main-window tabs use the active route, station, or search
+  mode as their titles so parallel searches remain distinguishable.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, optional tariff zones and platforms or stands, lockout labels, keyed departure explanations,

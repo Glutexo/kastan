@@ -72,6 +72,22 @@ struct StationTimetablesView: View {
         .task {
             await model.loadInitialSelectionIfNeeded()
         }
+        .navigationTitle(windowTitle)
+    }
+
+    private var windowTitle: String {
+        if let result = model.result {
+            return MainWindowTitlePresentation.stationTimetable(
+                line: result.lineName,
+                from: result.fromStop,
+                to: result.toStop
+            )
+        }
+        return MainWindowTitlePresentation.stationTimetable(
+            line: model.line,
+            from: model.from,
+            to: model.to
+        )
     }
 
     private func resultsPanel(layout: DetailLayout) -> some View {

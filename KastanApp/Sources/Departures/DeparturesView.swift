@@ -63,6 +63,12 @@ struct DeparturesView: View {
         .task {
             await model.loadInitialSelectionIfNeeded()
         }
+        .navigationTitle(
+            MainWindowTitlePresentation.departures(
+                station: model.station,
+                isArrival: model.isArrival
+            )
+        )
     }
 
     private var resultsPanel: some View {

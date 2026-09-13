@@ -419,6 +419,55 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(AppWindowActions.attachPendingTab(candidateWindow, sceneID: sceneID))
     }
 
+    func testMainWindowTitlesIdentifyTheirSearchesInBothLanguages() throws {
+        let czech = try XCTUnwrap(localizationBundle(languageCode: "cs"))
+        let english = try XCTUnwrap(localizationBundle(languageCode: "en"))
+
+        XCTAssertEqual(
+            MainWindowTitlePresentation.connections(from: "  Frýdek-Místek ", to: " Frenštát ", bundle: czech),
+            "Frýdek-Místek → Frenštát"
+        )
+        XCTAssertEqual(
+            MainWindowTitlePresentation.connections(from: "", to: "", bundle: czech),
+            "Spojení"
+        )
+        XCTAssertEqual(
+            MainWindowTitlePresentation.departures(station: " Brno hl.n. ", isArrival: false, bundle: czech),
+            "Brno hl.n. · Odjezdy"
+        )
+        XCTAssertEqual(
+            MainWindowTitlePresentation.departures(station: "", isArrival: true, bundle: english),
+            "Arrivals"
+        )
+        XCTAssertEqual(
+            MainWindowTitlePresentation.stationTimetable(
+                line: " M1 ",
+                from: " Mockov ",
+                to: " Testov ",
+                bundle: czech
+            ),
+            "M1: Mockov → Testov"
+        )
+        XCTAssertEqual(
+            MainWindowTitlePresentation.stationTimetable(
+                line: "",
+                from: "Mockov",
+                to: "Testov",
+                bundle: english
+            ),
+            "Mockov → Testov"
+        )
+        XCTAssertEqual(
+            MainWindowTitlePresentation.stationTimetable(
+                line: "",
+                from: "",
+                to: "",
+                bundle: czech
+            ),
+            "Zastávkové JŘ"
+        )
+    }
+
     func testFileMenuOffersDirectCreationCommandsAndOptionOnlyMockAlternatesWithOneRegularSource() async throws {
         // SwiftUI assembles commands from every declared scene after the app finishes launching.
         try await Task.sleep(for: .milliseconds(250))
