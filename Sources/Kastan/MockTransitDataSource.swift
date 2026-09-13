@@ -122,8 +122,18 @@ public struct MockTransitDataSource: TransitDataSource {
     public func findDepartures(request: TransitDeparturesRequest) async throws -> [TransitDeparture] {
         try validate(request.timetable)
         return [
-            Self.departure(station: request.station, time: "08:00", index: 1),
-            Self.departure(station: request.station, time: "08:30", index: 2),
+            Self.departure(
+                station: request.station,
+                time: "08:00",
+                index: 1,
+                serviceDate: request.serviceDate
+            ),
+            Self.departure(
+                station: request.station,
+                time: "08:30",
+                index: 2,
+                serviceDate: request.serviceDate
+            ),
         ]
     }
 
@@ -210,7 +220,8 @@ public struct MockTransitDataSource: TransitDataSource {
             time: String(format: "%02d:%02d", hourValue, minuteValue),
             index: request.departureIndex + 1,
             destination: timetable.toStop,
-            lineName: timetable.lineName
+            lineName: timetable.lineName,
+            serviceDate: request.serviceDate
         )
         let departureRequest = TransitDeparturesRequest(
             timetable: timetable.timetable,
@@ -286,12 +297,14 @@ public struct MockTransitDataSource: TransitDataSource {
         time: String,
         index: Int,
         destination: String = "Testov",
-        lineName: String = "Mock train M1"
+        lineName: String = "Mock train M1",
+        serviceDate: TransitDate? = nil
     ) -> TransitDeparture {
         TransitDeparture(
             dataSourceID: .mock,
             timetableIdentifier: timetable.identifier,
             id: "mock:service:\(index)",
+            serviceDate: serviceDate,
             stationName: station,
             time: time,
             lineName: lineName,

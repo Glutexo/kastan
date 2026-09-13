@@ -140,6 +140,13 @@ one ordinary provider is registered.
   mode as their titles so parallel searches remain distinguishable; station-board titles append a lower-case
   departures or arrivals label to the station name.
 - Station departures and arrivals with station-only suggestions that retain the selected station or stop identity.
+  After a supported search, the compact submitted-search header and every service row offer the three Departures
+  actions followed by the three Station timetable actions. The header reuses its submitted stop, day, and time;
+  opening a Station timetable places that stop at the start of the direction, clears the other side, and focuses the
+  empty Line field. A service-row transfer uses the provider-matched stop, displayed time and exact
+  civil day when supplied, plus the row's line and opposite endpoint. Its complete Station timetable opens
+  immediately. Both groups reuse the established destination labels and Command-click convention from the other
+  transferred searches.
 - MHD station timetables with line and direction suggestions, single-day or whole-week schedules, selectable
   route stops, optional tariff zones and platforms or stands, lockout labels, keyed departure explanations,
   timetable-wide notes, and links back to the matching IDOS result. Selecting ODIS, IDOL, IDSOK, IREDO, DÚK, IDPK,

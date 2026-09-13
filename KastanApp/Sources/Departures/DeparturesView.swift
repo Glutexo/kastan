@@ -10,9 +10,29 @@ struct DeparturesView: View {
     let showsItemDetails: Bool
     let showsServiceInformationText: Bool
     let showsStopNoteText: Bool
+    let openDepartures: ((DepartureSearchSelection, DepartureSearchOpenDestination) -> Void)?
+    let openStationTimetable: ((StationTimetableSelection, StationTimetableOpenDestination) -> Void)?
     @State private var showsSearchShortcuts = SearchShortcutPresentation.isVisible(
         for: NSEvent.modifierFlags
     )
+
+    init(
+        model: DeparturesViewModel,
+        client: any TransitDataSource,
+        showsItemDetails: Bool,
+        showsServiceInformationText: Bool,
+        showsStopNoteText: Bool,
+        openDepartures: ((DepartureSearchSelection, DepartureSearchOpenDestination) -> Void)? = nil,
+        openStationTimetable: ((StationTimetableSelection, StationTimetableOpenDestination) -> Void)? = nil
+    ) {
+        self.model = model
+        self.client = client
+        self.showsItemDetails = showsItemDetails
+        self.showsServiceInformationText = showsServiceInformationText
+        self.showsStopNoteText = showsStopNoteText
+        self.openDepartures = openDepartures
+        self.openStationTimetable = openStationTimetable
+    }
 
     var body: some View {
         GeometryReader { geometry in
@@ -29,11 +49,7 @@ struct DeparturesView: View {
                 loadLater: { await model.loadMore(.later) }
             ) {
                 if model.isSearchFormCollapsed {
-                    SearchSummaryBar(
-                        summary: searchSummary,
-                        systemImage: "list.bullet.rectangle",
-                        edit: editSearch
-                    )
+                    contextualSearchSummaryBar
                     .transition(.opacity)
                 } else {
                     searchPanel(stacked: layout.usesStackedSearchControls)
@@ -139,6 +155,49 @@ struct DeparturesView: View {
         )
     }
 
+    private var searchSummaryBar: some View {
+        SearchSummaryBar(
+            summary: searchSummary,
+            systemImage: "list.bullet.rectangle",
+            edit: editSearch
+        )
+    }
+
+    /// Offers both station-board transitions from the compact submitted-search header.
+    @ViewBuilder
+    private var contextualSearchSummaryBar: some View {
+        if headerDepartureAction != nil || headerStationTimetableAction != nil {
+            searchSummaryBar
+                .contentShape(Rectangle())
+                .contextMenu {
+                    DepartureBoardSearchOpenActions(
+                        openDepartures: headerDepartureAction,
+                        openStationTimetable: headerStationTimetableAction
+                    )
+                }
+        } else {
+            searchSummaryBar
+        }
+    }
+
+    private var headerDepartureAction: ((DepartureSearchOpenDestination) -> Void)? {
+        guard let selection = model.submittedHeaderDepartureSearch(),
+              let openDepartures
+        else {
+            return nil
+        }
+        return { destination in openDepartures(selection, destination) }
+    }
+
+    private var headerStationTimetableAction: ((StationTimetableOpenDestination) -> Void)? {
+        guard let selection = model.submittedHeaderStationTimetableSelection(),
+              let openStationTimetable
+        else {
+            return nil
+        }
+        return { destination in openStationTimetable(selection, destination) }
+    }
+
     private var searchEditCommandContext: SearchEditCommandContext {
         SearchEditCommandContext(
             enabledFillCurrentActions: FillCurrentAction.supportedActions(for: .departures),
@@ -208,7 +267,11 @@ struct DeparturesView: View {
                         client: client,
                         showsItemDetails: showsItemDetails,
                         showsServiceInformationText: showsServiceInformationText,
-                        showsStopNoteText: showsStopNoteText
+                        showsStopNoteText: showsStopNoteText,
+                        departureSearchSelection: model.departureSearch(for: departure),
+                        stationTimetableSelection: model.stationTimetableSelection(for: departure),
+                        openDepartures: openDepartures,
+                        openStationTimetable: openStationTimetable
                     ) {
                         openWindow(
                             id: AppWindow.serviceDetail,
@@ -226,6 +289,45 @@ struct DeparturesView: View {
     }
 }
 
+/// Keeps transfers from a station board in the same order as the main toolbar modes.
+struct DepartureBoardSearchOpenActions: View {
+    let openDepartures: ((DepartureSearchOpenDestination) -> Void)?
+    let openStationTimetable: ((StationTimetableOpenDestination) -> Void)?
+
+    var availableSections: [AppSection] {
+        AppSection.allCases.filter { section in
+            switch section {
+            case .connections:
+                false
+            case .departures:
+                openDepartures != nil
+            case .stationTimetables:
+                openStationTimetable != nil
+            }
+        }
+    }
+
+    var body: some View {
+        ForEach(availableSections) { section in
+            if section != availableSections.first {
+                Divider()
+            }
+            switch section {
+            case .connections:
+                EmptyView()
+            case .departures:
+                if let openDepartures {
+                    DepartureSearchOpenActions(open: openDepartures)
+                }
+            case .stationTimetables:
+                if let openStationTimetable {
+                    StationTimetableOpenActions(open: openStationTimetable)
+                }
+            }
+        }
+    }
+}
+
 private struct DepartureRow: View {
     let departure: TransitDeparture
     let selection: ServiceSelection
@@ -233,6 +335,10 @@ private struct DepartureRow: View {
     let showsItemDetails: Bool
     let showsServiceInformationText: Bool
     let showsStopNoteText: Bool
+    let departureSearchSelection: DepartureSearchSelection?
+    let stationTimetableSelection: StationTimetableSelection?
+    let openDepartures: ((DepartureSearchSelection, DepartureSearchOpenDestination) -> Void)?
+    let openStationTimetable: ((StationTimetableSelection, StationTimetableOpenDestination) -> Void)?
     let openService: () -> Void
     @StateObject private var contextMenuModel: ServiceDetailViewModel
     @State private var suppressesPrimaryAction = false
@@ -245,6 +351,10 @@ private struct DepartureRow: View {
         showsItemDetails: Bool,
         showsServiceInformationText: Bool,
         showsStopNoteText: Bool,
+        departureSearchSelection: DepartureSearchSelection?,
+        stationTimetableSelection: StationTimetableSelection?,
+        openDepartures: ((DepartureSearchSelection, DepartureSearchOpenDestination) -> Void)?,
+        openStationTimetable: ((StationTimetableSelection, StationTimetableOpenDestination) -> Void)?,
         openService: @escaping () -> Void
     ) {
         self.departure = departure
@@ -253,6 +363,10 @@ private struct DepartureRow: View {
         self.showsItemDetails = showsItemDetails
         self.showsServiceInformationText = showsServiceInformationText
         self.showsStopNoteText = showsStopNoteText
+        self.departureSearchSelection = departureSearchSelection
+        self.stationTimetableSelection = stationTimetableSelection
+        self.openDepartures = openDepartures
+        self.openStationTimetable = openStationTimetable
         self.openService = openService
         _contextMenuModel = StateObject(
             wrappedValue: ServiceDetailViewModel(
@@ -328,12 +442,19 @@ private struct DepartureRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(!supportsServiceDetails)
+        .disabled(!supportsServiceDetails && !hasSearchActions)
         .contextMenu {
             if supportsServiceDetails {
                 ServiceContextMenuContent(
                     model: contextMenuModel,
-                    showPreview: { isPreviewPresented = true }
+                    showPreview: { isPreviewPresented = true },
+                    openStationTimetable: stationTimetableAction,
+                    openDepartures: departureAction
+                )
+            } else if hasSearchActions {
+                DepartureBoardSearchOpenActions(
+                    openDepartures: departureAction,
+                    openStationTimetable: stationTimetableAction
                 )
             }
         }
@@ -358,5 +479,19 @@ private struct DepartureRow: View {
 
     private var supportsServiceDetails: Bool {
         client.descriptor.supports(.serviceDetails)
+    }
+
+    private var departureAction: ((DepartureSearchOpenDestination) -> Void)? {
+        guard let departureSearchSelection, let openDepartures else { return nil }
+        return { destination in openDepartures(departureSearchSelection, destination) }
+    }
+
+    private var stationTimetableAction: ((StationTimetableOpenDestination) -> Void)? {
+        guard let stationTimetableSelection, let openStationTimetable else { return nil }
+        return { destination in openStationTimetable(stationTimetableSelection, destination) }
+    }
+
+    private var hasSearchActions: Bool {
+        departureAction != nil || stationTimetableAction != nil
     }
 }

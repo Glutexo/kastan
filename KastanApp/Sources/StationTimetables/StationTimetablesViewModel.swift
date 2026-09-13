@@ -26,7 +26,7 @@ struct StationTimetableSelection: Codable, Hashable {
     }
 }
 
-/// Builds station-timetable forms from each level of a completed connection result.
+/// Builds station-timetable forms from submitted searches and concrete provider results.
 enum StationTimetableSelectionFactory {
     static func search(
         timetable: TransitTimetable,
@@ -40,6 +40,25 @@ enum StationTimetableSelectionFactory {
             line: "",
             from: from,
             to: to,
+            serviceDate: serviceDate,
+            client: client
+        )
+    }
+
+    /// Places a station-board stop at the start of an incomplete direction and leaves Line focused.
+    static func stationBoard(
+        timetable: TransitTimetable,
+        station: String,
+        serviceDate: TransitDate,
+        client: any TransitDataSource
+    ) -> StationTimetableSelection? {
+        let station = station.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !station.isEmpty else { return nil }
+        return make(
+            timetable: timetable,
+            line: "",
+            from: station,
+            to: "",
             serviceDate: serviceDate,
             client: client
         )
@@ -76,6 +95,24 @@ enum StationTimetableSelectionFactory {
             from: leg.fromStation,
             to: leg.toStation,
             serviceDate: leg.departureDate ?? connection.departureDate ?? fallbackServiceDate,
+            client: client
+        )
+    }
+
+    /// Uses a station-board row's line, matched stop, opposite endpoint, and exact displayed day.
+    static func departure(
+        _ departure: TransitDeparture,
+        station: String,
+        timetable: TransitTimetable,
+        fallbackServiceDate: TransitDate?,
+        client: any TransitDataSource
+    ) -> StationTimetableSelection? {
+        make(
+            timetable: timetable,
+            line: departure.lineName,
+            from: station,
+            to: departure.destination,
+            serviceDate: departure.serviceDate ?? fallbackServiceDate,
             client: client
         )
     }

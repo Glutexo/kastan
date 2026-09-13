@@ -21,7 +21,7 @@ struct DepartureSearchSelection: Codable, Hashable {
     }
 }
 
-/// Builds departure-board queries from each level of a completed connection result.
+/// Builds departure-board queries from submitted searches and concrete provider results.
 enum DepartureSearchSelectionFactory {
     static func search(
         timetable: TransitTimetable,
@@ -68,6 +68,23 @@ enum DepartureSearchSelectionFactory {
             station: leg.fromStation,
             serviceDate: leg.departureDate ?? connection.departureDate ?? fallbackServiceDate,
             serviceTime: TransitRequestFormatting.serviceTime(from: leg.departureTime),
+            client: client
+        )
+    }
+
+    /// Uses a station-board row's matched stop, displayed instant, and owning timetable.
+    static func departure(
+        _ departure: TransitDeparture,
+        station: String,
+        timetable: TransitTimetable,
+        fallbackServiceDate: TransitDate?,
+        client: any TransitDataSource
+    ) -> DepartureSearchSelection? {
+        make(
+            timetable: timetable,
+            station: station,
+            serviceDate: departure.serviceDate ?? fallbackServiceDate,
+            serviceTime: TransitRequestFormatting.serviceTime(from: departure.time),
             client: client
         )
     }
@@ -219,6 +236,49 @@ final class DeparturesViewModel: ObservableObject {
     var canLoadLater: Bool {
         client.descriptor.supports(.departurePaging) &&
             !departures.isEmpty && resultPage?.canLoadLater == true && !isSearching && !isLoadingEarlier
+    }
+
+    /// Recreates the submitted board as a departures query for any supported destination.
+    func submittedHeaderDepartureSearch() -> DepartureSearchSelection? {
+        DepartureSearchSelectionFactory.search(
+            timetable: timetable,
+            station: station,
+            serviceDate: TransitRequestFormatting.serviceDate(from: date),
+            serviceTime: TransitRequestFormatting.serviceTime(from: time),
+            client: client
+        )
+    }
+
+    /// Prepares a station-timetable form from the submitted board stop and its selected day.
+    func submittedHeaderStationTimetableSelection() -> StationTimetableSelection? {
+        StationTimetableSelectionFactory.stationBoard(
+            timetable: timetable,
+            station: station,
+            serviceDate: TransitRequestFormatting.serviceDate(from: date),
+            client: client
+        )
+    }
+
+    /// Builds a departures query from one provider-returned service row and its exact board instant.
+    func departureSearch(for departure: TransitDeparture) -> DepartureSearchSelection? {
+        DepartureSearchSelectionFactory.departure(
+            departure,
+            station: departure.stationName ?? station,
+            timetable: departure.appTimetable(in: timetables),
+            fallbackServiceDate: TransitRequestFormatting.serviceDate(from: date),
+            client: client
+        )
+    }
+
+    /// Builds a complete line-and-direction station timetable from one provider-returned service row.
+    func stationTimetableSelection(for departure: TransitDeparture) -> StationTimetableSelection? {
+        StationTimetableSelectionFactory.departure(
+            departure,
+            station: departure.stationName ?? station,
+            timetable: departure.appTimetable(in: timetables),
+            fallbackServiceDate: TransitRequestFormatting.serviceDate(from: date),
+            client: client
+        )
     }
 
     /// Keeps the untouched station-board instant current while preserving every explicit choice.

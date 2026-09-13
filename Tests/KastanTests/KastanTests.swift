@@ -3115,6 +3115,7 @@ import Testing
     ).first
 
     #expect(departure?.id == "odis:1-4286-18.06.2026 16:03:00")
+    #expect(departure?.serviceDate == TransitDate(year: 2026, month: 6, day: 18))
     #expect(departure?.stationName == "Frýdek,Sportovní hala Polárka")
     #expect(departure?.time == "16:03")
     #expect(departure?.lineName == "Bus 980")

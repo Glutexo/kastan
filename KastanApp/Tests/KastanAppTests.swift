@@ -1589,6 +1589,25 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testDepartureBoardSearchMenusFollowToolbarModeOrder() {
+        let departuresOnly = DepartureBoardSearchOpenActions(
+            openDepartures: { _ in },
+            openStationTimetable: nil
+        )
+        let stationTimetablesOnly = DepartureBoardSearchOpenActions(
+            openDepartures: nil,
+            openStationTimetable: { _ in }
+        )
+        let both = DepartureBoardSearchOpenActions(
+            openDepartures: { _ in },
+            openStationTimetable: { _ in }
+        )
+
+        XCTAssertEqual(departuresOnly.availableSections, [.departures])
+        XCTAssertEqual(stationTimetablesOnly.availableSections, [.stationTimetables])
+        XCTAssertEqual(both.availableSections, [.departures, .stationTimetables])
+    }
+
     func testStationTimetableSearchMenusFollowToolbarModeOrder() {
         func actions(
             connections: Bool,
@@ -9809,6 +9828,67 @@ final class KastanAppTests: XCTestCase {
         XCTAssertFalse(independentWorkspace.departuresModel.startsWithInitialSelection)
         XCTAssertFalse(independentWorkspace.departuresModel.departures.isEmpty)
         XCTAssertTrue(independentWorkspace.departuresModel.isSearchFormCollapsed)
+    }
+
+    func testDepartureBoardHeadersAndRowsBuildTransfersFromTheirVisibleValues() throws {
+        let client = MockIDOSClient()
+        let model = DeparturesViewModel(client: client)
+        let timetable = try IDOSTimetable.resolve("pid")
+        let submittedDate = TransitDate(year: 2026, month: 9, day: 11)
+        let rowDate = TransitDate(year: 2026, month: 9, day: 12)
+        let submittedInstant = try XCTUnwrap(TransitRequestFormatting.displayDateAndTime(
+            serviceDate: submittedDate,
+            serviceTime: TransitTime(hour: 23, minute: 45)
+        ))
+        model.timetable = timetable
+        model.station = "  Strašnická  "
+        model.date = submittedInstant
+        model.time = submittedInstant
+
+        let headerDepartures = try XCTUnwrap(model.submittedHeaderDepartureSearch())
+        let departureHeaderTimetable = try XCTUnwrap(
+            model.submittedHeaderStationTimetableSelection()
+        )
+        XCTAssertEqual(headerDepartures.station, "Strašnická")
+        XCTAssertEqual(headerDepartures.serviceDate, submittedDate)
+        XCTAssertEqual(headerDepartures.serviceTime, TransitTime(hour: 23, minute: 45))
+        XCTAssertTrue(departureHeaderTimetable.line.isEmpty)
+        XCTAssertEqual(departureHeaderTimetable.from, "Strašnická")
+        XCTAssertTrue(departureHeaderTimetable.to.isEmpty)
+        XCTAssertEqual(departureHeaderTimetable.serviceDate, submittedDate)
+
+        let departure = TransitDeparture(
+            timetableIdentifier: timetable.identifier,
+            id: "opaque-provider-service",
+            serviceDate: rowDate,
+            stationName: "Strašnická (spárovaná)",
+            time: "00:13",
+            lineName: "Bus 154",
+            destination: "Sídliště Libuš"
+        )
+        let rowDepartures = try XCTUnwrap(model.departureSearch(for: departure))
+        let departureRowTimetable = try XCTUnwrap(
+            model.stationTimetableSelection(for: departure)
+        )
+        XCTAssertEqual(rowDepartures.station, "Strašnická (spárovaná)")
+        XCTAssertEqual(rowDepartures.serviceDate, rowDate)
+        XCTAssertEqual(rowDepartures.serviceTime, TransitTime(hour: 0, minute: 13))
+        XCTAssertEqual(departureRowTimetable.line, "Bus 154")
+        XCTAssertEqual(departureRowTimetable.from, "Strašnická (spárovaná)")
+        XCTAssertEqual(departureRowTimetable.to, "Sídliště Libuš")
+        XCTAssertEqual(departureRowTimetable.serviceDate, rowDate)
+
+        model.isArrival = true
+        let arrivalHeaderTimetable = try XCTUnwrap(
+            model.submittedHeaderStationTimetableSelection()
+        )
+        let arrivalRowTimetable = try XCTUnwrap(
+            model.stationTimetableSelection(for: departure)
+        )
+        XCTAssertEqual(arrivalHeaderTimetable.from, "Strašnická")
+        XCTAssertTrue(arrivalHeaderTimetable.to.isEmpty)
+        XCTAssertEqual(arrivalRowTimetable.from, "Strašnická (spárovaná)")
+        XCTAssertEqual(arrivalRowTimetable.to, "Sídliště Libuš")
     }
 
     func testConnectionSummaryDoesNotOfferAnUnsupportedStationTimetableCatalog() {

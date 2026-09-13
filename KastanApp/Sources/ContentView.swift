@@ -682,7 +682,15 @@ private struct ProviderSearchWorkspaceView: View {
                     client: client,
                     showsItemDetails: showsItemDetails,
                     showsServiceInformationText: showsServiceInformationText,
-                    showsStopNoteText: showsStopNoteText
+                    showsStopNoteText: showsStopNoteText,
+                    openDepartures: { selection, destination in
+                        openDepartures(selection, at: destination)
+                    },
+                    openStationTimetable: workspace.availableSections.contains(.stationTimetables)
+                        ? { selection, destination in
+                            openStationTimetable(selection, at: destination)
+                        }
+                        : nil
                 )
             case .stationTimetables:
                 StationTimetablesView(

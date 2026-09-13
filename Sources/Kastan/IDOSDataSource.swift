@@ -3735,6 +3735,8 @@ public struct TransitDeparture: Codable, Equatable, Sendable {
     /// The provider-owned timetable in which this result was found.
     public var timetableIdentifier: String
     public var id: String
+    /// Exact calendar date on which the displayed station-board time occurs, when supplied by the provider.
+    public var serviceDate: TransitDate?
     public var stationName: String?
     public var time: String
     public var lineName: String
@@ -3753,6 +3755,7 @@ public struct TransitDeparture: Codable, Equatable, Sendable {
         dataSourceID: TransitDataSourceID = .idos,
         timetableIdentifier: String = TransitTimetable.defaultTimetable.identifier,
         id: String,
+        serviceDate: TransitDate? = nil,
         stationName: String? = nil,
         time: String,
         lineName: String,
@@ -3769,6 +3772,7 @@ public struct TransitDeparture: Codable, Equatable, Sendable {
         self.dataSourceID = dataSourceID
         self.timetableIdentifier = timetableIdentifier
         self.id = id
+        self.serviceDate = serviceDate
         self.stationName = stationName
         self.time = time
         self.lineName = lineName
@@ -3787,6 +3791,7 @@ public struct TransitDeparture: Codable, Equatable, Sendable {
         case dataSourceID
         case timetableIdentifier
         case id
+        case serviceDate
         case stationName
         case time
         case lineName
@@ -3815,6 +3820,7 @@ public struct TransitDeparture: Codable, Equatable, Sendable {
                 codingPath: container.codingPath
             ),
             id: try container.decode(String.self, forKey: .id),
+            serviceDate: try container.decodeIfPresent(TransitDate.self, forKey: .serviceDate),
             stationName: try container.decodeIfPresent(String.self, forKey: .stationName),
             time: try container.decode(String.self, forKey: .time),
             lineName: try container.decode(String.self, forKey: .lineName),
@@ -3842,6 +3848,7 @@ public struct TransitDeparture: Codable, Equatable, Sendable {
             try container.encode(timetableIdentifier, forKey: .timetableIdentifier)
         }
         try container.encode(id, forKey: .id)
+        try container.encodeIfPresent(serviceDate, forKey: .serviceDate)
         try container.encodeIfPresent(stationName, forKey: .stationName)
         try container.encode(time, forKey: .time)
         try container.encode(lineName, forKey: .lineName)
@@ -5576,6 +5583,7 @@ enum IDOSDepartureParser {
             dataSourceID: .idos,
             timetableIdentifier: timetable.identifier,
             id: "\(timetable.slug):\(timetableIndex)-\(trainID)-\(dateTime)",
+            serviceDate: serviceDateFromDateTime(dateTime),
             stationName: stationName,
             time: time,
             lineName: lineName,
@@ -5644,6 +5652,26 @@ enum IDOSDepartureParser {
 
     private static func timeFromDateTime(_ value: String) -> String? {
         RegexSupport.capture(pattern: #"([0-9]{1,2}:[0-9]{2})(?::[0-9]{2})?$"#, in: value)
+    }
+
+    /// Retains the provider's civil result day separately from its opaque service identifier.
+    private static func serviceDateFromDateTime(_ value: String) -> TransitDate? {
+        guard let parts = RegexSupport.captures(
+            pattern: #"^(\d{1,2})\.(\d{1,2})\.(\d{4})"#,
+            in: value
+        ).first,
+              parts.count == 3,
+              let day = Int(parts[0]),
+              let month = Int(parts[1]),
+              let year = Int(parts[2]),
+              Calendar(identifier: .gregorian).date(
+                  from: DateComponents(year: year, month: month, day: day)
+              ) != nil
+        else {
+            return nil
+        }
+
+        return TransitDate(year: year, month: month, day: day)
     }
 
     /// Canonicalizes the HTML timestamp IDOS occasionally leaves unpadded so its ID can load a service detail.

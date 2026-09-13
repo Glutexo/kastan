@@ -265,8 +265,10 @@ connection-leg platform values retain IDOS's compact source notation, while `sum
 as `2/3` to the unambiguous human-readable `platform 2 track 3`. When supplied by the provider,
 `TransitConnection.departureDate` identifies the civil day of the first displayed departure and each
 `TransitConnectionLeg.departureDate` identifies the day of that particular service. This preserves different result
-days and legs crossing midnight without requiring clients to parse opaque identifiers. Older encoded results without
-these optional fields continue to decode them as `nil`.
+days and legs crossing midnight without requiring clients to parse opaque identifiers.
+`TransitDeparture.serviceDate` likewise identifies the civil day of the time displayed on a station-board row, so
+clients can transfer paged or overnight results without decoding the service identifier. Older encoded results
+without these optional fields continue to decode them as `nil`.
 
 The language-aware `findConnectionsPage(request:language:)` and
 `findDeparturesPage(request:language:)` overloads request platform-supplied result text in English or Czech and

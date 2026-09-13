@@ -1472,6 +1472,7 @@ func expectTransitDataSourceContract(
     let departure = TransitDeparture(
         timetableIdentifier: "vlaky",
         id: "vlaky:1-2-07.09.2026 08:00:00",
+        serviceDate: TransitDate(year: 2026, month: 9, day: 7),
         time: "08:00",
         lineName: "R 1",
         destination: "Brno hl.n."
@@ -1500,6 +1501,7 @@ func expectTransitDataSourceContract(
     #expect(try decoder.decode(TransitSuggestion.self, from: encoder.encode(defaultSuggestion)) == defaultSuggestion)
     #expect(try decoder.decode(TransitConnection.self, from: encoder.encode(defaultConnection)) == defaultConnection)
     #expect(try decoder.decode(TransitDeparture.self, from: encoder.encode(defaultDeparture)) == defaultDeparture)
+    #expect(defaultDeparture.serviceDate == nil)
     for value in [
         try encoder.encode(defaultSuggestion),
         try encoder.encode(defaultConnection),
