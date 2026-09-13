@@ -1498,6 +1498,33 @@ final class KastanAppTests: XCTestCase {
         )
     }
 
+    func testStationTimetableSearchMenusFollowToolbarModeOrder() {
+        func actions(
+            connections: Bool,
+            departures: Bool
+        ) -> StationTimetableSearchOpenActions {
+            StationTimetableSearchOpenActions(
+                canOpenConnections: connections,
+                canOpenDepartures: departures,
+                openConnections: { _ in },
+                openDepartures: { _ in }
+            )
+        }
+
+        XCTAssertEqual(
+            actions(connections: true, departures: true).orderedSections,
+            [.connections, .departures]
+        )
+        XCTAssertEqual(
+            actions(connections: true, departures: false).orderedSections,
+            [.connections]
+        )
+        XCTAssertEqual(
+            actions(connections: false, departures: true).orderedSections,
+            [.departures]
+        )
+    }
+
     func testTransferredSearchDestinationsFollowCommandClickConvention() {
         XCTAssertEqual(MainSearchOpenDestination.preferred(for: []), .current)
         XCTAssertEqual(MainSearchOpenDestination.preferred(for: [.command]), .newTab)

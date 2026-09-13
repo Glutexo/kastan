@@ -270,23 +270,18 @@ struct StationTimetablesView: View {
 
     @ViewBuilder
     private var submittedHeaderSearchActions: some View {
-        if model.canFindHeaderDepartureResults {
-            DepartureSearchOpenActions { destination in
+        StationTimetableSearchOpenActions(
+            canOpenConnections: model.canFindHeaderConnectionResults,
+            canOpenDepartures: model.canFindHeaderDepartureResults,
+            openConnections: { destination in
+                guard let selection = model.submittedHeaderConnectionSearch() else { return }
+                showInConnections(selection, destination)
+            },
+            openDepartures: { destination in
                 guard let selection = model.submittedHeaderDepartureSearch() else { return }
                 showDepartureSearch(selection, destination)
             }
-        }
-
-        if model.canFindHeaderDepartureResults && model.canFindHeaderConnectionResults {
-            Divider()
-        }
-
-        if model.canFindHeaderConnectionResults {
-            ConnectionSearchOpenActions { destination in
-                guard let selection = model.submittedHeaderConnectionSearch() else { return }
-                showInConnections(selection, destination)
-            }
-        }
+        )
     }
 
     private var timetableBinding: Binding<TransitTimetable> {
@@ -483,23 +478,18 @@ struct StationTimetablesView: View {
 
     @ViewBuilder
     private func resultHeaderSearchActions(_ result: TransitStationTimetable) -> some View {
-        if model.canFindHeaderDepartureResults {
-            DepartureSearchOpenActions { destination in
+        StationTimetableSearchOpenActions(
+            canOpenConnections: model.canFindHeaderConnectionResults,
+            canOpenDepartures: model.canFindHeaderDepartureResults,
+            openConnections: { destination in
+                guard let selection = model.resultHeaderConnectionSearch(for: result) else { return }
+                showInConnections(selection, destination)
+            },
+            openDepartures: { destination in
                 guard let selection = model.resultHeaderDepartureSearch(for: result) else { return }
                 showDepartureSearch(selection, destination)
             }
-        }
-
-        if model.canFindHeaderDepartureResults && model.canFindHeaderConnectionResults {
-            Divider()
-        }
-
-        if model.canFindHeaderConnectionResults {
-            ConnectionSearchOpenActions { destination in
-                guard let selection = model.resultHeaderConnectionSearch(for: result) else { return }
-                showInConnections(selection, destination)
-            }
-        }
+        )
     }
 
     private func stops(_ result: TransitStationTimetable) -> some View {
@@ -902,6 +892,48 @@ struct StationTimetablesView: View {
     }
 }
 
+/// Presents searches available from a station-timetable context in the toolbar's mode order.
+struct StationTimetableSearchOpenActions: View {
+    let canOpenConnections: Bool
+    let canOpenDepartures: Bool
+    let openConnections: (ConnectionSearchOpenDestination) -> Void
+    let openDepartures: (DepartureSearchOpenDestination) -> Void
+
+    var orderedSections: [AppSection] {
+        AppSection.allCases.filter { section in
+            switch section {
+            case .connections:
+                canOpenConnections
+            case .departures:
+                canOpenDepartures
+            case .stationTimetables:
+                false
+            }
+        }
+    }
+
+    var body: some View {
+        ForEach(orderedSections) { section in
+            if section != orderedSections.first {
+                Divider()
+            }
+            actions(for: section)
+        }
+    }
+
+    @ViewBuilder
+    private func actions(for section: AppSection) -> some View {
+        switch section {
+        case .connections:
+            ConnectionSearchOpenActions(open: openConnections)
+        case .departures:
+            DepartureSearchOpenActions(open: openDepartures)
+        case .stationTimetables:
+            EmptyView()
+        }
+    }
+}
+
 /// Separates an IDOS minute from its appended marker and associates the marker with the
 /// matching timetable explanation shown on hover.
 struct StationTimetableDeparturePresentation: Equatable {
@@ -1146,19 +1178,13 @@ private struct StationTimetableDepartureTime: View {
 
     @ViewBuilder
     private var serviceActionMenu: some View {
-        if let searchInDepartures {
-            DepartureSearchOpenActions(open: searchInDepartures)
-                .disabled(!isEnabled || isPerformingContextAction)
-
-            if searchInConnections != nil {
-                Divider()
-            }
-        }
-
-        if let searchInConnections {
-            ConnectionSearchOpenActions(open: searchInConnections)
-                .disabled(!isEnabled || isPerformingContextAction)
-        }
+        StationTimetableSearchOpenActions(
+            canOpenConnections: searchInConnections != nil,
+            canOpenDepartures: searchInDepartures != nil,
+            openConnections: { destination in searchInConnections?(destination) },
+            openDepartures: { destination in searchInDepartures?(destination) }
+        )
+        .disabled(!isEnabled || isPerformingContextAction)
 
         if (searchInDepartures != nil || searchInConnections != nil),
            preview?.contextActions.isEmpty == false {

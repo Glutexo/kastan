@@ -148,8 +148,8 @@ one ordinary provider is registered.
   They align below Timetable and Date and reuse the matching control widths. Line suggestions use the transport icon
   supplied by IDOS, such as 🚌 for a bus or 🚋 for a tram, instead of presenting the line as a generic place. At compact
   widths, the Stops/Timetable result choice survives visiting another search mode in the same window. Both the compact
-  submitted-search header and the line-and-direction result header offer the three Departures actions followed by the
-  three Connections actions. The submitted header uses its entered endpoints, while the result header uses the
+  submitted-search header and the line-and-direction result header offer the three Connections actions followed by the
+  three Departures actions. The submitted header uses its entered endpoints, while the result header uses the
   endpoints returned by the provider. Because a station timetable selects a date without a time, both transitions use
   the current clock time on that service day. Their current-window actions follow the same Command-click destination
   convention as other transferred searches. An ordinary route-stop click selects that stop in the current timetable.
@@ -174,7 +174,7 @@ one ordinary provider is registered.
   repeating the provider request. Control-Option-clicking starts a Connections search from the provider-matched stop
   to the displayed route destination at that run's exact date and time. Adding Command to either search gesture opens
   a new tab; adding Shift as well opens a new window. Its context menu exposes the current-window, new-window, and
-  new-tab actions for Departures followed by the same three actions for Connections. Every complete transfer searches
+  new-tab actions for Connections followed by the same three actions for Departures. Every complete transfer searches
   immediately in its destination.
   Force Clicking it performs the same on-demand lookup and presents a compact
   complete-route preview at the detail view's minimum supported width without also opening a window. Right-clicking
