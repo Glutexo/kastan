@@ -117,6 +117,30 @@ enum StationTimetableSelectionFactory {
         )
     }
 
+    /// Uses one dated calling point from a complete service route to create a complete line query.
+    static func serviceStop(
+        timetable: TransitTimetable,
+        line: String,
+        from: String,
+        to: String,
+        serviceDate: TransitDate,
+        client: any TransitDataSource
+    ) -> StationTimetableSelection? {
+        let line = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        let from = from.trimmingCharacters(in: .whitespacesAndNewlines)
+        let to = to.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !line.isEmpty, !from.isEmpty, !to.isEmpty else { return nil }
+
+        return make(
+            timetable: timetable,
+            line: line,
+            from: from,
+            to: to,
+            serviceDate: serviceDate,
+            client: client
+        )
+    }
+
     private static func make(
         timetable requestedTimetable: TransitTimetable,
         line: String,

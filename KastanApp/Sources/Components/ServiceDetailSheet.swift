@@ -394,6 +394,203 @@ struct ServiceDetailWindowContent: View {
     }
 }
 
+/// Keeps the searches derived from one calling point together while omitting unsupported destinations.
+struct ServiceStopSearchSelections {
+    let connection: ConnectionSearchSelection?
+    let departure: DepartureSearchSelection?
+    let stationTimetable: StationTimetableSelection?
+
+    var availableSections: [AppSection] {
+        AppSection.allCases.filter { section in
+            switch section {
+            case .connections:
+                connection != nil
+            case .departures:
+                departure != nil
+            case .stationTimetables:
+                stationTimetable != nil
+            }
+        }
+    }
+}
+
+/// Converts a service-route stop's displayed civil instant into each supported main-window search.
+enum ServiceStopSearchSelectionFactory {
+    static func selections(
+        forStopAt index: Int,
+        in service: TransitServiceDetail,
+        client: any TransitDataSource
+    ) -> ServiceStopSearchSelections {
+        guard service.stops.indices.contains(index),
+              let serviceDate = serviceDate(forStopAt: index, in: service),
+              let serviceTime = serviceTime(for: service.stops[index])
+        else {
+            return ServiceStopSearchSelections(
+                connection: nil,
+                departure: nil,
+                stationTimetable: nil
+            )
+        }
+
+        let stop = service.stops[index]
+        let oppositeEndpoint = oppositeEndpoint(forStopAt: index, in: service.stops)
+        let connection = oppositeEndpoint.flatMap { endpoint in
+            ConnectionSearchSelectionFactory.stationTimetable(
+                timetable: service.timetable,
+                from: stop.name,
+                to: endpoint,
+                serviceDate: serviceDate,
+                serviceTime: serviceTime,
+                client: client
+            )
+        }
+        let departure = DepartureSearchSelectionFactory.search(
+            timetable: service.timetable,
+            station: stop.name,
+            serviceDate: serviceDate,
+            serviceTime: serviceTime,
+            client: client
+        )
+        let stationTimetable = oppositeEndpoint.flatMap { endpoint in
+            StationTimetableSelectionFactory.serviceStop(
+                timetable: service.timetable,
+                line: service.name,
+                from: stop.name,
+                to: endpoint,
+                serviceDate: serviceDate,
+                client: client
+            )
+        }
+
+        return ServiceStopSearchSelections(
+            connection: connection,
+            departure: departure,
+            stationTimetable: stationTimetable
+        )
+    }
+
+    /// Follows the displayed route forward, or back to its first stop when invoked at the terminus.
+    private static func oppositeEndpoint(
+        forStopAt index: Int,
+        in stops: [TransitServiceStop]
+    ) -> String? {
+        guard stops.count > 1 else { return nil }
+        return index == stops.index(before: stops.endIndex)
+            ? stops[stops.startIndex].name
+            : stops[stops.index(before: stops.endIndex)].name
+    }
+
+    /// Uses departure time where available and arrival time at stops without a departure.
+    private static func serviceTime(for stop: TransitServiceStop) -> TransitTime? {
+        [stop.departureTime, stop.arrivalTime]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty }
+            .flatMap(TransitRequestFormatting.serviceTime)
+    }
+
+    /// Advances the initial service date whenever the ordered route crosses midnight.
+    private static func serviceDate(
+        forStopAt index: Int,
+        in service: TransitServiceDetail
+    ) -> TransitDate? {
+        guard let initialDate = parsedServiceDate(in: service.date) ?? parsedServiceDate(in: service.id)
+        else {
+            return nil
+        }
+
+        var previousMinuteOfDay: Int?
+        var dayOffset = 0
+        for stopIndex in service.stops.indices where stopIndex <= index {
+            guard let time = serviceTime(for: service.stops[stopIndex]) else { continue }
+            let minuteOfDay = time.hour * 60 + time.minute
+            if let previousMinuteOfDay, minuteOfDay < previousMinuteOfDay {
+                dayOffset += 1
+            }
+            previousMinuteOfDay = minuteOfDay
+        }
+        return addingDays(dayOffset, to: initialDate)
+    }
+
+    /// Accepts the numeric dates used by IDOS and structured providers, including spaces around separators.
+    private static func parsedServiceDate(in value: String?) -> TransitDate? {
+        guard let value,
+              let expression = try? NSRegularExpression(
+                  pattern: #"(?<!\d)(\d{1,2})\s*\.\s*(\d{1,2})\s*\.\s*(\d{4})(?!\d)"#
+              ),
+              let match = expression.firstMatch(
+                  in: value,
+                  range: NSRange(value.startIndex..<value.endIndex, in: value)
+              ),
+              let dayRange = Range(match.range(at: 1), in: value),
+              let monthRange = Range(match.range(at: 2), in: value),
+              let yearRange = Range(match.range(at: 3), in: value),
+              let day = Int(value[dayRange]),
+              let month = Int(value[monthRange]),
+              let year = Int(value[yearRange])
+        else {
+            return nil
+        }
+
+        let date = TransitDate(year: year, month: month, day: day)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        guard let absoluteDate = date.date(in: calendar) else { return nil }
+        let verified = TransitDate(absoluteDate, calendar: calendar)
+        return verified == date ? date : nil
+    }
+
+    private static func addingDays(_ days: Int, to date: TransitDate) -> TransitDate? {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        guard let absoluteDate = date.date(in: calendar),
+              let adjusted = calendar.date(byAdding: .day, value: days, to: absoluteDate)
+        else {
+            return nil
+        }
+        return TransitDate(adjusted, calendar: calendar)
+    }
+}
+
+/// Keeps a service stop's search groups in the same order as the main toolbar modes.
+struct ServiceStopSearchOpenActions: View {
+    let selections: ServiceStopSearchSelections
+    let openConnection: (ConnectionSearchSelection, ConnectionSearchOpenDestination) -> Void
+    let openDeparture: (DepartureSearchSelection, DepartureSearchOpenDestination) -> Void
+    let openStationTimetable: (StationTimetableSelection, StationTimetableOpenDestination) -> Void
+
+    var availableSections: [AppSection] {
+        selections.availableSections
+    }
+
+    var body: some View {
+        ForEach(availableSections) { section in
+            if section != availableSections.first {
+                Divider()
+            }
+            switch section {
+            case .connections:
+                if let selection = selections.connection {
+                    ConnectionSearchOpenActions { destination in
+                        openConnection(selection, destination)
+                    }
+                }
+            case .departures:
+                if let selection = selections.departure {
+                    DepartureSearchOpenActions { destination in
+                        openDeparture(selection, destination)
+                    }
+                }
+            case .stationTimetables:
+                if let selection = selections.stationTimetable {
+                    StationTimetableOpenActions { destination in
+                        openStationTimetable(selection, destination)
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Moves a service date into the window title exactly when its content label has scrolled away.
 enum ServiceWindowTitlePresentation {
     static func title(for service: TransitServiceDetail?, dateIsUnderTitle: Bool) -> String {
@@ -489,6 +686,7 @@ struct ServiceDetailView: View {
 
     private static let scrollCoordinateSpace = "service-detail-scroll"
 
+    @Environment(\.openWindow) private var openWindow
     @StateObject private var model: ServiceDetailViewModel
     @State private var dateIsUnderTitle = false
     @State private var hasAppliedInitialRoutePosition = false
@@ -499,6 +697,7 @@ struct ServiceDetailView: View {
     private let showsItemDetails: Bool
     private let showsStopNoteText: Bool
     private let serviceTimeZone: TimeZone?
+    private let client: any TransitDataSource
 
     init(
         selection: ServiceSelection,
@@ -512,6 +711,7 @@ struct ServiceDetailView: View {
         self.showsItemDetails = showsItemDetails
         self.showsStopNoteText = showsStopNoteText
         serviceTimeZone = client.serviceTimeZone
+        self.client = client
         _model = StateObject(wrappedValue: ServiceDetailViewModel(
             id: selection.serviceID,
             timetable: selection.timetable,
@@ -731,6 +931,13 @@ struct ServiceDetailView: View {
                                         showsItemDetails: showsItemDetails,
                                         showsStopNoteText: showsStopNoteText
                                     )
+                                    .contentShape(Rectangle())
+                                    .contextMenu {
+                                        serviceStopSearchActions(
+                                            forStopAt: index,
+                                            in: service
+                                        )
+                                    }
                                     .alternatingRowBackground(at: index)
                                     .background {
                                         if index == departureIndex {
@@ -794,6 +1001,67 @@ struct ServiceDetailView: View {
                     dateIsUnderTitle = false
                 }
             }
+        }
+    }
+
+    /// Starts a stop-derived search in a main scene because route details do not own editable search state.
+    @ViewBuilder
+    private func serviceStopSearchActions(
+        forStopAt index: Int,
+        in service: TransitServiceDetail
+    ) -> some View {
+        ServiceStopSearchOpenActions(
+            selections: ServiceStopSearchSelectionFactory.selections(
+                forStopAt: index,
+                in: service,
+                client: client
+            ),
+            openConnection: openConnection,
+            openDeparture: openDeparture,
+            openStationTimetable: openStationTimetable
+        )
+    }
+
+    private func openConnection(
+        _ selection: ConnectionSearchSelection,
+        at destination: ConnectionSearchOpenDestination
+    ) {
+        let sceneValue = MainWindowSceneValue(
+            dataSourceID: selection.dataSourceID,
+            initialConnectionSelection: selection
+        )
+        openMainSearch(sceneValue, inNewTab: destination == .newTab)
+    }
+
+    private func openDeparture(
+        _ selection: DepartureSearchSelection,
+        at destination: DepartureSearchOpenDestination
+    ) {
+        let sceneValue = MainWindowSceneValue(
+            dataSourceID: selection.dataSourceID,
+            initialDepartureSelection: selection
+        )
+        openMainSearch(sceneValue, inNewTab: destination == .newTab)
+    }
+
+    private func openStationTimetable(
+        _ selection: StationTimetableSelection,
+        at destination: StationTimetableOpenDestination
+    ) {
+        let sceneValue = MainWindowSceneValue(
+            dataSourceID: selection.dataSourceID,
+            initialStationTimetableSelection: selection
+        )
+        openMainSearch(sceneValue, inNewTab: destination == .newTab)
+    }
+
+    private func openMainSearch(_ sceneValue: MainWindowSceneValue, inNewTab: Bool) {
+        if inNewTab {
+            AppWindowActions.newTab(sceneID: sceneValue.id) {
+                openWindow(id: AppWindow.main, value: sceneValue)
+            }
+        } else {
+            openWindow(id: AppWindow.main, value: sceneValue)
         }
     }
 

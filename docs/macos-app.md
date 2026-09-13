@@ -356,7 +356,12 @@ one ordinary provider is registered.
   the final stop remains lower when there is not enough following content, with no artificial trailing space. When
   the departure is already the first stop or the complete route fits in the viewport, the natural position is
   preserved. The search-relevant segment remains highlighted without implying live vehicle position. When scrolling hides a
-  service date, the date moves into the window title until its content label is visible again.
+  service date, the date moves into the window title until its content label is visible again. Right-clicking any
+  stop-and-time row offers the three Connections actions, followed by the three Departures actions and the three
+  Station timetable actions when the active provider supports them. Each query uses that stop's departure time, or
+  its arrival time when no departure is shown, and advances the service's initial date after a midnight crossing.
+  Connections and Station timetable searches continue toward the final stop; at the final stop they point back to
+  the route's first stop.
 - Complete service information starts collapsed beneath a disclosure heading at the same level as Stops. Expanding it
   reveals selectable text whose visibly separated rows use semantic emoji for replacement buses,
   onboard amenities, sleeping and couchette cars, through coaches, on-route train-designation changes,

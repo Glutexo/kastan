@@ -1608,6 +1608,98 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(both.availableSections, [.departures, .stationTimetables])
     }
 
+    func testServiceStopSearchesUseTheStopInstantAndToolbarModeOrder() throws {
+        let client = MockIDOSClient()
+        let timetable = try IDOSTimetable.resolve("frydekmistek")
+        let service = TransitServiceDetail(
+            id: "dated-service-route",
+            timetable: timetable,
+            name: "Bus 980",
+            date: "11. 9. 2026",
+            stops: [
+                TransitServiceStop(name: "Frýdek,Na Veselé", departureTime: "23:45"),
+                TransitServiceStop(
+                    name: "Frýdek-Místek,Místek,Anenská",
+                    arrivalTime: "23:58",
+                    departureTime: "00:03"
+                ),
+                TransitServiceStop(name: "Ostrava,Hrabůvka,Benzina", arrivalTime: "00:31"),
+            ]
+        )
+
+        let middle = ServiceStopSearchSelectionFactory.selections(
+            forStopAt: 1,
+            in: service,
+            client: client
+        )
+        let connection = try XCTUnwrap(middle.connection)
+        XCTAssertEqual(connection.from, "Frýdek-Místek,Místek,Anenská")
+        XCTAssertEqual(connection.to, "Ostrava,Hrabůvka,Benzina")
+        XCTAssertEqual(connection.serviceDate, TransitDate(year: 2026, month: 9, day: 12))
+        XCTAssertEqual(connection.serviceTime, TransitTime(hour: 0, minute: 3))
+
+        let departure = try XCTUnwrap(middle.departure)
+        XCTAssertEqual(departure.station, "Frýdek-Místek,Místek,Anenská")
+        XCTAssertEqual(departure.serviceDate, TransitDate(year: 2026, month: 9, day: 12))
+        XCTAssertEqual(departure.serviceTime, TransitTime(hour: 0, minute: 3))
+
+        let stationTimetable = try XCTUnwrap(middle.stationTimetable)
+        XCTAssertEqual(stationTimetable.line, "Bus 980")
+        XCTAssertEqual(stationTimetable.from, "Frýdek-Místek,Místek,Anenská")
+        XCTAssertEqual(stationTimetable.to, "Ostrava,Hrabůvka,Benzina")
+        XCTAssertEqual(
+            stationTimetable.serviceDate,
+            TransitDate(year: 2026, month: 9, day: 12)
+        )
+
+        let actions = ServiceStopSearchOpenActions(
+            selections: middle,
+            openConnection: { _, _ in },
+            openDeparture: { _, _ in },
+            openStationTimetable: { _, _ in }
+        )
+        XCTAssertEqual(
+            actions.availableSections,
+            [.connections, .departures, .stationTimetables]
+        )
+
+        let terminal = ServiceStopSearchSelectionFactory.selections(
+            forStopAt: 2,
+            in: service,
+            client: client
+        )
+        XCTAssertEqual(terminal.connection?.from, "Ostrava,Hrabůvka,Benzina")
+        XCTAssertEqual(terminal.connection?.to, "Frýdek,Na Veselé")
+        XCTAssertEqual(terminal.connection?.serviceTime, TransitTime(hour: 0, minute: 31))
+        XCTAssertEqual(terminal.stationTimetable?.to, "Frýdek,Na Veselé")
+    }
+
+    func testServiceStopSearchesRecoverTheInitialDateFromAnIDOSServiceIdentifier() throws {
+        let client = MockIDOSClient()
+        let timetable = try IDOSTimetable.resolve("frydekmistek")
+        let service = TransitServiceDetail(
+            id: "frydekmistek:0-980-11.09.2026 23:45:00",
+            timetable: timetable,
+            name: "Bus 980",
+            stops: [
+                TransitServiceStop(name: "Frýdek,Na Veselé", departureTime: "23:45"),
+                TransitServiceStop(name: "Ostrava,Hrabůvka,Benzina", arrivalTime: "00:31"),
+            ]
+        )
+
+        let selections = ServiceStopSearchSelectionFactory.selections(
+            forStopAt: 1,
+            in: service,
+            client: client
+        )
+
+        XCTAssertEqual(
+            selections.departure?.serviceDate,
+            TransitDate(year: 2026, month: 9, day: 12)
+        )
+        XCTAssertEqual(selections.departure?.serviceTime, TransitTime(hour: 0, minute: 31))
+    }
+
     func testStationTimetableSearchMenusFollowToolbarModeOrder() {
         func actions(
             connections: Bool,
