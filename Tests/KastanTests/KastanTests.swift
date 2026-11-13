@@ -3262,6 +3262,53 @@ import Testing
     #expect(detail.shareURL == "https://idos.cz/service")
 }
 
+/// Retains the complete dated route and its export lookup when IDOS adds stop-layout classes.
+@Test func serviceDetailKeepsStopValuesWithPresentationClasses() throws {
+    let html = """
+    <div data-share-url="https://idos.cz/service">
+      <h1 title="bus"><span>Bus 314</span></h1>
+      <p class="line-top-date"><strong>14.11.2026</strong></p>
+      <ul class="reset line-itinerary">
+        <li class="item inactive">
+          <span class="arrival"><span class="label out"></span></span>
+          <span class="departure-note"><span class="label out"></span>9:00</span>
+          <span class="departure empty-arr-time"><span class="label out"></span>10:00</span>
+          <strong class="name">Frýdek,žel.st.</strong>
+          <span class="distance"><span class="label out"></span>0 km</span>
+        </li>
+        <li class="item">
+          <span class="highlighted arrival"><span class="label out"></span>10:01</span>
+          <span class="empty-arr-time departure"><span class="label out"></span>10:02</span>
+          <strong class="name">Frýdek,Na Veselé</strong>
+          <span class="highlighted distance"><span class="label out"></span>1 km</span>
+        </li>
+        <li class="item">
+          <span class="arrival empty-dep-time"><span class="label out"></span>10:27</span>
+          <span class="departure"><span class="label out"></span></span>
+          <strong class="name">Janovice,,konečná</strong>
+          <span class="distance highlighted"><span class="label out"></span>16 km</span>
+        </li>
+      </ul>
+    </div>
+    """
+    let timetable = try TransitTimetable.resolve("frydekmistek")
+    let detail = try #require(IDOSServiceDetailParser.parse(
+        html: html,
+        id: "frydekmistek:0-1923-14.11.2026 10:02:00",
+        timetable: timetable
+    ))
+
+    #expect(detail.stops.map(\.arrivalTime) == [nil, "10:01", "10:27"])
+    #expect(detail.stops.map(\.departureTime) == ["10:00", "10:02", nil])
+    #expect(detail.stops.map(\.distance) == ["0 km", "1 km", "16 km"])
+
+    let search = try #require(IDOSServiceExportConnectionSearch(service: detail))
+    #expect(search.request.from == "Frýdek,žel.st.")
+    #expect(search.request.to == "Janovice,,konečná")
+    #expect(search.request.date == "14.11.2026")
+    #expect(search.request.time == "10:00")
+}
+
 @Test func serviceDetailKeepsOnlyTheRequestedVariantOfBilingualCarrierInformation() throws {
     let html = """
     <div id="train-detail-151">

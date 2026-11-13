@@ -33,7 +33,8 @@ JavaScript response media types, so a changed response representation fails expl
 as unrelated data. Kaštan keeps its own identifying user agent instead of impersonating Safari, so a differential
 request checks that IDOS returns identical autocomplete data, media type, and advanced-form contract to both user
 agents. Search dates are generated at runtime, and Station Timetable terminals come from the live line suggestions
-instead of being hard-coded.
+instead of being hard-coded. The urban-service check also verifies that a dated route retains arrival and departure
+times and can be exported through IDOS to iCalendar.
 
 Live tests are skipped unless `KASTAN_RUN_LIVE_IDOS_TESTS=1` is set. They are intentionally not part of `make test`:
 an internet outage, temporary IDOS failure, or live timetable-data gap should not make the deterministic suite fail.

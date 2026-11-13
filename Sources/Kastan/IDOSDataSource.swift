@@ -6020,9 +6020,10 @@ enum IDOSServiceDetailParser {
         return describesPosition && describesVehicle && describesInteraction
     }
 
+    /// Preserves published stop times and distances when IDOS adds presentation classes.
     private static func time(className: String, in html: String) -> String? {
         RegexSupport.capture(
-            pattern: #"<span class="\#(className)">\s*<span\b[^>]*>.*?</span>\s*([^<]*?)\s*</span>"#,
+            pattern: #"<span\b[^>]*\sclass="(?:[^"]*\s)?\#(className)(?:\s[^"]*)?"[^>]*>\s*<span\b[^>]*>.*?</span>\s*([^<]*?)\s*</span>"#,
             in: html,
             options: [.dotMatchesLineSeparators]
         ).map(HTMLText.clean).flatMap(nonEmpty)

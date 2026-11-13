@@ -122,6 +122,15 @@ final class IDOSLiveTests: XCTestCase {
             language: .czech
         )
 
+        XCTAssertTrue(
+            service.stops.contains { $0.departureTime?.isEmpty == false },
+            "The dated service must retain its departure times for calendar export."
+        )
+        XCTAssertTrue(
+            service.stops.contains { $0.arrivalTime?.isEmpty == false },
+            "The dated service must retain its arrival times."
+        )
+
         let calendar = try await client.serviceCalendar(for: service, language: .czech)
 
         XCTAssertTrue(calendar.contains("BEGIN:VCALENDAR"))
