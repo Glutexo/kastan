@@ -7,7 +7,7 @@ can support multiple data sources; [IDOS](https://idos.cz/en/) is currently the 
 a native macOS app or from a terminal, or integrate its search engine as a Swift library or local or remote MCP
 server.
 
-![Kaštan for macOS showing direct train connections from Frýdek-Místek to Frenštát pod Radhoštěm with service-information symbols](docs/images/kastan-macos-connections.png)
+![Kaštan for macOS showing direct train connections from Ostrava to Opava with service symbols and full platform and track labels](docs/images/kastan-macos-connections.png)
 
 Kaštan reads publicly reachable IDOS web pages. It is intended for personal, low-frequency use rather than as
 a stable or guaranteed data API.
