@@ -16,6 +16,7 @@ Pravidla budeme prubezne rozsirovat.
 - Neprovadej destruktivni git operace bez vyslovneho souhlasu.
 - Vsechny dokoncene zmeny hned commituj a pushuj na GitHub, pokud uzivatel vyslovne nerekne jinak.
 - Kdyz podle tebe nastal vhodny cas na nove vydani, aktivne ho uzivateli navrhni; vydani muze byt i velmi male.
+- Tag vydani vytvor az po uspesnem dokonceni CI pro presny commit, ktery ma tag oznacovat.
 - Po kazde zmene zkontroluj, zda reprezentativni snimek aplikace v README zustava aktualni. Pokud ho zmena zneaktualni, zaloz pred odevzdanim GitHub issue pro jeho obnoveni.
 - Reprezentativni snimek aplikace v README nesmi nikdy obsahovat spoje dopravce RegioJet.
 - Pri pristi aktualizaci reprezentativniho snimku aplikace v README pouzij uzsi kompozici nez u snimku porizeneho
