@@ -6597,7 +6597,7 @@ final class KastanAppTests: XCTestCase {
     func testTimetableCatalogIsSplitIntoGeneralIntegratedAndCityGroups() {
         XCTAssertEqual(
             AppTimetableGroup.general.timetables.map(\.slug),
-            ["vlakyautobusymhdvse", "vlakyautobusymhd", "vlaky", "autobusy", "vlakyautobusy"]
+            ["vlakyautobusymhdvse", "vlaky", "autobusy", "vlakyautobusy"]
         )
         XCTAssertEqual(
             AppTimetableGroup.integratedSystems.timetables.map(\.slug),
@@ -6612,12 +6612,12 @@ final class KastanAppTests: XCTestCase {
             }
         )
         let citySlugs = Set(AppTimetableGroup.cityTransport.timetables.map(\.slug))
-        XCTAssertEqual(citySlugs.count, 106)
+        XCTAssertEqual(citySlugs.count, 104)
         XCTAssertTrue(
             Set([
                 "ceskykrumlov", "milevsko", "vimperk", "novemestonamorave", "dvurkralove",
                 "kostelecnadorlici", "rychnov", "jablonec", "ustinadorlici", "kralupy",
-                "mnisekpodbrdy", "ricany", "roudnice", "varnsdorf",
+                "ricany", "roudnice", "varnsdorf",
             ]).isSubset(of: citySlugs)
         )
         XCTAssertFalse(citySlugs.contains("praha"))
@@ -6627,6 +6627,8 @@ final class KastanAppTests: XCTestCase {
         )
         let groupedSlugs = Set(AppTimetableGroup.allCases.flatMap { $0.timetables.map(\.slug) })
         XCTAssertEqual(groupedSlugs, Set(IDOSTimetable.known.map(\.slug)))
+        XCTAssertEqual(groupedSlugs.count, 118)
+        XCTAssertTrue(groupedSlugs.isDisjoint(with: ["vlakyautobusymhd", "brandys", "mnisekpodbrdy"]))
         XCTAssertEqual(
             AppTimetableGroup.stationTimetables.prefix(11).map(\.slug),
             [
@@ -6765,6 +6767,10 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertEqual(favorites.slugs, ["odis", "pid"])
         XCTAssertEqual(TimetableFavorites(serialized: favorites.serialized), favorites)
+        let savedBeforeCatalogChange = TimetableFavorites(
+            serialized: #"["brandys","vlakyautobusymhd","mnisekpodbrdy","pid"]"#
+        )
+        XCTAssertEqual(savedBeforeCatalogChange.timetables.map(\.slug), ["pid"])
     }
 
     func testFavoriteTimetablesKeepEqualIdentifiersFromDifferentSourcesDistinct() {

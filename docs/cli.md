@@ -375,9 +375,9 @@ swift run kastan connections Ostrava "Frýdek-Místek" --timetable odis
 swift run kastan timetables
 ```
 
-The built-in catalog mirrors all 106 standalone Urban Public Transport city catalogs currently published by IDOS,
-in addition to the general and integrated-system choices. Prague is represented by `pid` instead of a duplicate
-standalone city catalog. Run `timetables` to list every built-in slug and display name.
+The built-in catalog includes 118 IDOS timetables, including 104 standalone Urban Public Transport city catalogs.
+Prague is represented by `pid`. The historical slug `vlakyautobusymhd` resolves to All timetables. Run `timetables`
+to list every current built-in slug and display name.
 
 ## Data Source
 

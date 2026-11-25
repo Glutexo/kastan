@@ -241,10 +241,10 @@ plus its timetable and coordinate adapters; historical optional defaults such as
 until a conformer declares them explicitly. The legacy empty adjacent-page fallback remains available. New
 integrations should use `TransitDataSource` or its capability protocols.
 
-`IDOSDataSource.timetables` mirrors the current IDOS catalog, including all ten integrated systems and all 106
-standalone Urban Public Transport cities. Prague is represented by its `pid` catalog instead of a duplicate
-standalone city. `resolveTimetable(_:)` accepts each built-in display name or URL slug and continues to accept a
-valid custom IDOS slug.
+`IDOSDataSource.timetables` lists 118 current IDOS timetables, including ten integrated systems and 104 standalone
+Urban Public Transport cities. Prague is represented by its `pid` catalog. `resolveTimetable(_:)` accepts each
+built-in display name and URL slug, as well as custom IDOS slugs. The historical slug `vlakyautobusymhd` resolves to
+All timetables. Requests for the retired `brandys` and `mnisekpodbrdy` catalogs report an invalid timetable.
 
 Connection-result, service, and departure identifiers are opaque and must not be parsed by clients. Pass the exact
 owning timetable back to `serviceDetail(id:timetable:language:)`; the shorter compatibility overload is suitable only

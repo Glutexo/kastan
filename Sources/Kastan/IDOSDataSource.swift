@@ -125,7 +125,6 @@ public struct TransitDeparturePage: Sendable {
 /// Identifies the catalogs whose live IDOS advanced form publishes the accommodation control.
 private let idosBedOrCouchetteTimetableIdentifiers: Set<String> = [
     "vlakyautobusymhdvse",
-    "vlakyautobusymhd",
     "vlaky",
     "vlakyautobusy",
 ]
@@ -274,6 +273,9 @@ public struct IDOSDataSource: IDOSClienting {
                 expected: descriptor.id,
                 actual: timetable.dataSourceID
             )
+        }
+        guard !TransitTimetable.retiredCitySlugs.contains(timetable.identifier.lowercased()) else {
+            throw IDOSError.invalidTimetable(timetable.identifier)
         }
     }
 
@@ -2832,6 +2834,9 @@ public struct TransitTimetable: Codable, Equatable, Sendable {
 
     public static let defaultTimetable = TransitTimetable(slug: "vlakyautobusymhdvse", displayName: "All timetables")
 
+    /// These former standalone city catalogs now redirect to All timetables.
+    fileprivate static let retiredCitySlugs: Set<String> = ["brandys", "mnisekpodbrdy"]
+
     public static var known: [TransitTimetable] {
         baseTimetables + mhdNames
             .map { name in
@@ -2844,7 +2849,6 @@ public struct TransitTimetable: Codable, Equatable, Sendable {
 
     private static let baseTimetables: [TransitTimetable] = [
         .defaultTimetable,
-        TransitTimetable(slug: "vlakyautobusymhd", displayName: "Trains + Buses + Urban Public Transport"),
         TransitTimetable(slug: "vlaky", displayName: "Trains"),
         TransitTimetable(slug: "autobusy", displayName: "Buses"),
         TransitTimetable(slug: "vlakyautobusy", displayName: "Trains + Buses"),
@@ -2870,7 +2874,7 @@ public struct TransitTimetable: Codable, Equatable, Sendable {
             return timetable
         }
 
-        guard let customSlug = slugCandidate(value) else {
+        guard let customSlug = slugCandidate(value), !retiredCitySlugs.contains(customSlug) else {
             throw IDOSError.invalidTimetable(value)
         }
 
@@ -2882,7 +2886,9 @@ public struct TransitTimetable: Codable, Equatable, Sendable {
             "all": .defaultTimetable,
             "default": .defaultTimetable,
             "vlakyautobusymhdvse": .defaultTimetable,
-            "vlakyautobusymhd": known.first { $0.slug == "vlakyautobusymhd" }!,
+            // IDOS redirects the former combined catalog to All timetables.
+            "vlakyautobusymhd": .defaultTimetable,
+            lookupKey("Trains + Buses + Urban Public Transport"): .defaultTimetable,
             "train": known.first { $0.slug == "vlaky" }!,
             "trains": known.first { $0.slug == "vlaky" }!,
             "bus": known.first { $0.slug == "autobusy" }!,
@@ -2939,7 +2945,6 @@ public struct TransitTimetable: Codable, Equatable, Sendable {
 
     /// Preserves the shorter URL slugs published by IDOS when they cannot be derived from the visible city name.
     private static let mhdSlugOverrides: [String: String] = [
-        "Brandýs n.L.-St.Bol.": "brandys",
         "Bystřice nad Pernštejnem": "bystrice",
         "Dvůr Králové n. L.": "dvurkralove",
         "Jablonec nad Nisou": "jablonec",
@@ -2958,7 +2963,6 @@ public struct TransitTimetable: Codable, Equatable, Sendable {
         "Benešov",
         "Bílina",
         "Blansko",
-        "Brandýs n.L.-St.Bol.",
         "Bruntál",
         "Bystřice nad Pernštejnem",
         "Břeclav",
@@ -3005,7 +3009,6 @@ public struct TransitTimetable: Codable, Equatable, Sendable {
         "Mariánské Lázně",
         "Milevsko",
         "Mladá Boleslav",
-        "Mníšek pod Brdy",
         "Most a Litvínov",
         "Náchod",
         "Nové Město na Moravě",

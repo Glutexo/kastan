@@ -1708,7 +1708,6 @@ import Testing
         "jablonec": "Jablonec nad Nisou",
         "ustinadorlici": "Ústí nad Orlicí",
         "kralupy": "Kralupy nad Vltavou",
-        "mnisekpodbrdy": "Mníšek pod Brdy",
         "ricany": "Říčany",
         "roudnice": "Roudnice nad Labem",
         "varnsdorf": "Varnsdorf",
@@ -1716,7 +1715,10 @@ import Testing
 
     #expect(timetables?.contains { $0["slug"] as? String == "vlakyautobusymhdvse" } == true)
     #expect(timetables?.contains { $0["displayName"] as? String == "All timetables" } == true)
-    #expect(cityTimetables?.count == 106)
+    #expect(timetables?.count == 118)
+    #expect(cityTimetables?.count == 104)
+    let slugs = Set(timetables?.compactMap { $0["slug"] as? String } ?? [])
+    #expect(slugs.isDisjoint(with: ["vlakyautobusymhd", "brandys", "mnisekpodbrdy"]))
     #expect(cityTimetables?.contains { $0["slug"] as? String == "praha" } == false)
     for (slug, city) in addedCityCatalogs {
         #expect(cityTimetables?.contains {
@@ -1923,6 +1925,8 @@ import Testing
 
 @Test func timetableResolverAcceptsKnownAliasesAndCustomSlugs() throws {
     #expect(try IDOSTimetable.resolve("all timetables").slug == "vlakyautobusymhdvse")
+    #expect(try IDOSTimetable.resolve("vlakyautobusymhd") == .defaultTimetable)
+    #expect(try IDOSTimetable.resolve("Trains + Buses + Urban Public Transport") == .defaultTimetable)
     #expect(try IDOSTimetable.resolve("Prague + PID").slug == "pid")
     #expect(try IDOSTimetable.resolve("IDSOK").slug == "idsok")
     #expect(try IDOSTimetable.resolve("IREDO").slug == "iredo")
@@ -1940,6 +1944,23 @@ import Testing
     #expect(try IDOSTimetable.resolve("Rychnov nad Kněžnou").slug == "rychnov")
     #expect(try IDOSTimetable.resolve("Zlín a Otrokovice").slug == "zlin")
     #expect(try IDOSTimetable.resolve("karlovyvary").slug == "karlovyvary")
+}
+
+@Test(arguments: ["brandys", "mnisekpodbrdy"])
+func retiredCityTimetablesCannotSilentlySearchAllTimetables(slug: String) async {
+    #expect(throws: IDOSError.self) {
+        try IDOSTimetable.resolve(slug)
+    }
+    let source = IDOSDataSource(baseURL: URL(fileURLWithPath: "/unused"))
+    let archived = IDOSTimetable(slug: slug, displayName: slug)
+    do {
+        _ = try await source.connectionSearchOptions(for: archived, language: .czech)
+        Issue.record("Expected the retired timetable to be rejected before requesting its form.")
+    } catch IDOSError.invalidTimetable(let value) {
+        #expect(value == slug)
+    } catch {
+        Issue.record("Unexpected error: \(error).")
+    }
 }
 
 @Test func timetableResolverRejectsUnknownNonSlugNames() throws {

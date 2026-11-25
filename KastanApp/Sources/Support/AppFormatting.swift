@@ -590,7 +590,6 @@ enum AppTimetableGroup: CaseIterable, Identifiable {
 
     private static let generalSlugs: Set<String> = [
         "vlakyautobusymhdvse",
-        "vlakyautobusymhd",
         "vlaky",
         "autobusy",
         "vlakyautobusy"

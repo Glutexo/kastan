@@ -238,13 +238,14 @@ one ordinary provider is registered.
   directly. The same actions remain available from the app menus. Search-mode commands stay in View, while
   Favorite timetables belongs to Window and remains available from every app window. These actions open the
   timetable-favorites manager and app information in their own windows, with concise labels that name their content.
-- Timetable menus grouped into general rail and bus choices, integrated transport systems, and city networks.
+- Timetable menus group the 118 currently published IDOS choices into general rail and bus choices, integrated
+  transport systems, and city networks.
   Trains is selected until the user chooses another timetable; the most recent valid choice for each data source
   initializes new workspaces, including after app relaunch. If that choice is no longer in the current catalog, the
   search mode uses its regular default. The deterministic mock catalog is excluded from this preference and always
   uses its declared default after relaunch. Station Timetables offer that shared rail default together
   with the complete current IDOS integrated-system catalog — PID, IDS JMK, ODIS, IDOL, IDSOK, IREDO, DÚK, IDPK,
-  IDZK, and IDESKA — and all 106 standalone city networks currently published by IDOS while omitting unsupported
+  IDZK, and IDESKA — and all 104 standalone city networks currently published by IDOS while omitting unsupported
   broad combinations such as All timetables. Prague remains available through PID rather than a duplicate standalone
   city catalog, matching IDOS.
   Persistent favorites repeat in their own first section without disappearing from the catalog, and the favorite
