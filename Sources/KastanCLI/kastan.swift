@@ -111,7 +111,7 @@ struct KastanApp {
 
 /// Executes one Kaštan CLI invocation and renders its human-readable output in the selected language.
 struct CommandRunner {
-    let version = "0.9.3"
+    let version = "0.10.0"
     let dataSource: any TransitDataSource
     let dataSourceRegistry: TransitDataSourceRegistry
     let aliasFile: StopAliasFile
