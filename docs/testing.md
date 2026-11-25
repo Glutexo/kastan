@@ -24,7 +24,7 @@ Without Make, select the same suite directly:
 KASTAN_RUN_LIVE_IDOS_TESTS=1 swift test --filter IDOSLiveTests
 ```
 
-The suite sends read-only requests to `https://idos.cz` through the public `IDOSDataSource` library API. It checks
+The suite sends read-only requests to `https://idos.cz` using the library API and direct checks of the live forms. It checks
 the published timetable-validity form, both browser autocomplete variants, connection results, departure boards,
 service details, and Station Timetable line, stop, and result parsing. It also reads the current advanced connection
 form and verifies that Kaštan sends the same published transport-mode controls, inverted checkbox values, default
@@ -37,6 +37,16 @@ request checks that IDOS returns identical autocomplete data, media type, and ad
 agents. Search dates are generated at runtime, and Station Timetable terminals come from the live line suggestions
 instead of being hard-coded. The urban-service check also verifies that a dated route retains arrival and departure
 times and can be exported through IDOS to iCalendar.
+
+The catalog check visits every configured timetable's connection form in Czech and English. It requires HTTP 200
+at the original address and reports any redirect destination. It independently reads the published filters and
+individual transport modes, compares them with Kaštan's parser, and checks the published values for transfer,
+walking, accommodation, carrier, and line controls. Failures identify the exact form URL. The following command
+runs the catalog check on its own.
+
+```sh
+KASTAN_RUN_LIVE_IDOS_TESTS=1 swift test --filter testTimetableCatalogMatchesLiveConnectionForms
+```
 
 Live tests are skipped unless `KASTAN_RUN_LIVE_IDOS_TESTS=1` is set. They are intentionally not part of `make test`:
 an internet outage, temporary IDOS failure, or live timetable-data gap should not make the deterministic suite fail.

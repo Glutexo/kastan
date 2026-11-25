@@ -306,6 +306,15 @@ final class IDOSLiveTests: XCTestCase {
         XCTAssertEqual(all.transportModes, Set(TransitConnectionTransportMode.allCases))
     }
 
+    func testTimetableCatalogMatchesLiveConnectionForms() async {
+        let source = IDOSDataSource()
+        XCTAssertFalse(source.timetables.isEmpty)
+        let failures = await IDOSLiveCatalogAudit.failures(for: source)
+        for failure in failures {
+            XCTFail(failure)
+        }
+    }
+
     func testKastanAndSafariReceiveEquivalentAutocompleteDataAndFormat() async throws {
         var components = try XCTUnwrap(
             URLComponents(string: "https://idos.cz/en/vlaky/Ajax/SearchTimetableObjects/")
