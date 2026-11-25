@@ -210,6 +210,7 @@ enum LocalizationKey: String, CaseIterable {
     case helpSourceRequired = "help.sourceRequired"
     case helpDefaultTimetable = "help.defaultTimetable"
     case helpTransportMode = "help.transportMode"
+    case helpNameFilters = "help.nameFilters"
 }
 
 /// Provides localized product text without changing command names, option names, or JSON keys.

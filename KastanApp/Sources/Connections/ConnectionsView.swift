@@ -787,7 +787,10 @@ struct ConnectionsView: View {
                 .layoutPriority(1)
         case .transportMode:
             HStack(spacing: JourneyOptionRowLayout.fieldSpacing) {
-                transportModeFilterOperationPicker(option: option)
+                filterOperationPicker(
+                    selection: transportModeFilterOperationBinding(for: option),
+                    label: option.wrappedValue.kind.localizedTitle
+                )
                 JourneyTransportModePicker(
                     selection: transportModeBinding(for: option),
                     availableModes: model.availableTransportModes(for: option.wrappedValue.id)
@@ -828,23 +831,40 @@ struct ConnectionsView: View {
                 choices: model.availableJourneyPreferences(for: option.wrappedValue.id),
                 label: option.wrappedValue.kind.localizedTitle
             )
+        case .carriers, .lines:
+            let kind = option.wrappedValue.kind
+            let id = option.wrappedValue.id
+            let operation = Binding(
+                get: { option.wrappedValue.nameFilterOperation },
+                set: { model.setNameFilterOperation($0, for: id) }
+            )
+            HStack(spacing: JourneyOptionRowLayout.fieldSpacing) {
+                filterOperationPicker(selection: operation, label: kind.localizedTitle)
+                TextField(
+                    kind == .carriers ? LocalizedStringKey("Carrier name") : "Line number or name",
+                    text: option.filterName
+                )
+                .frame(minWidth: JourneyOptionRowLayout.minimumFlexibleValueWidth, maxWidth: 520)
+                .layoutPriority(1)
+            }
         }
     }
 
-    /// Presents the two explicit transport-filter operations before the grouped mode catalog.
-    private func transportModeFilterOperationPicker(
-        option: Binding<JourneyOptionEntry>
+    /// Presents the shared operation before the transport mode, carrier, or line.
+    private func filterOperationPicker(
+        selection: Binding<TransitConnectionFilterOperation>,
+        label: String
     ) -> some View {
-        Picker(selection: transportModeFilterOperationBinding(for: option)) {
-            ForEach(TransitConnectionTransportModeFilterOperation.allCases, id: \.self) { operation in
+        Picker(selection: selection) {
+            ForEach(TransitConnectionFilterOperation.allCases, id: \.self) { operation in
                 Text(verbatim: operation.localizedTitle).tag(operation)
             }
         } label: {
-            Text(verbatim: option.wrappedValue.kind.localizedTitle)
+            Text(verbatim: label)
         }
         .labelsHidden()
         .fixedSize()
-        .accessibilityLabel(Text(verbatim: option.wrappedValue.kind.localizedTitle))
+        .accessibilityLabel(Text(verbatim: label))
     }
 
     /// Routes operation changes through the model while retaining the selected means of transport.

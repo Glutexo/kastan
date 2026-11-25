@@ -343,6 +343,8 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
     case walkingDistances
     case onlyConnections
     case preference
+    case carriers
+    case lines
 
     var id: Self { self }
 
@@ -361,6 +363,10 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
             JourneyConnectionRequirement.allCases.map(\.transitConnectionOption)
         case .preference:
             JourneyPreference.allCases.map(\.transitConnectionOption)
+        case .carriers:
+            [.carrierFilter]
+        case .lines:
+            [.lineFilter]
         }
     }
 
@@ -379,6 +385,10 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
             AppLocalization.string("Only connections")
         case .preference:
             AppLocalization.string("Prefer")
+        case .carriers:
+            AppLocalization.string("Carriers")
+        case .lines:
+            AppLocalization.string("Lines")
         }
     }
 
@@ -389,7 +399,7 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
             nil
         case .transfers, .walkingDistances:
             .transfers
-        case .onlyConnections, .preference:
+        case .onlyConnections, .preference, .carriers, .lines:
             .additionalParameters
         }
     }
@@ -405,7 +415,11 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
     /// Intermediate places and combined choices can form repeatable rows with distinct subchoices.
     var allowsMultiple: Bool {
         self == .via || self == .transportMode || self == .transfers || self == .walkingDistances ||
-            self == .onlyConnections || self == .preference
+            self == .onlyConnections || self == .preference || usesNameFilter
+    }
+
+    var usesNameFilter: Bool {
+        self == .carriers || self == .lines
     }
 
     /// Identifies conditions whose previous value should survive a temporary direct-only search.
@@ -414,7 +428,7 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
         case .transfers:
             true
         case .via, .transportMode, .walkingDistances,
-             .onlyConnections, .preference:
+             .onlyConnections, .preference, .carriers, .lines:
             false
         }
     }
@@ -475,6 +489,8 @@ struct JourneyOptionEntry: Identifiable, Equatable {
     var preference: JourneyPreference
     var transportModeFilterOperation: TransitConnectionTransportModeFilterOperation
     var transportMode: TransitConnectionTransportMode
+    var filterName = ""
+    var nameFilterOperation: TransitConnectionFilterOperation = .only
 
     /// Distinguishes the two transfer-waiting rows that direct-only mode makes meaningless.
     var isTransferTimeCondition: Bool {
@@ -872,6 +888,12 @@ final class ConnectionsViewModel: ObservableObject {
         )
     }
 
+    private func nameFilter(for kind: JourneyOptionKind) -> TransitConnectionNameFilter? {
+        let rows = journeyOptions.filter { $0.kind == kind }
+        guard let operation = rows.first?.nameFilterOperation else { return nil }
+        return TransitConnectionNameFilter(operation: operation, names: rows.map(\.filterName))
+    }
+
     /// Returns the single visible transfer ceiling, including the zero that represents direct-only mode.
     var maximumTransfers: Int? {
         journeyOptions.first {
@@ -1108,6 +1130,12 @@ final class ConnectionsViewModel: ObservableObject {
 
         rememberTransferValue(from: currentOption)
         journeyOptions[index].kind = kind
+        if kind.usesNameFilter {
+            journeyOptions[index].filterName = ""
+            journeyOptions[index].nameFilterOperation = journeyOptions.first {
+                $0.id != id && $0.kind == kind
+            }?.nameFilterOperation ?? .only
+        }
         if let transferConstraint {
             journeyOptions[index].transferConstraint = transferConstraint
         }
@@ -1207,6 +1235,16 @@ final class ConnectionsViewModel: ObservableObject {
         }
     }
 
+    /// Applies one operation to the entire carrier or line list independently.
+    func setNameFilterOperation(_ operation: TransitConnectionFilterOperation, for id: JourneyOptionEntry.ID) {
+        guard let kind = journeyOptions.first(where: { $0.id == id })?.kind, kind.usesNameFilter else {
+            return
+        }
+        for index in journeyOptions.indices where journeyOptions[index].kind == kind {
+            journeyOptions[index].nameFilterOperation = operation
+        }
+    }
+
     /// Applies one distinct transport choice so visible rows cannot create contradictory rules for the same mode.
     func setTransportMode(
         _ mode: TransitConnectionTransportMode,
@@ -1223,9 +1261,11 @@ final class ConnectionsViewModel: ObservableObject {
 
     /// Inserts a new, immediately editable condition directly after the selected row.
     func addJourneyOption(after id: JourneyOptionEntry.ID) {
-        guard let index = journeyOptions.firstIndex(where: { $0.id == id }),
-              let kind = availableJourneyOptionKindsForNewRow
-        else { return }
+        guard let index = journeyOptions.firstIndex(where: { $0.id == id }) else { return }
+        let currentKind = journeyOptions[index].kind
+        guard let kind = currentKind.usesNameFilter ? currentKind : availableJourneyOptionKindsForNewRow else {
+            return
+        }
         journeyOptions.insert(makeJourneyOptionEntry(kind: kind), at: index + 1)
     }
 
@@ -1393,6 +1433,8 @@ final class ConnectionsViewModel: ObservableObject {
             via: requestedViaEntries.map(\.place),
             viaSelections: requestedViaSelections,
             transportModeFilter: requestedTransportModeFilter,
+            carrierFilter: supportsConnectionOption(.carrierFilter) ? nameFilter(for: .carriers) : nil,
+            lineFilter: supportsConnectionOption(.lineFilter) ? nameFilter(for: .lines) : nil,
             maxTransfers: requestedMaximumTransfers,
             minimumTransferTime: requestHasNoTransfers ||
                 !supportsConnectionOption(.minimumTransferTime)
@@ -1480,6 +1522,11 @@ final class ConnectionsViewModel: ObservableObject {
         if kind == .preference,
            let preference = availableJourneyPreferences(excluding: nil).first {
             option.preference = preference
+        }
+        if kind.usesNameFilter {
+            option.nameFilterOperation = journeyOptions.first {
+                $0.kind == kind
+            }?.nameFilterOperation ?? .only
         }
         return option
     }

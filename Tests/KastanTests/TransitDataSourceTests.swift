@@ -74,6 +74,8 @@ func expectTransitDataSourceContract(
         .onlyDirect,
         .via,
         .transportModeFilters,
+        .carrierFilter,
+        .lineFilter,
         .maximumTransfers,
         .minimumTransferTime,
         .maximumTransferTime,

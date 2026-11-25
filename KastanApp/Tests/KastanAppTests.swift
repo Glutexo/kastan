@@ -7997,6 +7997,42 @@ final class KastanAppTests: XCTestCase {
         XCTAssertNil(model.errorMessage)
     }
 
+    func testCarrierAndLineRowsBuildIndependentLists() async throws {
+        let client = MockIDOSClient()
+        let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())
+        model.from = "Praha"
+        model.to = "Brno"
+        let firstCarrier = try XCTUnwrap(model.journeyOptions.first?.id)
+        model.setJourneyOptionKind(.carriers, for: firstCarrier)
+        model.journeyOptions[0].filterName = " České dráhy "
+        model.setNameFilterOperation(.exclude, for: firstCarrier)
+        model.addJourneyOption(after: firstCarrier)
+        XCTAssertEqual(model.journeyOptions.map(\.kind), [.carriers, .carriers])
+        XCTAssertEqual(model.journeyOptions.map(\.nameFilterOperation), [.exclude, .exclude])
+        let secondCarrier = model.journeyOptions[1].id
+        model.journeyOptions[1].filterName = "RegioJet"
+        model.addJourneyOption(after: secondCarrier)
+        let firstLine = model.journeyOptions[2].id
+        model.setJourneyOptionKind(.lines, for: firstLine)
+        model.journeyOptions[2].filterName = "R19"
+        model.addJourneyOption(after: firstLine)
+        model.journeyOptions[3].filterName = "Ex3"
+        model.addJourneyOption(after: model.journeyOptions[3].id)
+        model.journeyOptions[4].filterName = " "
+
+        model.setNameFilterOperation(.only, for: secondCarrier)
+        XCTAssertEqual(model.journeyOptions[0].nameFilterOperation, .only)
+        model.setNameFilterOperation(.exclude, for: firstCarrier)
+        XCTAssertEqual(model.journeyOptions[1].nameFilterOperation, .exclude)
+        XCTAssertEqual(model.journeyOptions.suffix(3).map(\.nameFilterOperation), [.only, .only, .only])
+
+        await model.search()
+
+        let request = await client.lastConnectionRequest
+        XCTAssertEqual(request?.carrierFilter, .init(operation: .exclude, names: ["České dráhy", "RegioJet"]))
+        XCTAssertEqual(request?.lineFilter, .init(operation: .only, names: ["R19", "Ex3"]))
+    }
+
     func testUntouchedConnectionDateAndTimeStayCurrentUntilSearchOrEditing() async {
         let client = MockIDOSClient()
         let model = ConnectionsViewModel(client: client, calendarImporter: RecordingCalendarImporter())
@@ -8789,7 +8825,7 @@ final class KastanAppTests: XCTestCase {
         )
         XCTAssertEqual(
             JourneyOptionKind.allCases.filter { $0.group == .additionalParameters },
-            [.onlyConnections, .preference]
+            [.onlyConnections, .preference, .carriers, .lines]
         )
         XCTAssertEqual(
             Set(JourneyOptionKind.allCases.flatMap(\.transitConnectionOptions)).union([.onlyDirect]),

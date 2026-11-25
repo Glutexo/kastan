@@ -166,7 +166,7 @@ presenting a capability.
 
 Connection-search controls use a second, fine-grained contract. A descriptor lists its supported
 `TransitConnectionOption` values in `connectionOptions`, covering Direct connections only, Via, detailed
-means-of-transport filters, transfer-count and transfer-time limits, walking limits, the two walking-transfer policies,
+means-of-transport, carrier, and line filters, transfer-count and transfer-time limits, walking limits, the two walking-transfer policies,
 wheelchair-accessible and low-floor-only results, train preference, the three passenger-needs filters, busy-route
 preference, and bed/couchette preference independently. Advertising
 `TransitDataSourceCapability.connections` does not imply support for any of these request options. Interfaces should
@@ -325,6 +325,11 @@ stable mode cases follow four semantic groups:
 - General: `.bus`, `.ship`, and `.other`.
 - Buses: `.localBus`, `.longDistanceBus`, and `.internationalBus`.
 - City transport: `.cityTram`, `.cityBus`, `.cityCableway`, and `.cityTrolleybus`.
+
+`carrierFilter` and `lineFilter` each take an optional `TransitConnectionNameFilter` with one independent operation
+(`.only` or `.exclude`) and a list of names. Use carrier names for `carrierFilter` and line numbers or names for
+`lineFilter`. The initializer trims each entry and returns `nil` if the list has no nonblank entries. IDOS receives
+the list in its comma-separated form when the selected timetable publishes the corresponding controls.
 
 `maxTransfers` includes zero, while
 `minimumTransferTime` accepts minute values or `-1` for the timetable's standard. `maximumTransferTime`,

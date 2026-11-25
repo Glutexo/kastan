@@ -200,6 +200,8 @@ final class IDOSLiveTests: XCTestCase {
             from: "Praha",
             to: "Brno",
             transportModeFilter: .init(operation: .exclude, modes: [.regionalTrain]),
+            carrierFilter: .init(operation: .exclude, names: ["RegioJet", "LEO Express"]),
+            lineFilter: .init(operation: .only, names: ["R19", "Ex3"]),
             maxTransfers: 3,
             sameNameWalkingTransfersOnly: true,
             wheelchairAccessibleConnectionsOnly: true,
@@ -228,6 +230,10 @@ final class IDOSLiveTests: XCTestCase {
         )
         XCTAssertEqual(values["AdvancedForm.AdvancedFormIsOpen"] ?? nil, "true")
         XCTAssertEqual(values["AdvancedForm.MaxChange"] ?? nil, "3")
+        XCTAssertEqual(values["AdvancedForm.OwnerMaskNames"] ?? nil, "RegioJet,LEO Express")
+        XCTAssertEqual(values["AdvancedForm.OwnerMaskExcludeInclude"] ?? nil, "False")
+        XCTAssertEqual(values["AdvancedForm.Num1MaskNames"] ?? nil, "R19,Ex3")
+        XCTAssertEqual(values["AdvancedForm.Num1MaskExcludeInclude"] ?? nil, "True")
         let toggleNames = [
             "AdvancedForm.LimitWalkArcs",
             "AdvancedForm.LowDeckConn",

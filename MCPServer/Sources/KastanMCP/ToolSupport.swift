@@ -92,6 +92,10 @@ struct ToolArguments {
         guard let value = values[name] else {
             return defaultValue
         }
+        return try stringArray(value, name: name)
+    }
+
+    private func stringArray(_ value: Value, name: String) throws -> [String] {
         guard let array = value.arrayValue else {
             throw MCPToolError.invalidType(name: name, expected: "an array of strings")
         }
@@ -181,6 +185,35 @@ struct ToolArguments {
             return mode
         }
         return TransitConnectionTransportModeFilter(operation: operation, modes: modes)
+    }
+
+    /// Reads one include or exclude list for named carriers or lines.
+    func nameFilter(_ name: String) throws -> TransitConnectionNameFilter? {
+        guard let value = values[name], !value.isNull else { return nil }
+        guard let object = value.objectValue else {
+            throw MCPToolError.invalidType(name: name, expected: "a filter object")
+        }
+        let unknown = Set(object.keys).subtracting(["operation", "names"]).sorted()
+        guard unknown.isEmpty else {
+            throw MCPToolError.unknownArguments(unknown.map { "\(name).\($0)" })
+        }
+        let operationValue = try requiredString("operation", in: object, path: name)
+        guard let operation = TransitConnectionFilterOperation(rawValue: operationValue) else {
+            throw MCPToolError.invalidValue(
+                name: "\(name).operation",
+                value: operationValue,
+                allowed: TransitConnectionFilterOperation.allCases.map(\.rawValue)
+            )
+        }
+        let namesPath = "\(name).names"
+        guard let value = object["names"] else {
+            throw MCPToolError.missingArgument(namesPath)
+        }
+        let names = try stringArray(value, name: namesPath)
+        guard let filter = TransitConnectionNameFilter(operation: operation, names: names) else {
+            throw MCPToolError.invalidType(name: namesPath, expected: "a non-empty array of strings")
+        }
+        return filter
     }
 
     /// Reads a required string from one closed nested argument object and reports its complete input path.
@@ -596,6 +629,8 @@ enum MCPOutputSchemas {
             "onlyDirect": booleanSchema,
             "via": stringArraySchema,
             "transportModeFilter": transportModeFilterSchema,
+            "carrierFilter": nameFilterSchema,
+            "lineFilter": nameFilterSchema,
             "maxTransfers": integerSchema,
             "minimumTransferTime": integerSchema,
             "maximumTransferTime": integerSchema,
@@ -792,6 +827,21 @@ enum MCPOutputSchemas {
         "type": "string",
         "enum": .array(TransitBedOrCouchettePreference.allCases.map { .string($0.rawValue) }),
     ])
+
+    static let nameFilterSchema = objectSchema(
+        properties: [
+            "operation": .object([
+                "type": "string",
+                "enum": .array(TransitConnectionFilterOperation.allCases.map { .string($0.rawValue) }),
+            ]),
+            "names": .object([
+                "type": "array",
+                "items": stringSchema,
+                "minItems": 1,
+            ]),
+        ],
+        required: ["operation", "names"]
+    )
 
     private static let transportModeFilterSchema = objectSchema(
         properties: [

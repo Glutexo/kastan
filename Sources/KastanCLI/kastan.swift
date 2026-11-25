@@ -14,6 +14,10 @@ extension TransitConnectionOption {
             ["--via", "-V"]
         case .transportModeFilters:
             ["--transport-mode"]
+        case .carrierFilter:
+            ["--carrier"]
+        case .lineFilter:
+            ["--line"]
         case .maximumTransfers:
             ["--max-transfers", "-X"]
         case .minimumTransferTime:
@@ -342,7 +346,7 @@ struct CommandRunner {
         let transferOptionsMarker = "  -X, --max-transfers"
         return help.replacingOccurrences(
             of: transferOptionsMarker,
-            with: localization.text(.helpTransportMode) + transferOptionsMarker
+            with: localization.text(.helpTransportMode) + localization.text(.helpNameFilters) + transferOptionsMarker
         )
     }
 
@@ -551,6 +555,8 @@ struct CommandRunner {
         let toPlace = resolvePlace(endpoints.to, in: aliasDatabase)
         let viaPlaces = options.values(for: "--via", short: "-V").map { resolvePlace($0, in: aliasDatabase) }
         let transportModeFilter = try options.transportModeFilter(for: "--transport-mode")
+        let carrierFilter = try options.nameFilter(for: "--carrier")
+        let lineFilter = try options.nameFilter(for: "--line")
         let timetable = try resolveTimetable(
             explicitValue: options.value(for: "--timetable", short: "-T"),
             aliases: ([fromPlace, toPlace] + viaPlaces).compactMap(\.alias)
@@ -607,6 +613,8 @@ struct CommandRunner {
             onlyDirect: options.contains("--direct", short: "-x") || options.contains("--only-direct"),
             via: viaPlaces.map(\.station),
             transportModeFilter: transportModeFilter,
+            carrierFilter: carrierFilter,
+            lineFilter: lineFilter,
             maxTransfers: maxTransfers,
             minimumTransferTime: minimumTransferTime,
             maximumTransferTime: maximumTransferTime,
@@ -3227,6 +3235,32 @@ private struct CommandOptions {
             operation: operation,
             modes: rules.map(\.mode)
         )
+    }
+
+    /// Combines repeated names under one operation for the selected list.
+    func nameFilter(for option: String) throws -> TransitConnectionNameFilter? {
+        let values = values(for: option)
+        guard !values.isEmpty else { return nil }
+
+        let rules = try values.map { value -> (operation: TransitConnectionFilterOperation, name: String) in
+            let parts = value.split(separator: ":", maxSplits: 1, omittingEmptySubsequences: false)
+            guard parts.count == 2,
+                  let operation = TransitConnectionFilterOperation(rawValue: parts[0].lowercased()),
+                  !parts[1].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            else {
+                throw CommandError.invalidOptionValue(
+                    name: option,
+                    value: value,
+                    allowed: ["only:<name>", "exclude:<name>"]
+                )
+            }
+            return (operation, String(parts[1]))
+        }
+        let operation = rules[0].operation
+        guard rules.allSatisfy({ $0.operation == operation }) else {
+            throw CommandError.conflictingOptions("\(option) only", "\(option) exclude")
+        }
+        return TransitConnectionNameFilter(operation: operation, names: rules.map(\.name))
     }
 
     func contains(_ name: String, short shortName: String? = nil) -> Bool {

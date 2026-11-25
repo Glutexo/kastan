@@ -926,6 +926,8 @@ import Testing
                 operation: .only,
                 modes: [.regionalTrain, .longDistanceBus]
             ),
+            expectedCarrierFilter: .init(operation: .exclude, names: ["RegioJet", "LEO Express"]),
+            expectedLineFilter: .init(operation: .only, names: ["R19", "Ex3"]),
             expectedMinimumTransferTime: -1,
             expectedMaximumTransferTime: 360,
             expectedMaximumWalkingTime: 45,
@@ -947,6 +949,8 @@ import Testing
             "--min-transfer-time", "-1",
             "--transport-mode", "only:regional-train",
             "--transport-mode", "only:long-distance-bus",
+            "--carrier", "exclude:RegioJet", "--carrier", "exclude: LEO Express ",
+            "--line", "only:R19", "--line", "only:Ex3",
             "--max-transfer-time", "360",
             "--max-walking-time", "45",
             "--max-city-walking-time", "20",
@@ -972,6 +976,12 @@ import Testing
         transportModeFilter["modes"] as? [String]
             == ["regionalTrain", "longDistanceBus"]
     )
+    let carrierFilter = try #require(request["carrierFilter"] as? [String: Any])
+    #expect(carrierFilter["operation"] as? String == "exclude")
+    #expect(carrierFilter["names"] as? [String] == ["RegioJet", "LEO Express"])
+    let lineFilter = try #require(request["lineFilter"] as? [String: Any])
+    #expect(lineFilter["operation"] as? String == "only")
+    #expect(lineFilter["names"] as? [String] == ["R19", "Ex3"])
     #expect(request["maximumTransferTime"] as? Int == 360)
     #expect(request["maximumWalkingTime"] as? Int == 45)
     #expect(request["maximumCityWalkingTime"] as? Int == 20)
@@ -2193,6 +2203,28 @@ import Testing
             "AdvancedForm.AutoStrategy",
         ].contains(item.name)
     })
+}
+
+@Test(arguments: TransitConnectionFilterOperation.allCases)
+func connectionRequestSerializesCarrierAndLineFilters(operation: TransitConnectionFilterOperation) {
+    let request = TransitConnectionRequest(
+        from: "Praha",
+        to: "Brno",
+        carrierFilter: .init(operation: operation, names: [" České dráhy ", " ", "RegioJet"]),
+        lineFilter: .init(operation: operation, names: ["R19", "Ex3"])
+    )
+    let items = request.formItems
+    let radioValue = operation == .only ? "True" : "False"
+
+    #expect(items.contains(.init(name: "AdvancedForm.AdvancedFormIsOpen", value: "true")))
+    #expect(items.contains(.init(name: "AdvancedForm.OwnerMaskNames", value: "České dráhy,RegioJet")))
+    #expect(items.contains(.init(name: "AdvancedForm.OwnerMaskExcludeInclude", value: radioValue)))
+    #expect(items.contains(.init(name: "AdvancedForm.Num1MaskNames", value: "R19,Ex3")))
+    #expect(items.contains(.init(name: "AdvancedForm.Num1MaskExcludeInclude", value: radioValue)))
+
+    let unsupportedItems = request.formItems(using: .init(transportModeIDs: [], fieldValues: [:]))
+    #expect(!unsupportedItems.contains { $0.name.contains("OwnerMask") || $0.name.contains("Num1Mask") })
+    #expect(TransitConnectionNameFilter(operation: operation, names: ["  "]) == nil)
 }
 
 @Test func connectionRequestUsesIDOSBedOrCouchettePreference() {
@@ -3646,6 +3678,8 @@ private struct MockIDOSClient: IDOSClienting {
     var expectedOnlyDirect = false
     var expectedVia: [String] = []
     var expectedTransportModeFilter: TransitConnectionTransportModeFilter? = nil
+    var expectedCarrierFilter: TransitConnectionNameFilter? = nil
+    var expectedLineFilter: TransitConnectionNameFilter? = nil
     var expectedMaxTransfers: Int? = nil
     var expectedMinimumTransferTime: Int? = nil
     var expectedMaximumTransferTime: Int? = nil
@@ -3722,6 +3756,8 @@ private struct MockIDOSClient: IDOSClienting {
         #expect(request.onlyDirect == expectedOnlyDirect)
         #expect(request.via == expectedVia)
         #expect(request.transportModeFilter == expectedTransportModeFilter)
+        #expect(request.carrierFilter == expectedCarrierFilter)
+        #expect(request.lineFilter == expectedLineFilter)
         #expect(request.maxTransfers == expectedMaxTransfers)
         #expect(request.minimumTransferTime == expectedMinimumTransferTime)
         #expect(request.maximumTransferTime == expectedMaximumTransferTime)

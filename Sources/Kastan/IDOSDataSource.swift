@@ -2409,6 +2409,10 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
     /// The operation applies to every mode in the filter, making `only` and `exclude` mutually exclusive. `nil`
     /// retains every default transport mode.
     public var transportModeFilter: TransitConnectionTransportModeFilter?
+    /// The named carriers to include or exclude.
+    public var carrierFilter: TransitConnectionNameFilter?
+    /// The named lines to include or exclude.
+    public var lineFilter: TransitConnectionNameFilter?
     /// The maximum number of transfers permitted, including zero, or `nil` for the IDOS default.
     public var maxTransfers: Int?
     /// The minimum transfer time in minutes, with `-1` selecting the timetable's standard transfer time.
@@ -2456,6 +2460,8 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
         via: [String] = [],
         viaSelections: [TransitPlaceSelection?]? = nil,
         transportModeFilter: TransitConnectionTransportModeFilter? = nil,
+        carrierFilter: TransitConnectionNameFilter? = nil,
+        lineFilter: TransitConnectionNameFilter? = nil,
         maxTransfers: Int? = nil,
         minimumTransferTime: Int? = nil,
         maximumTransferTime: Int? = nil,
@@ -2487,6 +2493,8 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
         self.via = via
         self.viaSelections = viaSelections
         self.transportModeFilter = transportModeFilter
+        self.carrierFilter = carrierFilter
+        self.lineFilter = lineFilter
         self.maxTransfers = maxTransfers
         self.minimumTransferTime = minimumTransferTime
         self.maximumTransferTime = maximumTransferTime
@@ -2642,10 +2650,16 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
                 ))
             }
 
-            appendIfPublished("AdvancedForm.OwnerMaskNames", value: "")
-            appendIfPublished("AdvancedForm.OwnerMaskExcludeInclude", value: "True")
-            appendIfPublished("AdvancedForm.Num1MaskNames", value: "")
-            appendIfPublished("AdvancedForm.Num1MaskExcludeInclude", value: "True")
+            func appendNameFilter(_ filter: TransitConnectionNameFilter?, field: String) {
+                let names = filter?.names ?? []
+                appendIfPublished("\(field)Names", value: names.joined(separator: ","))
+                appendIfPublished(
+                    "\(field)ExcludeInclude",
+                    value: !names.isEmpty && filter?.operation == .exclude ? "False" : "True"
+                )
+            }
+            appendNameFilter(carrierFilter, field: "AdvancedForm.OwnerMask")
+            appendNameFilter(lineFilter, field: "AdvancedForm.Num1Mask")
         }
 
         items.append(URLQueryItem(
@@ -2656,7 +2670,7 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
     }
 
     private var hasAdvancedOptions: Bool {
-        !via.isEmpty || transportModeFilter != nil ||
+        !via.isEmpty || transportModeFilter != nil || carrierFilter != nil || lineFilter != nil ||
             maxTransfers != nil || minimumTransferTime != nil ||
             maximumTransferTime != nil || maximumWalkingTime != nil ||
             maximumCityWalkingTime != nil || walkToNearbyStops != nil ||

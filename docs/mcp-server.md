@@ -177,6 +177,8 @@ Its journey options mirror the complete `TransitConnectionRequest` library contr
 - `onlyDirect` returns only direct connections when `true`.
 - `via` is an ordered array of places through which the connection must travel.
 - `transportModeFilter` is one object with `operation` (`only` or `exclude`) and a non-empty `modes` array.
+- `carrierFilter` and `lineFilter` each accept an independent object with `operation` (`only` or `exclude`) and a
+  non-empty `names` array. Use carrier names for `carrierFilter` and line numbers or names for `lineFilter`.
 - `maxTransfers` sets a non-negative maximum number of transfers, including zero.
 - `minimumTransferTime` sets the minimum transfer time in minutes; `-1` selects the timetable standard.
 - `maximumTransferTime` sets a non-negative maximum transfer time in minutes.

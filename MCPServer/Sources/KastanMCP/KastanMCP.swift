@@ -86,6 +86,10 @@ extension TransitConnectionOption {
             "via"
         case .transportModeFilters:
             "transportModeFilter"
+        case .carrierFilter:
+            "carrierFilter"
+        case .lineFilter:
+            "lineFilter"
         case .maximumTransfers:
             "maxTransfers"
         case .minimumTransferTime:
@@ -207,6 +211,8 @@ struct KastanMCPTools: Sendable {
                     "onlyDirect": booleanSchema("When true, return direct connections only."),
                     "via": stringArraySchema("Optional ordered places that the connection must travel via."),
                     "transportModeFilter": transportModeFilterSchema,
+                    "carrierFilter": nameFilterSchema("Include or exclude the listed carrier names."),
+                    "lineFilter": nameFilterSchema("Include or exclude the listed line numbers or names."),
                     "maxTransfers": integerSchema("Maximum permitted number of transfers, including 0.", minimum: 0),
                     "minimumTransferTime": integerSchema("Minimum transfer time in minutes; -1 selects the timetable standard.", minimum: -1),
                     "maximumTransferTime": integerSchema("Maximum transfer time in minutes, including 0.", minimum: 0),
@@ -430,6 +436,8 @@ struct KastanMCPTools: Sendable {
             onlyDirect: try arguments.boolean("onlyDirect", default: false),
             via: try arguments.stringArray("via", default: []),
             transportModeFilter: try arguments.transportModeFilter("transportModeFilter"),
+            carrierFilter: try arguments.nameFilter("carrierFilter"),
+            lineFilter: try arguments.nameFilter("lineFilter"),
             maxTransfers: try arguments.optionalInteger("maxTransfers", minimum: 0),
             minimumTransferTime: try arguments.optionalInteger("minimumTransferTime", minimum: -1),
             maximumTransferTime: try arguments.optionalInteger("maximumTransferTime", minimum: 0),
@@ -641,6 +649,12 @@ struct KastanMCPTools: Sendable {
         ],
         required: ["operation", "modes"]
     )
+
+    private static func nameFilterSchema(_ description: String) -> Value {
+        var schema = MCPOutputSchemas.nameFilterSchema.objectValue ?? [:]
+        schema["description"] = .string(description)
+        return .object(schema)
+    }
 
     private static func readOnlyAnnotations(title: String) -> Tool.Annotations {
         .init(

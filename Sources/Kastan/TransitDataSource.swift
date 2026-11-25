@@ -172,9 +172,9 @@ public enum TransitConnectionTransportMode: String, CaseIterable, Codable, Equat
 
 /// Selects whether one detailed transport mode is retained exclusively or omitted from a connection search.
 public enum TransitConnectionTransportModeFilterOperation: String, CaseIterable, Codable, Equatable, Hashable, Sendable {
-    /// Retains the selected mode as part of the permitted union.
+    /// Limits results to the selected values.
     case only
-    /// Removes the selected mode from the permitted catalog.
+    /// Excludes the selected values.
     case exclude
 }
 
@@ -195,6 +195,24 @@ public struct TransitConnectionTransportModeFilter: Codable, Equatable, Hashable
     }
 }
 
+/// The shared operation for include and exclude lists in a connection search.
+public typealias TransitConnectionFilterOperation = TransitConnectionTransportModeFilterOperation
+
+/// Selects which named carriers or lines may appear in a connection search.
+public struct TransitConnectionNameFilter: Codable, Equatable, Sendable {
+    public let operation: TransitConnectionFilterOperation
+    public let names: [String]
+
+    /// Trims surrounding whitespace and omits blank entries. A blank list has no filter.
+    public init?(operation: TransitConnectionFilterOperation, names: [String]) {
+        let names = names.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !names.isEmpty else { return nil }
+        self.operation = operation
+        self.names = names
+    }
+}
+
 /// Identifies one independently selectable connection-search option a provider understands.
 ///
 /// Interfaces use this contract to offer only controls whose values the selected provider can honor. Supporting
@@ -206,6 +224,10 @@ public enum TransitConnectionOption: String, CaseIterable, Codable, Equatable, H
     case via
     /// Selects or omits detailed means of transport through repeatable grouped rules.
     case transportModeFilters
+    /// Includes or excludes the listed carriers.
+    case carrierFilter
+    /// Includes or excludes the listed lines.
+    case lineFilter
     /// Limits how many transfers a journey may contain.
     case maximumTransfers
     /// Requires at least a selected amount of time for each transfer.

@@ -150,6 +150,7 @@ swift run kastan connections Praha Brno --time 15:00 --arrival
 swift run kastan connections Praha Brno --max-transfers 0
 swift run kastan connections Praha Brno --min-transfer-time -1 --max-transfer-time 360
 swift run kastan connections Praha Brno --transport-mode only:regional-train --transport-mode only:long-distance-bus
+swift run kastan connections Praha Brno --carrier 'only:České dráhy' --carrier only:RegioJet --line exclude:R19
 swift run kastan connections Praha Brno --wheelchair-accessible-connections-only true
 swift run kastan connections Praha Košice --timetable vlaky --bed-or-couchette-preference use
 swift run kastan connections Praha Brno --limit 3
@@ -162,6 +163,8 @@ Every library option has a stable English CLI spelling:
 | `--direct`, `--only-direct`, `-x` | Flag that returns direct connections only. |
 | `--via`, `-V` | Via place; repeat the option to preserve an ordered list. |
 | `--transport-mode` | `only:<mode>` or `exclude:<mode>`; repeat it to combine detailed means-of-transport rules. |
+| `--carrier` | `only:<name>` or `exclude:<name>`; repeat it to list multiple carriers. |
+| `--line` | `only:<name>` or `exclude:<name>`; repeat it to list multiple line numbers or names. |
 | `--max-transfers`, `-X` | Non-negative maximum number of transfers, including zero. |
 | `--min-transfer-time`, `-M` | Minimum transfer time in minutes; `-1` selects the timetable standard. |
 | `--max-transfer-time` | Non-negative maximum transfer time in minutes. |
@@ -186,6 +189,9 @@ from the complete catalog. The grouped mode values are:
 - General: `bus`, `ship`, and `other`.
 - Buses: `local-bus`, `long-distance-bus`, and `international-bus`.
 - City transport: `city-tram`, `city-bus`, `city-cableway`, and `city-trolleybus`.
+
+Repeat `--carrier` or `--line` once per item and use the same operation within each list. The carrier and line lists
+choose their operations independently. Quote a value that contains spaces.
 
 Omitting a value-backed option preserves the IDOS default, while an explicit `false` or `no-limitation` preserves
 an active negative or unrestricted condition. IDOS offers Bed / Couchette only for All timetables, Trains + Buses +

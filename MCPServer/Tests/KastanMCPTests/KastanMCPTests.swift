@@ -40,7 +40,7 @@ import Testing
     #expect(Set(connectionProperties.keys) == Set([
         "from", "to", "timetable", "date", "time", "isArrival", "limit",
     ] + TransitConnectionOption.allCases.map(\.mcpArgumentName)))
-    #expect(TransitConnectionOption.allCases.map(\.mcpArgumentName).count == 18)
+    #expect(TransitConnectionOption.allCases.map(\.mcpArgumentName).count == 20)
     #expect(connectionProperties["minimumTransferTime"]?.objectValue?["minimum"] == -1)
     let transportModeFilter = try #require(
         connectionProperties["transportModeFilter"]?.objectValue
@@ -114,6 +114,14 @@ import Testing
                 "operation": "only",
                 "modes": ["regionalTrain", "longDistanceBus"],
             ]),
+            "carrierFilter": .object([
+                "operation": "exclude",
+                "names": ["RegioJet", "LEO Express"],
+            ]),
+            "lineFilter": .object([
+                "operation": "only",
+                "names": ["R19", "Ex3"],
+            ]),
             "maxTransfers": 1,
             "minimumTransferTime": -1,
             "maximumTransferTime": 360,
@@ -156,6 +164,8 @@ import Testing
         operation: .only,
         modes: [.regionalTrain, .longDistanceBus]
     ))
+    #expect(request?.carrierFilter == .init(operation: .exclude, names: ["RegioJet", "LEO Express"]))
+    #expect(request?.lineFilter == .init(operation: .only, names: ["R19", "Ex3"]))
     #expect(request?.maxTransfers == 1)
     #expect(request?.minimumTransferTime == -1)
     #expect(request?.maximumTransferTime == 360)
@@ -172,6 +182,9 @@ import Testing
     #expect(request?.preferBusyRoutes == true)
     #expect(request?.bedOrCouchettePreference == .use)
     #expect(request?.resultLimit == 7)
+    let requestOutput = result.structuredContent?.objectValue?["request"]?.objectValue
+    #expect(requestOutput?["carrierFilter"]?.objectValue?["operation"] == "exclude")
+    #expect(requestOutput?["lineFilter"]?.objectValue?["names"] == ["R19", "Ex3"])
     #expect(
         result.structuredContent?.objectValue?["request"]?
             .objectValue?["bedOrCouchettePreference"] == "use"
