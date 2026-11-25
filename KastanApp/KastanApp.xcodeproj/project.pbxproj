@@ -481,7 +481,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Kaštan uses your location only when you choose My location for a journey endpoint.";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MARKETING_VERSION = 0.9.1;
+				MARKETING_VERSION = 0.9.2;
 				PRODUCT_BUNDLE_IDENTIFIER = cz.glutexo.kastan;
 				PRODUCT_MODULE_NAME = KastanApp;
 				PRODUCT_NAME = Kastan;
@@ -506,7 +506,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.travel";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Kaštan uses your location only when you choose My location for a journey endpoint.";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MARKETING_VERSION = 0.9.1;
+				MARKETING_VERSION = 0.9.2;
 				PRODUCT_BUNDLE_IDENTIFIER = cz.glutexo.kastan;
 				PRODUCT_MODULE_NAME = KastanApp;
 				PRODUCT_NAME = Kastan;
