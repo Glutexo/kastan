@@ -386,9 +386,9 @@ enum JourneyOptionKind: String, CaseIterable, Identifiable {
         case .preference:
             AppLocalization.string("Prefer")
         case .carriers:
-            AppLocalization.string("Carriers")
+            AppLocalization.string("Carrier")
         case .lines:
-            AppLocalization.string("Lines")
+            AppLocalization.string("Line")
         }
     }
 

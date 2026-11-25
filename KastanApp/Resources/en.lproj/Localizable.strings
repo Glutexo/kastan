@@ -27,8 +27,8 @@
 "buses" = "buses";
 "Busy routes" = "busy routes";
 "Cancel" = "Cancel";
+"Carrier" = "Carrier";
 "Carrier name" = "Carrier name";
-"Carriers" = "Carriers";
 "Check a station board and open complete service routes." = "Check a station board and open complete service routes.";
 "Choose a different departure or arrival place." = "Choose a different departure or arrival place.";
 "Choose a station and start a search." = "Choose a station and start a search.";
@@ -122,7 +122,6 @@
 "Journey option" = "Journey option";
 "Line" = "Line";
 "Line number or name" = "Line number or name";
-"Lines" = "Lines";
 "%lld hr" = "%lld hr";
 "Maximum distance to walk" = "Maximum distance to walk";
 "Maximum distance to walk, if there is Urban Public Transport available" = "Maximum distance to walk, if there is Urban Public Transport available";

@@ -27,8 +27,8 @@
 "buses" = "autobusy";
 "Busy routes" = "Frekventované trasy";
 "Cancel" = "Zrušit";
+"Carrier" = "Dopravce";
 "Carrier name" = "Název dopravce";
-"Carriers" = "Dopravci";
 "Check a station board and open complete service routes." = "Prohlédněte si odjezdovou tabuli a otevřete celou trasu spoje.";
 "Choose a different departure or arrival place." = "Zvolte jiné výchozí nebo cílové místo.";
 "Choose a station and start a search." = "Vyberte stanici a spusťte hledání.";
@@ -122,7 +122,6 @@
 "Journey option" = "Možnost cesty";
 "Line" = "Linka";
 "Line number or name" = "Číslo nebo název linky";
-"Lines" = "Linky";
 "%lld hr" = "%lld hodina";
 "Maximum distance to walk" = "Nejdelší";
 "Maximum distance to walk, if there is Urban Public Transport available" = "Nejdelší (MHD)";

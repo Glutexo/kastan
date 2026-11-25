@@ -75,7 +75,7 @@ one ordinary provider is registered.
   duration editor. Each Walking distances row combines Maximum distance to walk, Maximum distance to walk when Urban
   Public Transport is available, On foot between stops, and Between stops of the same name in one subchoice popup. The
   first two use a duration editor and the latter two use a Boolean value popup. Additional parameters contains the
-  repeatable Only connections, Prefer, Carriers, and Lines conditions. For Carriers (`Dopravci`) and Lines (`Linky`),
+  repeatable Only connections, Prefer, Carrier, and Line conditions. For Carrier (`Dopravce`) and Line (`Linka`),
   enter one carrier name or line number or name per row. Use the plus button on a row to add another item to its list.
   Each list has its own Only or Exclude operation. Changing it on one row applies it to every row of the same kind.
   Clearing or removing all entries disables that filter. Each Only connections row has a value popup
