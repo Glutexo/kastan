@@ -38,6 +38,23 @@ struct JourneySearchControlsSupplement {
     }
 }
 
+/// Exposes the laid-out bounds of the two timetable controls in their parent's coordinate space.
+enum SearchTimetableControlBounds: PreferenceKey {
+    enum Control: String, CaseIterable {
+        case picker
+        case favorite
+    }
+
+    static var defaultValue: [Control: Anchor<CGRect>] { [:] }
+
+    static func reduce(
+        value: inout [Control: Anchor<CGRect>],
+        nextValue: () -> [Control: Anchor<CGRect>]
+    ) {
+        value.merge(nextValue()) { _, latest in latest }
+    }
+}
+
 /// Presents the transport catalog before place-specific input so users choose the search context first.
 struct SearchTimetablePicker: View {
     /// Keeps the visible native popup aligned with other controls in the timetable column.
@@ -88,6 +105,9 @@ struct SearchTimetablePicker: View {
                 }
                 .labelsHidden()
                 .frame(width: Self.pickerWidth, alignment: .leading)
+                .anchorPreference(key: SearchTimetableControlBounds.self, value: .bounds) {
+                    [.picker: $0]
+                }
 
                 Button {
                     toggleTimetableFavorite()
@@ -109,6 +129,9 @@ struct SearchTimetablePicker: View {
                             openWindow(id: AppWindow.favoriteTimetables)
                         }
                     )
+                }
+                .anchorPreference(key: SearchTimetableControlBounds.self, value: .bounds) {
+                    [.favorite: $0]
                 }
             }
             .fixedSize(horizontal: true, vertical: false)

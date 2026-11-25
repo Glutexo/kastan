@@ -2254,7 +2254,7 @@ final class KastanAppTests: XCTestCase {
 
         XCTAssertTrue(links.contains(ServiceNotesView.calendarDestination(for: 0)))
         XCTAssertTrue(links.contains(URL(string: "tel:+420123456789")!))
-        XCTAssertTrue(links.contains(URL(string: "http://www.KODIS.cz")!))
+        XCTAssertTrue(links.contains(where: isKODISWebLink))
     }
 
     func testNonDatedAndOutOfValidityNotesDoNotOfferServiceCalendars() {
@@ -2286,12 +2286,17 @@ final class KastanAppTests: XCTestCase {
     func testNoteTextTurnsWebAddressesIntoLinksWithoutChangingTheNote() {
         let value = "Více na www.KODIS.cz nebo https://idos.cz/en/."
         let content = NoteText.linkedContent(value)
+        let links = content.runs.compactMap(\.link)
 
         XCTAssertEqual(String(content.characters), value)
-        XCTAssertEqual(
-            content.runs.compactMap { $0.link?.absoluteString },
-            ["http://www.KODIS.cz", "https://idos.cz/en/"]
-        )
+        XCTAssertEqual(links.count, 2)
+        XCTAssertEqual(links.first.map(isKODISWebLink), true)
+        XCTAssertEqual(links.last?.absoluteString, "https://idos.cz/en/")
+    }
+
+    /// macOS supplies the scheme when the visible address has none.
+    private func isKODISWebLink(_ url: URL) -> Bool {
+        ["http://www.KODIS.cz", "https://www.KODIS.cz"].contains(url.absoluteString)
     }
 
     func testNoteTextDoesNotInterpretTimetableDatesAsPhoneNumbers() {
@@ -3246,6 +3251,17 @@ final class KastanAppTests: XCTestCase {
             for: TransitConnectionTransportMode.localizedCatalogTitles
         )
         let contentWidth = JourneySearchHeaderLayout.minimumContentWidth
+        let operationPicker = Picker(selection: .constant(TransitConnectionTransportModeFilterOperation.only)) {
+            ForEach(TransitConnectionTransportModeFilterOperation.allCases, id: \.self) { operation in
+                Text(verbatim: operation.localizedTitle).tag(operation)
+            }
+        } label: {
+            Text(verbatim: JourneyOptionKind.transportMode.localizedTitle)
+        }
+        .labelsHidden()
+        .fixedSize()
+        let fullOperationWidth = NSHostingView(rootView: operationPicker).fittingSize.width
+
         let row = HStack(spacing: JourneyOptionRowLayout.actionSpacing) {
             HStack(spacing: JourneyOptionRowLayout.fieldSpacing) {
                 JourneyOptionKindPicker(
@@ -3255,15 +3271,8 @@ final class KastanAppTests: XCTestCase {
                 .fixedSize(horizontal: true, vertical: false)
 
                 HStack(spacing: JourneyOptionRowLayout.fieldSpacing) {
-                    Picker(selection: .constant(TransitConnectionTransportModeFilterOperation.only)) {
-                        ForEach(TransitConnectionTransportModeFilterOperation.allCases, id: \.self) { operation in
-                            Text(verbatim: operation.localizedTitle).tag(operation)
-                        }
-                    } label: {
-                        Text(verbatim: JourneyOptionKind.transportMode.localizedTitle)
-                    }
-                    .labelsHidden()
-                    .fixedSize()
+                    operationPicker
+                        .background(SearchSupplementLayoutProbe(name: "transport-operation"))
 
                     JourneyTransportModePicker(
                         selection: .constant(.highestQualityTrain),
@@ -3318,11 +3327,25 @@ final class KastanAppTests: XCTestCase {
         let actionProbes = try ["remove-action", "add-action"].map { name in
             try XCTUnwrap(probes.first { $0.name == name })
         }
+        let operationProbe = try XCTUnwrap(probes.first { $0.name == "transport-operation" })
+        let operationFrame = hostingView.convert(operationProbe.bounds, from: operationProbe)
+        let kindPopup = try XCTUnwrap(popupButtons.first {
+            $0.accessibilityLabel() == AppLocalization.string("Journey option")
+        })
         let transportPopup = try XCTUnwrap(popupButtons.first {
             $0.toolTip == TransitConnectionTransportMode.highestQualityTrain.localizedTitle
         })
 
-        XCTAssertEqual(popupButtons.count, 3)
+        XCTAssertGreaterThan(fullOperationWidth, 0)
+        XCTAssertEqual(operationFrame.width, fullOperationWidth, accuracy: 1)
+        XCTAssertGreaterThanOrEqual(
+            operationFrame.minX,
+            hostingView.convert(kindPopup.bounds, from: kindPopup).maxX
+        )
+        XCTAssertLessThanOrEqual(
+            operationFrame.maxX,
+            hostingView.convert(transportPopup.bounds, from: transportPopup).minX
+        )
         for control in visibleControls {
             let frame = hostingView.convert(control.bounds, from: control)
             XCTAssertGreaterThanOrEqual(frame.minX, -1)
@@ -3339,12 +3362,7 @@ final class KastanAppTests: XCTestCase {
             transportPopup.accessibilityValue() as? String,
             TransitConnectionTransportMode.highestQualityTrain.localizedTitle
         )
-        for popupButton in popupButtons where popupButton !== transportPopup {
-            XCTAssertGreaterThanOrEqual(
-                popupButton.frame.width,
-                popupButton.intrinsicContentSize.width - 0.5
-            )
-        }
+        XCTAssertGreaterThanOrEqual(kindPopup.frame.width, kindPopup.intrinsicContentSize.width - 0.5)
         for actionProbe in actionProbes {
             let frame = hostingView.convert(actionProbe.bounds, from: actionProbe)
             XCTAssertEqual(
@@ -3597,7 +3615,9 @@ final class KastanAppTests: XCTestCase {
                 usesCompactLayout: usesCompactLayout
             )
             let hostingView = NSHostingView(
-                rootView: picker.frame(width: 320, height: 64, alignment: .topLeading)
+                rootView: picker
+                    .frame(width: 320, height: 64, alignment: .topLeading)
+                    .measuringSearchTimetableControls()
             )
             hostingView.frame = NSRect(x: 0, y: 0, width: 320, height: 64)
             let window = NSWindow(
@@ -3611,15 +3631,8 @@ final class KastanAppTests: XCTestCase {
             hostingView.layoutSubtreeIfNeeded()
             defer { window.orderOut(nil) }
 
-            let descendants = hostingView.allDescendantViews
-            let timetablePicker = try XCTUnwrap(
-                descendants.compactMap { $0 as? NSPopUpButton }.first
-            )
-            let favoriteButton = try XCTUnwrap(
-                descendants.compactMap { $0 as? NSButton }.first { !($0 is NSPopUpButton) }
-            )
-            let timetableFrame = hostingView.convert(timetablePicker.bounds, from: timetablePicker)
-            let favoriteFrame = hostingView.convert(favoriteButton.bounds, from: favoriteButton)
+            let timetableFrame = try hostingView.frameOfSearchTimetableControl(.picker)
+            let favoriteFrame = try hostingView.frameOfSearchTimetableControl(.favorite)
             let renderedGap = favoriteFrame.minX - timetableFrame.maxX
 
             XCTAssertGreaterThanOrEqual(
@@ -3757,7 +3770,7 @@ final class KastanAppTests: XCTestCase {
             mode: String
         ) throws {
             let hostingView = NSHostingView(
-                rootView: content.frame(width: width, height: 600)
+                rootView: content.frame(width: width, height: 600).measuringSearchTimetableControls()
             )
             hostingView.frame = NSRect(x: 0, y: 0, width: width, height: 600)
             let window = NSWindow(
@@ -3772,10 +3785,7 @@ final class KastanAppTests: XCTestCase {
             defer { window.orderOut(nil) }
 
             let descendants = hostingView.allDescendantViews
-            let timetablePicker = try XCTUnwrap(
-                descendants.compactMap { $0 as? NSPopUpButton }.first,
-                "\(mode) is missing its timetable picker"
-            )
+            let timetableFrame = try hostingView.frameOfSearchTimetableControl(.picker)
             let inputFields = try prompts.map { prompt in
                 try XCTUnwrap(
                     descendants.compactMap { $0 as? NSTextField }.first {
@@ -3785,7 +3795,6 @@ final class KastanAppTests: XCTestCase {
                 )
             }
 
-            let timetableFrame = hostingView.convert(timetablePicker.bounds, from: timetablePicker)
             let inputFrames = inputFields.map { hostingView.convert($0.bounds, from: $0) }
             for inputFrame in inputFrames {
                 if hostingView.isFlipped {
@@ -4427,7 +4436,7 @@ final class KastanAppTests: XCTestCase {
                 client: client,
                 showsItemDetails: false,
                 showsStopNoteText: false
-            ).frame(width: width, height: 600))
+            ).frame(width: width, height: 600).measuringSearchTimetableControls())
             hostingView.frame = NSRect(x: 0, y: 0, width: width, height: 600)
             let window = NSWindow(
                 contentRect: hostingView.frame,
@@ -4447,17 +4456,12 @@ final class KastanAppTests: XCTestCase {
                     $0.itemTitles == municipalityNames
                 }
             )
-            let timetablePicker = try XCTUnwrap(
-                descendants.compactMap { $0 as? NSPopUpButton }.first {
-                    $0 !== municipalityPicker
-                }
-            )
+            let timetableFrame = try hostingView.frameOfSearchTimetableControl(.picker)
             let lineField = try XCTUnwrap(
                 descendants.compactMap { $0 as? NSTextField }.first {
                     $0.placeholderString == AppLocalization.string("Line number or name")
                 }
             )
-            let timetableFrame = hostingView.convert(timetablePicker.bounds, from: timetablePicker)
             let municipalityFrame = hostingView.convert(
                 municipalityPicker.bounds,
                 from: municipalityPicker
@@ -4473,7 +4477,8 @@ final class KastanAppTests: XCTestCase {
             XCTAssertEqual(model.municipalities.count, 12)
             XCTAssertEqual(model.municipality?.name, "Ostrava")
             XCTAssertEqual(municipalityFrame.minX, timetableFrame.minX, accuracy: 1)
-            XCTAssertEqual(municipalityFrame.width, timetableFrame.width, accuracy: 1)
+            XCTAssertEqual(municipalityFrame.width, SearchTimetablePicker.controlWidth, accuracy: 1)
+            XCTAssertEqual(timetableFrame.width, SearchTimetablePicker.pickerWidth, accuracy: 1)
             XCTAssertEqual(lineFrame.width, dateControl.fittingSize.width, accuracy: 1)
             XCTAssertEqual(
                 lineFrame.maxX,
@@ -11995,7 +12000,7 @@ private struct SuggestionQuery: Sendable {
     let limit: Int
 }
 
-/// Marks both sides of a supplemental search row so its rendered alignment can be verified.
+/// Measures SwiftUI search controls and rows that may have no corresponding AppKit view.
 private struct SearchSupplementLayoutProbe: NSViewRepresentable {
     let name: String
 
@@ -12023,5 +12028,35 @@ private final class SearchSupplementLayoutProbeView: NSView {
 private extension NSView {
     var allDescendantViews: [NSView] {
         subviews + subviews.flatMap(\.allDescendantViews)
+    }
+
+    func frameOfSearchTimetableControl(_ control: SearchTimetableControlBounds.Control) throws -> NSRect {
+        let probe = try XCTUnwrap(
+            allDescendantViews.compactMap { $0 as? SearchSupplementLayoutProbeView }.first {
+                $0.name == control.rawValue
+            },
+            "Missing layout bounds for timetable \(control.rawValue)"
+        )
+        XCTAssertFalse(probe.bounds.isEmpty)
+        return convert(probe.bounds, from: probe)
+    }
+}
+
+private extension View {
+    /// Projects the SwiftUI bounds into the same coordinate space as the AppKit test controls.
+    func measuringSearchTimetableControls() -> some View {
+        overlayPreferenceValue(SearchTimetableControlBounds.self) { anchors in
+            GeometryReader { geometry in
+                ForEach(SearchTimetableControlBounds.Control.allCases, id: \.self) { control in
+                    if let anchor = anchors[control] {
+                        let frame = geometry[anchor]
+                        SearchSupplementLayoutProbe(name: control.rawValue)
+                            .frame(width: frame.width, height: frame.height)
+                            .position(x: frame.midX, y: frame.midY)
+                    }
+                }
+            }
+            .allowsHitTesting(false)
+        }
     }
 }
