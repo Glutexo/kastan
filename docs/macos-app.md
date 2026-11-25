@@ -373,6 +373,8 @@ one ordinary provider is registered.
   family and bicycle services,
   tickets, baggage, passenger and reservation restrictions, cancellation policies, routes including skipped-stop
   instructions, carriers, and calendar-backed operating rules.
+  Warning headings such as `UPOZORNĚNÍ:` use ⚠️, and notes requiring passengers to book stops marked with a phone
+  symbol use 📞. Both markers also appear in station timetable notes.
   When a structured data source supplies those categories directly, the app retains them unchanged instead of
   applying IDOS text rules; unstructured service and stop notes continue to use the shared text classifier.
   Carrier contact rows use their `name; address[; phone]`

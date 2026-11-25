@@ -283,7 +283,8 @@ the raw field and add structured categories only
 when text classification cannot recover that meaning. Categories distinguish passenger-facing meanings
 such as replacement transport, accommodation, seating-class availability, onboard services, accessibility including
 low-floor vehicles, tickets and reservations, operating calendars, restrictions, routes including skipped-stop
-instructions, and carriers; unrecognized text remains in the `general` category.
+instructions, and carriers. Warning headings use `passengerWarning`, and instructions to book stops marked with
+a phone symbol use `stopBooking`. Unrecognized text remains in the `general` category.
 
 Create a `TransitPlaceSelection` from a chosen `TransitSuggestion` and pass it as `fromSelection`, `toSelection`,
 `stationSelection`, or the corresponding element of `viaSelections` when the query must target that exact IDOS

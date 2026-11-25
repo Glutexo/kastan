@@ -78,6 +78,7 @@ public struct TransitServiceInformation: Codable, Equatable, Sendable {
         case ticketPurchase
         case cancellationPolicy
         case phoneReservation
+        case stopBooking
         case domesticTransport
         case carriageRestriction
         case baggage
@@ -126,6 +127,8 @@ public struct TransitServiceInformation: Codable, Equatable, Sendable {
                 return "↩️"
             case .phoneReservation:
                 return "📵"
+            case .stopBooking:
+                return "📞"
             case .domesticTransport:
                 return "✅"
             case .carriageRestriction:
@@ -254,6 +257,21 @@ private struct Classifier {
         ) {
             return classified(.integratedTransportTicket, by: rule)
         }
+        // Booking a stop may also describe ticket purchase as the way to arrange it.
+        if let rule = first(
+            all(
+                startsWithRule(anyOf: "zastavka oznacena", "zastavky oznacene"),
+                containsRule("symbolem telefonu"),
+                containsRule(anyOf: "je nutna objednat", "je nutne objednat")
+            ),
+            all(
+                startsWithRule(anyOf: "stop marked with", "stops marked with"),
+                containsRule(anyOf: "phone symbol", "telephone symbol"),
+                containsRule(anyOf: "must be booked", "must be requested")
+            )
+        ) {
+            return classified(.stopBooking, by: rule)
+        }
         if let rule = all(
             containsRule("jizdenk"),
             containsRule(anyOf: "zakoup", "predem")
@@ -312,8 +330,9 @@ private struct Classifier {
         {
             return classified(.baggage, by: rule)
         }
-        if let rule = containsRule(
-            anyOf: "osoby opile", "podnapile", "autosedack", "intoxicated passenger", "car seat"
+        if let rule = first(
+            containsRule(anyOf: "osoby opile", "podnapile", "autosedack", "intoxicated passenger", "car seat"),
+            normalizedPatternRule(#"^\s*(?:upozorneni|warning|attention)\s*[:!]?\s*$"#)
         ) {
             return classified(.passengerWarning, by: rule)
         }

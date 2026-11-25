@@ -263,6 +263,7 @@ carriers, and operating rules;
 carrier contact rows are recognized from their `name; address[; phone]` structure rather than operator names.
 Dining and bistro cars are visually distinct from lighter refreshment trolley or vending-machine service.
 Tickets accepted from integrated transport systems are distinct from carrier fares and broader fare conditions.
+Warning headings use ⚠️, and instructions to book stops marked with a phone symbol use 📞.
 Uncategorized information keeps its full text and uses a generic information marker.
 
 ## Output Formats

@@ -1258,12 +1258,14 @@ final class KastanAppTests: XCTestCase {
             "Háje - Letňany",
             "A: vynechá zastávky Místek,Frýdlantská, Místek,Riviéra a Místek,Beskydská",
             "Dopravní podnik hl. m. Prahy, a.s.",
+            "UPOZORNĚNÍ:",
+            "Zastávka označená symbolem telefonu je nutná objednat.",
         ]
         let content = ServiceNotesView(notes: notes).linkedContent
 
         XCTAssertEqual(
             String(content.characters),
-            "🚧 \(notes[0])\n🛤️ \(notes[1])\n🛤️ \(notes[2])\n🏢 \(notes[3])"
+            "🚧 \(notes[0])\n🛤️ \(notes[1])\n🛤️ \(notes[2])\n🏢 \(notes[3])\n⚠️ \(notes[4])\n📞 \(notes[5])"
         )
         for index in notes.indices {
             let destination = ServiceInformationRuleLink.destination(for: index)
