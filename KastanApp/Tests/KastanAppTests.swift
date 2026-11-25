@@ -3260,7 +3260,6 @@ final class KastanAppTests: XCTestCase {
         }
         .labelsHidden()
         .fixedSize()
-        let fullOperationWidth = NSHostingView(rootView: operationPicker).fittingSize.width
 
         let row = HStack(spacing: JourneyOptionRowLayout.actionSpacing) {
             HStack(spacing: JourneyOptionRowLayout.fieldSpacing) {
@@ -3269,6 +3268,7 @@ final class KastanAppTests: XCTestCase {
                     availableKinds: JourneyOptionKind.allCases
                 )
                 .fixedSize(horizontal: true, vertical: false)
+                .background(SearchSupplementLayoutProbe(name: "journey-option-kind"))
 
                 HStack(spacing: JourneyOptionRowLayout.fieldSpacing) {
                     operationPicker
@@ -3279,6 +3279,7 @@ final class KastanAppTests: XCTestCase {
                         availableModes: TransitConnectionTransportMode.allCases
                     )
                     .frame(minWidth: JourneyOptionRowLayout.minimumFlexibleValueWidth)
+                    .background(SearchSupplementLayoutProbe(name: "transport-mode"))
                     .layoutPriority(-1)
                 }
                 .fixedSize(horizontal: false, vertical: true)
@@ -3305,8 +3306,13 @@ final class KastanAppTests: XCTestCase {
             .background(SearchSupplementLayoutProbe(name: "add-action"))
         }
         .frame(width: contentWidth, height: 28, alignment: .leading)
-        let hostingView = NSHostingView(rootView: row)
-        hostingView.frame = NSRect(x: 0, y: 0, width: contentWidth, height: 28)
+        let hostingView = NSHostingView(rootView: VStack(alignment: .leading, spacing: 0) {
+            row
+            operationPicker
+                .background(SearchSupplementLayoutProbe(name: "full-transport-operation"))
+                .frame(width: contentWidth, height: 28, alignment: .leading)
+        })
+        hostingView.frame = NSRect(x: 0, y: 0, width: contentWidth, height: 56)
         let window = NSWindow(
             contentRect: hostingView.frame,
             styleMask: .borderless,
@@ -3324,11 +3330,15 @@ final class KastanAppTests: XCTestCase {
         let popupButtons = visibleControls.compactMap { $0 as? NSPopUpButton }
         let probes = hostingView.allDescendantViews
             .compactMap { $0 as? SearchSupplementLayoutProbeView }
+        func frame(of name: String) throws -> NSRect {
+            let probe = try XCTUnwrap(probes.first { $0.name == name }, "Missing bounds for \(name)")
+            return hostingView.convert(probe.bounds, from: probe)
+        }
         let actionProbes = try ["remove-action", "add-action"].map { name in
             try XCTUnwrap(probes.first { $0.name == name })
         }
-        let operationProbe = try XCTUnwrap(probes.first { $0.name == "transport-operation" })
-        let operationFrame = hostingView.convert(operationProbe.bounds, from: operationProbe)
+        let operationFrame = try frame(of: "transport-operation")
+        let fullOperationWidth = try frame(of: "full-transport-operation").width
         let kindPopup = try XCTUnwrap(popupButtons.first {
             $0.accessibilityLabel() == AppLocalization.string("Journey option")
         })
@@ -3340,11 +3350,11 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(operationFrame.width, fullOperationWidth, accuracy: 1)
         XCTAssertGreaterThanOrEqual(
             operationFrame.minX,
-            hostingView.convert(kindPopup.bounds, from: kindPopup).maxX
+            try frame(of: "journey-option-kind").maxX
         )
         XCTAssertLessThanOrEqual(
             operationFrame.maxX,
-            hostingView.convert(transportPopup.bounds, from: transportPopup).minX
+            try frame(of: "transport-mode").minX
         )
         for control in visibleControls {
             let frame = hostingView.convert(control.bounds, from: control)

@@ -38,9 +38,15 @@ jobs:
         run: swift test --package-path MCPServer
 
       - name: Test macOS app
+        id: test-app
         run: |
           xcodebuild test \
             -project KastanApp/KastanApp.xcodeproj \
             -scheme KastanApp \
             -destination 'platform=macOS' \
+            -resultBundlePath "$RUNNER_TEMP/KastanApp.xcresult" \
             CODE_SIGNING_ALLOWED=NO
+
+      - name: Show macOS test failures
+        if: failure() && steps.test-app.outcome == 'failure'
+        run: xcrun xcresulttool get test-results summary --path "$RUNNER_TEMP/KastanApp.xcresult"
