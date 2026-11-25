@@ -9,8 +9,6 @@ local fixtures and test doubles, so it remains suitable for development and pull
 make test
 ```
 
-The GitHub Actions CI log includes the Xcode test result summary when the macOS suite fails.
-
 ## Live IDOS contract tests
 
 Run the opt-in smoke suite when you need to verify that Kaštan still communicates with and parses the current IDOS
