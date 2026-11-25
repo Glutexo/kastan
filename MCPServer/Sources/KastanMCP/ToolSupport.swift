@@ -646,6 +646,7 @@ enum MCPOutputSchemas {
             "connectionsForPassengersWithBicycles": booleanSchema,
             "preferBusyRoutes": booleanSchema,
             "bedOrCouchettePreference": bedOrCouchettePreferenceSchema,
+            "trainsWithoutCompulsoryReservationOnly": booleanSchema,
             "resultLimit": integerSchema,
         ],
         required: ["timetable", "from", "to", "isArrival", "onlyDirect", "via", "resultLimit"]

@@ -28,7 +28,9 @@ The suite sends read-only requests to `https://idos.cz` through the public `IDOS
 the published timetable-validity form, both browser autocomplete variants, connection results, departure boards,
 service details, and Station Timetable line, stop, and result parsing. It also reads the current advanced connection
 form and verifies that Kaštan sends the same published transport-mode controls, inverted checkbox values, default
-select values, and hidden form state as the browser. The client negotiates and validates browser-equivalent HTML or
+select values, and hidden form state as the browser. A timetable comparison verifies that the published reservation,
+accessibility, and transport-mode choices reach the library's option catalog. Another test verifies that IDOS enables
+the compulsory-reservation filter on submitted searches. The client negotiates and validates browser-equivalent HTML or
 JavaScript response media types, so a changed response representation fails explicitly instead of reaching a parser
 as unrelated data. Kaštan keeps its own identifying user agent instead of impersonating Safari, so a differential
 request checks that IDOS returns identical autocomplete data, media type, and advanced-form contract to both user

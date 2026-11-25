@@ -48,6 +48,8 @@ extension TransitConnectionOption {
             ["--prefer-busy-routes"]
         case .bedOrCouchettePreference:
             ["--bed-or-couchette-preference"]
+        case .trainsWithoutCompulsoryReservationOnly:
+            ["--trains-without-compulsory-reservation-only"]
         }
     }
 
@@ -75,6 +77,21 @@ extension TransitConnectionTransportMode {
         case .cityBus: "city-bus"
         case .cityCableway: "city-cableway"
         case .cityTrolleybus: "city-trolleybus"
+        case .cityMetro: "city-metro"
+        case .cityRegionalBus: "city-regional-bus"
+        case .cityAccessibleLine: "city-accessible-line"
+        case .cityShip: "city-ship"
+        case .cityNightBus: "city-night-bus"
+        case .cityNightTram: "city-night-tram"
+        case .cityReplacementBus: "city-replacement-bus"
+        case .citySchoolBus: "city-school-bus"
+        case .cityContractBus: "city-contract-bus"
+        case .cityRailReplacement: "city-rail-replacement"
+        case .cityTrain: "city-train"
+        case .cityReplacementTram: "city-replacement-tram"
+        case .cityRegionalNightBus: "city-regional-night-bus"
+        case .cityOther: "city-other"
+        case .cityDemandResponsive: "city-demand-responsive"
         }
     }
 
@@ -346,7 +363,8 @@ struct CommandRunner {
         let transferOptionsMarker = "  -X, --max-transfers"
         return help.replacingOccurrences(
             of: transferOptionsMarker,
-            with: localization.text(.helpTransportMode) + localization.text(.helpNameFilters) + transferOptionsMarker
+            with: localization.text(.helpTransportMode) + localization.text(.helpNameFilters) +
+                localization.text(.helpReservationFilter) + transferOptionsMarker
         )
     }
 
@@ -405,6 +423,26 @@ struct CommandRunner {
     private static func errorMessage(for error: Error, localization: Localization) -> String {
         if let error = error as? CommandError {
             return error.message(localization: localization)
+        }
+
+        if let error = error as? TransitDataSourceError {
+            switch error {
+            case .unsupportedConnectionOption(let option, let timetable):
+                return CommandError.unsupportedConnectionOptionForTimetable(
+                    option.connectionCommandNames.sorted().first ?? option.rawValue,
+                    timetableName: localization.timetableName(timetable),
+                    timetableIdentifier: timetable.identifier
+                ).message(localization: localization)
+            case .unsupportedConnectionTransportMode(let mode, let timetable):
+                return localization.text(
+                    .unsupportedTransportModeForTimetable,
+                    mode.connectionCommandValue,
+                    localization.timetableName(timetable),
+                    timetable.identifier
+                )
+            default:
+                break
+            }
         }
 
         if let error = error as? IDOSError {
@@ -592,6 +630,9 @@ struct CommandRunner {
         let bedOrCouchettePreference = try options.bedOrCouchettePreferenceValue(
             for: "--bed-or-couchette-preference"
         )
+        let trainsWithoutCompulsoryReservationOnly = try options.booleanValue(
+            for: "--trains-without-compulsory-reservation-only"
+        )
         try requireConnectionOptions(in: options, timetable: timetable)
         try await rejectAmbiguousPlaces(
             [fromPlace, toPlace] + viaPlaces,
@@ -630,6 +671,7 @@ struct CommandRunner {
             connectionsForPassengersWithBicycles: connectionsForPassengersWithBicycles,
             preferBusyRoutes: preferBusyRoutes,
             bedOrCouchettePreference: bedOrCouchettePreference,
+            trainsWithoutCompulsoryReservationOnly: trainsWithoutCompulsoryReservationOnly,
             resultLimit: format == .ics || addToCalendar ? 1 : requestedLimit
         )
         let connections = try await dataSource.findConnections(request: request)

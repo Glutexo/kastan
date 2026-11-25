@@ -40,7 +40,7 @@ import Testing
     #expect(Set(connectionProperties.keys) == Set([
         "from", "to", "timetable", "date", "time", "isArrival", "limit",
     ] + TransitConnectionOption.allCases.map(\.mcpArgumentName)))
-    #expect(TransitConnectionOption.allCases.map(\.mcpArgumentName).count == 20)
+    #expect(TransitConnectionOption.allCases.map(\.mcpArgumentName).count == 21)
     #expect(connectionProperties["minimumTransferTime"]?.objectValue?["minimum"] == -1)
     let transportModeFilter = try #require(
         connectionProperties["transportModeFilter"]?.objectValue
@@ -112,7 +112,7 @@ import Testing
             "via": ["Pardubice", "Olomouc"],
             "transportModeFilter": .object([
                 "operation": "only",
-                "modes": ["regionalTrain", "longDistanceBus"],
+                "modes": ["regionalTrain", "longDistanceBus", "cityRailReplacement"],
             ]),
             "carrierFilter": .object([
                 "operation": "exclude",
@@ -137,6 +137,7 @@ import Testing
             "connectionsForPassengersWithBicycles": false,
             "preferBusyRoutes": true,
             "bedOrCouchettePreference": "use",
+            "trainsWithoutCompulsoryReservationOnly": true,
             "limit": 7,
         ]
     )
@@ -162,7 +163,7 @@ import Testing
     #expect(request?.via == ["Pardubice", "Olomouc"])
     #expect(request?.transportModeFilter == .init(
         operation: .only,
-        modes: [.regionalTrain, .longDistanceBus]
+        modes: [.regionalTrain, .longDistanceBus, .cityRailReplacement]
     ))
     #expect(request?.carrierFilter == .init(operation: .exclude, names: ["RegioJet", "LEO Express"]))
     #expect(request?.lineFilter == .init(operation: .only, names: ["R19", "Ex3"]))
@@ -181,8 +182,10 @@ import Testing
     #expect(request?.connectionsForPassengersWithBicycles == false)
     #expect(request?.preferBusyRoutes == true)
     #expect(request?.bedOrCouchettePreference == .use)
+    #expect(request?.trainsWithoutCompulsoryReservationOnly == true)
     #expect(request?.resultLimit == 7)
     let requestOutput = result.structuredContent?.objectValue?["request"]?.objectValue
+    #expect(requestOutput?["trainsWithoutCompulsoryReservationOnly"] == true)
     #expect(requestOutput?["carrierFilter"]?.objectValue?["operation"] == "exclude")
     #expect(requestOutput?["lineFilter"]?.objectValue?["names"] == ["R19", "Ex3"])
     #expect(
@@ -191,7 +194,9 @@ import Testing
     )
     #expect(
         result.structuredContent?.objectValue?["request"]?
-            .objectValue?["transportModeFilter"]?.objectValue?["modes"]?.arrayValue?.count == 2
+            .objectValue?["transportModeFilter"]?.objectValue?["modes"] == [
+                "regionalTrain", "longDistanceBus", "cityRailReplacement",
+            ]
     )
     let outputSchema = try #require(
         KastanMCPTools.definitions.first { $0.name == "find_connections" }?.outputSchema

@@ -267,6 +267,12 @@ enum AppLocalization {
 /// Converts library failures into app-localized, actionable messages without hiding platform detail.
 enum AppErrorPresentation {
     static func message(for error: Error) -> String {
+        switch error as? TransitDataSourceError {
+        case .unsupportedConnectionOption, .unsupportedConnectionTransportMode:
+            return AppLocalization.string("A journey option is no longer available for this timetable. Review the journey options and try again.")
+        default:
+            break
+        }
         guard let error = error as? IDOSError else {
             return error.localizedDescription
         }

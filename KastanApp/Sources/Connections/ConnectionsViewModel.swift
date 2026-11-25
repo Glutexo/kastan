@@ -132,6 +132,36 @@ extension TransitConnectionTransportMode {
             AppLocalization.string("Cableway")
         case .cityTrolleybus:
             AppLocalization.string("Trolleybus")
+        case .cityMetro:
+            AppLocalization.string("Metro")
+        case .cityRegionalBus:
+            AppLocalization.string("Regional bus line")
+        case .cityAccessibleLine:
+            AppLocalization.string("Accessible line")
+        case .cityShip:
+            AppLocalization.string("Transport mode ship")
+        case .cityNightBus:
+            AppLocalization.string("Night bus")
+        case .cityNightTram:
+            AppLocalization.string("Night tram")
+        case .cityReplacementBus:
+            AppLocalization.string("Replacement bus")
+        case .citySchoolBus:
+            AppLocalization.string("School bus line")
+        case .cityContractBus:
+            AppLocalization.string("Contract bus line")
+        case .cityRailReplacement:
+            AppLocalization.string("Rail replacement service")
+        case .cityTrain:
+            AppLocalization.string("City train")
+        case .cityReplacementTram:
+            AppLocalization.string("Replacement tram")
+        case .cityRegionalNightBus:
+            AppLocalization.string("Regional night bus")
+        case .cityOther:
+            AppLocalization.string("Transport mode other")
+        case .cityDemandResponsive:
+            AppLocalization.string("Demand-responsive transport")
         }
     }
 
@@ -150,6 +180,7 @@ enum JourneyConnectionRequirement: String, CaseIterable, Identifiable {
     case trainConnectionsForWheelchairPassengers
     case trainConnectionsForPassengersWithChildren
     case connectionsForPassengersWithBicycles
+    case trainsWithoutCompulsoryReservationOnly
     case withBedsOrCouchettes
     case withoutBedsOrCouchettes
 
@@ -168,6 +199,8 @@ enum JourneyConnectionRequirement: String, CaseIterable, Identifiable {
             .trainConnectionsForPassengersWithChildren
         case .connectionsForPassengersWithBicycles:
             .connectionsForPassengersWithBicycles
+        case .trainsWithoutCompulsoryReservationOnly:
+            .trainsWithoutCompulsoryReservationOnly
         case .withBedsOrCouchettes, .withoutBedsOrCouchettes:
             .bedOrCouchettePreference
         }
@@ -183,7 +216,8 @@ enum JourneyConnectionRequirement: String, CaseIterable, Identifiable {
         case .wheelchairAccessibleConnectionsOnly, .lowFloorConnectionsOnly,
              .trainConnectionsForWheelchairPassengers,
              .trainConnectionsForPassengersWithChildren,
-             .connectionsForPassengersWithBicycles:
+             .connectionsForPassengersWithBicycles,
+             .trainsWithoutCompulsoryReservationOnly:
             nil
         }
     }
@@ -207,6 +241,8 @@ enum JourneyConnectionRequirement: String, CaseIterable, Identifiable {
             AppLocalization.string("Connections for passengers with children (trains)")
         case .connectionsForPassengersWithBicycles:
             AppLocalization.string("Connections for passengers with bicycles (trains + buses)")
+        case .trainsWithoutCompulsoryReservationOnly:
+            AppLocalization.string("Trains without compulsory seat reservations only")
         case .withBedsOrCouchettes:
             AppLocalization.string("With beds/couchettes")
         case .withoutBedsOrCouchettes:
@@ -588,7 +624,7 @@ final class ConnectionsViewModel: ObservableObject {
             for index in journeyOptions.indices {
                 journeyOptions[index].viaSelection = nil
             }
-            removeJourneyOptionsUnavailableForCurrentTimetable()
+            resetConnectionSearchOptions()
             rememberTimetable(timetable)
         }
     }
@@ -615,6 +651,8 @@ final class ConnectionsViewModel: ObservableObject {
     @Published private(set) var locatingEndpoint: ConnectionEndpoint?
     @Published var errorMessage: String?
     @Published private(set) var actionError: ResultActionError?
+    @Published private(set) var connectionSearchOptionsError: String?
+    @Published private var connectionSearchOptions: TransitConnectionSearchOptions?
 
     let client: any TransitDataSource
     private let rememberTimetable: (TransitTimetable) -> Void
@@ -628,6 +666,9 @@ final class ConnectionsViewModel: ObservableObject {
     private var isRefreshingCurrentDateAndTime = false
     private var rememberedTransferValues = RememberedTransferValues()
     private var hasPendingInitialSelection = false
+    private var pendingConnectionSearchOptions: (
+        id: UUID, task: Task<TransitConnectionSearchOptions, Error>
+    )?
 
     init(
         client: any TransitDataSource,
@@ -648,7 +689,9 @@ final class ConnectionsViewModel: ObservableObject {
             defaultTimetable: client.defaultTimetable,
             preferredTimetable: preferredTimetable
         )
-        journeyOptions = Self.initialJourneyOptions(client: client, timetable: selectedTimetable)
+        let knownOptions = client.knownConnectionSearchOptions(for: selectedTimetable)
+        connectionSearchOptions = knownOptions
+        journeyOptions = Self.initialJourneyOptions(options: knownOptions)
         timetable = selectedTimetable
         self.calendarImporter = calendarImporter
         self.calendarSaver = calendarSaver
@@ -664,12 +707,47 @@ final class ConnectionsViewModel: ObservableObject {
 
     /// Starts with one inactive via affordance only when the selected catalog supports it.
     private static func initialJourneyOptions(
-        client: any TransitDataSource,
-        timetable: TransitTimetable
+        options: TransitConnectionSearchOptions?
     ) -> [JourneyOptionEntry] {
-        client.supportsConnectionOption(.via, for: timetable)
+        options?.options.contains(.via) == true
             ? [JourneyOptionEntry(kind: .via)]
             : []
+    }
+
+    /// Shares discovery between the visible editor and a search started while the form is loading.
+    func loadConnectionSearchOptions() async {
+        guard connectionSearchOptions == nil else { return }
+        let pending: (id: UUID, task: Task<TransitConnectionSearchOptions, Error>)
+        if let inFlight = pendingConnectionSearchOptions {
+            pending = inFlight
+        } else {
+            let timetable = timetable
+            let language = AppLanguagePreference.transitLanguage
+            let client = client
+            pending = (UUID(), Task { try await client.connectionSearchOptions(for: timetable, language: language) })
+            pendingConnectionSearchOptions = pending
+            connectionSearchOptionsError = nil
+        }
+        let result = await pending.task.result
+        guard pendingConnectionSearchOptions?.id == pending.id else { return }
+        pendingConnectionSearchOptions = nil
+        switch result {
+        case .success(let options):
+            connectionSearchOptions = options
+            removeJourneyOptionsUnavailableForCurrentTimetable()
+        case .failure(let error):
+            connectionSearchOptionsError = AppErrorPresentation.message(for: error)
+        }
+    }
+
+    private func resetConnectionSearchOptions() {
+        pendingConnectionSearchOptions?.task.cancel()
+        pendingConnectionSearchOptions = nil
+        connectionSearchOptionsError = nil
+        connectionSearchOptions = client.knownConnectionSearchOptions(for: timetable)
+        if connectionSearchOptions != nil {
+            removeJourneyOptionsUnavailableForCurrentTimetable()
+        }
     }
 
     /// Replaces the submitted connection editor with its compact result summary.
@@ -713,7 +791,7 @@ final class ConnectionsViewModel: ObservableObject {
         isArrival = false
         onlyDirect = false
         rememberedTransferValues = RememberedTransferValues()
-        journeyOptions = Self.initialJourneyOptions(client: client, timetable: selectedTimetable)
+        journeyOptions = Self.initialJourneyOptions(options: connectionSearchOptions)
         connections = []
         hasCompletedSearch = false
         resultPage = nil
@@ -745,7 +823,9 @@ final class ConnectionsViewModel: ObservableObject {
     /// Limits the extensible editor to fields the provider promises to interpret for the selected timetable.
     var supportedJourneyOptionKinds: [JourneyOptionKind] {
         JourneyOptionKind.allCases.filter { kind in
-            kind.transitConnectionOptions.contains(where: supportsConnectionOption)
+            kind == .transportMode
+                ? !supportedTransportModes.isEmpty
+                : kind.transitConnectionOptions.contains(where: supportsConnectionOption)
         }
     }
 
@@ -777,11 +857,12 @@ final class ConnectionsViewModel: ObservableObject {
         }
     }
 
-    /// Offers the complete provider-neutral catalog whenever the selected timetable supports transport filtering.
+    /// Offers the individual modes published for the selected timetable.
     var supportedTransportModes: [TransitConnectionTransportMode] {
-        supportsConnectionOption(.transportModeFilters)
-            ? TransitConnectionTransportMode.allCases
-            : []
+        guard supportsConnectionOption(.transportModeFilters), let options = connectionSearchOptions else {
+            return []
+        }
+        return TransitConnectionTransportMode.allCases.filter { options.transportModes.contains($0) }
     }
 
     var supportsOnlyDirect: Bool {
@@ -1388,12 +1469,22 @@ final class ConnectionsViewModel: ObservableObject {
             isSearching = false
         }
 
+        let searchTimetable = timetable
+        await loadConnectionSearchOptions()
+        guard timetable == searchTimetable else { return }
+        if let connectionSearchOptionsError {
+            connections = []
+            errorMessage = connectionSearchOptionsError
+            return
+        }
+
         let typedCurrentLocationEndpoints = manuallyEnteredCurrentLocationEndpoints
         if !typedCurrentLocationEndpoints.isEmpty,
            !(await resolveCurrentLocation(for: typedCurrentLocationEndpoints)) {
             connections = []
             return
         }
+        guard timetable == searchTimetable, connectionSearchOptions != nil else { return }
 
         let departure = from.trimmingCharacters(in: .whitespacesAndNewlines)
         let arrival = to.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1472,6 +1563,10 @@ final class ConnectionsViewModel: ObservableObject {
                 ? preferBusyRoutes : nil,
             bedOrCouchettePreference: supportsConnectionOption(.bedOrCouchettePreference)
                 ? bedOrCouchettePreference : nil,
+            trainsWithoutCompulsoryReservationOnly: journeyOptions.contains {
+                $0.kind == .onlyConnections &&
+                    $0.connectionRequirement == .trainsWithoutCompulsoryReservationOnly
+            } && supportsConnectionOption(.trainsWithoutCompulsoryReservationOnly) ? true : nil,
             resultLimit: 10
         )
 
@@ -1485,6 +1580,15 @@ final class ConnectionsViewModel: ObservableObject {
         } catch {
             connections = []
             errorMessage = AppErrorPresentation.message(for: error)
+            switch error as? TransitDataSourceError {
+            case .unsupportedConnectionOption, .unsupportedConnectionTransportMode:
+                if timetable == request.timetable {
+                    resetConnectionSearchOptions()
+                    await loadConnectionSearchOptions()
+                }
+            default:
+                break
+            }
         }
     }
 
@@ -1667,6 +1771,9 @@ final class ConnectionsViewModel: ObservableObject {
             supportsJourneyOption(option) ? nil : option.id
         }
         unavailableOptionIDs.forEach { removeJourneyOption(id: $0) }
+        if journeyOptions.isEmpty {
+            journeyOptions = Self.initialJourneyOptions(options: connectionSearchOptions)
+        }
         if !supportsOnlyDirect {
             onlyDirect = false
         }
@@ -1680,7 +1787,7 @@ final class ConnectionsViewModel: ObservableObject {
             return supportsConnectionOption(option.walkingConstraint.transitConnectionOption)
         }
         if option.kind == .transportMode {
-            return supportsConnectionOption(.transportModeFilters)
+            return supportedTransportModes.contains(option.transportMode)
         }
         if option.kind == .onlyConnections {
             return supportsConnectionOption(option.connectionRequirement.transitConnectionOption)
@@ -1693,7 +1800,7 @@ final class ConnectionsViewModel: ObservableObject {
 
     /// Resolves provider support against the timetable currently represented by this form.
     private func supportsConnectionOption(_ option: TransitConnectionOption) -> Bool {
-        client.supportsConnectionOption(option, for: timetable)
+        connectionSearchOptions?.options.contains(option) == true
     }
 
     /// Treats either date or time editing as one deliberate journey-time choice that must remain stable.

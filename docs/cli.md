@@ -150,9 +150,11 @@ swift run kastan connections Praha Brno --time 15:00 --arrival
 swift run kastan connections Praha Brno --max-transfers 0
 swift run kastan connections Praha Brno --min-transfer-time -1 --max-transfer-time 360
 swift run kastan connections Praha Brno --transport-mode only:regional-train --transport-mode only:long-distance-bus
+swift run kastan connections 'Nemocnice Motol' Bořislavka --timetable pid --transport-mode only:city-metro
 swift run kastan connections Praha Brno --carrier 'only:České dráhy' --carrier only:RegioJet --line exclude:R19
 swift run kastan connections Praha Brno --wheelchair-accessible-connections-only true
 swift run kastan connections Praha Košice --timetable vlaky --bed-or-couchette-preference use
+swift run kastan connections Praha Brno --timetable vlaky --trains-without-compulsory-reservation-only true
 swift run kastan connections Praha Brno --limit 3
 ```
 
@@ -180,6 +182,7 @@ Every library option has a stable English CLI spelling:
 | `--connections-for-passengers-with-bicycles` | `true` or `false`; applies the bicycle filter to trains and buses. |
 | `--prefer-busy-routes` | `true` or `false`; prefers routes served more frequently. |
 | `--bed-or-couchette-preference` | `no-limitation`, `use`, or `do-not-use`; available only for compatible train timetables. |
+| `--trains-without-compulsory-reservation-only` | `true` or `false`; limits train journeys to services without compulsory seat reservations. |
 
 Repeat `--transport-mode` to select several modes, but use one operation throughout a request: `only` and `exclude`
 are mutually exclusive. Repeated `only` values form the permitted union; repeated `exclude` values are all removed
@@ -188,15 +191,17 @@ from the complete catalog. The grouped mode values are:
 - Trains: `highest-quality-train`, `higher-quality-train`, `interregional-train`, and `regional-train`.
 - General: `bus`, `ship`, and `other`.
 - Buses: `local-bus`, `long-distance-bus`, and `international-bus`.
-- City transport: `city-tram`, `city-bus`, `city-cableway`, and `city-trolleybus`.
+- City transport includes `city-tram`, `city-bus`, `city-cableway`, `city-trolleybus`, `city-metro`,
+  `city-regional-bus`, `city-accessible-line`, `city-ship`, `city-night-bus`, `city-night-tram`,
+  `city-replacement-bus`, `city-school-bus`, `city-contract-bus`, `city-rail-replacement`, `city-train`,
+  `city-replacement-tram`, `city-regional-night-bus`, `city-other`, and `city-demand-responsive`.
 
 Repeat `--carrier` or `--line` once per item and use the same operation within each list. The carrier and line lists
 choose their operations independently. Quote a value that contains spaces.
 
-Omitting a value-backed option preserves the IDOS default, while an explicit `false` or `no-limitation` preserves
-an active negative or unrestricted condition. IDOS offers Bed / Couchette only for All timetables, Trains + Buses +
-Urban Public Transport, Trains, and Trains + Buses. Kaštan rejects it for other timetables before making an IDOS
-request.
+Omitting a value-backed option preserves the IDOS default. Kaštan checks the supplied options and transport modes
+against the selected timetable's published IDOS form before submitting the search. If a choice is unavailable, the
+command reports which option or mode the timetable does not support.
 
 Kaštan asks IDOS for later connections until the requested limit is reached or no more results are available.
 

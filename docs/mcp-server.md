@@ -194,14 +194,14 @@ Its journey options mirror the complete `TransitConnectionRequest` library contr
 - `trainConnectionsForPassengersWithChildren` applies the train-only passengers-with-children filter.
 - `connectionsForPassengersWithBicycles` applies the bicycle filter to trains and buses.
 - `preferBusyRoutes` prefers routes served more frequently.
-- `bedOrCouchettePreference` accepts `noLimitation`, `use`, or `doNotUse`. IDOS offers it only for All timetables,
-  Trains + Buses + Urban Public Transport, Trains, and Trains + Buses.
+- `bedOrCouchettePreference` accepts `noLimitation`, `use`, or `doNotUse` when the timetable offers accommodation.
+- `trainsWithoutCompulsoryReservationOnly` limits train journeys to services without compulsory seat reservations
+  when `true`.
 
-Transport modes use four semantic groups. Trains contain `highestQualityTrain`, `higherQualityTrain`,
-`interregionalTrain`, and `regionalTrain`; general transport contains `bus`, `ship`, and `other`; buses contain
-`localBus`, `longDistanceBus`, and `internationalBus`; city transport contains `cityTram`, `cityBus`, `cityCableway`,
-and `cityTrolleybus`. The single operation makes `only` and `exclude` mutually exclusive. `only` retains the union of
-the listed modes, while `exclude` removes all listed modes from the complete catalog. For example:
+The tool schema lists all 29 detailed transport modes, including `cityMetro`, `cityNightBus`, `cityRailReplacement`,
+and `cityDemandResponsive`. Kaštan checks each requested option and mode against the selected timetable's IDOS form
+and reports a tool error for unavailable choices. The single operation makes `only` and `exclude` mutually exclusive.
+`only` retains the listed modes, while `exclude` removes the listed modes from the timetable's catalog.
 
 ```json
 {

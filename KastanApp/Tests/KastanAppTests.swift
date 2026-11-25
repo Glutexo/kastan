@@ -8181,6 +8181,81 @@ final class KastanAppTests: XCTestCase {
         XCTAssertEqual(negativeRequest?.bedOrCouchettePreference, .doNotUse)
     }
 
+    func testPublishedConnectionOptionsReplaceChoicesWhenTimetableChanges() async throws {
+        struct DiscoveredSource: IDOSClienting {
+            let descriptor = TransitDataSourceDescriptor.idos
+            let recorder: MockIDOSClient
+
+            func knownConnectionSearchOptions(for timetable: TransitTimetable) -> TransitConnectionSearchOptions? {
+                nil
+            }
+
+            func connectionSearchOptions(
+                for timetable: TransitTimetable,
+                language: TransitLanguage
+            ) async throws -> TransitConnectionSearchOptions {
+                if timetable.slug == "vlaky" {
+                    return .init(
+                        options: [.via, .transportModeFilters, .trainsWithoutCompulsoryReservationOnly],
+                        transportModes: [.regionalTrain]
+                    )
+                }
+                return .init(
+                    options: [.via, .transportModeFilters, .wheelchairAccessibleConnectionsOnly],
+                    transportModes: [.cityMetro, .cityNightTram]
+                )
+            }
+
+            func findConnectionsPage(
+                request: TransitConnectionRequest,
+                language: TransitLanguage
+            ) async throws -> TransitConnectionPage {
+                try await recorder.findConnectionsPage(request: request, language: language)
+            }
+        }
+
+        let recorder = MockIDOSClient()
+        let model = ConnectionsViewModel(
+            client: DiscoveredSource(recorder: recorder),
+            preferredTimetable: IDOSTimetable(slug: "vlaky", displayName: "Trains"),
+            calendarImporter: RecordingCalendarImporter()
+        )
+        model.from = "Praha"
+        model.to = "Brno"
+        XCTAssertTrue(model.supportedJourneyOptionKinds.isEmpty)
+        await model.loadConnectionSearchOptions()
+
+        XCTAssertEqual(model.timetable.slug, "vlaky")
+        XCTAssertEqual(model.supportedConnectionRequirements, [.trainsWithoutCompulsoryReservationOnly])
+        XCTAssertEqual(model.supportedTransportModes, [.regionalTrain])
+        let via = try XCTUnwrap(model.journeyOptions.first?.id)
+        model.journeyOptions[0].viaPlace = "Pardubice"
+        model.addJourneyOption(after: via)
+        let reservation = model.journeyOptions[1].id
+        model.setJourneyOptionKind(.onlyConnections, for: reservation)
+        model.addJourneyOption(after: reservation)
+        let mode = model.journeyOptions[2].id
+        model.setJourneyOptionKind(.transportMode, for: mode)
+        await model.search()
+        let trainRequest = await recorder.lastConnectionRequest
+        XCTAssertEqual(trainRequest?.trainsWithoutCompulsoryReservationOnly, true)
+        XCTAssertEqual(trainRequest?.transportModeFilter?.modes, [.regionalTrain])
+
+        model.timetable = IDOSTimetable(slug: "pid", displayName: "Prague + PID")
+        XCTAssertTrue(model.supportedJourneyOptionKinds.isEmpty)
+        await model.loadConnectionSearchOptions()
+
+        XCTAssertEqual(model.supportedConnectionRequirements, [.wheelchairAccessibleConnectionsOnly])
+        XCTAssertEqual(model.supportedTransportModes, [.cityMetro, .cityNightTram])
+        XCTAssertEqual(model.journeyOptions.map(\.id), [via])
+        XCTAssertEqual(model.viaPlaceNames, ["Pardubice"])
+        await model.search()
+        let cityRequest = await recorder.lastConnectionRequest
+        XCTAssertNil(cityRequest?.trainsWithoutCompulsoryReservationOnly)
+        XCTAssertNil(cityRequest?.transportModeFilter)
+        XCTAssertEqual(cityRequest?.via, ["Pardubice"])
+    }
+
     func testJourneyOptionRowsCanBeAddedAndRemovedWithoutDroppingTheLastField() {
         let model = ConnectionsViewModel(client: MockIDOSClient(), calendarImporter: RecordingCalendarImporter())
         let firstID = model.journeyOptions[0].id

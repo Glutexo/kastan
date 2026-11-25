@@ -118,7 +118,7 @@ public enum TransitConnectionTransportModeGroup: String, CaseIterable, Codable, 
     case general
     /// Local, long-distance, and international bus choices.
     case buses
-    /// Tram, bus, cableway, and trolleybus choices within city transport.
+    /// Detailed services grouped under City transport by IDOS.
     case cityTransport
 }
 
@@ -154,6 +154,21 @@ public enum TransitConnectionTransportMode: String, CaseIterable, Codable, Equat
     case cityCableway
     /// A city trolleybus.
     case cityTrolleybus
+    case cityMetro
+    case cityRegionalBus
+    case cityAccessibleLine
+    case cityShip
+    case cityNightBus
+    case cityNightTram
+    case cityReplacementBus
+    case citySchoolBus
+    case cityContractBus
+    case cityRailReplacement
+    case cityTrain
+    case cityReplacementTram
+    case cityRegionalNightBus
+    case cityOther
+    case cityDemandResponsive
 
     /// Locates the choice under its stable presentation group.
     public var group: TransitConnectionTransportModeGroup {
@@ -164,7 +179,11 @@ public enum TransitConnectionTransportMode: String, CaseIterable, Codable, Equat
             .general
         case .localBus, .longDistanceBus, .internationalBus:
             .buses
-        case .cityTram, .cityBus, .cityCableway, .cityTrolleybus:
+        case .cityTram, .cityBus, .cityCableway, .cityTrolleybus,
+             .cityMetro, .cityRegionalBus, .cityAccessibleLine, .cityShip,
+             .cityNightBus, .cityNightTram, .cityReplacementBus, .citySchoolBus, .cityContractBus,
+             .cityRailReplacement, .cityTrain, .cityReplacementTram, .cityRegionalNightBus,
+             .cityOther, .cityDemandResponsive:
             .cityTransport
         }
     }
@@ -258,6 +277,19 @@ public enum TransitConnectionOption: String, CaseIterable, Codable, Equatable, H
     case preferBusyRoutes
     /// Selects whether journeys should use or avoid bed and couchette accommodation.
     case bedOrCouchettePreference
+    /// Restricts train journeys to services without compulsory seat reservations.
+    case trainsWithoutCompulsoryReservationOnly
+}
+
+/// Options and individual transport modes available in one timetable's connection search.
+public struct TransitConnectionSearchOptions: Equatable, Sendable {
+    public let options: Set<TransitConnectionOption>
+    public let transportModes: Set<TransitConnectionTransportMode>
+
+    public init(options: Set<TransitConnectionOption>, transportModes: Set<TransitConnectionTransportMode> = []) {
+        self.options = options
+        self.transportModes = transportModes
+    }
 }
 
 /// Selects how a connection search should treat services offering beds or couchettes.
@@ -372,9 +404,11 @@ public struct TransitPageContinuation: Sendable {
     }
 }
 
-/// Provider-neutral failures produced before a concrete data source performs its own request.
+/// Provider-neutral failures in data-source operations.
 public enum TransitDataSourceError: LocalizedError, Equatable, Sendable {
     case unsupported(TransitDataSourceCapability, source: TransitDataSourceDescriptor)
+    case unsupportedConnectionOption(TransitConnectionOption, timetable: TransitTimetable)
+    case unsupportedConnectionTransportMode(TransitConnectionTransportMode, timetable: TransitTimetable)
     case invalidTimetable(String, source: TransitDataSourceDescriptor)
     case invalidStationTimetableMunicipality(String, source: TransitDataSourceDescriptor)
     case invalidDataSourceValue(source: TransitDataSourceDescriptor)
@@ -390,6 +424,10 @@ public enum TransitDataSourceError: LocalizedError, Equatable, Sendable {
         switch self {
         case .unsupported(let capability, let source):
             return "\(source.displayName) does not support \(capability.productDescription)."
+        case .unsupportedConnectionOption(let option, let timetable):
+            return "The \(timetable.displayName) timetable does not support \(option.rawValue)."
+        case .unsupportedConnectionTransportMode(let mode, let timetable):
+            return "The \(timetable.displayName) timetable does not offer the \(mode.rawValue) transport mode."
         case .invalidTimetable(let value, let source):
             return "Invalid \(source.displayName) timetable: \(value)."
         case .invalidStationTimetableMunicipality(let value, let source):
@@ -465,11 +503,18 @@ public protocol TransitPlaceSearching: TransitDataSourceDescribing {
 
 /// Searches connections and optionally extends a result through provider-owned continuation state.
 public protocol TransitConnectionSearching: TransitDataSourceDescribing {
-    /// Reports whether one advertised connection option is available for the selected timetable.
+    /// Reports whether a connection option can be supported without loading a remote search form.
     func supportsConnectionOption(
         _ option: TransitConnectionOption,
         for timetable: TransitTimetable
     ) -> Bool
+    /// Provides the complete timetable options synchronously when the provider already knows them.
+    func knownConnectionSearchOptions(for timetable: TransitTimetable) -> TransitConnectionSearchOptions?
+    /// Gets the full set of choices for the selected timetable, including provider-published restrictions.
+    func connectionSearchOptions(
+        for timetable: TransitTimetable,
+        language: TransitLanguage
+    ) async throws -> TransitConnectionSearchOptions
     func findConnections(request: TransitConnectionRequest) async throws -> [TransitConnection]
     func findConnectionsPage(request: TransitConnectionRequest) async throws -> TransitConnectionPage
     func findConnectionsPage(
@@ -728,6 +773,27 @@ public extension TransitConnectionSearching {
         for timetable: TransitTimetable
     ) -> Bool {
         descriptor.supports(option)
+    }
+
+    func knownConnectionSearchOptions(for timetable: TransitTimetable) -> TransitConnectionSearchOptions? {
+        let options = Set(TransitConnectionOption.allCases.filter {
+            supportsConnectionOption($0, for: timetable)
+        })
+        return TransitConnectionSearchOptions(
+            options: options,
+            transportModes: options.contains(.transportModeFilters)
+                ? Set(TransitConnectionTransportMode.allCases) : []
+        )
+    }
+
+    func connectionSearchOptions(
+        for timetable: TransitTimetable,
+        language: TransitLanguage
+    ) async throws -> TransitConnectionSearchOptions {
+        guard let options = knownConnectionSearchOptions(for: timetable) else {
+            throw TransitDataSourceError.unsupported(.connections, source: descriptor)
+        }
+        return options
     }
 
     func findConnections(request: TransitConnectionRequest) async throws -> [TransitConnection] {

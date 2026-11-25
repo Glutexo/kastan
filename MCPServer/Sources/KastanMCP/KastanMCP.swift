@@ -120,6 +120,8 @@ extension TransitConnectionOption {
             "preferBusyRoutes"
         case .bedOrCouchettePreference:
             "bedOrCouchettePreference"
+        case .trainsWithoutCompulsoryReservationOnly:
+            "trainsWithoutCompulsoryReservationOnly"
         }
     }
 }
@@ -230,6 +232,9 @@ struct KastanMCPTools: Sendable {
                     "bedOrCouchettePreference": stringEnumSchema(
                         "Whether journeys should use, avoid, or place no restriction on bed and couchette accommodation. Available only for compatible train timetables.",
                         values: TransitBedOrCouchettePreference.allCases.map(\.rawValue)
+                    ),
+                    "trainsWithoutCompulsoryReservationOnly": booleanSchema(
+                        "Whether train journeys are restricted to services without compulsory seat reservations."
                     ),
                     "limit": integerSchema("Maximum number of connections to return. Defaults to 5.", minimum: 1, maximum: 20),
                 ],
@@ -463,6 +468,9 @@ struct KastanMCPTools: Sendable {
             bedOrCouchettePreference: try arguments.bedOrCouchettePreference(
                 "bedOrCouchettePreference"
             ),
+            trainsWithoutCompulsoryReservationOnly: try arguments.optionalBoolean(
+                "trainsWithoutCompulsoryReservationOnly"
+            ),
             resultLimit: try arguments.integer("limit", default: 5, range: 1...20)
         )
         let connections = try await dataSource.findConnections(request: request)
@@ -638,7 +646,7 @@ struct KastanMCPTools: Sendable {
             ),
             "modes": .object([
                 "type": "array",
-                "description": "Detailed means of transport. Groups: trains (highestQualityTrain, higherQualityTrain, interregionalTrain, regionalTrain), general (bus, ship, other), buses (localBus, longDistanceBus, internationalBus), cityTransport (cityTram, cityBus, cityCableway, cityTrolleybus).",
+                "description": "Detailed means of transport. IDOS limits the available modes to those in the selected timetable.",
                 "items": stringEnumSchema(
                     "One detailed means of transport.",
                     values: TransitConnectionTransportMode.allCases.map(\.rawValue)

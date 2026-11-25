@@ -64,7 +64,9 @@ one ordinary provider is registered.
   place. Means of transport (`Dopravní prostředek` in Czech) is a second ungrouped, repeatable condition. Each row
   combines an operation popup—Only or Exclude (`pouze` or `vynechat`)—with a grouped mode popup. Trains contains only
   the four train quality classes; General contains Bus, Ship, and Other; Buses contains Local, Long-distance, and
-  International bus; City transport contains Tram, Bus, Cableway, and Trolleybus. Only and Exclude are mutually
+  International bus. City transport contains 19 detailed modes, including metro, night buses and trams, replacement
+  services, and demand-responsive transport. Kaštan displays only the modes published for the selected timetable.
+  Only and Exclude are mutually
   exclusive across the complete condition: changing the operation in any row changes it in every transport row.
   Multiple Only rows form the permitted union, while multiple Exclude rows remove their modes from the complete
   catalog. A mode already used by another row is omitted.
@@ -81,14 +83,14 @@ one ordinary provider is registered.
   Clearing or removing all entries disables that filter. Each Only connections row has a value popup
   for Wheelchair
   accessible connections only, Low-floor lines only, Wheelchair accessible connections (trains), Connections for
-  passengers with children (trains), Connections for passengers with bicycles (trains + buses), With beds/couchettes,
-  or Without beds/couchettes. Each Prefer row
+  passengers with children (trains), Connections for passengers with bicycles (trains + buses), Trains without
+  compulsory seat reservations only, With beds/couchettes, or Without beds/couchettes. Each Prefer row
   offers busy routes or trains instead of buses. The four conditions with subchoices can be repeated to select distinct
   subchoices, and each popup omits values already selected in another row as well as values unsupported by the active
   timetable. The two accommodation subchoices are mutually exclusive because they configure opposite values of the same
-  IDOS control; omitting both leaves it unrestricted. IDOS offers them only for All timetables, Trains + Buses + Urban
-  Public Transport, Trains, and Trains + Buses, so the app omits them from every other timetable and resets an active row
-  when the timetable changes to one that does not support them.
+  IDOS control; omitting both leaves it unrestricted. Kaštan loads the published search options from IDOS when the
+  timetable changes. Once they load, it keeps the rows supported by the new timetable and removes unavailable rows.
+  If the form fails to load, use Retry journey options to load it again.
   Both group headings use the same non-interactive native treatment as timetable-menu groups, while separators keep
   ungrouped Via and the groups visually distinct. Via presents the same timetable-aware IDOS place suggestions and
   application-wide place-type filters as the route endpoints,

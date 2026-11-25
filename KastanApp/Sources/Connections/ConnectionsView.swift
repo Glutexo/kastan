@@ -338,6 +338,9 @@ struct ConnectionsView: View {
         .task {
             await model.loadInitialSelectionIfNeeded()
         }
+        .task(id: model.timetable) {
+            await model.loadConnectionSearchOptions()
+        }
         .navigationTitle(
             MainWindowTitlePresentation.connections(from: model.from, to: model.to)
         )
@@ -680,6 +683,11 @@ struct ConnectionsView: View {
     private var journeyOptionsHeader: some View {
         if !model.supportedJourneyOptionKinds.isEmpty {
             JourneyOptionsDisclosureHeader(isExpanded: $isJourneyOptionsExpanded)
+        } else if let error = model.connectionSearchOptionsError {
+            Button("Retry journey options") {
+                Task { await model.loadConnectionSearchOptions() }
+            }
+            .help(error)
         }
     }
 

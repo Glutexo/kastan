@@ -162,6 +162,21 @@ private extension TransitConnectionTransportMode {
         case .cityBus: 301
         case .cityCableway: 303
         case .cityTrolleybus: 306
+        case .cityMetro: 302
+        case .cityRegionalBus: 304
+        case .cityAccessibleLine: 305
+        case .cityShip: 307
+        case .cityNightBus: 308
+        case .cityNightTram: 309
+        case .cityReplacementBus: 310
+        case .citySchoolBus: 311
+        case .cityContractBus: 312
+        case .cityRailReplacement: 314
+        case .cityTrain: 315
+        case .cityReplacementTram: 317
+        case .cityRegionalNightBus: 318
+        case .cityOther: 319
+        case .cityDemandResponsive: 321
         }
     }
 }
@@ -209,7 +224,7 @@ private enum IDOSResponseRepresentation: Equatable, Sendable {
 }
 
 public extension IDOSClienting {
-    /// Mirrors the accommodation control that IDOS publishes only for its four train-containing general catalogs.
+    /// Preserves the historical accommodation restriction for legacy IDOS clients without form discovery.
     func supportsConnectionOption(
         _ option: TransitConnectionOption,
         for timetable: TransitTimetable
@@ -241,6 +256,15 @@ public struct IDOSDataSource: IDOSClienting {
 
     public init(baseURL: URL = URL(string: "https://idos.cz")!) {
         self.baseURL = baseURL
+    }
+
+    /// The descriptor gives an upper bound. The form supplies the exact options for this timetable.
+    public func supportsConnectionOption(_ option: TransitConnectionOption, for timetable: TransitTimetable) -> Bool {
+        timetable.dataSourceID == descriptor.id && descriptor.supports(option)
+    }
+
+    public func knownConnectionSearchOptions(for timetable: TransitTimetable) -> TransitConnectionSearchOptions? {
+        nil
     }
 
     /// Rejects provider-scoped values before they can be interpreted as IDOS URL identifiers.
@@ -644,6 +668,30 @@ public struct IDOSDataSource: IDOSClienting {
         return validity
     }
 
+    public func connectionSearchOptions(
+        for timetable: TransitTimetable,
+        language: TransitLanguage
+    ) async throws -> TransitConnectionSearchOptions {
+        try await connectionForm(for: timetable, language: language).contract.searchOptions
+    }
+
+    private func connectionForm(
+        for timetable: TransitTimetable,
+        language: TransitLanguage
+    ) async throws -> (url: URL, contract: IDOSConnectionFormContract) {
+        try validateOwnership(of: timetable)
+        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        components.path = language.path(timetable: timetable, endpoint: "spojeni/")
+        let url = try components.requiredURL
+        let formData = try await data(from: url, expecting: .html)
+        guard let html = String(data: formData, encoding: .utf8),
+              let contract = IDOSConnectionFormParser.contract(in: html)
+        else {
+            throw IDOSError.invalidResponse
+        }
+        return (url, contract)
+    }
+
     public func findConnections(request: TransitConnectionRequest) async throws -> [TransitConnection] {
         try await findConnectionsPage(request: request).connections
     }
@@ -662,15 +710,8 @@ public struct IDOSDataSource: IDOSClienting {
         for selection in request.viaSelections ?? [] {
             try validateOwnership(of: selection, timetable: request.timetable)
         }
-        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
-        components.path = language.path(timetable: request.timetable, endpoint: "spojeni/")
-        let formURL = try components.requiredURL
-        let formData = try await data(from: formURL, expecting: .html)
-        guard let formHTML = String(data: formData, encoding: .utf8),
-              let formContract = IDOSConnectionFormParser.contract(in: formHTML)
-        else {
-            throw IDOSError.invalidResponse
-        }
+        let (formURL, formContract) = try await connectionForm(for: request.timetable, language: language)
+        try request.validate(using: formContract.searchOptions)
 
         var urlRequest = URLRequest(url: formURL)
         urlRequest.httpMethod = "POST"
@@ -2443,6 +2484,8 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
     public var preferBusyRoutes: Bool?
     /// Whether results should use, avoid, or place no restriction on bed and couchette accommodation.
     public var bedOrCouchettePreference: TransitBedOrCouchettePreference?
+    /// Whether train journeys are restricted to services without compulsory seat reservations.
+    public var trainsWithoutCompulsoryReservationOnly: Bool?
     public var resultLimit: Int?
 
     public init(
@@ -2477,6 +2520,7 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
         connectionsForPassengersWithBicycles: Bool? = nil,
         preferBusyRoutes: Bool? = nil,
         bedOrCouchettePreference: TransitBedOrCouchettePreference? = nil,
+        trainsWithoutCompulsoryReservationOnly: Bool? = nil,
         resultLimit: Int? = nil
     ) {
         self.timetable = timetable
@@ -2510,6 +2554,7 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
         self.connectionsForPassengersWithBicycles = connectionsForPassengersWithBicycles
         self.preferBusyRoutes = preferBusyRoutes
         self.bedOrCouchettePreference = bedOrCouchettePreference
+        self.trainsWithoutCompulsoryReservationOnly = trainsWithoutCompulsoryReservationOnly
         self.resultLimit = resultLimit
     }
 
@@ -2552,7 +2597,7 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
             items.append(URLQueryItem(name: "OnlyDirect", value: "true"))
         }
 
-        if hasAdvancedOptions {
+        if requestedOptions.contains(where: { $0 != .onlyDirect }) {
             items.append(URLQueryItem(
                 name: "AdvancedForm.AdvancedFormIsOpen",
                 value: "true"
@@ -2640,6 +2685,10 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
                 "AdvancedForm.AutoStrategy",
                 enabled: preferBusyRoutes
             )
+            if trainsWithoutCompulsoryReservationOnly == true {
+                // IDOS applies this filter when the posted value is true. The HTML input defaults to false.
+                appendIfPublished("AdvancedForm.BigTrain", value: "true")
+            }
 
             if contract.contains("AdvancedForm.UseBeds") {
                 items.append(URLQueryItem(
@@ -2669,18 +2718,41 @@ public struct TransitConnectionRequest: Codable, Equatable, Sendable {
         return items
     }
 
-    private var hasAdvancedOptions: Bool {
-        !via.isEmpty || transportModeFilter != nil || carrierFilter != nil || lineFilter != nil ||
-            maxTransfers != nil || minimumTransferTime != nil ||
-            maximumTransferTime != nil || maximumWalkingTime != nil ||
-            maximumCityWalkingTime != nil || walkToNearbyStops != nil ||
-            sameNameWalkingTransfersOnly != nil ||
-            wheelchairAccessibleConnectionsOnly != nil ||
-            lowFloorConnectionsOnly != nil || preferTrainsOverBuses != nil ||
-            trainConnectionsForWheelchairPassengers != nil ||
-            trainConnectionsForPassengersWithChildren != nil ||
-            connectionsForPassengersWithBicycles != nil || preferBusyRoutes != nil ||
-            bedOrCouchettePreference != nil
+    private var requestedOptions: [TransitConnectionOption] {
+        let options: [(TransitConnectionOption, Bool)] = [
+            (.onlyDirect, onlyDirect),
+            (.via, !via.isEmpty),
+            (.transportModeFilters, transportModeFilter != nil),
+            (.carrierFilter, carrierFilter != nil),
+            (.lineFilter, lineFilter != nil),
+            (.maximumTransfers, maxTransfers != nil),
+            (.minimumTransferTime, minimumTransferTime != nil),
+            (.maximumTransferTime, maximumTransferTime != nil),
+            (.maximumWalkingTime, maximumWalkingTime != nil),
+            (.maximumCityWalkingTime, maximumCityWalkingTime != nil),
+            (.walkToNearbyStops, walkToNearbyStops != nil),
+            (.sameNameWalkingTransfersOnly, sameNameWalkingTransfersOnly != nil),
+            (.wheelchairAccessibleConnectionsOnly, wheelchairAccessibleConnectionsOnly != nil),
+            (.lowFloorConnectionsOnly, lowFloorConnectionsOnly != nil),
+            (.preferTrainsOverBuses, preferTrainsOverBuses != nil),
+            (.trainConnectionsForWheelchairPassengers, trainConnectionsForWheelchairPassengers != nil),
+            (.trainConnectionsForPassengersWithChildren, trainConnectionsForPassengersWithChildren != nil),
+            (.connectionsForPassengersWithBicycles, connectionsForPassengersWithBicycles != nil),
+            (.preferBusyRoutes, preferBusyRoutes != nil),
+            (.bedOrCouchettePreference, bedOrCouchettePreference != nil),
+            (.trainsWithoutCompulsoryReservationOnly, trainsWithoutCompulsoryReservationOnly != nil),
+        ]
+        return options.compactMap { option, isSet in isSet ? option : nil }
+    }
+
+    /// Rejects stale or unsupported selections before posting an unrestricted search.
+    func validate(using available: TransitConnectionSearchOptions) throws {
+        if let option = requestedOptions.first(where: { !available.options.contains($0) }) {
+            throw TransitDataSourceError.unsupportedConnectionOption(option, timetable: timetable)
+        }
+        if let mode = transportModeFilter?.modes.first(where: { !available.transportModes.contains($0) }) {
+            throw TransitDataSourceError.unsupportedConnectionTransportMode(mode, timetable: timetable)
+        }
     }
 
     /// Retains every browser-published mode that is not explicitly removed, including modes newer than Kaštan.
@@ -4940,6 +5012,59 @@ struct IDOSConnectionFormContract: Equatable, Sendable {
         fieldValues[name]
     }
 
+    /// Translates the actual controls and mode checkboxes into timetable-specific options.
+    var searchOptions: TransitConnectionSearchOptions {
+        let publishedModeIDs = Set(transportModeIDs)
+        let modes = Set(TransitConnectionTransportMode.allCases.filter { publishedModeIDs.contains($0.idosFormID) })
+        let options = Set(TransitConnectionOption.allCases.filter { option in
+            switch option {
+            case .transportModeFilters:
+                !modes.isEmpty
+            case .onlyDirect:
+                contains("OnlyDirect")
+            case .via:
+                contains("AdvancedForm.Via[0]")
+            case .carrierFilter:
+                contains("AdvancedForm.OwnerMaskNames") && contains("AdvancedForm.OwnerMaskExcludeInclude")
+            case .lineFilter:
+                contains("AdvancedForm.Num1MaskNames") && contains("AdvancedForm.Num1MaskExcludeInclude")
+            case .maximumTransfers:
+                contains("AdvancedForm.MaxChange")
+            case .minimumTransferTime:
+                contains("AdvancedForm.MinTime")
+            case .maximumTransferTime:
+                contains("AdvancedForm.MaxTime")
+            case .maximumWalkingTime:
+                contains("AdvancedForm.MaxArcLength")
+            case .maximumCityWalkingTime:
+                contains("AdvancedForm.MaxArcLengthCity")
+            case .walkToNearbyStops:
+                contains("AdvancedForm.MaxArcLengthFrom")
+            case .sameNameWalkingTransfersOnly:
+                contains("AdvancedForm.LimitWalkArcs")
+            case .wheelchairAccessibleConnectionsOnly:
+                contains("AdvancedForm.LowDeckConn")
+            case .lowFloorConnectionsOnly:
+                contains("AdvancedForm.LowDeckConnTr")
+            case .preferTrainsOverBuses:
+                contains("AdvancedForm.PrefereTrains")
+            case .trainConnectionsForWheelchairPassengers:
+                contains("AdvancedForm.WheelChair")
+            case .trainConnectionsForPassengersWithChildren:
+                contains("AdvancedForm.Children")
+            case .connectionsForPassengersWithBicycles:
+                contains("AdvancedForm.Bicycle")
+            case .preferBusyRoutes:
+                contains("AdvancedForm.AutoStrategy")
+            case .bedOrCouchettePreference:
+                contains("AdvancedForm.UseBeds")
+            case .trainsWithoutCompulsoryReservationOnly:
+                contains("AdvancedForm.BigTrain")
+            }
+        })
+        return TransitConnectionSearchOptions(options: options, transportModes: modes)
+    }
+
     /// Keeps request-model unit tests deterministic while live searches use the freshly downloaded form contract.
     static let browserFallback = IDOSConnectionFormContract(
         transportModeIDs: [
@@ -4949,6 +5074,8 @@ struct IDOSConnectionFormContract: Equatable, Sendable {
             314, 315, 317, 318, 319, 321,
         ],
         fieldValues: [
+            "OnlyDirect": "true",
+            "AdvancedForm.Via[0]": "",
             "AdvancedForm.AdvancedFormIsOpen": "False",
             "AdvancedForm.MaxChange": "4",
             "AdvancedForm.MinTime": "-1",
@@ -4965,6 +5092,7 @@ struct IDOSConnectionFormContract: Equatable, Sendable {
             "AdvancedForm.Children": "false",
             "AdvancedForm.Bicycle": "false",
             "AdvancedForm.AutoStrategy": "false",
+            "AdvancedForm.BigTrain": "false",
             "AdvancedForm.OwnerMaskNames": "",
             "AdvancedForm.OwnerMaskExcludeInclude": "True",
             "AdvancedForm.Num1MaskNames": "",

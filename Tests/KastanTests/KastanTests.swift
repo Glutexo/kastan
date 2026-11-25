@@ -924,7 +924,7 @@ import Testing
         client: MockIDOSClient(
             expectedTransportModeFilter: .init(
                 operation: .only,
-                modes: [.regionalTrain, .longDistanceBus]
+                modes: [.regionalTrain, .longDistanceBus, .cityMetro]
             ),
             expectedCarrierFilter: .init(operation: .exclude, names: ["RegioJet", "LEO Express"]),
             expectedLineFilter: .init(operation: .only, names: ["R19", "Ex3"]),
@@ -941,7 +941,8 @@ import Testing
             expectedTrainConnectionsForPassengersWithChildren: true,
             expectedConnectionsForPassengersWithBicycles: false,
             expectedPreferBusyRoutes: true,
-            expectedBedOrCouchettePreference: .use
+            expectedBedOrCouchettePreference: .use,
+            expectedTrainsWithoutCompulsoryReservationOnly: true
         )
     ).output(
         for: [
@@ -949,6 +950,7 @@ import Testing
             "--min-transfer-time", "-1",
             "--transport-mode", "only:regional-train",
             "--transport-mode", "only:long-distance-bus",
+            "--transport-mode", "only:city-metro",
             "--carrier", "exclude:RegioJet", "--carrier", "exclude: LEO Express ",
             "--line", "only:R19", "--line", "only:Ex3",
             "--max-transfer-time", "360",
@@ -964,6 +966,7 @@ import Testing
             "--connections-for-passengers-with-bicycles", "false",
             "--prefer-busy-routes", "true",
             "--bed-or-couchette-preference", "use",
+            "--trains-without-compulsory-reservation-only", "true",
             "--format", "json", "--limit", "1",
         ]
     )
@@ -974,7 +977,7 @@ import Testing
     #expect(transportModeFilter["operation"] as? String == "only")
     #expect(
         transportModeFilter["modes"] as? [String]
-            == ["regionalTrain", "longDistanceBus"]
+            == ["regionalTrain", "longDistanceBus", "cityMetro"]
     )
     let carrierFilter = try #require(request["carrierFilter"] as? [String: Any])
     #expect(carrierFilter["operation"] as? String == "exclude")
@@ -995,6 +998,7 @@ import Testing
     #expect(request["connectionsForPassengersWithBicycles"] as? Bool == false)
     #expect(request["preferBusyRoutes"] as? Bool == true)
     #expect(request["bedOrCouchettePreference"] as? String == "use")
+    #expect(request["trainsWithoutCompulsoryReservationOnly"] as? Bool == true)
 }
 
 @Test func connectionCommandPrintsIDOSCalendar() async {
@@ -2225,6 +2229,82 @@ func connectionRequestSerializesCarrierAndLineFilters(operation: TransitConnecti
     let unsupportedItems = request.formItems(using: .init(transportModeIDs: [], fieldValues: [:]))
     #expect(!unsupportedItems.contains { $0.name.contains("OwnerMask") || $0.name.contains("Num1Mask") })
     #expect(TransitConnectionNameFilter(operation: operation, names: ["  "]) == nil)
+}
+
+@Test(arguments: [
+    (TransitConnectionTransportMode.cityMetro, 302),
+    (TransitConnectionTransportMode.cityRegionalBus, 304),
+    (TransitConnectionTransportMode.cityAccessibleLine, 305),
+    (TransitConnectionTransportMode.cityShip, 307),
+    (TransitConnectionTransportMode.cityNightBus, 308),
+    (TransitConnectionTransportMode.cityNightTram, 309),
+    (TransitConnectionTransportMode.cityReplacementBus, 310),
+    (TransitConnectionTransportMode.citySchoolBus, 311),
+    (TransitConnectionTransportMode.cityContractBus, 312),
+    (TransitConnectionTransportMode.cityRailReplacement, 314),
+    (TransitConnectionTransportMode.cityTrain, 315),
+    (TransitConnectionTransportMode.cityReplacementTram, 317),
+    (TransitConnectionTransportMode.cityRegionalNightBus, 318),
+    (TransitConnectionTransportMode.cityOther, 319),
+    (TransitConnectionTransportMode.cityDemandResponsive, 321),
+])
+func IDOSCanIncludeAndExcludeEachAdditionalCityMode(mode: TransitConnectionTransportMode, id: Int) throws {
+    let available = IDOSConnectionFormContract.browserFallback.searchOptions
+    #expect(available.transportModes.contains(mode))
+    for operation in TransitConnectionFilterOperation.allCases {
+        let request = TransitConnectionRequest(
+            from: "Praha", to: "Brno", transportModeFilter: .init(operation: operation, modes: [mode])
+        )
+        try request.validate(using: available)
+        let items = request.formItems.filter { $0.name.hasPrefix("trTypeId[") }
+        let selected = items.contains(URLQueryItem(name: "trTypeId[\(id)]", value: String(id)))
+        #expect(selected == (operation == .only))
+        if operation == .only {
+            #expect(items.count == 1)
+        }
+    }
+}
+
+@Test func IDOSDiscoversPublishedOptionsAndRejectsUnsupportedRequests() throws {
+    let html = #"""
+    <form id="connection-filter">
+      <input name="AdvancedForm.AdvancedFormIsOpen" type="hidden" value="False">
+      <input name="DefaultMaxArcLengthFrom" type="hidden" value="True">
+      <input name="OnlyDirect" type="checkbox" value="true">
+      <input name="AdvancedForm.Via[0]" type="text" value="">
+      <input name="trTypeId[302]" type="checkbox" value="302">
+      <input name="trTypeId[321]" type="checkbox" value="321">
+      <input name="AdvancedForm.OwnerMaskNames" type="text" value="">
+      <select name="AdvancedForm.MaxChange"><option value="4">4</option></select>
+      <select name="AdvancedForm.MinTime"><option value="-1">Standard</option></select>
+      <select name="AdvancedForm.MaxTime"><option value="240">240</option></select>
+    </form>
+    """#
+    let contract = try #require(IDOSConnectionFormParser.contract(in: html))
+    let options = contract.searchOptions
+    #expect(options.options == [
+        .onlyDirect, .via, .transportModeFilters, .maximumTransfers, .minimumTransferTime, .maximumTransferTime,
+    ])
+    #expect(options.transportModes == [.cityMetro, .cityDemandResponsive])
+
+    let reservation = TransitConnectionRequest(
+        from: "Praha", to: "Brno", trainsWithoutCompulsoryReservationOnly: true
+    )
+    #expect(throws: TransitDataSourceError.unsupportedConnectionOption(
+        .trainsWithoutCompulsoryReservationOnly, timetable: reservation.timetable
+    )) {
+        try reservation.validate(using: options)
+    }
+    try reservation.validate(using: IDOSConnectionFormContract.browserFallback.searchOptions)
+    #expect(reservation.formItems.contains(.init(name: "AdvancedForm.BigTrain", value: "true")))
+    #expect(!reservation.formItems(using: contract).contains { $0.name == "AdvancedForm.BigTrain" })
+
+    let mode = TransitConnectionRequest(
+        from: "Praha", to: "Brno", transportModeFilter: .init(operation: .exclude, modes: [.cityNightBus])
+    )
+    #expect(throws: TransitDataSourceError.unsupportedConnectionTransportMode(.cityNightBus, timetable: mode.timetable)) {
+        try mode.validate(using: options)
+    }
 }
 
 @Test func connectionRequestUsesIDOSBedOrCouchettePreference() {
@@ -3695,6 +3775,7 @@ private struct MockIDOSClient: IDOSClienting {
     var expectedConnectionsForPassengersWithBicycles: Bool? = nil
     var expectedPreferBusyRoutes: Bool? = nil
     var expectedBedOrCouchettePreference: TransitBedOrCouchettePreference? = nil
+    var expectedTrainsWithoutCompulsoryReservationOnly: Bool? = nil
     var expectedConnectionResultLimit: Int? = nil
     var validatesConnectionResultLimit = false
     var failConnectionsWithNetworkError = false
@@ -3785,6 +3866,7 @@ private struct MockIDOSClient: IDOSClienting {
         )
         #expect(request.preferBusyRoutes == expectedPreferBusyRoutes)
         #expect(request.bedOrCouchettePreference == expectedBedOrCouchettePreference)
+        #expect(request.trainsWithoutCompulsoryReservationOnly == expectedTrainsWithoutCompulsoryReservationOnly)
         if validatesConnectionResultLimit {
             #expect(request.resultLimit == expectedConnectionResultLimit)
         }

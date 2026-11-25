@@ -91,6 +91,7 @@ func expectTransitDataSourceContract(
         .connectionsForPassengersWithBicycles,
         .preferBusyRoutes,
         .bedOrCouchettePreference,
+        .trainsWithoutCompulsoryReservationOnly,
     ])
     #expect(TransitConnectionOption.allCases.allSatisfy(TransitDataSourceDescriptor.idos.supports))
     #expect(custom.supports(.connections))
@@ -116,6 +117,21 @@ func expectTransitDataSourceContract(
         .cityBus,
         .cityCableway,
         .cityTrolleybus,
+        .cityMetro,
+        .cityRegionalBus,
+        .cityAccessibleLine,
+        .cityShip,
+        .cityNightBus,
+        .cityNightTram,
+        .cityReplacementBus,
+        .citySchoolBus,
+        .cityContractBus,
+        .cityRailReplacement,
+        .cityTrain,
+        .cityReplacementTram,
+        .cityRegionalNightBus,
+        .cityOther,
+        .cityDemandResponsive,
     ])
     #expect(TransitConnectionTransportModeGroup.allCases == [
         .trains,
@@ -137,7 +153,7 @@ func expectTransitDataSourceContract(
     )
     #expect(
         TransitConnectionTransportMode.allCases.filter { $0.group == .cityTransport }
-            == Array(TransitConnectionTransportMode.allCases[10...13])
+            == Array(TransitConnectionTransportMode.allCases.dropFirst(10))
     )
     #expect(TransitConnectionTransportModeFilterOperation.allCases == [.only, .exclude])
 
@@ -161,24 +177,10 @@ func expectTransitDataSourceContract(
     ])
 }
 
-/// Mirrors the timetable-specific visibility of IDOS's bed and couchette control.
-@Test func bedOrCouchetteOptionIsLimitedToCompatibleIDOSTimetables() {
+/// Live IDOS discovers the timetable's actual options instead of treating its descriptor as the complete form.
+@Test func IDOSConnectionOptionsRequireDiscovery() {
     let source: any TransitDataSource = IDOSDataSource()
-    let supportedIdentifiers = Set(
-        source.timetables
-            .filter { source.supportsConnectionOption(.bedOrCouchettePreference, for: $0) }
-            .map(\.identifier)
-    )
-
-    #expect(supportedIdentifiers == [
-        "vlakyautobusymhdvse",
-        "vlakyautobusymhd",
-        "vlaky",
-        "vlakyautobusy",
-    ])
-    #expect(source.timetables.allSatisfy {
-        source.supportsConnectionOption(.via, for: $0)
-    })
+    #expect(source.knownConnectionSearchOptions(for: source.defaultTimetable) == nil)
     #expect(!source.supportsConnectionOption(
         .bedOrCouchettePreference,
         for: TransitTimetable(dataSourceID: "other", identifier: "vlaky", displayName: "Trains")
@@ -187,6 +189,7 @@ func expectTransitDataSourceContract(
     let regional: any TransitDataSource = RegionalTransitDataSource()
     #expect(regional.supportsConnectionOption(.via, for: RegionalTransitDataSource.metro))
     #expect(!regional.supportsConnectionOption(.maximumTransfers, for: RegionalTransitDataSource.metro))
+    #expect(regional.knownConnectionSearchOptions(for: RegionalTransitDataSource.metro)?.options.contains(.via) == true)
 }
 
 /// Preserves stored descriptors from before connection-option discovery while round-tripping explicit support.

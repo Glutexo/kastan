@@ -210,7 +210,8 @@ final class IDOSLiveTests: XCTestCase {
             trainConnectionsForWheelchairPassengers: true,
             trainConnectionsForPassengersWithChildren: true,
             connectionsForPassengersWithBicycles: true,
-            preferBusyRoutes: true
+            preferBusyRoutes: true,
+            trainsWithoutCompulsoryReservationOnly: true
         )
         let items = request.formItems(using: contract)
         let values = Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value) })
@@ -254,6 +255,55 @@ final class IDOSLiveTests: XCTestCase {
             }
         }
         XCTAssertEqual(values["DefaultMaxArcLengthFrom"] ?? nil, contract.value(for: "DefaultMaxArcLengthFrom"))
+        XCTAssertEqual(values["AdvancedForm.BigTrain"] ?? nil, "true")
+    }
+
+    func testIDOSAppliesCompulsoryReservationFilter() async throws {
+        let url = try XCTUnwrap(URL(string: "https://idos.cz/en/vlaky/spojeni/"))
+        let (data, _) = try await htmlResponse(from: url, userAgent: IDOSDataSource.userAgent)
+        let html = try XCTUnwrap(String(data: data, encoding: .utf8))
+        let contract = try XCTUnwrap(IDOSConnectionFormParser.contract(in: html))
+        let search = TransitConnectionRequest(
+            timetable: try IDOSDataSource().resolveTimetable("vlaky"),
+            from: "Praha hl.n.",
+            to: "Brno hl.n.",
+            serviceDate: try tomorrowServiceDate(),
+            serviceTime: .init(hour: 10, minute: 0),
+            onlyDirect: true,
+            trainsWithoutCompulsoryReservationOnly: true
+        )
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.setValue(IDOSDataSource.userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue(url.absoluteString, forHTTPHeaderField: "Referer")
+        request.setValue("https://idos.cz", forHTTPHeaderField: "Origin")
+        request.httpBody = IDOSFormEncoding.data(search.formItems(using: contract))
+
+        let (result, response) = try await URLSession.shared.data(for: request)
+        let resultHTML = try XCTUnwrap(String(data: result, encoding: .utf8))
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertNotNil(resultHTML.range(of: #""bBigTrain"\s*:\s*true"#, options: .regularExpression))
+        XCTAssertFalse(IDOSConnectionParser.parse(html: resultHTML, timetable: search.timetable).isEmpty)
+    }
+
+    func testConnectionSearchOptionsFollowPublishedTimetableControls() async throws {
+        let source = IDOSDataSource()
+        let trains = try await source.connectionSearchOptions(
+            for: source.resolveTimetable("vlaky"), language: .czech
+        )
+        let city = try await source.connectionSearchOptions(
+            for: source.resolveTimetable("pid"), language: .czech
+        )
+        let all = try await source.connectionSearchOptions(for: source.defaultTimetable, language: .czech)
+
+        XCTAssertTrue(trains.options.contains(.trainsWithoutCompulsoryReservationOnly))
+        XCTAssertFalse(city.options.contains(.trainsWithoutCompulsoryReservationOnly))
+        XCTAssertTrue(city.options.contains(.wheelchairAccessibleConnectionsOnly))
+        XCTAssertFalse(all.options.contains(.wheelchairAccessibleConnectionsOnly))
+        XCTAssertTrue(city.transportModes.contains(.cityMetro))
+        XCTAssertFalse(trains.transportModes.contains(.cityMetro))
+        XCTAssertEqual(all.transportModes, Set(TransitConnectionTransportMode.allCases))
     }
 
     func testKastanAndSafariReceiveEquivalentAutocompleteDataAndFormat() async throws {

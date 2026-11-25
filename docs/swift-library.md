@@ -168,13 +168,14 @@ Connection-search controls use a second, fine-grained contract. A descriptor lis
 `TransitConnectionOption` values in `connectionOptions`, covering Direct connections only, Via, detailed
 means-of-transport, carrier, and line filters, transfer-count and transfer-time limits, walking limits, the two walking-transfer policies,
 wheelchair-accessible and low-floor-only results, train preference, the three passenger-needs filters, busy-route
-preference, and bed/couchette preference independently. Advertising
+preference, bed/couchette preference, and trains without compulsory reservations independently. Advertising
 `TransitDataSourceCapability.connections` does not imply support for any of these request options. Interfaces should
-therefore call `supportsConnectionOption(_:for:)` before presenting a control or accepting its value for a selected
-timetable. Its default implementation uses the descriptor's advertised support. IDOS declares the complete set at
-provider level but narrows Bed / Couchette to All timetables, Trains + Buses + Urban Public Transport, Trains, and
-Trains + Buses. Descriptors created without `connectionOptions`, including descriptors decoded from older stored JSON,
-conservatively declare none.
+therefore use `connectionSearchOptions(for:language:)` to get the options and individual transport modes for the
+selected timetable. IDOS reads them from its current connection form and checks each request against that form before
+submitting the search. Providers with local knowledge can return the complete set synchronously from
+`knownConnectionSearchOptions(for:)`. The default builds it from `supportsConnectionOption(_:for:)` and exposes all
+transport modes when filtering is supported. For IDOS, `supportsConnectionOption(_:for:)` reports potential support.
+Descriptors created without `connectionOptions`, including older decoded descriptors, declare none.
 
 `stationTimetableDepartureResolution` is a separate capability from `stationTimetables` and `departures`. It means
 that a consumer may pass a `TransitStationTimetableDepartureResolutionRequest` to
@@ -324,7 +325,10 @@ stable mode cases follow four semantic groups:
 - Trains: `.highestQualityTrain`, `.higherQualityTrain`, `.interregionalTrain`, and `.regionalTrain`.
 - General: `.bus`, `.ship`, and `.other`.
 - Buses: `.localBus`, `.longDistanceBus`, and `.internationalBus`.
-- City transport: `.cityTram`, `.cityBus`, `.cityCableway`, and `.cityTrolleybus`.
+- City transport includes `.cityTram`, `.cityBus`, `.cityCableway`, `.cityTrolleybus`, `.cityMetro`,
+  `.cityRegionalBus`, `.cityAccessibleLine`, `.cityShip`, `.cityNightBus`, `.cityNightTram`,
+  `.cityReplacementBus`, `.citySchoolBus`, `.cityContractBus`, `.cityRailReplacement`, `.cityTrain`,
+  `.cityReplacementTram`, `.cityRegionalNightBus`, `.cityOther`, and `.cityDemandResponsive`.
 
 `carrierFilter` and `lineFilter` each take an optional `TransitConnectionNameFilter` with one independent operation
 (`.only` or `.exclude`) and a list of names. Use carrier names for `carrierFilter` and line numbers or names for
@@ -339,15 +343,16 @@ the same name. `wheelchairAccessibleConnectionsOnly` and `lowFloorConnectionsOnl
 `preferTrainsOverBuses` and `preferBusyRoutes` select the corresponding routing strategies.
 `trainConnectionsForWheelchairPassengers` and `trainConnectionsForPassengersWithChildren` apply the two train-only
 passenger filters, while `connectionsForPassengersWithBicycles` applies to trains and buses.
-`bedOrCouchettePreference` accepts `.noLimitation`, `.use`, or `.doNotUse` and is available only when
-`supportsConnectionOption(.bedOrCouchettePreference, for: timetable)` returns `true`. Leave any optional value as `nil`
-to retain the corresponding IDOS default; an explicit `false` or `.noLimitation` is still sent when the caller needs
-to preserve an active condition. The preference's raw and Codable values are the stable English strings
+`bedOrCouchettePreference` accepts `.noLimitation`, `.use`, or `.doNotUse` when the timetable offers accommodation.
+`trainsWithoutCompulsoryReservationOnly` restricts train journeys to services without compulsory seat reservations.
+Leave optional values as `nil` to retain the corresponding IDOS defaults. The accommodation preference's raw and
+Codable values are the stable English strings
 `noLimitation`, `use`, and `doNotUse`; the library translates them to IDOS's private numeric form values internally.
 
 ```swift
 let trainTimetable = try dataSource.resolveTimetable("vlaky")
-if dataSource.supportsConnectionOption(.bedOrCouchettePreference, for: trainTimetable) {
+let searchOptions = try await dataSource.connectionSearchOptions(for: trainTimetable, language: .english)
+if searchOptions.options.contains(.bedOrCouchettePreference) {
     let sleeperRequest = TransitConnectionRequest(
         timetable: trainTimetable,
         from: "Praha",
