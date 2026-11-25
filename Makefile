@@ -239,7 +239,8 @@ dmg: ## Create an ad-hoc-signed universal macOS DMG.
 		--timestamp=none \
 		--entitlements "$(APP_ENTITLEMENTS)" \
 		"$(DIST_APP)"
-	$(LIPO) "$(DIST_APP)/Contents/MacOS/KastanApp" -verify_arch arm64 x86_64
+	$(LIPO) "$(DIST_APP)/Contents/MacOS/KastanApp" -verify_arch arm64
+	$(LIPO) "$(DIST_APP)/Contents/MacOS/KastanApp" -verify_arch x86_64
 	$(CODESIGN) --verify --deep --strict "$(DIST_APP)"
 	rm -rf "$(DMG_ROOT)"
 	mkdir -p "$(DMG_ROOT)"

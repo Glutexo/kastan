@@ -13,7 +13,7 @@ Depend on the latest compatible `0.9.x` release:
 dependencies: [
     .package(
         url: "https://github.com/Glutexo/kastan.git",
-        .upToNextMinor(from: "0.9.0")
+        .upToNextMinor(from: "0.9.1")
     ),
 ]
 ```
@@ -274,6 +274,10 @@ The language-aware `findConnectionsPage(request:language:)` and
 `findDeparturesPage(request:language:)` overloads request platform-supplied result text in English or Czech and
 retain that language while loading adjacent pages. The overloads without a language keep their historical English
 default, and custom `IDOSClienting` implementations remain compatible through the default protocol adapters.
+
+`TransitServiceDetail.stops` retains each published arrival time, departure time, and distance independently.
+Stops that publish only a departure, as urban timetables often do, keep that time available in route displays and
+when resolving a calendar or PDF export.
 
 `TransitServiceDetail.information` preserves every original IDOS information line as a writable compatibility view.
 Its canonical `serviceInformation` storage adds a `TransitServiceInformation.Category` and the same semantic symbol
